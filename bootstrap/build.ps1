@@ -344,27 +344,28 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3StageOneIr = Join-Path $out 'v3-scaffold-stage1.ll'
-$v3StageTwoIr = Join-Path $out 'v3-scaffold-stage2.ll'
-$v3Scaffold = Join-Path $out 'v3-scaffold.exe'
-& $v2StageOne $v3Manifest $v3StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile the v3 scaffold' }
-& $v2StageTwo $v3Manifest $v3StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile the v3 scaffold' }
-$v3StageOneIrHash = (Get-FileHash -LiteralPath $v3StageOneIr -Algorithm SHA256).Hash
-$v3StageTwoIrHash = (Get-FileHash -LiteralPath $v3StageTwoIr -Algorithm SHA256).Hash
-if ($v3StageOneIrHash -ne $v3StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 scaffold LLVM IR'
+$v3Rp0StageOneIr = Join-Path $out 'v3-rp0-stage1.ll'
+$v3Rp0StageTwoIr = Join-Path $out 'v3-rp0-stage2.ll'
+$v3Rp0Executable = Join-Path $out 'v3-rp0.exe'
+& $v2StageOne $v3Manifest $v3Rp0StageOneIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP0' }
+& $v2StageTwo $v3Manifest $v3Rp0StageTwoIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP0' }
+$v3Rp0StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp0StageOneIr -Algorithm SHA256).Hash
+$v3Rp0StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp0StageTwoIr -Algorithm SHA256).Hash
+if ($v3Rp0StageOneIrHash -ne $v3Rp0StageTwoIrHash) {
+    throw 'UBE Compiler v2 stages one and two emitted different v3 RP0 LLVM IR'
 }
-& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3StageOneIr `
-    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Scaffold
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link the UBE Compiler v3 scaffold' }
-$v3ScaffoldOutput = & $v3Scaffold
-if ($LASTEXITCODE -ne 2 -or $v3ScaffoldOutput -ne 'UBE Compiler v3 scaffold: implementation has not started') {
-    throw 'UBE Compiler v3 scaffold failed'
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp0StageOneIr `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp0Executable
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP0' }
+$v3Rp0Output = & $v3Rp0Executable
+if ($LASTEXITCODE -ne 2 -or $v3Rp0Output -ne 'UBE Compiler v3 Release Preview 0: scaffold') {
+    throw 'UBE Compiler v3 RP0 failed'
 }
-$v3ScaffoldManifest = [ordered]@{
-    schema = 'ube-v3-scaffold-manifest-1'
+$v3Rp0BuildManifest = [ordered]@{
+    schema = 'ube-v3-rp0-build-manifest-1'
+    preview = 'RP0'
     target = 'x86_64-w64-windows-gnu'
     optimization = '-O2'
     compiler_stage1 = (Get-FileHash -LiteralPath $v2StageOne -Algorithm SHA256).Hash
@@ -375,12 +376,12 @@ $v3ScaffoldManifest = [ordered]@{
     unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
     unicode_runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_unicode_runtime.o') -Algorithm SHA256).Hash
-    llvm_ir = $v3StageOneIrHash
-    executable = (Get-FileHash -LiteralPath $v3Scaffold -Algorithm SHA256).Hash
+    llvm_ir = $v3Rp0StageOneIrHash
+    executable = (Get-FileHash -LiteralPath $v3Rp0Executable -Algorithm SHA256).Hash
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
-$v3ScaffoldManifest | ConvertTo-Json -Depth 3 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-scaffold-manifest.json') -Encoding UTF8
+$v3Rp0BuildManifest | ConvertTo-Json -Depth 3 | `
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp0-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(

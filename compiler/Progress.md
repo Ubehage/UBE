@@ -6,13 +6,16 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **v3 target definition and scaffold**
-- Active item: derive v3 conformance cases from the frozen normative UBE 1.0
-  specification and grammar.
-- Status: in progress; the v3 generation directory and v2-buildable scaffold
-  exist, all owner-level design decisions are resolved, and the UBE 1.0
-  specification, focused semantic contracts, project format, and EBNF are
-  normative. Conformance coverage remains incomplete.
+- Active milestone: **Compiler v3 Release Preview 1 — dependable compiler
+  shell**
+- Active item: split the v3 scaffold into its first ordered v2-compatible
+  diagnostics and source-management modules.
+- Status: staged development plan complete; implementation has not started.
+  Release Preview 0 is complete and preserved as the explicitly identified
+  v2-buildable scaffold baseline. The UBE 1.0 specification and EBNF are
+  frozen, and every later preview has explicit work packages and stability
+  gates. Conformance-case derivation remains an active cross-preview
+  requirement.
 - Blockers: none recorded.
 
 ## Verified baseline
@@ -110,12 +113,14 @@ roadmap.
 
 ## Next actions
 
-1. Derive positive, negative, boundary, recovery, and runtime conformance cases for each
-   promoted normative rule.
-2. Split the v3 compiler scaffold into its first ordered v2-compatible phase
-   modules without expanding v2's frozen bootstrap contract unnecessarily.
-3. Implement the frozen grammar and contracts in those ordered phases while
-   keeping v2 preserved.
+1. Add v2-compatible `Diagnostics.bas` and `SourceManager.bas` records without
+   moving behavior or expanding v2's frozen bootstrap contract.
+2. Add the ordered modules to `UBE_Compiler_v3.UBE` and prove both preserved
+   v2 stages still emit identical scaffold IR.
+3. Add the RP1 preview build to the authoritative bootstrap verification, then
+   continue with bounded driver and project-loading behavior.
+4. Resolve the RP1.1 core-library identity and compatibility decisions before
+   adding the first source-library implementation module.
 
 ## Decisions in force
 
@@ -358,6 +363,16 @@ roadmap.
   integration
 
 ## Verification log
+
+- 2026-10-16: completed and reverified Compiler v3 Release Preview 0. The
+  scaffold, generated LLVM, executable, diagnostics, and build-manifest schema
+  now identify RP0 explicitly. A clean `bootstrap/build.ps1` run passed the
+  stage-zero unit suites, preserved v1/v2 builds and tests, v2 fixed-point and
+  multi-module checks, byte-identical v2-stage RP0 LLVM comparison, and native
+  RP0 execution. Grammar validation passed with 202 core and 19 conditional
+  productions; all 11 indexed grammar fixtures and all 265 public HTML pages
+  also passed their validators. The reproducibility record is generated as
+  `bootstrap/out/v3-rp0-build-manifest.json`.
 
 - 2026-10-15: promoted the resolved v3 design to the normative UBE 1.0
   specification and EBNF. The grammar integrity check passed with 175 unique

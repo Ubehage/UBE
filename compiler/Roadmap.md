@@ -348,14 +348,19 @@ Purpose: expand beyond the Bootstrap Profile without destabilizing the proven
 self-hosting line. Create `UBE_Compiler_v3` only when its design boundary is
 written and v2 remains preserved.
 
+The detailed, resumable release-preview sequence and per-preview stability
+gates are maintained in
+[`UBE_Compiler_v3/ROADMAP.md`](UBE_Compiler_v3/ROADMAP.md). This section tracks
+only the generation-level outcome.
+
 - [x] Define the v3 architectural changes and migration plan before creating
   its directory.
 - [x] Use preserved v2 as the compiler that develops and builds v3; do not
   bootstrap v3 directly from an unrelated implementation.
 - [x] Preserve a buildable v2 and its full bootstrap comparison suite.
-- [ ] Implement the remaining grammar and semantic surface in dependency order,
-  updating `lang-doc/grammar/ube.ebnf` and `lang-doc/language-spec.md` with
-  each feature.
+- [ ] Implement the frozen grammar and semantic surface in dependency order,
+  changing normative documents only when correcting an identified contract
+  defect or recording an owner-approved decision.
 - [ ] Implement the full `.UBE`, `.UBG`, and validated `.UBR` build model.
 - [ ] Add library output, foreign declarations, optimization levels, debug
   information, and supported target/ABI expansion.

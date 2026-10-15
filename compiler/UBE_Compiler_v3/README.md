@@ -3,9 +3,11 @@
 UBE Compiler v3 is the first public-release compiler target. It is developed
 and compiled with the preserved, self-hosting UBE Compiler v2.
 
-The generation is currently at the design/scaffold stage. `Main.bas` is a
+Release Preview 0 is the preserved design/scaffold baseline. `Main.bas` is a
 small v2-buildable placeholder used to prove the project boundary; it is not a
-language compiler yet.
+language compiler yet. The bootstrap harness builds it with both preserved v2
+stages, compares their LLVM IR, links and executes the result, and writes a
+reproducibility manifest under `bootstrap/out/`.
 
 Authoritative inputs:
 
