@@ -27,6 +27,11 @@ nearer roadmap or progress file.
 - [x] Establish `source-library/` as the separate root for UBE library source,
   with preview, portability, ownership, and resumable-work boundaries.
 - [~] Develop and compile v3 using the preserved v2 compiler.
+  - [x] Preserve the explicit RP0 scaffold baseline.
+  - [x] Complete RP1: bounded multi-module compiler shell, project/source
+    validation, host/target descriptions, compatibility identities, and the
+    API-empty `UBECore` project boundary.
+  - [ ] Begin RP2 with native and compatibility source-envelope validation.
 
 ## Handoff protocol
 

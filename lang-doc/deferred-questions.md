@@ -16,10 +16,6 @@ model. Ordinary VB-compatible behavior does not require owner confirmation.
 ## Portable library architecture
 
 - Define the portable compiled-library bundle/container and its manifest.
-- Choose dependency compatibility rules: semantic versions, public-interface
-  hashes, or both.
-- Choose the canonical package identity for compiler-selected core library
-  source.
 - Decide whether legacy `Date = ...` and `Time = ...` host-clock assignment is
   rejected or exposed through an explicit platform capability. Silent host
   mutation conflicts with portable, permission-aware library design.
@@ -30,3 +26,8 @@ model. Ordinary VB-compatible behavior does not require owner confirmation.
 These deferred decisions do not change parsing of source-library
 `Reference = "path/Library.UBE"` entries or any other currently frozen core
 production, so they do not block the core source grammar.
+
+The canonical core package identity (`UBECore`) and the combined semantic-
+version/public-interface-hash compatibility model are frozen in
+[`../project-docs/versioning.md`](../project-docs/versioning.md). The container
+that will carry that metadata remains deferred above.

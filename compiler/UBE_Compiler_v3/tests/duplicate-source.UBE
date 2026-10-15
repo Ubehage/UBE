@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "DuplicateSource"
+Kind = "Exe"
+Startup = "Main"
+Source = "fixtures/Main.bas"
+Source = "fixtures/./Main.bas"

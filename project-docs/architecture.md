@@ -122,6 +122,11 @@ dependencies are not permitted.
 
 ## Trust and reproducibility
 
+The independent compiler, language, project-format, intrinsic-ABI, and
+source-library identities and their compatibility rules are defined in
+[`versioning.md`](versioning.md). Builds record these identities explicitly;
+they are never inferred from one shared version number.
+
 A bootstrap build records source hashes, compiler versions, LLVM version,
 target triple, and all flags. Builds should be deterministic. If final native
 binaries cannot initially compare byte-for-byte because of object metadata,

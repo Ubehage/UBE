@@ -6,16 +6,18 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 - [x] Create a root-level directory separate from compiler generations.
 - [x] Record dependency, portability, ownership, and preview rules.
-- [ ] Resolve the canonical core-library package identity in
+- [x] Resolve the canonical core-library package identity as `UBECore` in
   `../lang-doc/deferred-questions.md`.
-- [ ] Freeze compiler/library compatibility metadata and versioning.
-- [ ] Create the checked-in `.UBE` project manifest when its real module list
-  and package identity are known; no implementation source may be added before
-  the manifest exists.
+- [x] Freeze the semantic-version plus exact public-interface-hash
+  compatibility model and the RP1 identities in
+  `../project-docs/versioning.md`.
+- [x] Create `UBECore.UBE` with its API-empty `CoreIdentity` module before any
+  public implementation source is added.
 
 ## 1. Compiler-preview subset
 
-- [ ] Derive the minimum APIs needed by the first Compiler v3 preview.
+- [x] Derive the minimum APIs needed by RP1: the slice is intentionally empty
+  because the project-validation shell needs no public library operation.
 - [ ] Assign every API to a meaningfully named functional module and keep its
   filename, `UBE_Name`, manifest entry, tests, and documentation consistent.
 - [ ] Require declaration comments for every library procedure and focused
@@ -34,11 +36,14 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## 2. Preview preservation
 
-- [ ] Record the exact library module set required by every compiler preview.
-- [ ] Preserve successful compiler-plus-library build commands and identities.
+- [x] Record RP1's empty callable module slice and the non-linked
+  `CoreIdentity` project-boundary module.
+- [x] Preserve RP1's compiler and library project validation in
+  `bootstrap/build.ps1` and `bootstrap/out/v3-rp1-build-manifest.json`.
 - [ ] Test self-compilation and library recompilation whenever the preview is
   capable of them; do not make premature self-hosting a prerequisite.
-- [ ] Prevent a preview from silently depending on APIs introduced later.
+- [x] Prevent RP1 from silently depending on later APIs by recording an empty
+  `source_library_slice` in its build manifest.
 
 ## 3. Complete library after Compiler v3 Beta 1
 
@@ -54,6 +59,13 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## Handoff
 
-When implementation begins, record the active compiler preview, trusted
-compiler artifact, selected library modules, intrinsic dependencies,
-verification commands, known failures, and exact next action here.
+- Active compiler preview: RP1, built by both preserved v2 stages.
+- Selected callable modules: none.
+- Boundary-only module: `src/portable/CoreIdentity.bas`.
+- Intrinsic dependencies: none from `UBECore`; RP1 compiler bootstrap
+  intrinsics are recorded separately as `ube-intrinsic-abi-1`.
+- Verification: `bootstrap/build.ps1`; RP1 validates `UBECore.UBE` and records
+  all identities in its generated build manifest.
+- Known failures: none.
+- Exact next action: derive the first non-empty library slice only when RP2 or
+  a later preview proves it needs a public operation.

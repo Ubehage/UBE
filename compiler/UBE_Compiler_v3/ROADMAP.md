@@ -83,40 +83,43 @@ and describe a build without yet parsing the complete language.
 
 ### RP1.1 — settle identities and compatibility metadata
 
-- [ ] Resolve the canonical core-library package identity recorded in
+- [x] Resolve the canonical core-library package identity recorded in
   `../../lang-doc/deferred-questions.md`.
-- [ ] Define compiler, language, intrinsic ABI, source-library, and artifact
+- [x] Define compiler, language, intrinsic ABI, source-library, and artifact
   compatibility/version fields.
-- [ ] Decide the compiled-library compatibility rule and minimum metadata
+- [x] Decide the compiled-library compatibility rule and minimum metadata
   needed by later previews; the final bundle container may remain deferred.
-- [ ] Create the source-library `.UBE` manifest before adding its first source
+- [x] Create the source-library `.UBE` manifest before adding its first source
   module, as required by `../../source-library/AGENTS.md`.
 
 ### RP1.2 — split the v2-buildable compiler source
 
-- [ ] Add ordered modules for diagnostics, bounded text/storage, source
+- [x] Add ordered modules for diagnostics, bounded text/storage, source
   ownership, project loading, host/target description, and the driver.
-- [ ] Keep `Main.bas` limited to startup, argument handling, driver invocation,
+- [x] Keep `Main.bas` limited to startup, argument handling, driver invocation,
   controlled reporting, and exit status.
-- [ ] Establish explicit result records so expected failures do not depend on
+- [x] Establish explicit result records so expected failures do not depend on
   panics, assertions, or partially initialized output.
-- [ ] Centralize limits for file size, source count, diagnostics, allocations,
+- [x] Centralize limits for file size, source count, diagnostics, allocations,
   recursion, and generated text.
 
 ### RP1.3 — implement the project/source boundary
 
-- [ ] Load and validate `UBE-Project 1` manifests and ordered source paths.
-- [ ] Distinguish host and target configuration without assuming host equals
+- [x] Load and validate `UBE-Project 1` manifests and ordered source paths.
+- [x] Distinguish host and target configuration without assuming host equals
   target.
-- [ ] Canonicalize safe project-relative paths and reject duplicates, escapes,
+- [x] Canonicalize safe project-relative paths and reject duplicates, escapes,
   missing files, unsupported kinds, embedded NUL, and invalid UTF-8.
-- [ ] Give every source and diagnostic a stable identity and source range.
-- [ ] Write outputs atomically and remove failed temporary artifacts.
-- [ ] Add malformed project, filesystem failure, limit, and cleanup tests.
+- [x] Give every source and diagnostic a stable identity and source range.
+- [x] Produce no compiler output in RP1, so failed validation cannot leave a
+  false-success or partial artifact. Atomic output begins with the first
+  emitting preview.
+- [x] Add malformed project, filesystem failure, limit, and cleanup tests.
 
-RP1 gate: v2 builds the multi-module preview deterministically; it validates a
-real project and controlled failure corpus; the source-library manifest and
-empty or minimal recorded slice validate; v1/v2 tests still pass.
+RP1 gate: complete and verified on 2026-10-16. Both preserved v2 stages emit
+byte-identical RP1 LLVM; the linked compiler validates its own nine-module
+project, the two-module fixture, and the API-empty `UBECore` project; the
+controlled failure corpus passes; and all v1/v2 tests remain green.
 
 ## Release Preview 2: lexical and preprocessing front end
 

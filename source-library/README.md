@@ -15,10 +15,15 @@ library modules and minimal program support it needs into its native output.
 
 ## Current status
 
-The directory boundary and development rules are established. Implementation
-will be a checked-in UBE project whose code is divided into meaningfully named
-functional modules. Public modules and their package identity are not yet
-frozen, so this directory does not currently claim an implemented API.
+The canonical core package identity is `UBECore`. Its checked-in project is
+[`UBECore.UBE`](UBECore.UBE), and its semantic preview version is
+`0.1.0-rp1`. Compiler v3 RP1 establishes and validates this project boundary
+but uses an empty API slice; no public library operation is implemented yet.
 
-See [DESIGN.md](DESIGN.md) for boundaries and [ROADMAP.md](ROADMAP.md) for the
-resumable implementation plan.
+Future code is divided into meaningfully named functional modules. A preview
+may use only the exact module slice recorded by its verified build.
+
+See [DESIGN.md](DESIGN.md) for boundaries, [ROADMAP.md](ROADMAP.md) for the
+resumable implementation plan, and
+[`../project-docs/versioning.md`](../project-docs/versioning.md) for version
+and compatibility identities.

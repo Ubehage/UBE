@@ -3,8 +3,8 @@
 ## Status
 
 This is the architectural boundary for the v3 generation. V3 is UBE's first
-public-release compiler target. The checked-in program is currently only a
-v2-buildable scaffold.
+public-release compiler target. The checked-in program is the verified,
+v2-buildable RP1 compiler shell; language parsing begins in later previews.
 
 ## Bootstrap boundary
 

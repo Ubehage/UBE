@@ -6,16 +6,15 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 1 — dependable compiler
-  shell**
-- Active item: split the v3 scaffold into its first ordered v2-compatible
-  diagnostics and source-management modules.
-- Status: staged development plan complete; implementation has not started.
-  Release Preview 0 is complete and preserved as the explicitly identified
-  v2-buildable scaffold baseline. The UBE 1.0 specification and EBNF are
-  frozen, and every later preview has explicit work packages and stability
-  gates. Conformance-case derivation remains an active cross-preview
-  requirement.
+- Active milestone: **Compiler v3 Release Preview 2 — lexical and
+  preprocessing front end**
+- Active item: validate native and compatibility source envelopes before
+  implementing the complete token stream.
+- Status: RP1 is complete and verified. The v2-built nine-module compiler
+  shell validates bounded `UBE-Project 1` manifests, owns ordered UTF-8 source
+  documents, reports stable diagnostics, separates host and target records,
+  and validates the API-empty `UBECore` project boundary. RP2 implementation
+  has not started.
 - Blockers: none recorded.
 
 ## Verified baseline
@@ -113,14 +112,12 @@ roadmap.
 
 ## Next actions
 
-1. Add v2-compatible `Diagnostics.bas` and `SourceManager.bas` records without
-   moving behavior or expanding v2's frozen bootstrap contract.
-2. Add the ordered modules to `UBE_Compiler_v3.UBE` and prove both preserved
-   v2 stages still emit identical scaffold IR.
-3. Add the RP1 preview build to the authoritative bootstrap verification, then
-   continue with bounded driver and project-loading behavior.
-4. Resolve the RP1.1 core-library identity and compatibility decisions before
-   adding the first source-library implementation module.
+1. Define the RP2 source-envelope records and diagnostics within the frozen
+   UBE 1.0 header contract.
+2. Validate native `UBE SOURCE 1` kind/name headers and recognize legacy VB6
+   compatibility headers without yet parsing procedure syntax.
+3. Add positive, mismatch, missing-header, malformed-attribute, and bounded
+   recovery fixtures to the authoritative bootstrap suite.
 
 ## Decisions in force
 
@@ -363,6 +360,19 @@ roadmap.
   integration
 
 ## Verification log
+
+- 2026-10-16: completed Compiler v3 Release Preview 1. V3 now builds as nine
+  ordered v2-compatible modules for bootstrap intrinsics, limits, text,
+  diagnostics, sources, projects, targets, driver behavior, and startup. Both
+  preserved v2 stages emit byte-identical RP1 LLVM; LLVM links the native
+  compiler; and RP1 validates its own project, a two-module executable, and
+  the API-empty `UBECore` library project. Controlled tests cover usage,
+  unsupported targets, normalized duplicates, path escapes, unknown keys,
+  illegal library startup, missing files, manifest/source-count/source-size
+  limits, and invalid source UTF-8. The clean complete bootstrap suite passed.
+  `bootstrap/out/v3-rp1-build-manifest.json` records version, source, library,
+  toolchain, target, and artifact identities. The next implementation target
+  is RP2 source-envelope validation.
 
 - 2026-10-16: completed and reverified Compiler v3 Release Preview 0. The
   scaffold, generated LLVM, executable, diagnostics, and build-manifest schema

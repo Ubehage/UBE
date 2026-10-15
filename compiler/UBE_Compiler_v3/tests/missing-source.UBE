@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "MissingSource"
+Kind = "Exe"
+Startup = "Main"
+Source = "fixtures/DoesNotExist.bas"

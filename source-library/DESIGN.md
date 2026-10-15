@@ -1,11 +1,11 @@
 # UBE source-library design
 
-**Status:** repository boundary approved; concrete public API pending
+**Status:** `UBECore` project boundary frozen; concrete public API pending
 
 ## Boundary
 
-The source library is a separate UBE project at the repository root, defined
-by a checked-in `.UBE` manifest once implementation begins.
+The source library is the separate `UBECore` UBE project at the repository
+root, defined by the checked-in `UBECore.UBE` manifest.
 Compiler v3 may depend on a deliberately small library subset while it is being
 built, but library source stays here and is built as a separate input.
 
@@ -37,9 +37,9 @@ source-library/
 ```
 
 Subdirectories are created when their first real module or test is introduced.
-The project manifest and canonical package name wait for the corresponding
-language-architecture decision; temporary names must not become public by
-accident.
+The canonical package name is `UBECore`. The project exists in RP1 with an
+API-empty identity module; implementation modules are added only when their
+preview freezes and tests the corresponding contracts.
 
 Implementation is divided into modules with names that state their functional
 responsibility, such as `Memory.bas`, `Strings.bas`, `Files.bas`, or

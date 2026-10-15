@@ -344,44 +344,142 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3Rp0StageOneIr = Join-Path $out 'v3-rp0-stage1.ll'
-$v3Rp0StageTwoIr = Join-Path $out 'v3-rp0-stage2.ll'
-$v3Rp0Executable = Join-Path $out 'v3-rp0.exe'
-& $v2StageOne $v3Manifest $v3Rp0StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP0' }
-& $v2StageTwo $v3Manifest $v3Rp0StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP0' }
-$v3Rp0StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp0StageOneIr -Algorithm SHA256).Hash
-$v3Rp0StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp0StageTwoIr -Algorithm SHA256).Hash
-if ($v3Rp0StageOneIrHash -ne $v3Rp0StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 RP0 LLVM IR'
+$v3Rp1StageOneIr = Join-Path $out 'v3-rp1-stage1.ll'
+$v3Rp1StageTwoIr = Join-Path $out 'v3-rp1-stage2.ll'
+$v3Rp1Executable = Join-Path $out 'v3-rp1.exe'
+& $v2StageOne $v3Manifest $v3Rp1StageOneIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP1' }
+& $v2StageTwo $v3Manifest $v3Rp1StageTwoIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP1' }
+$v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
+$v3Rp1StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp1StageTwoIr -Algorithm SHA256).Hash
+if ($v3Rp1StageOneIrHash -ne $v3Rp1StageTwoIrHash) {
+    throw 'UBE Compiler v2 stages one and two emitted different v3 RP1 LLVM IR'
 }
-& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp0StageOneIr `
-    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp0Executable
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP0' }
-$v3Rp0Output = & $v3Rp0Executable
-if ($LASTEXITCODE -ne 2 -or $v3Rp0Output -ne 'UBE Compiler v3 Release Preview 0: scaffold') {
-    throw 'UBE Compiler v3 RP0 failed'
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP1' }
+
+$v3Rp1Target = 'x86_64-w64-windows-gnu'
+$v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -ne 'UBE Compiler v3 RP1: project UBE_Compiler_v3 (Exe), 9 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP1 failed to load its own project'
 }
-$v3Rp0BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp0-build-manifest-1'
-    preview = 'RP0'
+
+$v3Rp1Tests = Join-Path $v3Project 'tests'
+$v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -ne 'UBE Compiler v3 RP1: project RP1Fixture (Exe), 2 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP1 failed its multi-module project fixture'
+}
+$ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
+$ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -ne 'UBE Compiler v3 RP1: project UBECore (Library), 1 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP1 failed to validate the UBECore project boundary'
+}
+
+function Test-V3Rp1Failure {
+    param(
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$ExpectedDiagnostic,
+        [int]$ExpectedExitCode = 1
+    )
+
+    $failure = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments $Arguments
+    if ($failure.ExitCode -ne $ExpectedExitCode) {
+        throw "UBE Compiler v3 RP1 returned the wrong exit code for $Name"
+    }
+    if ($failure.Output -notlike "*$ExpectedDiagnostic*") {
+        throw "UBE Compiler v3 RP1 returned the wrong diagnostic for $Name`: $($failure.Output)"
+    }
+}
+
+Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
+    -ExpectedDiagnostic 'usage: ube-v3-rp1 <project.UBE> <target-triple>'
+Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP1 target: unknown-target'
+Test-V3Rp1Failure -Name 'duplicate-source' `
+    -Arguments @((Join-Path $v3Rp1Tests 'duplicate-source.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3013: duplicate Source after path normalization'
+Test-V3Rp1Failure -Name 'path-escape' `
+    -Arguments @((Join-Path $v3Rp1Tests 'path-escape.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3012: Source must be a safe relative'
+Test-V3Rp1Failure -Name 'unknown-key' `
+    -Arguments @((Join-Path $v3Rp1Tests 'unknown-key.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3019: unsupported project key: Mystery'
+Test-V3Rp1Failure -Name 'library-startup' `
+    -Arguments @((Join-Path $v3Rp1Tests 'library-startup.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3022: library projects cannot declare Startup or StartupForm'
+Test-V3Rp1Failure -Name 'missing-source' -ExpectedExitCode 66 `
+    -Arguments @((Join-Path $v3Rp1Tests 'missing-source.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'UBE runtime: cannot open for reading:'
+
+$v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
+$manySourcesText = [System.Text.StringBuilder]::new()
+[void]$manySourcesText.AppendLine('UBE-Project 1')
+[void]$manySourcesText.AppendLine('Name = "TooManySources"')
+[void]$manySourcesText.AppendLine('Kind = "Exe"')
+[void]$manySourcesText.AppendLine('Startup = "Main"')
+for ($sourceIndex = 0; $sourceIndex -le 1024; $sourceIndex++) {
+    [void]$manySourcesText.AppendLine(('Source = "Module{0}.bas"' -f $sourceIndex))
+}
+[System.IO.File]::WriteAllText($v3Rp1ManySources, $manySourcesText.ToString(), [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'source-limit' -Arguments @($v3Rp1ManySources, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3014: project exceeds the 1024-source limit'
+
+$v3Rp1LargeManifest = Join-Path $out 'v3-rp1-oversized.UBE'
+[System.IO.File]::WriteAllText($v3Rp1LargeManifest, ('x' * 1048577), [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'manifest-limit' -Arguments @($v3Rp1LargeManifest, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3001: project manifest exceeds the 1048576-byte limit'
+
+$v3Rp1InvalidSource = Join-Path $out 'v3-rp1-invalid-utf8.bas'
+[System.IO.File]::WriteAllBytes($v3Rp1InvalidSource, [byte[]](0xC3, 0x28))
+$v3Rp1InvalidSourceProject = Join-Path $out 'v3-rp1-invalid-utf8.UBE'
+$invalidSourceProjectText = "UBE-Project 1`nName = `"InvalidUtf8`"`nKind = `"Exe`"`nStartup = `"Main`"`nSource = `"v3-rp1-invalid-utf8.bas`"`n"
+[System.IO.File]::WriteAllText($v3Rp1InvalidSourceProject, $invalidSourceProjectText, [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'invalid-source-utf8' -Arguments @($v3Rp1InvalidSourceProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3102: source is not valid UTF-8'
+
+$v3Rp1OversizedSource = Join-Path $out 'v3-rp1-oversized-source.bas'
+[System.IO.File]::WriteAllText($v3Rp1OversizedSource, [string]::new([char]'a', 16777217), [System.Text.UTF8Encoding]::new($false))
+$v3Rp1OversizedSourceProject = Join-Path $out 'v3-rp1-oversized-source.UBE'
+$oversizedSourceProjectText = "UBE-Project 1`nName = `"OversizedSource`"`nKind = `"Exe`"`nStartup = `"Main`"`nSource = `"v3-rp1-oversized-source.bas`"`n"
+[System.IO.File]::WriteAllText($v3Rp1OversizedSourceProject, $oversizedSourceProjectText, [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourceProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
+
+$v3SourceHashes = [ordered]@{}
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+    $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
+}
+$v3Rp1BuildManifest = [ordered]@{
+    schema = 'ube-v3-rp1-build-manifest-1'
+    preview = 'RP1'
+    compiler_generation = 3
+    language = '1.0'
+    project_format = 'UBE-Project 1'
+    core_package = 'UBECore'
+    core_library_version = '0.1.0-rp1'
+    intrinsic_abi = 'ube-intrinsic-abi-1'
+    source_library_slice = @()
     target = 'x86_64-w64-windows-gnu'
     optimization = '-O2'
     compiler_stage1 = (Get-FileHash -LiteralPath $v2StageOne -Algorithm SHA256).Hash
     compiler_stage2 = (Get-FileHash -LiteralPath $v2StageTwo -Algorithm SHA256).Hash
     project = (Get-FileHash -LiteralPath $v3Manifest -Algorithm SHA256).Hash
-    source = (Get-FileHash -LiteralPath (Join-Path $v3Project 'Main.bas') -Algorithm SHA256).Hash
+    sources = $v3SourceHashes
+    core_library_project = (Get-FileHash -LiteralPath $ubeCoreProject -Algorithm SHA256).Hash
+    core_library_identity_source = (Get-FileHash -LiteralPath (Join-Path $root 'source-library/src/portable/CoreIdentity.bas') -Algorithm SHA256).Hash
     runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
     unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
     unicode_runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_unicode_runtime.o') -Algorithm SHA256).Hash
-    llvm_ir = $v3Rp0StageOneIrHash
-    executable = (Get-FileHash -LiteralPath $v3Rp0Executable -Algorithm SHA256).Hash
+    llvm_ir = $v3Rp1StageOneIrHash
+    executable = (Get-FileHash -LiteralPath $v3Rp1Executable -Algorithm SHA256).Hash
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
-$v3Rp0BuildManifest | ConvertTo-Json -Depth 3 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp0-build-manifest.json') -Encoding UTF8
+$v3Rp1BuildManifest | ConvertTo-Json -Depth 4 | `
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp1-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(

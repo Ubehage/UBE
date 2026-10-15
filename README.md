@@ -58,17 +58,18 @@ V2 is a stable transitional compiler used to build UBE Compiler v3. Version 3
 is the first public-release target. Its UBE 1.0 language definition, compiler
 boundaries, and staged development plan are now frozen.
 
-Compiler v3 Release Preview 0 is complete. RP0 preserves the v2-buildable v3
-scaffold and proves the generation boundary: both preserved v2 stages produce
-byte-identical LLVM IR, the native scaffold links and runs, and the build
-records reproducibility identities for its inputs and artifacts. RP0 is a
-verified foundation, not yet a usable language compiler.
+Compiler v3 Release Preview 1 is complete. RP1 is a verified, v2-built,
+nine-module compiler shell with bounded diagnostics, safe `UBE-Project 1`
+loading, ordered UTF-8 source ownership, centralized resource limits, and
+separate host and target descriptions. Both preserved v2 stages produce
+byte-identical RP1 LLVM, and the native compiler passes its positive and
+controlled-failure project corpus.
 
-Development is moving into Release Preview 1, which replaces the placeholder
-with a bounded multi-module compiler shell for diagnostics, source ownership,
-project loading, and host/target configuration. Later previews add the full
-front end, semantic analysis, verified IR, native output, managed memory,
-objects, threading, events, and the separately built UBE source library.
+The separate source-library project now has the canonical package identity
+`UBECore`. RP1 validates its project boundary but deliberately uses no public
+library APIs yet. Development is moving into Release Preview 2, which adds
+native and compatibility source headers, complete tokenization, conditional
+compilation, and bounded lexical recovery.
 
 The documentation website already provides an offline, browsable language
 manual with an expandable A-Z reference. Planned behavior is labelled
@@ -97,8 +98,8 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, the Compiler v3 RP0 scaffold, and the conformance
-fixtures. See
+v2 self-hosting chain, Compiler v3 RP1 and its project/source failure corpus,
+the `UBECore` project boundary, and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 
 ## Repository guide
