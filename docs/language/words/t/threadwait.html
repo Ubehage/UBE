@@ -1,0 +1,12 @@
+<!doctype html><html lang="en" data-article-id="language.word.threadwait"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Waits for a UBE thread to finish."><title>ThreadWait — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head><body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/t/threadwait.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/t/index.html">T</a> / ThreadWait</nav><h1>ThreadWait</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Core-library function</span><span class="badge">UBE 1.0</span></div><p class="lede">Waits for a UBE thread to finish and makes its preceding actions visible to the caller.</p><h2>Syntax</h2><pre><code>finished = ThreadWait(id [, timeoutMilliseconds])</code></pre><h2>Example</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "WaitExample"
+
+Sub Worker()
+    Print "worker"
+End Sub
+
+Sub Main()
+    Dim Id As LongLong
+    Id = CallNew Worker()
+    Print ThreadWait(Id)
+End Sub</code></pre><p>Prints <code>worker</code> and then <code>1</code>. A timeout or cancellation returns <code>0</code>; <code>-1</code> means wait indefinitely.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../t/threadstoprequested.html" data-doc-path="language/words/t/threadstoprequested.html">← Previous: ThreadStopRequested</a><a href="../t/threadyield.html" data-doc-path="language/words/t/threadyield.html">Next: ThreadYield →</a></nav><footer class="article-footer">Article ID: language.word.threadwait · UBE 1.0</footer></main></body></html>

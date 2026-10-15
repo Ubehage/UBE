@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UBE_Compiler_v2"
+Kind = "Exe"
+Startup = "Main"
+Source = "Main.bas"

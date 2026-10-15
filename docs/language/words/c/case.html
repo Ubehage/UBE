@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.case">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Introduces a branch inside Select Case.">
+  <title>Case — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/c/case.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / Case</nav>
+    <h1>Case</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Selection word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Introduces a branch inside Select Case.</p>
+    <h2>Syntax</h2>
+    <pre><code>Select Case expression
+    Case value
+        statements
+    Case Else
+        statements
+End Select</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Number As Long
+    Number = 2
+    Select Case Number
+        Case 1
+            Print "one"
+        Case 2
+            Print "two"
+        Case Else
+            Print "other"
+    End Select
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>two</p>
+    <h2>Important rules</h2>
+    <p>Case clauses are tested within their Select Case block. Case Else handles values not matched earlier.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/callnew.html" data-doc-path="language/words/c/callnew.html">← Previous: CallNew</a><a href="../c/chdir.html" data-doc-path="language/words/c/chdir.html">Next: ChDir →</a></nav>
+    <footer class="article-footer">Article ID: language.word.case · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

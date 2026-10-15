@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.unlock">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Releases a record or byte range previously locked in an open file.">
+  <title>Unlock — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/u/unlock.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/u/index.html">U</a> / Unlock</nav>
+    <h1>Unlock</h1>
+    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">File statement</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Releases a record or byte range previously locked in an open file.</p>
+    <h2>Syntax</h2>
+    <pre><code>Unlock #fileNumber [, start [To finish]]</code></pre>
+    <h2>Example</h2>
+    <pre><code>UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"MainModule\"\nSub Main()\n    Open \"data.bin\" For Binary As #1\n    Lock #1, 1 To 16\n    Unlock #1, 1 To 16\n    Close #1\nEnd Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The program releases the selected file range and then closes the file.</p>
+    <h2>Important rules</h2>
+    <p>This syntax exists for classic VB compatibility. It does not weaken UBE's explicit typing, portability, or resource-cleanup rules.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../u/unload.html" data-doc-path="language/words/u/unload.html">← Previous: Unload</a><a href="../u/until.html" data-doc-path="language/words/u/until.html">Next: Until →</a></nav>
+    <footer class="article-footer">Article ID: language.word.unlock · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

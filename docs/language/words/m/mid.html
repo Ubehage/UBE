@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.mid">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Replaces part of an existing string."><title>Mid — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/m/mid.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/m/index.html">M</a> / Mid</nav><h1>Mid</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Assignment statement word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Replaces part of an existing string.</p>
+<h2>Syntax</h2><pre><code>Mid$(target, start [, length]) = replacement</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Text As String = "cat"
+    Mid$(Text, 1, 1) = "h"
+    Print Text
+End Sub</code></pre><h3>Expected result</h3><p>hat</p><h2>Important rules</h2><p>The target must be assignable. The statement changes the existing string value.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../m/messagequeue.html" data-doc-path="language/words/m/messagequeue.html">← Previous: MessageQueue</a><a href="../m/mkdir.html" data-doc-path="language/words/m/mkdir.html">Next: MkDir →</a></nav><footer class="article-footer">Article ID: language.word.mid · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

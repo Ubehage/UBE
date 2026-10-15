@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.do">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Repeats a block, optionally while a condition is true or until it becomes true.">
+  <title>Do — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/d/do.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Do</nav>
+    <h1>Do</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Loop statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Repeats a block, optionally while a condition is true or until it becomes true.</p>
+    <h2>Syntax</h2>
+    <pre><code>Do [While|Until condition]
+    statements
+Loop [While|Until condition]</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Count As Long
+    Do While Count &lt; 3
+        Print Count
+        Count = Count + 1
+    Loop
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>0, 1, and 2 are printed on separate lines.</p>
+    <h2>Important rules</h2>
+    <p>A condition after Do is checked before the body. A condition after Loop is checked after the body.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/dim.html" data-doc-path="language/words/d/dim.html">← Previous: Dim</a><a href="../d/double.html" data-doc-path="language/words/d/double.html">Next: Double →</a></nav>
+    <footer class="article-footer">Article ID: language.word.do · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

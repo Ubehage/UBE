@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.endproperty">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ends a BeginProperty block in imported form or control metadata.">
+  <title>EndProperty — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/e/endproperty.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/e/index.html">E</a> / EndProperty</nav>
+    <h1>EndProperty</h1>
+    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">Legacy designer metadata</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Ends a BeginProperty block in imported form or control metadata.</p>
+    <h2>Syntax</h2>
+    <pre><code>BeginProperty propertyName\n    designer properties\nEndProperty</code></pre>
+    <h2>Example</h2>
+    <pre><code>VERSION 5.00\nBegin VB.Form MainForm\n    BeginProperty Font\n        Name = \"Arial\"\n    EndProperty\nEnd</code></pre>
+    <h3>Expected result</h3>
+    <p>Import tooling closes and preserves the nested property block.</p>
+    <h2>Important rules</h2>
+    <p>This syntax exists for classic VB compatibility. It does not weaken UBE's explicit typing, portability, or resource-cleanup rules.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../e/end.html" data-doc-path="language/words/e/end.html">← Previous: End</a><a href="../e/enum.html" data-doc-path="language/words/e/enum.html">Next: Enum →</a></nav>
+    <footer class="article-footer">Article ID: language.word.endproperty · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

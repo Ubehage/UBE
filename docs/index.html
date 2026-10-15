@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Offline documentation for the UBE programming language.">
+  <title>UBE documentation</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/shell.css">
+</head>
+<body>
+  <a class="skip-link" href="#article-frame">Skip to article</a>
+
+  <header class="site-header">
+    <a class="brand" href="#about/index.html" aria-label="UBE documentation home">
+      <span class="brand-mark">UBE</span>
+      <span class="brand-name">Language documentation</span>
+    </a>
+    <nav class="top-nav" aria-label="Documentation categories">
+      <a href="#about/index.html">About</a>
+      <a href="#" data-section="learn.index">Learn</a>
+      <a href="#" data-section="language.topics">Language</a>
+      <a href="#" data-section="library.overview">Library</a>
+      <a href="#" data-section="tools.overview">Tools</a>
+      <a href="#" data-section="migration.overview">VB6 migration</a>
+    </nav>
+    <button id="menu-button" class="menu-button" type="button" aria-controls="sidebar" aria-expanded="false">Topics</button>
+  </header>
+
+  <div class="shell">
+    <aside id="sidebar" class="sidebar" aria-label="Documentation topics">
+      <div class="filter-wrap">
+        <label for="tree-filter">Filter topics by title</label>
+        <input id="tree-filter" type="search" autocomplete="off" placeholder="For example: compiler">
+        <button id="clear-filter" class="clear-filter" type="button" aria-label="Clear topic filter" hidden>×</button>
+      </div>
+      <div id="filter-status" class="filter-status" role="status" aria-live="polite"></div>
+      <nav aria-label="Topic tree">
+        <ul id="topic-tree" class="tree"></ul>
+        <div id="navigation-fallback" hidden>
+          <p>Interactive navigation is unavailable. Open an article directly:</p>
+          <ul>
+            <li><a href="about/index.html" target="article">UBE overview</a></li>
+            <li><a href="about/goals.html" target="article">Goals and principles</a></li>
+            <li><a href="about/status.html" target="article">Project status</a></li>
+            <li><a href="about/compiler-generations.html" target="article">Development and releases</a></li>
+          </ul>
+        </div>
+        <noscript>
+          <p>Interactive navigation requires JavaScript. These pages remain directly available:</p>
+          <ul>
+            <li><a href="about/index.html" target="article">UBE overview</a></li>
+            <li><a href="about/goals.html" target="article">Goals and principles</a></li>
+            <li><a href="about/status.html" target="article">Project status</a></li>
+            <li><a href="about/compiler-generations.html" target="article">Development and releases</a></li>
+          </ul>
+        </noscript>
+      </nav>
+    </aside>
+
+    <main class="article-pane" aria-label="Article viewer">
+      <iframe id="article-frame" class="article-frame" name="article" src="about/index.html" title="UBE documentation article"></iframe>
+    </main>
+  </div>
+  <button id="scrim" class="scrim" type="button" aria-label="Close topic navigation"></button>
+
+  <script src="assets/js/navigation-data.js"></script>
+  <script src="assets/js/word-data.js"></script>
+  <script src="assets/js/shell.js"></script>
+</body>
+</html>

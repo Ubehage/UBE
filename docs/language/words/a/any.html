@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.any">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Marks an untyped parameter in a foreign procedure declaration.">
+  <title>Any — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/a/any.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/a/index.html">A</a> / Any</nav>
+    <h1>Any</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Marks an untyped parameter in a foreign procedure declaration.</p>
+    <h2>Syntax</h2>
+    <pre><code>Declare Sub CopyValue Lib "platform" (ByRef Value As Any)</code></pre>
+    <h2>Example</h2>
+    <pre><code>Declare Sub InspectValue Lib "example" (ByRef Value As Any)
+
+Sub Main()
+    Dim Count As Long
+    Count = 4
+    InspectValue Count
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>Count is passed to an external procedure without a UBE parameter type.</p>
+    <h2>Important rules</h2>
+    <p>Any is for foreign-function parameters only. Ordinary variables, results, and UBE procedure parameters must use a concrete type.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/andalso.html" data-doc-path="language/words/a/andalso.html">← Previous: AndAlso</a><a href="../a/append.html" data-doc-path="language/words/a/append.html">Next: Append →</a></nav>
+    <footer class="article-footer">Article ID: language.word.any · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

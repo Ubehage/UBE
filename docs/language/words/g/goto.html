@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.goto">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Continues execution at a label in the same procedure."><title>GoTo — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/g/goto.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/g/index.html">G</a> / GoTo</nav><h1>GoTo</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Branch statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Continues execution at a label in the same procedure.</p>
+<h2>Syntax</h2><pre><code>GoTo label</code></pre><h2>Example</h2><pre><code>Sub Main()
+    GoTo Finished
+    Print "Skipped"
+Finished:
+    Print "Done"
+End Sub</code></pre><h3>Expected result</h3><p>Done</p><h2>Important rules</h2><p>The target must be a label in the same procedure.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="gosub.html" data-doc-path="language/words/g/gosub.html">← Previous: GoSub</a><a href="../i/if.html" data-doc-path="language/words/i/if.html">Next: If →</a></nav><footer class="article-footer">Article ID: language.word.goto · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

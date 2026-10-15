@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.null">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Represents a Variant value containing no valid data.">
+  <title>Null — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/n/null.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/n/index.html">N</a> / Null</nav>
+    <h1>Null</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Literal word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Represents a Variant value containing no valid data.</p>
+    <h2>Syntax</h2>
+    <pre><code>variantVariable = Null</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Value As Variant = Null
+    Print Value Is Null
+End Sub</code></pre>
+    <h3>Expected result</h3><p>True</p>
+    <h2>Important rules</h2>
+    <p>Null is a Variant value. It is not the same as Nothing or an empty string.</p>
+    <h2>UBE 1.0 rules</h2><p><code>Null</code> means explicitly missing or unknown data in a <code>Variant</code>. It propagates through Variant arithmetic, concatenation, and comparison. Conversion to a fixed type records <code>Err</code> and produces the fixed type neutral value. Use <code>IsNull</code> to test it.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/nothing.html" data-doc-path="language/words/n/nothing.html">← Previous: Nothing</a><a href="../o/object.html" data-doc-path="language/words/o/object.html">Next: Object →</a></nav>
+    <footer class="article-footer">Article ID: language.word.null · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

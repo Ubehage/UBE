@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.base">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Used in Option Base to choose the lower bound for array declarations that omit it.">
+  <title>Base — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/b/base.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/b/index.html">B</a> / Base</nav>
+    <h1>Base</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Module option word</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Used in Option Base to choose the lower bound for array declarations that omit it.</p>
+    <h2>Syntax</h2>
+    <pre><code>Option Base 0|1</code></pre>
+    <h2>Example</h2>
+    <pre><code>Option Base 1
+
+Sub Main()
+    Dim Scores(3) As Long
+    Scores(1) = 10
+    Print Scores(1)
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>10</p>
+    <h2>Important rules</h2>
+    <p>Option Base affects only omitted lower bounds. Explicit bounds always take priority.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/attribute.html" data-doc-path="language/words/a/attribute.html">← Previous: Attribute</a><a href="../b/begin.html" data-doc-path="language/words/b/begin.html">Next: Begin →</a></nav>
+    <footer class="article-footer">Article ID: language.word.base · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

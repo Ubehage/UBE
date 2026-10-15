@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.binary">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Selects byte-oriented file access or binary text comparison, depending on its statement.">
+  <title>Binary — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/b/binary.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/b/index.html">B</a> / Binary</nav>
+    <h1>Binary</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Comparison or file mode word</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Selects byte-oriented file access or binary text comparison, depending on its statement.</p>
+    <h2>Syntax</h2>
+    <pre><code>Open fileName For Binary As #fileNumber
+Option Compare Binary</code></pre>
+    <h2>Example</h2>
+    <pre><code>Option Compare Binary
+
+Sub Main()
+    Open "data.bin" For Binary As #1
+    Close #1
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The module uses binary comparison and opens data.bin in binary mode.</p>
+    <h2>Important rules</h2>
+    <p>The surrounding statement determines the meaning. Binary file operations still require the program to close the file.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/beginproperty.html" data-doc-path="language/words/b/beginproperty.html">← Previous: BeginProperty</a><a href="../b/boolean.html" data-doc-path="language/words/b/boolean.html">Next: Boolean →</a></nav>
+    <footer class="article-footer">Article ID: language.word.binary · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

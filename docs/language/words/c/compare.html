@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.compare">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Used in Option Compare to choose how text comparisons are performed in a module.">
+  <title>Compare — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/c/compare.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / Compare</nav>
+    <h1>Compare</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Module option word</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Used in Option Compare to choose how text comparisons are performed in a module.</p>
+    <h2>Syntax</h2>
+    <pre><code>Option Compare Binary|Text|Database</code></pre>
+    <h2>Example</h2>
+    <pre><code>Option Compare Text
+
+Sub Main()
+    Print "UBE" = "ube"
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The comparison uses the module's Text comparison rules.</p>
+    <h2>Important rules</h2>
+    <p>Option Compare appears at module scope. Binary, Text, and Database are the grammar-defined modes.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/collectgarbage.html" data-doc-path="language/words/c/collectgarbage.html">← Previous: CollectGarbage</a><a href="../c/const.html" data-doc-path="language/words/c/const.html">Next: Const →</a></nav>
+    <footer class="article-footer">Article ID: language.word.compare · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

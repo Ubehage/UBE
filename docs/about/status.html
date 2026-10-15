@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-article-id="about.status">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Current development and platform status of UBE.">
+  <title>Project status — UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#about/status.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="about/index.html">About UBE</a> / Project status</nav>
+    <h1>Project status</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Windows development host</span></div>
+    <p class="lede">UBE is under active development and is not ready for production use.</p>
+
+    <h2>What works today</h2>
+    <p>The preserved UBE Compiler v2 has reached a verified self-hosting milestone: it can rebuild itself. It can also compile ordered projects containing multiple UBE source modules and resolve references between those modules. It is a transition compiler, not the UBE 1.0 release compiler.</p>
+
+    <h2>What comes next</h2>
+    <p>Compiler v2 is used to build compiler v3. The UBE 1.0 language, grammar, conversion rules, managed-memory model, threading model, foreign-library boundary, and native project formats are now specified. Compiler v3 and the complete standard library must still implement and verify that contract.</p>
+
+    <div class="callout">
+      <strong>Documentation status</strong>
+      <strong>Specified</strong> means that UBE 1.0 behavior is settled. It does not mean compiler v3 implements it yet. Each page separately states implementation availability.
+    </div>
+
+    <h2>Platform status</h2>
+    <p>Development currently takes place on 64-bit Windows. UBE 1.0 requires platform-independent language behavior, but Linux and macOS toolchains are planned and not yet verified.</p>
+
+    <h2>Should I use UBE for a project?</h2>
+    <p>Not for production yet. You can follow development, inspect the compiler sources, and experiment with the bootstrap toolchain, but source compatibility and public APIs may still change before the first release.</p>
+
+    <nav class="article-nav" aria-label="Adjacent articles">
+      <a href="goals.html" data-doc-path="about/goals.html">← Previous: Goals and principles</a>
+      <a href="compiler-generations.html" data-doc-path="about/compiler-generations.html">Next: Development and releases →</a>
+    </nav>
+    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

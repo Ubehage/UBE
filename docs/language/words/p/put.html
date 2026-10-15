@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.put">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Writes a value or record to an open file.">
+  <title>Put — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/p/put.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/p/index.html">P</a> / Put</nav>
+    <h1>Put</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">File statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Writes a value or record to an open file.</p>
+    <h2>Syntax</h2>
+    <pre><code>Put #fileNumber, [position], value</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Value As Long = 42
+    Open "value.bin" For Binary As #1
+    Put #1, 1, Value
+    Close #1
+End Sub</code></pre>
+    <h3>Expected result</h3><p>The binary representation of Value is written to value.bin.</p>
+    <h2>Important rules</h2>
+    <p>The file must be open in a mode that permits writing. Close it when finished.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../p/public.html" data-doc-path="language/words/p/public.html">← Previous: Public</a><a href="../r/raiseevent.html" data-doc-path="language/words/r/raiseevent.html">Next: RaiseEvent →</a></nav>
+    <footer class="article-footer">Article ID: language.word.put · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

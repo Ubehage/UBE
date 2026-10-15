@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" data-article-id="tools.project-manifests">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="UBE project manifests, source modules, references, startup, and build order."><title>Project manifests — UBE documentation</title><link rel="stylesheet" href="../assets/css/tokens.css"><link rel="stylesheet" href="../assets/css/base.css"><link rel="stylesheet" href="../assets/css/article.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../index.html#tools/project-manifests.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="tools/index.html">Compiler and tools</a> / Project manifests</nav><h1>Project manifests</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Compiler v3 implementation pending</span></div><p class="lede">A UTF-8 <code>.UBE</code> file defines one executable or library package and its ordered source modules.</p>
+<h2>Example</h2><pre><code>UBE-Project 1
+Name = "Greeting"
+Kind = "Exe"
+Startup = "Main"
+StartupForm = "MainWindow"
+Reference = "vendor/TextTools/Library.UBE"
+Source = "src/Main.bas"
+Source = "src/MainWindow.frm"</code></pre>
+<h2>Sources and paths</h2><p><code>Source</code> entries are processed in manifest order. Paths are relative to the manifest, use portable syntax, and may not escape the package directory. A source header's kind must agree with its extension. <code>Attribute UBE_Name</code> supplies the module or type name.</p>
+<h2>References</h2><p>Each <code>Reference</code> names a directly referenced source-library project. References are ordered for deterministic building, but order never resolves an ambiguous name. Visibility is direct and non-transitive: a package does not automatically see its dependency's dependencies. Use <code>Package.Module.Member</code> when qualification is needed. <code>Friend</code> never crosses a package boundary.</p>
+<h2>Startup and shutdown</h2><p>Dependencies initialize first, followed by this package's modules in source order. If <code>StartupForm</code> is present, that default form loads after module initialization and before <code>Main</code>. <code>Startup = "Main"</code> selects the program entry point. Orderly shutdown terminates modules and dependencies in reverse order.</p>
+<h2>Libraries and unresolved packaging details</h2><p><code>Kind = "Library"</code> permits module-level <code>Public Export</code> procedures. The portable compiled-library container, dependency version compatibility, and canonical core-library package identity are not yet frozen. This page therefore documents source-project references only and does not invent a binary package format.</p>
+<footer class="article-footer">Article ID: tools.project-manifests · UBE 1.0 specified source-project format · Last reviewed 2026-10-15</footer></main></body></html>

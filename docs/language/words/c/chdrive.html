@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.chdrive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Changes the current drive on platforms that support drive letters.">
+  <title>ChDrive — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/c/chdrive.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / ChDrive</nav>
+    <h1>ChDrive</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Drive statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Changes the current drive on platforms that support drive letters.</p>
+    <h2>Syntax</h2>
+    <pre><code>ChDrive driveExpression</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    ChDrive "D"
+    Print "Drive changed"
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>On a drive-letter platform, the current drive changes to D if it is available.</p>
+    <h2>Important rules</h2>
+    <p>ChDrive is platform-specific. Portable programs should not assume that drives or drive letters exist.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/chdir.html" data-doc-path="language/words/c/chdir.html">← Previous: ChDir</a><a href="../c/class.html" data-doc-path="language/words/c/class.html">Next: CLASS →</a></nav>
+    <footer class="article-footer">Article ID: language.word.chdrive · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

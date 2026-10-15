@@ -1,0 +1,11 @@
+<!doctype html><html lang="en" data-article-id="language.word.elseif"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Tests another condition in an If block."><title>ElseIf — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head><body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/e/elseif.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/e/index.html">E</a> / ElseIf</nav><h1>ElseIf</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Conditional word</span><span class="badge">Reserved word</span></div><p class="lede">Tests another condition when earlier conditions in an <code>If</code> block are false.</p><h2>Syntax</h2><pre><code>ElseIf condition Then
+    statements</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Score As Long = 75
+    If Score &gt;= 90 Then
+        Print "Excellent"
+    ElseIf Score &gt;= 70 Then
+        Print "Passed"
+    Else
+        Print "Try again"
+    End If
+End Sub</code></pre><h3>Expected result</h3><p>Passed</p><h2>Important rules</h2><p><code>ElseIf</code> is one word. Only the first matching branch runs.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="else.html" data-doc-path="language/words/e/else.html">← Previous: Else</a><a href="empty.html" data-doc-path="language/words/e/empty.html">Next: Empty →</a></nav><footer class="article-footer">Article ID: language.word.elseif · Specified in UBE 1.0</footer></main></body></html>

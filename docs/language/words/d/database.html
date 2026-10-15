@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.database">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Selects Database comparison rules in an Option Compare declaration.">
+  <title>Database — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/d/database.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Database</nav>
+    <h1>Database</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Text-comparison mode</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Selects Database comparison rules in an Option Compare declaration.</p>
+    <h2>Syntax</h2>
+    <pre><code>Option Compare Database</code></pre>
+    <h2>Example</h2>
+    <pre><code>Option Compare Database
+
+Sub Main()
+    Dim Same As Boolean
+    Same = ("A" = "a")
+    Print Same
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The result follows the selected Database comparison rules.</p>
+    <h2>Important rules</h2>
+    <p>Database is valid only as an Option Compare mode. Use it only when the documented project environment defines the required database comparison behavior.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/currentthreadid.html" data-doc-path="language/words/c/currentthreadid.html">← Previous: CurrentThreadId</a><a href="../d/date.html" data-doc-path="language/words/d/date.html">Next: Date →</a></nav>
+    <footer class="article-footer">Article ID: language.word.database · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

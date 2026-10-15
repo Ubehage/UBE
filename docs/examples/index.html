@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" data-article-id="examples.overview">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Complete examples for specified UBE 1.0 features."><title>Examples - UBE documentation</title><link rel="stylesheet" href="../assets/css/tokens.css"><link rel="stylesheet" href="../assets/css/base.css"><link rel="stylesheet" href="../assets/css/article.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../index.html#examples/index.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">UBE documentation / Examples</nav><h1>Examples</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Not yet executable with compiler v3</span></div>
+<p class="lede">These examples demonstrate settled UBE 1.0 syntax. They are specification examples, not compiler-v3 test results.</p>
+<h2>Minimal executable</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Public Sub Main()
+End Sub</code></pre><p>The executable exits with code zero. A startup function may instead return the exit code:</p><pre><code>Public Function Main() As Long
+    Main = 7
+End Function</code></pre>
+<h2>Multiple modules</h2><p><code>Main.bas</code> can call a public procedure declared in another source module in the same project:</p><pre><code>' Main.bas
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Public Sub Main()
+    Messages.ShowGreeting()
+End Sub
+
+' Messages.bas
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Messages"
+
+Public Sub ShowGreeting()
+    ' Perform the program's greeting operation here.
+End Sub</code></pre>
+<h2>Recursive custom value</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Private Type Node
+    Value As Long
+    NextNode As Node
+End Type
+
+Public Sub Main()
+    Dim First As Node
+    First.Value = 10
+    First.NextNode.Value = 20
+End Sub</code></pre><p>Accessing <code>NextNode</code> materializes only the depth used. Assigning one <code>Node</code> to another makes an independent value copy.</p>
+<h2>Start and wait for a thread</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Private Sub Worker(ByVal Count As Long)
+    Dim I As Long
+    For I = 1 To Count
+        If ThreadStopRequested() Then Exit Sub
+    Next I
+End Sub
+
+Public Sub Main()
+    Dim WorkerId As LongLong
+    WorkerId = CallNew Worker(100)
+    If WorkerId &lt;&gt; 0 Then
+        Call ThreadWait(WorkerId)
+    End If
+End Sub</code></pre><p><code>CallNew</code> evaluates the arguments before the worker begins. <code>ThreadWait</code> returns <code>1</code> when the worker finishes and <code>0</code> on timeout or interruption.</p>
+<div class="callout"><strong>Example status</strong>The v2 compiler does not establish that these UBE 1.0 programs run. Examples will be marked tested only after the matching compiler-v3 conformance tests pass.</div>
+<footer class="article-footer">Article ID: examples.overview - Last reviewed 2026-10-15</footer></main></body></html>

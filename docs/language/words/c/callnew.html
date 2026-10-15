@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.callnew">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Starts a Sub on a new thread and returns its LongLong UBE thread identifier."><title>CallNew — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/c/callnew.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / CallNew</nav><h1>CallNew</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Thread expression</span><span class="badge">UBE 1.0</span></div><p class="lede">Starts an existing <code>Sub</code> on a new thread and returns a <code>LongLong</code> UBE thread identifier.</p>
+<h2>Syntax</h2><pre><code>thread = CallNew subName(arguments)</code></pre><h2>Example</h2><pre><code>Sub Worker(ByVal Message As String)
+    Print Message
+End Sub
+
+Sub Main()
+    Dim WorkerThread As LongLong
+    WorkerThread = CallNew Worker("Running")
+End Sub</code></pre><h3>Expected result</h3><p><code>Worker</code> runs on a new thread and prints <code>Running</code>. <code>WorkerThread</code> identifies that thread. Zero means creation failed.</p><h2>Important rules</h2><p>The target must be a directly visible, statically resolved <code>Sub</code>, and its arguments use parentheses. The returned ID may be ignored. It is portable UBE identity, not necessarily an operating-system thread ID or handle. Stopping is cooperative.</p><nav class="article-nav"><a href="call.html" data-doc-path="language/words/c/call.html">← Previous: Call</a><a href="case.html" data-doc-path="language/words/c/case.html">Next: Case →</a></nav><footer class="article-footer">Article ID: language.word.callnew · Specified in UBE 1.0</footer></main></body></html>

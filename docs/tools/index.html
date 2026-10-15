@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-article-id="tools.overview">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="UBE compiler, project files, diagnostics, and tool status."><title>Compiler and tools - UBE documentation</title><link rel="stylesheet" href="../assets/css/tokens.css"><link rel="stylesheet" href="../assets/css/base.css"><link rel="stylesheet" href="../assets/css/article.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../index.html#tools/index.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">UBE documentation / Compiler and tools</nav><h1>Compiler and tools</h1><div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Compiler v2 available</span><span class="badge">UBE 1.0 compiler v3 specified</span></div>
+<p class="lede">Compiler v2 is the self-hosting transition compiler. Compiler v3 is the first public-release target and will implement the UBE 1.0 language definition.</p>
+<h2>Current development build</h2><p>From the repository root on the supported Windows development setup, run:</p><pre><code>./bootstrap/build.ps1</code></pre><p>This command builds and tests the bootstrap chain and preserved compiler generations. It is a contributor command, not the final public compiler interface.</p>
+<h2>Native source files</h2><p>A native file starts with a versioned header whose kind matches its extension:</p><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Public Sub Main()
+End Sub</code></pre><table><thead><tr><th>Extension</th><th>Kind</th></tr></thead><tbody><tr><td><code>.bas</code></td><td><code>MODULE</code></td></tr><tr><td><code>.cls</code></td><td><code>CLASS</code></td></tr><tr><td><code>.frm</code></td><td><code>FORM</code></td></tr><tr><td><code>.ctl</code></td><td><code>CONTROL</code></td></tr></tbody></table>
+<h2>Project manifest</h2><p>A normal UBE 1.0 build consumes a UTF-8 <code>.UBE</code> project manifest:</p><pre><code>UBE-Project 1
+Name = "Greeting"
+Kind = "Exe"
+Startup = "Main"
+Source = "src/Main.bas"
+Source = "src/Messages.bas"</code></pre><p>Source order is significant. Paths are relative to the manifest and may not escape the project directory. <code>Kind = "Library"</code> builds a native shared library and exposes only module procedures marked <code>Public Export</code>.</p>
+<h2>Other build inputs</h2><ul><li><code>.UBG</code> lists projects to build in order. It is orchestration input, not one combined link unit.</li><li><code>.UBR</code> stores binary resources separately from textual source and manifests. Its byte layout is not yet frozen.</li></ul>
+<h2>Diagnostics and safety</h2><p>Malformed source, manifests, paths, and resources must produce a controlled diagnostic. They must not crash the compiler. See <a href="ube1001.html" data-doc-path="tools/ube1001.html">UBE1001: source contains a NUL byte</a> for the current diagnostic-page format.</p>
+<h2>Not yet public</h2><p>The final command-line options, optimization settings, debug controls, target selection, and cross-compilation interface are not frozen. The native debugger and IDE are planned.</p>
+<footer class="article-footer">Article ID: tools.overview - Last reviewed 2026-10-15</footer></main></body></html>

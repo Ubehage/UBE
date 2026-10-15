@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-article-id="language.conditional-compilation">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Select UBE source at compile time with #Const and #If directives.">
+  <title>Conditional compilation — UBE documentation</title>
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/article.css">
+  <script src="../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../index.html#language/topics/conditional-compilation.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="language/topics/index.html">Language reference</a> / Conditional compilation</nav>
+    <h1>Conditional compilation</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Compiler support in progress</span></div>
+    <p class="lede">Conditional directives include source only when a compile-time condition is true.</p>
+    <h2>Syntax</h2>
+    <pre><code>#Const name = constant
+
+#If condition Then
+    source
+#ElseIf condition Then
+    source
+#Else
+    source
+#End If</code></pre>
+    <h2>Behavior</h2>
+    <p>Directive names and symbols are case-insensitive. A directive occupies a complete logical line. Blocks may nest. A file-local <code>#Const</code> becomes visible after its declaration and cannot be redefined. Symbols supplied by the project are visible from the start of the file and cannot be shadowed.</p>
+    <p>Conditions may use literals, conditional constants, parentheses, comparisons, scalar arithmetic, and Boolean operators. They cannot call procedures, access members, create objects, or inspect runtime state.</p>
+    <h2>Inactive source</h2>
+    <p>UBE parses only the selected branch as program source. An inactive branch must still balance nested conditional directives, but other syntax and unresolved names inside it are ignored. Line positions remain stable for diagnostics.</p>
+    <h2>Example</h2>
+    <pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "MainModule"
+#Const DiagnosticBuild = True
+
+Sub Main()
+#If DiagnosticBuild Then
+    Print "Diagnostics enabled"
+#Else
+    Print "Normal build"
+#End If
+End Sub</code></pre>
+    <h3>Expected output</h3>
+    <pre><code>Diagnostics enabled</code></pre>
+    <footer class="article-footer">Article ID: language.conditional-compilation · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

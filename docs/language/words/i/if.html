@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.if">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Runs code only when a condition is true, with optional alternative branches."><title>If — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/i/if.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/i/index.html">I</a> / If</nav><h1>If</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Conditional word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Runs code only when a condition is true, with optional alternative branches.</p>
+<h2>Syntax</h2><pre><code>If condition Then statement
+
+If condition Then
+    statements
+End If</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Count As Long = 2
+    If Count &gt; 0 Then
+        Print "Items available"
+    End If
+End Sub</code></pre><h3>Expected result</h3><p>Items available</p><h2>Important rules</h2><p>A newline after <code>Then</code> starts block form. Close block form with <code>End If</code>.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../g/goto.html" data-doc-path="language/words/g/goto.html">← Previous: GoTo</a><a href="imp.html" data-doc-path="language/words/i/imp.html">Next: Imp →</a></nav><footer class="article-footer">Article ID: language.word.if · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "MissingSecondSource"
+Kind = "Exe"
+Startup = "Main"
+Source = "multi_main.bas"
+Source = "modules/does_not_exist.bas"

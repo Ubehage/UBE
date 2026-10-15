@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.for">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Repeats a block while a counter moves through a range, or starts a <code>For Each</code> loop."><title>For — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/f/for.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/f/index.html">F</a> / For</nav><h1>For</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Loop word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Repeats a block while a counter moves through a range, or starts a <code>For Each</code> loop.</p>
+<h2>Syntax</h2><pre><code>For counter = start To finish [Step amount]
+    statements
+Next [counter]</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Number As Long
+    For Number = 1 To 3
+        Print Number
+    Next Number
+End Sub</code></pre><h3>Expected result</h3><p>1<br>2<br>3</p><h2>Important rules</h2><p>The loop counter must be assignable. Use <code>Step</code> to change the counter by an amount other than 1.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="filecopy.html" data-doc-path="language/words/f/filecopy.html">← Previous: FileCopy</a><a href="forceinline.html" data-doc-path="language/words/f/forceinline.html">Next: ForceInline →</a></nav><footer class="article-footer">Article ID: language.word.for · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

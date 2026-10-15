@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "MultiModule"
+Kind = "Exe"
+Startup = "Main"
+Source = "multi_main.bas"
+Source = "modules\multi_support.bas"

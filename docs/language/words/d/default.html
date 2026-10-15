@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.default">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Marks a property as the member used when an object is referenced without an explicit member name.">
+  <title>Default — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/d/default.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Default</nav>
+    <h1>Default</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Property modifier</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Marks a property as the member used when an object is referenced without an explicit member name.</p>
+    <h2>Syntax</h2>
+    <pre><code>Default Property Get name(parameters) As type
+    statements
+End Property</code></pre>
+    <h2>Example</h2>
+    <pre><code>Private Value As Long
+
+Default Property Get Item(ByVal Index As Long) As Long
+    Item = Value
+End Property</code></pre>
+    <h3>Expected result</h3>
+    <p>Item is declared as the default property of its containing type.</p>
+    <h2>Important rules</h2>
+    <p>Default applies to a procedure declaration and is normally used with a property. Ambiguous default-member use should be avoided.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/declare.html" data-doc-path="language/words/d/declare.html">← Previous: Declare</a><a href="../d/defbool.html" data-doc-path="language/words/d/defbool.html">Next: DefBool →</a></nav>
+    <footer class="article-footer">Article ID: language.word.default · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,13 @@
+file,category,grammar_expected,later_expected,purpose
+positive/core-statements.bas,positive,accept,accept,"Declarations, labels, branching, loops, named arguments, and colon separators"
+positive/properties.cls,positive,accept,accept,"Grouped Get and Let property accessors"
+positive/events-and-threads.cls,positive,accept,n/a,"Events, WithEvents, RaiseEvent, CallNew, and SyncLock"
+positive/legacy-layout.frm,positive,accept,n/a,"Legacy designer and attribute layout accepted as compatibility input"
+negative/headerless.bas,negative,reject,n/a,"Full UBE source requires a native or legacy file header"
+negative/mismatched-terminator.bas,negative,reject,n/a,"A block terminator must match its opener"
+negative/property-let-without-parameters.cls,negative,reject,n/a,"Property Let requires its setter parameter list"
+negative/callnew-without-arguments.bas,negative,reject,n/a,"CallNew requires an explicit parenthesized argument list"
+ambiguity/folded-duplicate.bas,ambiguity,accept,reject,"Unicode/case-fold-equivalent declarations are ambiguous duplicates"
+ambiguity/imported-name.bas,ambiguity,accept,reject,"An unqualified collision must not be resolved by declaration order"
+recovery/multiple-errors.bas,recovery,reject,n/a,"Parser recovery should report both marked syntax errors"
+

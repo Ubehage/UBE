@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.paramarray">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Collects remaining call arguments into the final procedure parameter.">
+  <title>ParamArray — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/p/paramarray.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/p/index.html">P</a> / ParamArray</nav>
+    <h1>ParamArray</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Parameter modifier</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Collects remaining call arguments into the final procedure parameter.</p>
+    <h2>Syntax</h2>
+    <pre><code>ParamArray name() As type</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub ShowValues(ParamArray Values() As Variant)
+    Print "Values received"
+End Sub
+
+Sub Main()
+    ShowValues 10, 20, 30
+End Sub</code></pre>
+    <h3>Expected result</h3><p>Values received</p>
+    <h2>Important rules</h2>
+    <p>ParamArray must be the final parameter and is always an array.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../p/page.html" data-doc-path="language/words/p/page.html">← Previous: Page</a><a href="../p/preserve.html" data-doc-path="language/words/p/preserve.html">Next: Preserve →</a></nav>
+    <footer class="article-footer">Article ID: language.word.paramarray · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

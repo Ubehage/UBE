@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.like">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Tests whether a string matches a pattern."><title>Like — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/l/like.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/l/index.html">L</a> / Like</nav><h1>Like</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Comparison operator</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Tests whether a string matches a pattern.</p>
+<h2>Syntax</h2><pre><code>text Like pattern</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Matches As Boolean
+    Matches = "UBE" Like "U*"
+    Print Matches
+End Sub</code></pre><h3>Expected result</h3><p>True</p><h2>Important rules</h2><p>Pattern rules are defined by the selected UBE compatibility mode; do not assume platform-specific matching.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="lib.html" data-doc-path="language/words/l/lib.html">← Previous: Lib</a><a href="line.html" data-doc-path="language/words/l/line.html">Next: Line →</a></nav><footer class="article-footer">Article ID: language.word.like · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.is">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Tests object identity, or introduces a relational comparison in a <code>Case</code> clause."><title>Is — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/i/is.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/i/index.html">I</a> / Is</nav><h1>Is</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Comparison word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Tests object identity, or introduces a relational comparison in a <code>Case</code> clause.</p>
+<h2>Syntax</h2><pre><code>left Is right
+Case Is operator expression</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim First As Object
+    Dim Second As Object
+    Set First = Nothing
+    Set Second = Nothing
+    Print First Is Second
+End Sub</code></pre><h3>Expected result</h3><p>True</p><h2>Important rules</h2><p>Use <code>Is</code> for object identity, not for comparing ordinary numeric or string values.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../i/intrinsic.html" data-doc-path="language/words/i/intrinsic.html">← Previous: Intrinsic</a><a href="../i/isempty.html" data-doc-path="language/words/i/isempty.html">Next: IsEmpty →</a></nav><footer class="article-footer">Article ID: language.word.is · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

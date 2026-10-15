@@ -1,0 +1,12 @@
+<!doctype html><html lang="en" data-article-id="learn.variables-types"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Variables and types — UBE documentation</title><link rel="stylesheet" href="../assets/css/tokens.css"><link rel="stylesheet" href="../assets/css/base.css"><link rel="stylesheet" href="../assets/css/article.css"><script src="../assets/js/article.js" defer></script></head><body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../index.html#learn/variables-types.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="learn/index.html">Learn UBE</a> / Variables and types</nav><h1>Variables and types</h1><div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">UBE 1.0 specified</span></div><p class="lede">Every variable has a name and an explicit type. Value assignment copies data; object assignment shares identity.</p><h2>Scalar values</h2><pre><code>Dim Count As Long = 12
+Dim Message As String = "items"
+Dim Ready As Boolean = True</code></pre><p><code>Long</code> is a signed 32-bit integer. <code>String</code> stores Unicode text. Numerically, <code>False</code> is <code>0</code> and <code>True</code> is <code>-1</code>. UBE performs permitted obvious scalar conversions and checks their range.</p><h2>Custom values</h2><pre><code>Type Node
+    Number As Long
+    NextNode As Node
+End Type
+
+Dim First As Node
+First.NextNode.Number = 2</code></pre><p>A custom type may contain itself. UBE creates recursive storage automatically only as deeply as the program accesses it. Assigning one <code>Node</code> to another makes an independent value copy.</p><h2>Objects</h2><pre><code>Dim First As New Worker
+Dim Second As Worker
+Set Second = First
+Set First = Nothing</code></pre><p><code>As New</code> creates the object immediately on entry to the scope. <code>Set Second = First</code> shares the object rather than cloning it, so clearing <code>First</code> does not clear <code>Second</code>. Use <code>Set</code> for all class, interface, form, control, and object-reference assignments.</p><footer class="article-footer">Article ID: learn.variables-types · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer></main></body></html>

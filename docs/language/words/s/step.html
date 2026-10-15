@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.step">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sets the amount added to a For loop variable after each iteration.">
+  <title>Step — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/s/step.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / Step</nav>
+    <h1>Step</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Loop word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Sets the amount added to a For loop variable after each iteration.</p>
+    <h2>Syntax</h2>
+    <pre><code>For counter = first To last Step amount</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Number As Long
+    For Number = 2 To 6 Step 2
+        Print Number
+    Next Number
+End Sub</code></pre>
+    <h3>Expected result</h3><p>2, 4, and 6 are printed on separate lines.</p>
+    <h2>Important rules</h2>
+    <p>A negative Step counts downward. A zero step does not make progress and should not be used.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/static.html" data-doc-path="language/words/s/static.html">← Previous: Static</a><a href="../s/stop.html" data-doc-path="language/words/s/stop.html">Next: Stop →</a></nav>
+    <footer class="article-footer">Article ID: language.word.step · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

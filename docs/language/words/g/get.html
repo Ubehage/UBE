@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.get">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Reads data from a random or binary file, or declares a property getter."><title>Get — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/g/get.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/g/index.html">G</a> / Get</nav><h1>Get</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">File and property word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Reads data from a random or binary file, or declares a property getter.</p>
+<h2>Syntax</h2><pre><code>Get [#]fileNumber, [recordNumber], variable</code></pre><h2>Example</h2><pre><code>Sub Main()
+    Dim Value As Long
+    Open "value.dat" For Binary As #1
+    Get #1, , Value
+    Close #1
+End Sub</code></pre><h3>Expected result</h3><p>The next <code>Long</code> value in <code>value.dat</code> is stored in <code>Value</code>.</p><h2>Important rules</h2><p>The destination must be assignable. Close every file that the program opens.</p>
+<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../f/function.html" data-doc-path="language/words/f/function.html">← Previous: Function</a><a href="global.html" data-doc-path="language/words/g/global.html">Next: Global →</a></nav><footer class="article-footer">Article ID: language.word.get · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

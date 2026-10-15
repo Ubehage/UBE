@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.output">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Opens a file for writing from its beginning.">
+  <title>Output — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/o/output.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/o/index.html">O</a> / Output</nav>
+    <h1>Output</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">File mode word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Opens a file for writing from its beginning.</p>
+    <h2>Syntax</h2>
+    <pre><code>Open path For Output As #fileNumber</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Open "result.txt" For Output As #1
+    Print #1, "Done"
+    Close #1
+End Sub</code></pre>
+    <h3>Expected result</h3><p>result.txt is created or replaced and contains Done.</p>
+    <h2>Important rules</h2>
+    <p>Output replaces existing file contents. Use Append when existing contents must be retained.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../o/orelse.html" data-doc-path="language/words/o/orelse.html">← Previous: OrElse</a><a href="../p/page.html" data-doc-path="language/words/p/page.html">Next: Page →</a></nav>
+    <footer class="article-footer">Article ID: language.word.output · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

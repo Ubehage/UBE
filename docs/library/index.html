@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en" data-article-id="library.overview">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="UBE 1.0 standard-library scope and API status."><title>Standard library - UBE documentation</title><link rel="stylesheet" href="../assets/css/tokens.css"><link rel="stylesheet" href="../assets/css/base.css"><link rel="stylesheet" href="../assets/css/article.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../index.html#library/index.html">UBE documentation</a></header><main id="content" class="article">
+<nav class="breadcrumbs" aria-label="Breadcrumb">UBE documentation / Standard library</nav><h1>Standard library</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">API catalog incomplete</span></div>
+<p class="lede">The standard library is UBE source compiled with your program. It supplies common operations without making their names part of the language grammar.</p>
+<h2>Library boundary</h2><p>Functions such as text conversion and string processing are ordinary declared procedures. The compiler resolves them through library declarations and versioned metadata. UBE does not require a separately installed runtime or virtual machine; each output contains the program-support code it needs.</p>
+<h2>Defined UBE 1.0 areas</h2>
+<dl>
+<dt>Conversion and inspection</dt><dd>Canonical scalar conversions, plus <code>IsEmpty</code> and <code>IsNull</code>. Locale-aware parsing and formatting must be requested explicitly.</dd>
+<dt>Managed memory</dt><dd><code>CollectGarbage() As Long</code> requests a full synchronous collection. It returns <code>1</code> if cleanup work occurred and <code>0</code> otherwise. Collection also happens automatically.</dd>
+<dt>Thread operations</dt><dd><code>CurrentThreadId</code>, <code>ThreadStopRequested</code>, <code>ThreadRequestStop</code>, and <code>ThreadWait</code> use ordinary <code>LongLong</code> UBE thread identifiers.</dd>
+<dt>Synchronization</dt><dd>Atomic scalar types, <code>ThreadEvent</code>, <code>Semaphore</code>, and a FIFO <code>MessageQueue</code> are specified. <code>CreateThreadEvent</code> and <code>CreateSemaphore</code> create configured synchronization objects.</dd>
+</dl>
+<h2>API availability</h2><p>The areas above have normative behavior, but the full public declaration catalog and released UBE 1.0 library are not yet available. Names or signatures not stated in the UBE 1.0 specification remain planned rather than implied by this page.</p>
+<h2>Reference</h2><ul><li><a href="memory.html" data-doc-path="library/memory.html">Managed memory and CollectGarbage</a></li><li><a href="variant-inspection.html" data-doc-path="library/variant-inspection.html">Variant inspection</a></li><li><a href="threading.html" data-doc-path="library/threading.html">Threading and synchronization</a></li></ul>
+<div class="callout"><strong>Resource ownership</strong>Managed memory does not close files, sockets, handles, or other resources opened by your code. Close or release those resources explicitly.</div>
+<h2>Planned catalog</h2><p>The finished API reference will cover strings, conversion, collections, files and streams, console I/O, dates and times, mathematics, errors, memory, threading, events, processes, and networking. Each API page will state its errors, thread safety, and platform availability.</p>
+<footer class="article-footer">Article ID: library.overview - UBE 1.0 definition - Last reviewed 2026-10-15</footer></main></body></html>

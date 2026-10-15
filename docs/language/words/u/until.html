@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.until">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Repeats or stops a Do loop according to when a condition becomes true.">
+  <title>Until — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/u/until.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/u/index.html">U</a> / Until</nav>
+    <h1>Until</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Loop condition word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Repeats or stops a Do loop according to when a condition becomes true.</p>
+    <h2>Syntax</h2>
+    <pre><code>Do Until condition
+    statements
+Loop</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Count As Long
+    Do Until Count = 3
+        Count = Count + 1
+    Loop
+    Print Count
+End Sub</code></pre>
+    <h3>Expected result</h3><p>3</p>
+    <h2>Important rules</h2>
+    <p>Until may appear after Do or after Loop, but not in both places for the same loop.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../u/unlock.html" data-doc-path="language/words/u/unlock.html">← Previous: Unlock</a><a href="../u/usercontrol.html" data-doc-path="language/words/u/usercontrol.html">Next: UserControl →</a></nav>
+    <footer class="article-footer">Article ID: language.word.until · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

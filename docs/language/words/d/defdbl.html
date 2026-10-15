@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.defdbl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Marks a classic VB Double implicit-type directive for migration.">
+  <title>DefDbl — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/d/defdbl.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / DefDbl</nav>
+    <h1>DefDbl</h1>
+    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">Rejected migration syntax</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Marks a classic VB Double implicit-type directive for migration.</p>
+    <h2>Syntax</h2>
+    <pre><code>DefDbl letterRange [, letterRange ...]</code></pre>
+    <h2>Example</h2>
+    <pre><code>UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"LegacyTypes\"\nDefDbl D-F</code></pre>
+    <h3>Expected result</h3>
+    <p>The compiler rejects implicit typing and requests explicit As Double declarations.</p>
+    <h2>Important rules</h2>
+    <p>This syntax exists for classic VB compatibility. It does not weaken UBE's explicit typing, portability, or resource-cleanup rules.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/defdate.html" data-doc-path="language/words/d/defdate.html">← Previous: DefDate</a><a href="../d/defint.html" data-doc-path="language/words/d/defint.html">Next: DefInt →</a></nav>
+    <footer class="article-footer">Article ID: language.word.defdbl · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

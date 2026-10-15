@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.variant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Stores a tagged value that may contain any core value.">
+  <title>Variant — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/v/variant.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/v/index.html">V</a> / Variant</nav>
+    <h1>Variant</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Stores a tagged value that may contain any core value.</p>
+    <h2>Syntax</h2>
+    <pre><code>Dim name As Variant</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Value As Variant = 42
+    Print Value
+End Sub</code></pre>
+    <h3>Expected result</h3><p>42</p>
+    <h2>Important rules</h2>
+    <p>UBE never declares Variant implicitly. Write As Variant when this flexibility is required.</p>
+    <h2>UBE 1.0 rules</h2><p>A <code>Variant</code> begins as <code>Empty</code> and preserves the exact type assigned to it. <code>Null</code> remains <code>Null</code> when copied to another Variant and propagates through Variant operations. Object references crossing a Variant boundary still require <code>Set</code>.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../v/variable.html" data-doc-path="language/words/v/variable.html">← Previous: Variable</a><a href="../v/version.html" data-doc-path="language/words/v/version.html">Next: Version →</a></nav>
+    <footer class="article-footer">Article ID: language.word.variant · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

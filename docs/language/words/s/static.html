@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.static">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Gives a local variable a value that is retained between calls, or modifies a supported declaration.">
+  <title>Static — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/s/static.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / Static</nav>
+    <h1>Static</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Declaration modifier</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Gives a local variable a value that is retained between calls, or modifies a supported declaration.</p>
+    <h2>Syntax</h2>
+    <pre><code>Static name As type</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub CountCalls()
+    Static Count As Long
+    Count = Count + 1
+    Print Count
+End Sub
+
+Sub Main()
+    CountCalls
+    CountCalls
+End Sub</code></pre>
+    <h3>Expected result</h3><p>1, then 2, on separate lines.</p>
+    <h2>Important rules</h2>
+    <p>A static local has procedure scope but retains its value between calls.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/spc.html" data-doc-path="language/words/s/spc.html">← Previous: Spc</a><a href="../s/step.html" data-doc-path="language/words/s/step.html">Next: Step →</a></nav>
+    <footer class="article-footer">Article ID: language.word.static · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.next">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ends a For loop and starts its next iteration.">
+  <title>Next — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/n/next.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/n/index.html">N</a> / Next</nav>
+    <h1>Next</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Loop word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Ends a For loop and starts its next iteration.</p>
+    <h2>Syntax</h2>
+    <pre><code>For counter = first To last
+    statements
+Next [counter]</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Number As Long
+    For Number = 1 To 3
+        Print Number
+    Next Number
+End Sub</code></pre>
+    <h3>Expected result</h3><p>1, 2, and 3 are printed on separate lines.</p>
+    <h2>Important rules</h2>
+    <p>The name after Next is optional. If supplied, it must identify the active loop variable.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/new.html" data-doc-path="language/words/n/new.html">← Previous: New</a><a href="../n/not.html" data-doc-path="language/words/n/not.html">Next: Not →</a></nav>
+    <footer class="article-footer">Article ID: language.word.next · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

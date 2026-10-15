@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.set">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Assigns an object reference or declares a property setter.">
+  <title>Set — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/s/set.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / Set</nav>
+    <h1>Set</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Object assignment and property word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Assigns an object reference or declares a property setter.</p>
+    <h2>Syntax</h2>
+    <pre><code>Set destination = objectExpression</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Item As Object
+    Set Item = Nothing
+    Print Item Is Nothing
+End Sub</code></pre>
+    <h3>Expected result</h3><p>True</p>
+    <h2>Important rules</h2>
+    <p>Use Set for object-reference assignment. Property Set declares an object-valued property setter.</p>
+    <h2>UBE 1.0 rules</h2><p><code>Set</code> is mandatory whenever the destination is an object, class, interface, form, or control reference, including reference values entering or leaving a <code>Variant</code>. Assignment shares identity and does not clone the object. <code>Set A = Nothing</code> clears only <code>A</code>; other aliases remain valid.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/semaphore.html" data-doc-path="language/words/s/semaphore.html">← Previous: Semaphore</a><a href="../s/shared.html" data-doc-path="language/words/s/shared.html">Next: Shared →</a></nav>
+    <footer class="article-footer">Article ID: language.word.set · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

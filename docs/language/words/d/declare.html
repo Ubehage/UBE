@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.declare">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Declares a procedure supplied by an external library.">
+  <title>Declare — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/d/declare.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Declare</nav>
+    <h1>Declare</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">External procedure declaration</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Declares a procedure supplied by an external library.</p>
+    <h2>Syntax</h2>
+    <pre><code>Declare Sub|Function name Lib "library" [Alias "export"] (parameters) [As type]</code></pre>
+    <h2>Example</h2>
+    <pre><code>Declare Function SystemClock Lib "platform" () As LongLong
+
+Sub Main()
+    Print SystemClock()
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The external SystemClock function is called and its returned value is printed.</p>
+    <h2>Important rules</h2>
+    <p>The library, exported procedure, parameter types, and result type must match the target's foreign interface.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/decimal.html" data-doc-path="language/words/d/decimal.html">← Previous: Decimal</a><a href="../d/default.html" data-doc-path="language/words/d/default.html">Next: Default →</a></nav>
+    <footer class="article-footer">Article ID: language.word.declare · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

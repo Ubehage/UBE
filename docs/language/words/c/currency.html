@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.currency">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Stores a fixed-point number with four decimal places.">
+  <title>Currency — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/c/currency.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / Currency</nav>
+    <h1>Currency</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Stores a fixed-point number with four decimal places.</p>
+    <h2>Syntax</h2>
+    <pre><code>Dim name As Currency</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Price As Currency
+    Price = 12.5
+    Print Price
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>12.5</p>
+    <h2>Important rules</h2>
+    <p>Currency is a signed 64-bit fixed-point value with a scale of 10,000. It is suitable when four fixed decimal places are required.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/createthreadevent.html" data-doc-path="language/words/c/createthreadevent.html">← Previous: CreateThreadEvent</a><a href="../c/currentthreadid.html" data-doc-path="language/words/c/currentthreadid.html">Next: CurrentThreadId →</a></nav>
+    <footer class="article-footer">Article ID: language.word.currency · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

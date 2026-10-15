@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="language.event-binding">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bind UBE events through WithEvents fields and field_event handlers.">
+  <title>WithEvents binding — UBE documentation</title>
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/article.css">
+  <script src="../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../index.html#language/topics/event-binding.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="language/topics/index.html">Language reference</a> / WithEvents binding</nav>
+    <h1>WithEvents binding</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Compiler support in progress</span></div>
+    <p class="lede"><code>WithEvents</code> connects an object field to handlers named after that field and its events.</p>
+    <h2>Declaration and handler</h2>
+    <pre><code>Private WithEvents Source As Button
+
+Private Sub Source_Click()
+    Print "Clicked"
+End Sub</code></pre>
+    <p>The declared type must be a class, interface, form, or control type that declares events. A handler is optional. When present, it must be a <code>Private Sub</code> whose parameters exactly match the event.</p>
+    <h2>Connecting and disconnecting</h2>
+    <pre><code>Set Source = SaveButton   ' Disconnects the old source, then connects this one.
+Set Source = Nothing      ' Disconnects the handlers.</code></pre>
+    <p>One declaration names one field. <code>WithEvents</code> is allowed on module, class, form, and control fields, not locals or parameters. It cannot use <code>As New</code> or a declaration initializer.</p>
+    <h2>Dispatch behavior</h2>
+    <p>Events are synchronous unless an API says otherwise. Handlers may raise the same event recursively. Each invocation uses the connections present when that invocation begins; a disconnected handler is skipped, while a connection added during dispatch starts with the next invocation.</p>
+    <p>A connection retains its source and receiver according to the managed lifetime rules. Successful form or control unloading clears affected aliases to <code>Nothing</code> and disconnects them safely.</p>
+    <h2>Not in UBE 1.0</h2>
+    <p>Local <code>WithEvents</code> declarations and dynamic <code>AddHandler</code>/<code>RemoveHandler</code> statements are not part of UBE 1.0.</p>
+    <footer class="article-footer">Article ID: language.event-binding · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

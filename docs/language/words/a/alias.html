@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.alias">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Gives the exported name used by an external procedure when it differs from the UBE name.">
+  <title>Alias — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/a/alias.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/a/index.html">A</a> / Alias</nav>
+    <h1>Alias</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">External declaration clause</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Gives the exported name used by an external procedure when it differs from the UBE name.</p>
+    <h2>Syntax</h2>
+    <pre><code>Declare Function localName Lib "library" Alias "exportedName" (parameters) As type</code></pre>
+    <h2>Example</h2>
+    <pre><code>Declare Function SystemClock Lib "platform" Alias "ube_system_clock" () As LongLong
+
+Sub Main()
+    Print SystemClock()
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>The program calls the external export ube_system_clock through the UBE name SystemClock.</p>
+    <h2>Important rules</h2>
+    <p>Alias is valid in a Declare statement after Lib. The named library and export must exist for the target platform.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/addressof.html" data-doc-path="language/words/a/addressof.html">← Previous: AddressOf</a><a href="../a/and.html" data-doc-path="language/words/a/and.html">Next: And →</a></nav>
+    <footer class="article-footer">Article ID: language.word.alias · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

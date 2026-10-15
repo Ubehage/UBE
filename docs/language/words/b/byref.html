@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.byref">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Passes a reference to the caller's value so the procedure can change that value.">
+  <title>ByRef — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/b/byref.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/b/index.html">B</a> / ByRef</nav>
+    <h1>ByRef</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Parameter modifier</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Passes a reference to the caller's value so the procedure can change that value.</p>
+    <h2>Syntax</h2>
+    <pre><code>Sub name(ByRef parameter As type)</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub AddOne(ByRef Value As Long)
+    Value = Value + 1
+End Sub
+
+Sub Main()
+    Dim Count As Long
+    Count = 4
+    AddOne Count
+    Print Count
+End Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>5</p>
+    <h2>Important rules</h2>
+    <p>ByRef is the compatibility default when neither ByRef nor ByVal is written. Write the modifier explicitly when the distinction matters.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/boolean.html" data-doc-path="language/words/b/boolean.html">← Previous: Boolean</a><a href="../b/byte.html" data-doc-path="language/words/b/byte.html">Next: Byte →</a></nav>
+    <footer class="article-footer">Article ID: language.word.byref · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>
+

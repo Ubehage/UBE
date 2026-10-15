@@ -1,0 +1,32 @@
+# Deferred UBE language and architecture questions
+
+**Status:** decisions intentionally deferred while the UBE 1.0 language is
+closed  
+**Rule:** this file contains only choices for which classic VB behavior would
+conflict with approved UBE architecture, or for which VB provides no portable
+model. Ordinary VB-compatible behavior does not require owner confirmation.
+
+## Language behavior
+
+- **Default form after unload.** Classic VB silently creates a new default
+  instance when a bare form name is used after unload. That conflicts with the
+  approved rule against hidden object reconstruction. Decide whether a fresh
+  `Load FormName` is required; explicit loading is recommended.
+
+## Portable library architecture
+
+- Define the portable compiled-library bundle/container and its manifest.
+- Choose dependency compatibility rules: semantic versions, public-interface
+  hashes, or both.
+- Choose the canonical package identity for compiler-selected core library
+  source.
+- Decide whether legacy `Date = ...` and `Time = ...` host-clock assignment is
+  rejected or exposed through an explicit platform capability. Silent host
+  mutation conflicts with portable, permission-aware library design.
+- Decide whether classic graphics statements such as `Circle`, `Line`,
+  `PSet`, and `PaintPicture` remain reserved compatibility syntax or become
+  ordinary calls in a separately linked graphics library.
+
+These deferred decisions do not change parsing of source-library
+`Reference = "path/Library.UBE"` entries or any other currently frozen core
+production, so they do not block the core source grammar.

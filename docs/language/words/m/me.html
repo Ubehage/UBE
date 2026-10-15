@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.me">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Refers to the current class, form, or control instance.">
+  <title>Me — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/m/me.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/m/index.html">M</a> / Me</nav>
+    <h1>Me</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Instance expression</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Refers to the current class, form, or control instance.</p>
+    <h2>Syntax</h2>
+    <pre><code>Me.member</code></pre>
+    <h2>Example</h2>
+    <pre><code>UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"Counter\"\nPrivate Value As Long\n\nPublic Sub Reset()\n    Me.Value = 0\nEnd Sub</code></pre>
+    <h3>Expected result</h3>
+    <p>Reset writes the Value field belonging to the current Counter instance.</p>
+    <h2>Important rules</h2>
+    <p>This behavior is specified for UBE 1.0. Compiler v3 implementation is still in progress.</p>
+    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../l/lset.html" data-doc-path="language/words/l/lset.html">← Previous: LSet</a><a href="../m/messagequeue.html" data-doc-path="language/words/m/messagequeue.html">Next: MessageQueue →</a></nav>
+    <footer class="article-footer">Article ID: language.word.me · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

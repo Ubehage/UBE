@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-article-id="language.word.redim">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Creates or changes the bounds of a dynamic array.">
+  <title>ReDim — UBE documentation</title>
+  <link rel="stylesheet" href="../../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../../assets/css/base.css">
+  <link rel="stylesheet" href="../../../assets/css/article.css">
+  <script src="../../../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../../../index.html#language/words/r/redim.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/r/index.html">R</a> / ReDim</nav>
+    <h1>ReDim</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Array statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Creates or changes the bounds of a dynamic array.</p>
+    <h2>Syntax</h2>
+    <pre><code>ReDim [Preserve] arrayName(bounds)</code></pre>
+    <h2>Example</h2>
+    <pre><code>Sub Main()
+    Dim Values() As Long
+    ReDim Values(9)
+    Values(0) = 25
+    Print Values(0)
+End Sub</code></pre>
+    <h3>Expected result</h3><p>25</p>
+    <h2>Important rules</h2>
+    <p>Use Preserve when existing values must survive resizing.</p>
+    <h2>UBE 1.0 rules</h2><p>Array bounds are <code>LongLong</code>. <code>ReDim Preserve</code> may change any dimensions; it retains values whose complete coordinate tuple remains inside every new bound and initializes newly introduced positions.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../r/read.html" data-doc-path="language/words/r/read.html">← Previous: Read</a><a href="../r/reference.html" data-doc-path="language/words/r/reference.html">Next: Reference →</a></nav>
+    <footer class="article-footer">Article ID: language.word.redim · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+  </main>
+</body>
+</html>

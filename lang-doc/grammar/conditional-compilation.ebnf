@@ -1,0 +1,39 @@
+(* UBE 1.0 conditional-compilation directives. Complete logical lines only. *)
+conditional-directive = const-directive | if-directive | elseif-directive |
+                        else-directive | end-if-directive ;
+const-directive       = spacing, "#Const", spacing1, identifier, spacing,
+                        "=", spacing, conditional-expression, line-end ;
+if-directive          = spacing, "#If", spacing1, conditional-expression,
+                        spacing1, "Then", line-end ;
+elseif-directive      = spacing, "#ElseIf", spacing1, conditional-expression,
+                        spacing1, "Then", line-end ;
+else-directive        = spacing, "#Else", line-end ;
+end-if-directive      = spacing, "#End", spacing1, "If", line-end ;
+
+conditional-expression = conditional-implication ;
+conditional-implication = conditional-equivalence,
+                          { spacing1, "Imp", spacing1, conditional-equivalence } ;
+conditional-equivalence = conditional-xor,
+                          { spacing1, "Eqv", spacing1, conditional-xor } ;
+conditional-xor      = conditional-or,
+                       { spacing1, "Xor", spacing1, conditional-or } ;
+conditional-or       = conditional-and,
+                       { spacing1, ( "Or" | "OrElse" ), spacing1, conditional-and } ;
+conditional-and      = conditional-not,
+                       { spacing1, ( "And" | "AndAlso" ), spacing1, conditional-not } ;
+conditional-not      = { "Not", spacing1 }, conditional-comparison ;
+conditional-comparison = conditional-additive,
+                         [ spacing, comparison-operator, spacing,
+                           conditional-additive ] ;
+comparison-operator  = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
+conditional-additive = conditional-multiplicative,
+                       { spacing, ( "+" | "-" | "&" ), spacing,
+                         conditional-multiplicative } ;
+conditional-multiplicative = conditional-unary,
+                             { spacing, ( "*" | "/" | "\\" | "Mod" ), spacing,
+                               conditional-unary } ;
+conditional-unary    = { ( "+" | "-" ), spacing }, conditional-primary ;
+conditional-primary  = literal | identifier |
+                       "(", spacing, conditional-expression, spacing, ")" ;
+
+(* Lexical terminals and literal productions are those in ube.ebnf. *)
