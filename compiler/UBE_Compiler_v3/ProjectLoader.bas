@@ -1,3 +1,6 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "ProjectLoader"
+
 Type ProjectDescription
     Name As String
     Kind As String

@@ -4,7 +4,8 @@
 
 This is the architectural boundary for the v3 generation. V3 is UBE's first
 public-release compiler target. The checked-in program is the verified,
-v2-buildable RP1 compiler shell; language parsing begins in later previews.
+v2-buildable RP2 lexical and preprocessing front end; syntax parsing begins in
+RP3.
 
 ## Bootstrap boundary
 

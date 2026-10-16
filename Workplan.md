@@ -31,7 +31,10 @@ nearer roadmap or progress file.
   - [x] Complete RP1: bounded multi-module compiler shell, project/source
     validation, host/target descriptions, compatibility identities, and the
     API-empty `UBECore` project boundary.
-  - [ ] Begin RP2 with native and compatibility source-envelope validation.
+  - [x] Complete RP2: native and compatibility source envelopes, frozen UBE
+    1.0 tokenization, conditional compilation, stable source mapping,
+    deterministic token output, bounded recovery, and malformed-input tests.
+  - [ ] Begin RP3 with the bounded, owned syntax representation.
 
 ## Handoff protocol
 

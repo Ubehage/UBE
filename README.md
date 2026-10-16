@@ -58,18 +58,18 @@ V2 is a stable transitional compiler used to build UBE Compiler v3. Version 3
 is the first public-release target. Its UBE 1.0 language definition, compiler
 boundaries, and staged development plan are now frozen.
 
-Compiler v3 Release Preview 1 is complete. RP1 is a verified, v2-built,
-nine-module compiler shell with bounded diagnostics, safe `UBE-Project 1`
-loading, ordered UTF-8 source ownership, centralized resource limits, and
-separate host and target descriptions. Both preserved v2 stages produce
-byte-identical RP1 LLVM, and the native compiler passes its positive and
-controlled-failure project corpus.
+Compiler v3 Release Preview 2 is complete. RP2 is a verified, v2-built,
+13-module lexical front end. It validates native UBE and compatible VB6 source
+envelopes, applies nested conditional compilation without losing source
+locations, and produces a deterministic, bounded token stream implementing
+the frozen UBE 1.0 lexical contract. Both preserved v2 stages produce
+byte-identical RP2 LLVM, and malformed and deterministic-fuzz inputs are
+covered by controlled diagnostics rather than compiler crashes.
 
 The separate source-library project now has the canonical package identity
-`UBECore`. RP1 validates its project boundary but deliberately uses no public
-library APIs yet. Development is moving into Release Preview 2, which adds
-native and compatibility source headers, complete tokenization, conditional
-compilation, and bounded lexical recovery.
+`UBECore`. RP2 validates and lexes that project but deliberately uses no public
+library APIs yet. Development can now move into Release Preview 3: the owned
+syntax model and complete parser.
 
 The documentation website already provides an offline, browsable language
 manual with an expandable A-Z reference. Planned behavior is labelled
@@ -98,7 +98,7 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP1 and its project/source failure corpus,
+v2 self-hosting chain, Compiler v3 RP2 and its lexical/preprocessing corpus,
 the `UBECore` project boundary, and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 

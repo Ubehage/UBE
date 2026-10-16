@@ -1,3 +1,6 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "BootstrapIntrinsics"
+
 Intrinsic Function StringLength(ByVal Value As String) As Long
 End Function
 

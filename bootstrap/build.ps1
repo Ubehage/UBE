@@ -344,37 +344,57 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3Rp1StageOneIr = Join-Path $out 'v3-rp1-stage1.ll'
-$v3Rp1StageTwoIr = Join-Path $out 'v3-rp1-stage2.ll'
-$v3Rp1Executable = Join-Path $out 'v3-rp1.exe'
+$v3Rp1StageOneIr = Join-Path $out 'v3-rp2-stage1.ll'
+$v3Rp1StageTwoIr = Join-Path $out 'v3-rp2-stage2.ll'
+$v3Rp1Executable = Join-Path $out 'v3-rp2.exe'
 & $v2StageOne $v3Manifest $v3Rp1StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP1' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP2' }
 & $v2StageTwo $v3Manifest $v3Rp1StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP1' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP2' }
 $v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
 $v3Rp1StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp1StageTwoIr -Algorithm SHA256).Hash
 if ($v3Rp1StageOneIrHash -ne $v3Rp1StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 RP1 LLVM IR'
+    throw 'UBE Compiler v2 stages one and two emitted different v3 RP2 LLVM IR'
 }
 & $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
     (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP1' }
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP2' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -ne 'UBE Compiler v3 RP1: project UBE_Compiler_v3 (Exe), 9 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP1 failed to load its own project'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP2: project UBE_Compiler_v3 (Exe), 13 source(s), * token(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP2 failed to lex its own project'
 }
 
 $v3Rp1Tests = Join-Path $v3Project 'tests'
 $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -ne 'UBE Compiler v3 RP1: project RP1Fixture (Exe), 2 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP1 failed its multi-module project fixture'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP2: project RP1Fixture (Exe), 2 source(s), * token(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP2 failed its inherited multi-module project fixture'
 }
 $ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -ne 'UBE Compiler v3 RP1: project UBECore (Library), 1 source(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP1 failed to validate the UBECore project boundary'
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP2: project UBECore (Library), 1 source(s), * token(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP2 failed to validate the UBECore project boundary'
+}
+
+$v3Rp2Tests = Join-Path $v3Project 'tests/rp2'
+foreach ($positiveProject in @('basic.UBE', 'lexical.UBE', 'legacy.UBE', 'conditional-continuation.UBE')) {
+    $positiveOutput = & $v3Rp1Executable (Join-Path $v3Rp2Tests $positiveProject) $v3Rp1Target
+    if ($LASTEXITCODE -ne 0 -or $positiveOutput -notlike 'UBE Compiler v3 RP2:*') {
+        throw "UBE Compiler v3 RP2 failed positive fixture $positiveProject"
+    }
+}
+$firstTokenDump = & $v3Rp1Executable '--dump-tokens' (Join-Path $v3Rp2Tests 'lexical.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v3 RP2 failed to dump lexical fixture tokens' }
+$secondTokenDump = & $v3Rp1Executable '--dump-tokens' (Join-Path $v3Rp2Tests 'lexical.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or (Compare-Object $firstTokenDump $secondTokenDump)) {
+    throw 'UBE Compiler v3 RP2 token serialization is not deterministic'
+}
+$serializedTokens = $firstTokenDump -join "`n"
+foreach ($requiredTokenKind in @('|keyword|', '|identifier|', '|bracket-identifier|', '|integer|', '|real|', '|string|', '|date|', '|punctuation|', '|newline|', '|comment|', '|spacing|', '|continuation|', '|eof|')) {
+    if ($serializedTokens -notlike "*$requiredTokenKind*") {
+        throw "UBE Compiler v3 RP2 token dump omitted $requiredTokenKind"
+    }
 }
 
 function Test-V3Rp1Failure {
@@ -387,17 +407,17 @@ function Test-V3Rp1Failure {
 
     $failure = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments $Arguments
     if ($failure.ExitCode -ne $ExpectedExitCode) {
-        throw "UBE Compiler v3 RP1 returned the wrong exit code for $Name"
+        throw "UBE Compiler v3 RP2 returned the wrong exit code for $Name"
     }
-    if ($failure.Output -notlike "*$ExpectedDiagnostic*") {
-        throw "UBE Compiler v3 RP1 returned the wrong diagnostic for $Name`: $($failure.Output)"
+    if (-not $failure.Output.Contains($ExpectedDiagnostic)) {
+        throw "UBE Compiler v3 RP2 returned the wrong diagnostic for $Name`: $($failure.Output)"
     }
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp1 <project.UBE> <target-triple>'
+    -ExpectedDiagnostic 'usage: ube-v3-rp2 [--dump-tokens] <project.UBE> <target-triple>'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
-    -ExpectedDiagnostic 'error UBE3200: unsupported RP1 target: unknown-target'
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP2 target: unknown-target'
 Test-V3Rp1Failure -Name 'duplicate-source' `
     -Arguments @((Join-Path $v3Rp1Tests 'duplicate-source.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3013: duplicate Source after path normalization'
@@ -413,6 +433,70 @@ Test-V3Rp1Failure -Name 'library-startup' `
 Test-V3Rp1Failure -Name 'missing-source' -ExpectedExitCode 66 `
     -Arguments @((Join-Path $v3Rp1Tests 'missing-source.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'UBE runtime: cannot open for reading:'
+Test-V3Rp1Failure -Name 'source-kind-mismatch' `
+    -Arguments @((Join-Path $v3Rp2Tests 'kind-mismatch.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3303: source header kind does not match its file extension'
+Test-V3Rp1Failure -Name 'missing-source-header' `
+    -Arguments @((Join-Path $v3Rp2Tests 'missing-header.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3300: source must begin with a native UBE header or recognized VB6 header'
+Test-V3Rp1Failure -Name 'lexical-recovery' `
+    -Arguments @((Join-Path $v3Rp2Tests 'malformed.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3405: unterminated string literal'
+Test-V3Rp1Failure -Name 'unmatched-conditional' `
+    -Arguments @((Join-Path $v3Rp2Tests 'conditional-bad.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3507: #Else has no matching open #If'
+
+$v3Rp2FuzzSource = Join-Path $out 'v3-rp2-fuzz.bas'
+$v3Rp2FuzzProject = Join-Path $out 'v3-rp2-fuzz.UBE'
+$fuzzProjectText = "UBE-Project 1`nName = `"Fuzz`"`nKind = `"Library`"`nSource = `"v3-rp2-fuzz.bas`"`n"
+[System.IO.File]::WriteAllText($v3Rp2FuzzProject, $fuzzProjectText, [System.Text.UTF8Encoding]::new($false))
+
+$conditionalDepthText = [System.Text.StringBuilder]::new("UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n")
+for ($depthIndex = 0; $depthIndex -le 256; $depthIndex++) {
+    [void]$conditionalDepthText.AppendLine('#If True Then')
+}
+for ($depthIndex = 0; $depthIndex -le 256; $depthIndex++) {
+    [void]$conditionalDepthText.AppendLine('#End If')
+}
+[System.IO.File]::WriteAllText($v3Rp2FuzzSource, $conditionalDepthText.ToString(), [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'conditional-depth-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3503: conditional compilation nesting limit exceeded'
+
+$conditionalConstantText = [System.Text.StringBuilder]::new("UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n")
+for ($constantIndex = 0; $constantIndex -le 4096; $constantIndex++) {
+    [void]$conditionalConstantText.AppendLine("#Const C$constantIndex = True")
+}
+[System.IO.File]::WriteAllText($v3Rp2FuzzSource, $conditionalConstantText.ToString(), [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'conditional-constant-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3502: invalid #Const value or conditional constant limit exceeded'
+
+$tokenLimitText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + (':' * 100001)
+[System.IO.File]::WriteAllText($v3Rp2FuzzSource, $tokenLimitText, [System.Text.UTF8Encoding]::new($false))
+Test-V3Rp1Failure -Name 'token-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE3400: token limit exceeded'
+
+$random = [System.Random]::new(3302)
+for ($case = 0; $case -lt 32; $case++) {
+    $payloadLength = $random.Next(0, 513)
+    $payload = [System.Text.StringBuilder]::new()
+    for ($byteIndex = 0; $byteIndex -lt $payloadLength; $byteIndex++) {
+        [void]$payload.Append([char]$random.Next(1, 128))
+    }
+    $fuzzText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + $payload.ToString()
+    [System.IO.File]::WriteAllText($v3Rp2FuzzSource, $fuzzText, [System.Text.UTF8Encoding]::new($false))
+    $fuzzResult = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments @($v3Rp2FuzzProject, $v3Rp1Target)
+    if ($fuzzResult.ExitCode -ne 0 -and $fuzzResult.ExitCode -ne 1) {
+        throw "UBE Compiler v3 RP2 crashed or returned an uncontrolled status for deterministic fuzz case $case`: $($fuzzResult.Output)"
+    }
+}
+
+$v3Rp2BomText = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Bom`"`r`nDim finalIdentifier As Long"
+$v3Rp2BomBytes = [System.Text.UTF8Encoding]::new($true).GetBytes($v3Rp2BomText)
+[System.IO.File]::WriteAllBytes($v3Rp2FuzzSource, $v3Rp2BomBytes)
+$bomOutput = & $v3Rp1Executable $v3Rp2FuzzProject $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP2:*') {
+    throw 'UBE Compiler v3 RP2 failed BOM, CRLF, or final synthetic newline coverage'
+}
 
 $v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
 $manySourcesText = [System.Text.StringBuilder]::new()
@@ -449,17 +533,17 @@ Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourcePr
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
 $v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'TokenOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
     $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
 }
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp1-build-manifest-1'
-    preview = 'RP1'
+    schema = 'ube-v3-rp2-build-manifest-1'
+    preview = 'RP2'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
     core_package = 'UBECore'
-    core_library_version = '0.1.0-rp1'
+    core_library_version = '0.1.0-rp2'
     intrinsic_abi = 'ube-intrinsic-abi-1'
     source_library_slice = @()
     target = 'x86_64-w64-windows-gnu'
@@ -479,7 +563,7 @@ $v3Rp1BuildManifest = [ordered]@{
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 4 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp1-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp2-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(

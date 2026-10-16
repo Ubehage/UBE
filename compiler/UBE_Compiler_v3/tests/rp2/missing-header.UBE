@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "MissingHeader"
+Kind = "Exe"
+Startup = "Main"
+Source = "missing-header.bas"

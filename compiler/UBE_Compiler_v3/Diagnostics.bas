@@ -1,3 +1,6 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Diagnostics"
+
 Type CompilerDiagnostic
     Code As String
     FilePath As String

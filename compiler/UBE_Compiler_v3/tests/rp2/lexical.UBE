@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP2Lexical"
+Kind = "Exe"
+Startup = "Main"
+Source = "lexical.bas"

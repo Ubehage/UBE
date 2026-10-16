@@ -1,0 +1,4 @@
+UBE-Project 1
+Name = "KindMismatch"
+Kind = "Library"
+Source = "kind-mismatch.cls"

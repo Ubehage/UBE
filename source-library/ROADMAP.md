@@ -39,7 +39,7 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 - [x] Record RP1's empty callable module slice and the non-linked
   `CoreIdentity` project-boundary module.
 - [x] Preserve RP1's compiler and library project validation in
-  `bootstrap/build.ps1` and `bootstrap/out/v3-rp1-build-manifest.json`.
+  `bootstrap/build.ps1` and `bootstrap/out/v3-rp2-build-manifest.json`.
 - [ ] Test self-compilation and library recompilation whenever the preview is
   capable of them; do not make premature self-hosting a prerequisite.
 - [x] Prevent RP1 from silently depending on later APIs by recording an empty
@@ -59,7 +59,7 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## Handoff
 
-- Active compiler preview: RP1, built by both preserved v2 stages.
+- Active compiler preview: RP2, built by both preserved v2 stages.
 - Selected callable modules: none.
 - Boundary-only module: `src/portable/CoreIdentity.bas`.
 - Intrinsic dependencies: none from `UBECore`; RP1 compiler bootstrap

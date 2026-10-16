@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP2Basic"
+Kind = "Exe"
+Startup = "Main"
+Source = "basic.bas"

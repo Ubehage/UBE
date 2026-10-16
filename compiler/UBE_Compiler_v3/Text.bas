@@ -1,3 +1,6 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Text"
+
 Sub TrimText(ByVal Value As String, ByRef Result As String)
     Dim First As Long = 0
     Dim Last As Long = StringLength(Value)

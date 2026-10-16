@@ -1,3 +1,6 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "TargetConfig"
+
 Type TargetDescription
     Triple As String
     PlatformName As String
@@ -28,6 +31,6 @@ Function ResolveTarget(ByVal Triple As String, ByRef Target As TargetDescription
         ResolveTarget = 1
         Exit Function
     End If
-    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP1 target: " & Triple)
+    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP2 target: " & Triple)
     ResolveTarget = 0
 End Function

@@ -1,4 +1,7 @@
-' RP1 keeps all resource ceilings in one module so later phases can share the
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Limits"
+
+' RP2 keeps all resource ceilings in one module so later phases can share the
 ' same bounded behavior without scattering unexplained numeric limits.
 
 Function LimitDiagnosticCount() As Long
@@ -39,4 +42,16 @@ End Function
 
 Function LimitGeneratedBytes() As Long
     LimitGeneratedBytes = 67108864
+End Function
+
+Function LimitTokenCount() As Long
+    LimitTokenCount = 100000
+End Function
+
+Function LimitConditionalDepth() As Long
+    LimitConditionalDepth = 256
+End Function
+
+Function LimitConditionalConstants() As Long
+    LimitConditionalConstants = 4096
 End Function

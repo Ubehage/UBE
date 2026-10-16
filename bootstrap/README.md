@@ -13,10 +13,11 @@ From the repository root in PowerShell:
 
 The script builds `bootstrap/out/ubec.exe`, runs the lexer, parser, semantic,
 lowering, runtime, and native execution tests, preserves the complete v1 and
-v2 build chains, and builds Compiler v3 RP1 with both v2 stages. It requires
+v2 build chains, and builds Compiler v3 RP2 with both v2 stages. It requires
 byte-identical RP1 LLVM, links and runs the RP1 compiler shell, validates its
 project/source success and failure corpus, validates the `UBECore` project
-boundary, and records `bootstrap/out/v3-rp1-build-manifest.json`.
+lexical/preprocessing boundary, and records
+`bootstrap/out/v3-rp2-build-manifest.json`.
 Build output is intentionally not committed.
 
 To inspect the token stream for a source file:

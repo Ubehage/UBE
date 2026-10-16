@@ -128,32 +128,39 @@ locations and recovery.
 
 ### RP2.1 — native and compatibility source envelopes
 
-- [ ] Validate native `UBE SOURCE 1` headers, source kind, extension, and
+- [x] Validate native `UBE SOURCE 1` headers, source kind, extension, and
   `Attribute UBE_Name` identity.
-- [ ] Recognize legacy VB6 headers as compatibility input without emitting
+- [x] Recognize legacy VB6 headers as compatibility input without emitting
   them for native UBE source.
-- [ ] Preserve comments, original spelling, line mapping, attributes, and
+- [x] Preserve comments, original spelling, line mapping, attributes, and
   designer text needed by diagnostics and future tools.
 
 ### RP2.2 — complete lexical contract
 
-- [ ] Implement every token and lexical boundary in `language-spec.md`.
-- [ ] Use the pinned Unicode letter and simple-fold tables.
-- [ ] Implement literals, suffixes, bracketed identifiers, comments,
+- [x] Implement every token and lexical boundary in `language-spec.md`.
+- [x] Use the pinned Unicode letter and simple-fold tables.
+- [x] Implement literals, suffixes, bracketed identifiers, comments,
   continuations, BOM handling, and invariant date/time text.
-- [ ] Distinguish hard and contextual keywords at the appropriate phase.
-- [ ] Recover after malformed tokens while preserving useful locations.
+- [x] Distinguish hard and contextual keywords at the appropriate phase.
+- [x] Recover after malformed tokens while preserving useful locations.
 
 ### RP2.3 — conditional compilation
 
-- [ ] Implement the separate conditional-compilation grammar before core
+- [x] Implement the separate conditional-compilation grammar before core
   parsing.
-- [ ] Preserve source mapping through inactive branches and continuations.
-- [ ] Add nesting, malformed directive, inactive-invalid-text, and limit tests.
+- [x] Preserve source mapping through inactive branches and continuations.
+- [x] Add nesting, malformed directive, inactive-invalid-text, and limit tests.
 
 RP2 gate: every lexical and preprocessing rule has positive, negative,
 boundary, and recovery coverage; arbitrary bytes cannot crash or hang the
 compiler; v2 reproducibly builds the preview and recorded library slice.
+
+RP2 gate: complete and verified on 2026-10-16. Both preserved v2 stages emit
+byte-identical RP2 LLVM. The linked compiler lexes its own 13-module project,
+the inherited multi-module fixture, and `UBECore`; deterministic token dumps,
+native and legacy envelopes, conditional selection and source mapping,
+malformed recovery, BOM/line-ending boundaries, and deterministic fuzz inputs
+all pass without uncontrolled termination. All v1/v2 tests remain green.
 
 ## Release Preview 3: complete parser and owned syntax model
 
@@ -421,8 +428,7 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP1.2 with the smallest safe source split: add `Diagnostics.bas` and
-`SourceManager.bas`, list them in `UBE_Compiler_v3.UBE`, move no behavior until
-their bounded records compile under both v2 stages, and add that build to the
-existing bootstrap verification. Resolve RP1.1 decisions before the first
-source-library implementation module is created.
+Begin RP3.1 by defining bounded, owned syntax-node and list records with stable
+IDs and source ranges. Serialize them deterministically before connecting the
+first declaration parser, and preserve the complete RP2 token and failure
+corpus as the front-end regression boundary.

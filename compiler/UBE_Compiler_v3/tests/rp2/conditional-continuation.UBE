@@ -1,0 +1,4 @@
+UBE-Project 1
+Name = "ConditionalContinuation"
+Kind = "Library"
+Source = "conditional-continuation.bas"

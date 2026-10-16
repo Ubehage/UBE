@@ -1,9 +1,15 @@
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "SourceManager"
+
 Type SourceDocument
     SourceId As Long
     FilePath As String
     Contents As String
     CombinedStartByte As Long
     ByteLength As Long
+    LocationByte As Long
+    LocationLine As Long
+    LocationColumn As Long
 End Type
 
 Function LoadProjectSources(ByRef SourcePaths() As String, ByVal SourceCount As Long, ByRef Sources() As SourceDocument, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
@@ -21,6 +27,9 @@ Function LoadProjectSources(ByRef SourcePaths() As String, ByVal SourceCount As 
         Sources(Index).Contents = ReadAllText(SourcePaths(Index))
         Sources(Index).CombinedStartByte = CombinedLength
         Sources(Index).ByteLength = StringLength(Sources(Index).Contents)
+        Sources(Index).LocationByte = 0
+        Sources(Index).LocationLine = 1
+        Sources(Index).LocationColumn = 1
         If Sources(Index).ByteLength > LimitSourceBytes() Then
             Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3101", Sources(Index).FilePath, 1, 1, "source exceeds the 16777216-byte limit")
             LoadProjectSources = 0
