@@ -12,6 +12,11 @@ Each compiler generation must follow these conventions:
 - The project file must have the same name as its containing folder, e.g. UBE_Compiler_v1.UBE.
 - The startup module must always be named Main.bas.
 - Build outputs must be kept separate from source files.
+- After a release preview passes its complete stability gate, copy its final
+  executable to `compiler/release-previews/`, name it with its compiler
+  generation, preview, host, and target, update `SHA256SUMS.txt`, and include
+  both files in the preview's Git commit. Never overwrite an earlier stable
+  preview with a later build.
 
 Previous working compiler generations must be preserved unless explicitly authorized otherwise.
 

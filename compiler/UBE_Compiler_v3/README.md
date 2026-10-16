@@ -35,5 +35,7 @@ Authoritative inputs:
 - [`../UBE_Compiler_v2/V3_BOOTSTRAP_CONTRACT.md`](../UBE_Compiler_v2/V3_BOOTSTRAP_CONTRACT.md)
   defines the subset available while v2 builds the initial v3 compiler.
 
-Generated IR, objects, executables, logs, and comparison artifacts belong in
-`bootstrap/out/`, never in this directory.
+Generated IR, objects, logs, and intermediate executables belong in
+`bootstrap/out/`, never in this directory. Each completed preview's final
+verified executable is preserved separately in
+[`../release-previews/`](../release-previews/README.md).

@@ -30,6 +30,10 @@ roadmap.
   returned `UBE3701` without uncontrolled termination.
 - Generated reproducibility record:
   `bootstrap/out/v3-rp3-build-manifest.json`.
+- Stable RP0 through RP3 executables are preserved under
+  `compiler/release-previews/` with SHA-256 hashes. RP0 through RP2 were rebuilt
+  from their exact completion commits; all four preserved executables pass
+  their preview-appropriate smoke tests.
 
 ## Verified baseline
 

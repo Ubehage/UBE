@@ -34,7 +34,9 @@ Every preview must:
 - accept or reject every input through bounded, controlled diagnostics and
   never crash on malformed input or environmental failure;
 - keep target-independent phases free of Windows assumptions;
-- keep generated files under `../../bootstrap/out/`, not beside source;
+- keep intermediate generated files under `../../bootstrap/out/`, not beside
+  source, then preserve the final verified preview executable and hash under
+  `../release-previews/` in the preview commit;
 - record deterministic source, compiler, library, target, tool, flag, and
   artifact identities;
 - add positive, negative, boundary, and recovery tests for completed behavior;
