@@ -7,10 +7,10 @@ Type ConditionalValue
     TextValue As String
 End Type
 
-Sub SkipConditionalSpace(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long)
+Sub SkipConditionalSpace(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long)
     Dim ContinueSkipping As Long = 1
     While Cursor < EndByte And ContinueSkipping <> 0
-        Dim CurrentByte As Long = StringByteAt(Text, Cursor)
+        Dim CurrentByte As Long = StringByteAt(InputText, Cursor)
         If CurrentByte = 32 Or CurrentByte = 9 Or CurrentByte = 10 Or CurrentByte = 13 Then
             Cursor = Cursor + 1
         Else
@@ -19,7 +19,7 @@ Sub SkipConditionalSpace(ByVal Text As String, ByRef Cursor As Long, ByVal EndBy
             Else
                 If CurrentByte = 39 Then
                     While Cursor < EndByte
-                        CurrentByte = StringByteAt(Text, Cursor)
+                        CurrentByte = StringByteAt(InputText, Cursor)
                         If CurrentByte = 10 Or CurrentByte = 13 Then
                             Exit While
                         End If
@@ -33,9 +33,9 @@ Sub SkipConditionalSpace(ByVal Text As String, ByRef Cursor As Long, ByVal EndBy
     Wend
 End Sub
 
-Function ConditionalLogicalLineEnd(ByVal Text As String, ByVal StartByte As Long) As Long
-    Dim Length As Long = StringLength(Text)
-    Dim LineEnd As Long = StringIndexOf(Text, StringFromByte(10), StartByte)
+Function ConditionalLogicalLineEnd(ByVal InputText As String, ByVal StartByte As Long) As Long
+    Dim Length As Long = StringLength(InputText)
+    Dim LineEnd As Long = StringIndexOf(InputText, StringFromByte(10), StartByte)
     If LineEnd < 0 Then
         ConditionalLogicalLineEnd = Length
         Exit Function
@@ -48,12 +48,12 @@ Function ConditionalLogicalLineEnd(ByVal Text As String, ByVal StartByte As Long
         Dim Index As Long = ScanStart
         Dim InString As Long = 0
         While Index < LineEnd
-            Dim CurrentByte As Long = StringByteAt(Text, Index)
+            Dim CurrentByte As Long = StringByteAt(InputText, Index)
             If CurrentByte = 34 Then
                 Dim EscapedQuote As Long = 0
                 If InString <> 0 Then
                     If Index + 1 < LineEnd Then
-                        If StringByteAt(Text, Index + 1) = 34 Then
+                        If StringByteAt(InputText, Index + 1) = 34 Then
                             EscapedQuote = 1
                         End If
                     End If
@@ -72,11 +72,11 @@ Function ConditionalLogicalLineEnd(ByVal Text As String, ByVal StartByte As Long
                     Exit While
                 End If
                 If CurrentByte = 95 And InString = 0 And Index > ScanStart Then
-                    If StringByteAt(Text, Index - 1) = 32 Or StringByteAt(Text, Index - 1) = 9 Then
-                        Dim ContinuedAt As Long = ContinuationAfter(Text, Index, Length)
+                    If StringByteAt(InputText, Index - 1) = 32 Or StringByteAt(InputText, Index - 1) = 9 Then
+                        Dim ContinuedAt As Long = ContinuationAfter(InputText, Index, Length)
                         If ContinuedAt >= LineEnd Then
                             ScanStart = ContinuedAt
-                            Dim NextEnd As Long = StringIndexOf(Text, StringFromByte(10), ContinuedAt)
+                            Dim NextEnd As Long = StringIndexOf(InputText, StringFromByte(10), ContinuedAt)
                             If NextEnd < 0 Then
                                 LineEnd = Length
                             Else
@@ -93,20 +93,20 @@ Function ConditionalLogicalLineEnd(ByVal Text As String, ByVal StartByte As Long
     ConditionalLogicalLineEnd = LineEnd
 End Function
 
-Function ConditionalWordAt(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByVal Word As String) As Long
-    Call SkipConditionalSpace(Text, Cursor, EndByte)
+Function ConditionalWordAt(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByVal Word As String) As Long
+    Call SkipConditionalSpace(InputText, Cursor, EndByte)
     Dim WordLength As Long = StringLength(Word)
     If Cursor + WordLength > EndByte Then
         ConditionalWordAt = 0
         Exit Function
     End If
-    Dim Candidate As String = StringSlice(Text, Cursor, WordLength)
+    Dim Candidate As String = StringSlice(InputText, Cursor, WordLength)
     If EqualsFolded(Candidate, Word) = 0 Then
         ConditionalWordAt = 0
         Exit Function
     End If
     If Cursor + WordLength < EndByte Then
-        If IdentifierPartBytes(Text, Cursor + WordLength, EndByte) > 0 Then
+        If IdentifierPartBytes(InputText, Cursor + WordLength, EndByte) > 0 Then
             ConditionalWordAt = 0
             Exit Function
         End If
@@ -115,11 +115,11 @@ Function ConditionalWordAt(ByVal Text As String, ByRef Cursor As Long, ByVal End
     ConditionalWordAt = 1
 End Function
 
-Function ConditionalSymbolAt(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByVal Symbol As String) As Long
-    Call SkipConditionalSpace(Text, Cursor, EndByte)
+Function ConditionalSymbolAt(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByVal Symbol As String) As Long
+    Call SkipConditionalSpace(InputText, Cursor, EndByte)
     Dim SymbolLength As Long = StringLength(Symbol)
     If Cursor + SymbolLength <= EndByte Then
-        If StringSlice(Text, Cursor, SymbolLength) = Symbol Then
+        If StringSlice(InputText, Cursor, SymbolLength) = Symbol Then
             Cursor = Cursor + SymbolLength
             ConditionalSymbolAt = 1
             Exit Function
@@ -128,10 +128,10 @@ Function ConditionalSymbolAt(ByVal Text As String, ByRef Cursor As Long, ByVal E
     ConditionalSymbolAt = 0
 End Function
 
-Function FindConditionalConstant(ByVal Name As String, ByRef Names() As String, ByVal Count As Long) As Long
+Function FindConditionalConstant(ByVal ConstantName As String, ByRef Names() As String, ByVal Count As Long) As Long
     Dim Index As Long = 0
     While Index < Count
-        If EqualsFolded(Name, Names(Index)) <> 0 Then
+        If EqualsFolded(ConstantName, Names(Index)) <> 0 Then
             FindConditionalConstant = Index
             Exit Function
         End If
@@ -160,37 +160,37 @@ Function ConditionalTruth(ByRef Value As ConditionalValue) As Long
     End If
 End Function
 
-Function ParseConditionalExpression(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    ParseConditionalExpression = ParseConditionalImplication(Text, Cursor, EndByte, Names, Values, ConstantCount, Result)
+Function ParseConditionalExpression(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    ParseConditionalExpression = ParseConditionalImplication(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result)
 End Function
 
-Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    Call SkipConditionalSpace(Text, Cursor, EndByte)
+Function ParseConditionalPrimary(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    Call SkipConditionalSpace(InputText, Cursor, EndByte)
     If Cursor >= EndByte Then
         ParseConditionalPrimary = 0
         Exit Function
     End If
-    If StringByteAt(Text, Cursor) = 40 Then
+    If StringByteAt(InputText, Cursor) = 40 Then
         Cursor = Cursor + 1
-        If ParseConditionalExpression(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+        If ParseConditionalExpression(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
             ParseConditionalPrimary = 0
             Exit Function
         End If
-        If ConditionalSymbolAt(Text, Cursor, EndByte, ")") = 0 Then
+        If ConditionalSymbolAt(InputText, Cursor, EndByte, ")") = 0 Then
             ParseConditionalPrimary = 0
             Exit Function
         End If
         ParseConditionalPrimary = 1
         Exit Function
     End If
-    If StringByteAt(Text, Cursor) = 34 Then
+    If StringByteAt(InputText, Cursor) = 34 Then
         Cursor = Cursor + 1
         Dim Decoded As String = ""
         While Cursor < EndByte
-            If StringByteAt(Text, Cursor) = 34 Then
+            If StringByteAt(InputText, Cursor) = 34 Then
                 Dim EscapedStringQuote As Long = 0
                 If Cursor + 1 < EndByte Then
-                    If StringByteAt(Text, Cursor + 1) = 34 Then
+                    If StringByteAt(InputText, Cursor + 1) = 34 Then
                         EscapedStringQuote = 1
                     End If
                 End If
@@ -204,21 +204,21 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
                     Exit Function
                 End If
             Else
-                Decoded = Decoded & StringFromByte(StringByteAt(Text, Cursor))
+                Decoded = Decoded & StringFromByte(StringByteAt(InputText, Cursor))
                 Cursor = Cursor + 1
             End If
         Wend
         ParseConditionalPrimary = 0
         Exit Function
     End If
-    If StringByteAt(Text, Cursor) = 35 Then
+    If StringByteAt(InputText, Cursor) = 35 Then
         Dim DateStart As Long = Cursor + 1
         Cursor = Cursor + 1
         While Cursor < EndByte
-            If StringByteAt(Text, Cursor) = 35 Then
+            If StringByteAt(InputText, Cursor) = 35 Then
                 Exit While
             End If
-            If StringByteAt(Text, Cursor) = 10 Or StringByteAt(Text, Cursor) = 13 Then
+            If StringByteAt(InputText, Cursor) = 10 Or StringByteAt(InputText, Cursor) = 13 Then
                 ParseConditionalPrimary = 0
                 Exit Function
             End If
@@ -228,7 +228,7 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
             ParseConditionalPrimary = 0
             Exit Function
         End If
-        Dim DateText As String = StringSlice(Text, DateStart, Cursor - DateStart)
+        Dim DateText As String = StringSlice(InputText, DateStart, Cursor - DateStart)
         If ValidateInvariantDateText(DateText) = 0 Then
             ParseConditionalPrimary = 0
             Exit Function
@@ -238,9 +238,9 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
         ParseConditionalPrimary = 1
         Exit Function
     End If
-    If StringByteAt(Text, Cursor) = 38 Then
+    If StringByteAt(InputText, Cursor) = 38 Then
         If Cursor + 2 < EndByte Then
-            Dim BaseMarker As Long = StringByteAt(Text, Cursor + 1)
+            Dim BaseMarker As Long = StringByteAt(InputText, Cursor + 1)
             If BaseMarker = 72 Or BaseMarker = 104 Or BaseMarker = 79 Or BaseMarker = 111 Then
                 Cursor = Cursor + 2
                 Dim BaseValue As Long = 16
@@ -251,7 +251,7 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
                 Dim BasedDigits As Long = 0
                 While Cursor < EndByte
                     Dim DigitValue As Long = -1
-                    Dim DigitByte As Long = StringByteAt(Text, Cursor)
+                    Dim DigitByte As Long = StringByteAt(InputText, Cursor)
                     If DigitByte >= 48 And DigitByte <= 57 Then
                         DigitValue = DigitByte - 48
                     Else
@@ -279,7 +279,7 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
                     Exit Function
                 End If
                 If Cursor < EndByte Then
-                    If StringByteAt(Text, Cursor) = 37 Or StringByteAt(Text, Cursor) = 38 Or StringByteAt(Text, Cursor) = 94 Then
+                    If StringByteAt(InputText, Cursor) = 37 Or StringByteAt(InputText, Cursor) = 38 Or StringByteAt(InputText, Cursor) = 94 Then
                         Cursor = Cursor + 1
                     End If
                 End If
@@ -289,14 +289,14 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
             End If
         End If
     End If
-    If IsAsciiDigit(StringByteAt(Text, Cursor)) <> 0 Then
+    If IsAsciiDigit(StringByteAt(InputText, Cursor)) <> 0 Then
         Dim NumberValue As Long = 0
         Dim FractionNonZero As Long = 0
         While Cursor < EndByte
-            If IsAsciiDigit(StringByteAt(Text, Cursor)) = 0 Then
+            If IsAsciiDigit(StringByteAt(InputText, Cursor)) = 0 Then
                 Exit While
             End If
-            Dim DecimalDigit As Long = StringByteAt(Text, Cursor) - 48
+            Dim DecimalDigit As Long = StringByteAt(InputText, Cursor) - 48
             If NumberValue > 214748364 Or NumberValue = 214748364 And DecimalDigit > 7 Then
                 ParseConditionalPrimary = 0
                 Exit Function
@@ -306,33 +306,33 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
         Wend
         Dim HasDecimalPoint As Long = 0
         If Cursor < EndByte Then
-            If StringByteAt(Text, Cursor) = 46 Then
+            If StringByteAt(InputText, Cursor) = 46 Then
                 HasDecimalPoint = 1
             End If
         End If
         If HasDecimalPoint <> 0 Then
             Cursor = Cursor + 1
             While Cursor < EndByte
-                If IsAsciiDigit(StringByteAt(Text, Cursor)) = 0 Then
+                If IsAsciiDigit(StringByteAt(InputText, Cursor)) = 0 Then
                     Exit While
                 End If
-                If StringByteAt(Text, Cursor) <> 48 Then
+                If StringByteAt(InputText, Cursor) <> 48 Then
                     FractionNonZero = 1
                 End If
                 Cursor = Cursor + 1
             Wend
         End If
         If Cursor < EndByte Then
-            If StringByteAt(Text, Cursor) = 69 Or StringByteAt(Text, Cursor) = 101 Then
+            If StringByteAt(InputText, Cursor) = 69 Or StringByteAt(InputText, Cursor) = 101 Then
                 Cursor = Cursor + 1
                 If Cursor < EndByte Then
-                    If StringByteAt(Text, Cursor) = 43 Or StringByteAt(Text, Cursor) = 45 Then
+                    If StringByteAt(InputText, Cursor) = 43 Or StringByteAt(InputText, Cursor) = 45 Then
                         Cursor = Cursor + 1
                     End If
                 End If
                 Dim ExponentDigits As Long = 0
                 While Cursor < EndByte
-                    If IsAsciiDigit(StringByteAt(Text, Cursor)) = 0 Then
+                    If IsAsciiDigit(StringByteAt(InputText, Cursor)) = 0 Then
                         Exit While
                     End If
                     ExponentDigits = ExponentDigits + 1
@@ -348,7 +348,7 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
             NumberValue = 1
         End If
         If Cursor < EndByte Then
-            Dim NumberSuffix As Long = StringByteAt(Text, Cursor)
+            Dim NumberSuffix As Long = StringByteAt(InputText, Cursor)
             If NumberSuffix = 37 Or NumberSuffix = 38 Or NumberSuffix = 94 Or NumberSuffix = 33 Or NumberSuffix = 35 Or NumberSuffix = 64 Or NumberSuffix = 70 Or NumberSuffix = 102 Or NumberSuffix = 82 Or NumberSuffix = 114 Or NumberSuffix = 68 Or NumberSuffix = 100 Then
                 Cursor = Cursor + 1
             End If
@@ -357,7 +357,7 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
         ParseConditionalPrimary = 1
         Exit Function
     End If
-    Dim IdentifierBytes As Long = IdentifierStartBytes(Text, Cursor, EndByte)
+    Dim IdentifierBytes As Long = IdentifierStartBytes(InputText, Cursor, EndByte)
     If IdentifierBytes = 0 Then
         ParseConditionalPrimary = 0
         Exit Function
@@ -365,24 +365,24 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
     Dim NameStart As Long = Cursor
     Cursor = Cursor + IdentifierBytes
     While Cursor < EndByte
-        IdentifierBytes = IdentifierPartBytes(Text, Cursor, EndByte)
+        IdentifierBytes = IdentifierPartBytes(InputText, Cursor, EndByte)
         If IdentifierBytes = 0 Then
             Exit While
         End If
         Cursor = Cursor + IdentifierBytes
     Wend
-    Dim Name As String = StringSlice(Text, NameStart, Cursor - NameStart)
-    If EqualsFolded(Name, "True") <> 0 Then
+    Dim ConstantName As String = StringSlice(InputText, NameStart, Cursor - NameStart)
+    If EqualsFolded(ConstantName, "True") <> 0 Then
         Call SetConditionalNumber(Result, -1)
         ParseConditionalPrimary = 1
         Exit Function
     End If
-    If EqualsFolded(Name, "False") <> 0 Or EqualsFolded(Name, "Empty") <> 0 Or EqualsFolded(Name, "Null") <> 0 Or EqualsFolded(Name, "Nothing") <> 0 Then
+    If EqualsFolded(ConstantName, "False") <> 0 Or EqualsFolded(ConstantName, "Empty") <> 0 Or EqualsFolded(ConstantName, "Null") <> 0 Or EqualsFolded(ConstantName, "Nothing") <> 0 Then
         Call SetConditionalNumber(Result, 0)
         ParseConditionalPrimary = 1
         Exit Function
     End If
-    Dim ConstantIndex As Long = FindConditionalConstant(Name, Names, ConstantCount)
+    Dim ConstantIndex As Long = FindConditionalConstant(ConstantName, Names, ConstantCount)
     If ConstantIndex < 0 Then
         ParseConditionalPrimary = 0
         Exit Function
@@ -393,17 +393,17 @@ Function ParseConditionalPrimary(ByVal Text As String, ByRef Cursor As Long, ByV
     ParseConditionalPrimary = 1
 End Function
 
-Function ParseConditionalUnary(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+Function ParseConditionalUnary(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
     Dim Probe As Long = Cursor
-    If ConditionalSymbolAt(Text, Probe, EndByte, "+") <> 0 Then
+    If ConditionalSymbolAt(InputText, Probe, EndByte, "+") <> 0 Then
         Cursor = Probe
-        ParseConditionalUnary = ParseConditionalUnary(Text, Cursor, EndByte, Names, Values, ConstantCount, Result)
+        ParseConditionalUnary = ParseConditionalUnary(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result)
         Exit Function
     End If
     Probe = Cursor
-    If ConditionalSymbolAt(Text, Probe, EndByte, "-") <> 0 Then
+    If ConditionalSymbolAt(InputText, Probe, EndByte, "-") <> 0 Then
         Cursor = Probe
-        If ParseConditionalUnary(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Or Result.ValueKind <> 1 Then
+        If ParseConditionalUnary(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Or Result.ValueKind <> 1 Then
             ParseConditionalUnary = 0
             Exit Function
         End If
@@ -411,30 +411,30 @@ Function ParseConditionalUnary(ByVal Text As String, ByRef Cursor As Long, ByVal
         ParseConditionalUnary = 1
         Exit Function
     End If
-    ParseConditionalUnary = ParseConditionalPrimary(Text, Cursor, EndByte, Names, Values, ConstantCount, Result)
+    ParseConditionalUnary = ParseConditionalPrimary(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result)
 End Function
 
-Function ParseConditionalMultiplicative(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    If ParseConditionalUnary(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+Function ParseConditionalMultiplicative(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    If ParseConditionalUnary(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
         ParseConditionalMultiplicative = 0
         Exit Function
     End If
     While Cursor < EndByte
         Dim Probe As Long = Cursor
         Dim Operator As Long = 0
-        If ConditionalSymbolAt(Text, Probe, EndByte, "*") <> 0 Then
+        If ConditionalSymbolAt(InputText, Probe, EndByte, "*") <> 0 Then
             Operator = 1
         Else
             Probe = Cursor
-            If ConditionalSymbolAt(Text, Probe, EndByte, "/") <> 0 Then
+            If ConditionalSymbolAt(InputText, Probe, EndByte, "/") <> 0 Then
                 Operator = 2
             Else
                 Probe = Cursor
-                If ConditionalSymbolAt(Text, Probe, EndByte, "\") <> 0 Then
+                If ConditionalSymbolAt(InputText, Probe, EndByte, "\") <> 0 Then
                     Operator = 3
                 Else
                     Probe = Cursor
-                    If ConditionalWordAt(Text, Probe, EndByte, "Mod") <> 0 Then
+                    If ConditionalWordAt(InputText, Probe, EndByte, "Mod") <> 0 Then
                         Operator = 4
                     End If
                 End If
@@ -445,7 +445,7 @@ Function ParseConditionalMultiplicative(ByVal Text As String, ByRef Cursor As Lo
         End If
         Cursor = Probe
         Dim RightValue As ConditionalValue
-        If ParseConditionalUnary(Text, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Or Result.ValueKind <> 1 Or RightValue.ValueKind <> 1 Or RightValue.NumberValue = 0 And Operator <> 1 Then
+        If ParseConditionalUnary(InputText, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Or Result.ValueKind <> 1 Or RightValue.ValueKind <> 1 Or RightValue.NumberValue = 0 And Operator <> 1 Then
             ParseConditionalMultiplicative = 0
             Exit Function
         End If
@@ -466,23 +466,23 @@ Function ParseConditionalMultiplicative(ByVal Text As String, ByRef Cursor As Lo
     ParseConditionalMultiplicative = 1
 End Function
 
-Function ParseConditionalAdditive(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    If ParseConditionalMultiplicative(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+Function ParseConditionalAdditive(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    If ParseConditionalMultiplicative(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
         ParseConditionalAdditive = 0
         Exit Function
     End If
     While Cursor < EndByte
         Dim Probe As Long = Cursor
         Dim Operator As Long = 0
-        If ConditionalSymbolAt(Text, Probe, EndByte, "+") <> 0 Then
+        If ConditionalSymbolAt(InputText, Probe, EndByte, "+") <> 0 Then
             Operator = 1
         Else
             Probe = Cursor
-            If ConditionalSymbolAt(Text, Probe, EndByte, "-") <> 0 Then
+            If ConditionalSymbolAt(InputText, Probe, EndByte, "-") <> 0 Then
                 Operator = 2
             Else
                 Probe = Cursor
-                If ConditionalSymbolAt(Text, Probe, EndByte, "&") <> 0 Then
+                If ConditionalSymbolAt(InputText, Probe, EndByte, "&") <> 0 Then
                     Operator = 3
                 End If
             End If
@@ -492,7 +492,7 @@ Function ParseConditionalAdditive(ByVal Text As String, ByRef Cursor As Long, By
         End If
         Cursor = Probe
         Dim RightValue As ConditionalValue
-        If ParseConditionalMultiplicative(Text, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Then
+        If ParseConditionalMultiplicative(InputText, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Then
             ParseConditionalAdditive = 0
             Exit Function
         End If
@@ -517,34 +517,34 @@ Function ParseConditionalAdditive(ByVal Text As String, ByRef Cursor As Long, By
     ParseConditionalAdditive = 1
 End Function
 
-Function ParseConditionalComparison(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    If ParseConditionalAdditive(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+Function ParseConditionalComparison(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    If ParseConditionalAdditive(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
         ParseConditionalComparison = 0
         Exit Function
     End If
     Dim Probe As Long = Cursor
     Dim Operator As Long = 0
-    If ConditionalSymbolAt(Text, Probe, EndByte, "<>") <> 0 Then
+    If ConditionalSymbolAt(InputText, Probe, EndByte, "<>") <> 0 Then
         Operator = 2
     Else
         Probe = Cursor
-        If ConditionalSymbolAt(Text, Probe, EndByte, "<=") <> 0 Then
+        If ConditionalSymbolAt(InputText, Probe, EndByte, "<=") <> 0 Then
             Operator = 4
         Else
             Probe = Cursor
-            If ConditionalSymbolAt(Text, Probe, EndByte, ">=") <> 0 Then
+            If ConditionalSymbolAt(InputText, Probe, EndByte, ">=") <> 0 Then
                 Operator = 6
             Else
                 Probe = Cursor
-                If ConditionalSymbolAt(Text, Probe, EndByte, "=") <> 0 Then
+                If ConditionalSymbolAt(InputText, Probe, EndByte, "=") <> 0 Then
                     Operator = 1
                 Else
                     Probe = Cursor
-                    If ConditionalSymbolAt(Text, Probe, EndByte, "<") <> 0 Then
+                    If ConditionalSymbolAt(InputText, Probe, EndByte, "<") <> 0 Then
                         Operator = 3
                     Else
                         Probe = Cursor
-                        If ConditionalSymbolAt(Text, Probe, EndByte, ">") <> 0 Then
+                        If ConditionalSymbolAt(InputText, Probe, EndByte, ">") <> 0 Then
                             Operator = 5
                         End If
                     End If
@@ -558,7 +558,7 @@ Function ParseConditionalComparison(ByVal Text As String, ByRef Cursor As Long, 
     End If
     Cursor = Probe
     Dim RightValue As ConditionalValue
-    If ParseConditionalAdditive(Text, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Or Result.ValueKind <> RightValue.ValueKind Then
+    If ParseConditionalAdditive(InputText, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Or Result.ValueKind <> RightValue.ValueKind Then
         ParseConditionalComparison = 0
         Exit Function
     End If
@@ -576,15 +576,15 @@ Function ParseConditionalComparison(ByVal Text As String, ByRef Cursor As Long, 
     ParseConditionalComparison = 1
 End Function
 
-Function ParseConditionalNot(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+Function ParseConditionalNot(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
     Dim Negate As Long = 0
     Dim Probe As Long = Cursor
-    While ConditionalWordAt(Text, Probe, EndByte, "Not") <> 0
+    While ConditionalWordAt(InputText, Probe, EndByte, "Not") <> 0
         Negate = Negate + 1
         Cursor = Probe
         Probe = Cursor
     Wend
-    If ParseConditionalComparison(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+    If ParseConditionalComparison(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
         ParseConditionalNot = 0
         Exit Function
     End If
@@ -598,14 +598,14 @@ Function ParseConditionalNot(ByVal Text As String, ByRef Cursor As Long, ByVal E
     ParseConditionalNot = 1
 End Function
 
-Function ParseConditionalBooleanLevel(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue, ByVal Level As Long) As Long
+Function ParseConditionalBooleanLevel(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue, ByVal Level As Long) As Long
     If Level = 1 Then
-        If ParseConditionalNot(Text, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
+        If ParseConditionalNot(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result) = 0 Then
             ParseConditionalBooleanLevel = 0
             Exit Function
         End If
     Else
-        If ParseConditionalBooleanLevel(Text, Cursor, EndByte, Names, Values, ConstantCount, Result, Level - 1) = 0 Then
+        If ParseConditionalBooleanLevel(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result, Level - 1) = 0 Then
             ParseConditionalBooleanLevel = 0
             Exit Function
         End If
@@ -614,26 +614,26 @@ Function ParseConditionalBooleanLevel(ByVal Text As String, ByRef Cursor As Long
         Dim Probe As Long = Cursor
         Dim Matched As Long = 0
         If Level = 1 Then
-            If ConditionalWordAt(Text, Probe, EndByte, "And") <> 0 Or ConditionalWordAt(Text, Probe, EndByte, "AndAlso") <> 0 Then
+            If ConditionalWordAt(InputText, Probe, EndByte, "And") <> 0 Or ConditionalWordAt(InputText, Probe, EndByte, "AndAlso") <> 0 Then
                 Matched = 1
             End If
         Else
             If Level = 2 Then
-                If ConditionalWordAt(Text, Probe, EndByte, "Or") <> 0 Or ConditionalWordAt(Text, Probe, EndByte, "OrElse") <> 0 Then
+                If ConditionalWordAt(InputText, Probe, EndByte, "Or") <> 0 Or ConditionalWordAt(InputText, Probe, EndByte, "OrElse") <> 0 Then
                     Matched = 1
                 End If
             Else
                 If Level = 3 Then
-                    If ConditionalWordAt(Text, Probe, EndByte, "Xor") <> 0 Then
+                    If ConditionalWordAt(InputText, Probe, EndByte, "Xor") <> 0 Then
                         Matched = 1
                     End If
                 Else
                     If Level = 4 Then
-                        If ConditionalWordAt(Text, Probe, EndByte, "Eqv") <> 0 Then
+                        If ConditionalWordAt(InputText, Probe, EndByte, "Eqv") <> 0 Then
                             Matched = 1
                         End If
                     Else
-                        If ConditionalWordAt(Text, Probe, EndByte, "Imp") <> 0 Then
+                        If ConditionalWordAt(InputText, Probe, EndByte, "Imp") <> 0 Then
                             Matched = 1
                         End If
                     End If
@@ -646,12 +646,12 @@ Function ParseConditionalBooleanLevel(ByVal Text As String, ByRef Cursor As Long
         Cursor = Probe
         Dim RightValue As ConditionalValue
         If Level = 1 Then
-            If ParseConditionalNot(Text, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Then
+            If ParseConditionalNot(InputText, Cursor, EndByte, Names, Values, ConstantCount, RightValue) = 0 Then
                 ParseConditionalBooleanLevel = 0
                 Exit Function
             End If
         Else
-            If ParseConditionalBooleanLevel(Text, Cursor, EndByte, Names, Values, ConstantCount, RightValue, Level - 1) = 0 Then
+            If ParseConditionalBooleanLevel(InputText, Cursor, EndByte, Names, Values, ConstantCount, RightValue, Level - 1) = 0 Then
                 ParseConditionalBooleanLevel = 0
                 Exit Function
             End If
@@ -691,11 +691,11 @@ Function ParseConditionalBooleanLevel(ByVal Text As String, ByRef Cursor As Long
     ParseConditionalBooleanLevel = 1
 End Function
 
-Function ParseConditionalImplication(ByVal Text As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
-    ParseConditionalImplication = ParseConditionalBooleanLevel(Text, Cursor, EndByte, Names, Values, ConstantCount, Result, 5)
+Function ParseConditionalImplication(ByVal InputText As String, ByRef Cursor As Long, ByVal EndByte As Long, ByRef Names() As String, ByRef Values() As ConditionalValue, ByVal ConstantCount As Long, ByRef Result As ConditionalValue) As Long
+    ParseConditionalImplication = ParseConditionalBooleanLevel(InputText, Cursor, EndByte, Names, Values, ConstantCount, Result, 5)
 End Function
 
-Function AppendConditionalConstant(ByVal Name As String, ByRef Value As ConditionalValue, ByRef Names() As String, ByRef Values() As ConditionalValue, ByRef Count As Long, ByRef Capacity As Long) As Long
+Function AppendConditionalConstant(ByVal ConstantName As String, ByRef Value As ConditionalValue, ByRef Names() As String, ByRef Values() As ConditionalValue, ByRef Count As Long, ByRef Capacity As Long) As Long
     If Count >= LimitConditionalConstants() Then
         AppendConditionalConstant = 0
         Exit Function
@@ -717,7 +717,7 @@ Function AppendConditionalConstant(ByVal Name As String, ByRef Value As Conditio
         End If
         Capacity = NewCapacity
     End If
-    Names(Count) = Name
+    Names(Count) = ConstantName
     Values(Count).ValueKind = Value.ValueKind
     Values(Count).NumberValue = Value.NumberValue
     Values(Count).TextValue = Value.TextValue
@@ -725,11 +725,11 @@ Function AppendConditionalConstant(ByVal Name As String, ByRef Value As Conditio
     AppendConditionalConstant = 1
 End Function
 
-Function BlankPreservingLines(ByVal Text As String) As String
+Function BlankPreservingLines(ByVal InputText As String) As String
     Dim Result As String = ""
     Dim Index As Long = 0
-    While Index < StringLength(Text)
-        Dim CurrentByte As Long = StringByteAt(Text, Index)
+    While Index < StringLength(InputText)
+        Dim CurrentByte As Long = StringByteAt(InputText, Index)
         If CurrentByte = 10 Or CurrentByte = 13 Then
             Result = Result & StringFromByte(CurrentByte)
         Else
@@ -798,13 +798,13 @@ Function PreprocessOneSource(ByRef Source As SourceDocument, ByRef OutputText As
                             Probe = Probe + NameBytes
                         Wend
                     End If
-                    Dim Name As String = StringSlice(Source.Contents, NameStart, Probe - NameStart)
+                    Dim ConstantName As String = StringSlice(Source.Contents, NameStart, Probe - NameStart)
                     Dim Value As ConditionalValue
-                    If StringLength(Name) = 0 Or FindConditionalConstant(Name, Names, ConstantCount) >= 0 Or ConditionalSymbolAt(Source.Contents, Probe, ContentEnd, "=") = 0 Or ParseConditionalExpression(Source.Contents, Probe, ContentEnd, Names, Values, ConstantCount, Value) = 0 Then
+                    If StringLength(ConstantName) = 0 Or FindConditionalConstant(ConstantName, Names, ConstantCount) >= 0 Or ConditionalSymbolAt(Source.Contents, Probe, ContentEnd, "=") = 0 Or ParseConditionalExpression(Source.Contents, Probe, ContentEnd, Names, Values, ConstantCount, Value) = 0 Then
                         Call AddLexicalDiagnostic(Source, LineStart, "UBE3501", "malformed or duplicate #Const directive", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                     Else
                         Call SkipConditionalSpace(Source.Contents, Probe, ContentEnd)
-                        If Probe <> ContentEnd Or AppendConditionalConstant(Name, Value, Names, Values, ConstantCount, ConstantCapacity) = 0 Then
+                        If Probe <> ContentEnd Or AppendConditionalConstant(ConstantName, Value, Names, Values, ConstantCount, ConstantCapacity) = 0 Then
                             Call AddLexicalDiagnostic(Source, LineStart, "UBE3502", "invalid #Const value or conditional constant limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         End If
                     End If

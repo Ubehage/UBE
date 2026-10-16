@@ -99,15 +99,15 @@ Function IsOctalDigit(ByVal Value As Long) As Long
     End If
 End Function
 
-Function IdentifierStartBytes(ByVal Text As String, ByVal StartByte As Long, ByVal Length As Long) As Long
-    Dim CurrentByte As Long = StringByteAt(Text, StartByte)
+Function IdentifierStartBytes(ByVal InputText As String, ByVal StartByte As Long, ByVal Length As Long) As Long
+    Dim CurrentByte As Long = StringByteAt(InputText, StartByte)
     If CurrentByte = 95 Then
         IdentifierStartBytes = 1
         Exit Function
     End If
     Dim CodePoint As Long = 0
     Dim ByteCount As Long = 0
-    If DecodeUtf8CodePoint(Text, StartByte, CodePoint, ByteCount) = 0 Then
+    If DecodeUtf8CodePoint(InputText, StartByte, CodePoint, ByteCount) = 0 Then
         IdentifierStartBytes = 0
         Exit Function
     End If
@@ -118,12 +118,12 @@ Function IdentifierStartBytes(ByVal Text As String, ByVal StartByte As Long, ByV
     End If
 End Function
 
-Function IdentifierPartBytes(ByVal Text As String, ByVal StartByte As Long, ByVal Length As Long) As Long
-    Dim CurrentByte As Long = StringByteAt(Text, StartByte)
+Function IdentifierPartBytes(ByVal InputText As String, ByVal StartByte As Long, ByVal Length As Long) As Long
+    Dim CurrentByte As Long = StringByteAt(InputText, StartByte)
     If IsAsciiDigit(CurrentByte) <> 0 Then
         IdentifierPartBytes = 1
     Else
-        IdentifierPartBytes = IdentifierStartBytes(Text, StartByte, Length)
+        IdentifierPartBytes = IdentifierStartBytes(InputText, StartByte, Length)
     End If
 End Function
 
@@ -201,15 +201,15 @@ Function IsLeapYear(ByVal YearValue As Long) As Long
     End If
 End Function
 
-Function ParseFixedDigits(ByVal Text As String, ByVal StartByte As Long, ByVal Count As Long, ByRef Value As Long) As Long
-    If StartByte + Count > StringLength(Text) Then
+Function ParseFixedDigits(ByVal InputText As String, ByVal StartByte As Long, ByVal Count As Long, ByRef Value As Long) As Long
+    If StartByte + Count > StringLength(InputText) Then
         ParseFixedDigits = 0
         Exit Function
     End If
     Value = 0
     Dim Index As Long = 0
     While Index < Count
-        Dim CurrentByte As Long = StringByteAt(Text, StartByte + Index)
+        Dim CurrentByte As Long = StringByteAt(InputText, StartByte + Index)
         If IsAsciiDigit(CurrentByte) = 0 Then
             ParseFixedDigits = 0
             Exit Function
@@ -220,15 +220,15 @@ Function ParseFixedDigits(ByVal Text As String, ByVal StartByte As Long, ByVal C
     ParseFixedDigits = 1
 End Function
 
-Function ValidateDatePart(ByVal Text As String, ByVal StartByte As Long) As Long
+Function ValidateDatePart(ByVal InputText As String, ByVal StartByte As Long) As Long
     Dim YearValue As Long = 0
     Dim MonthValue As Long = 0
     Dim DayValue As Long = 0
-    If ParseFixedDigits(Text, StartByte, 4, YearValue) = 0 Or ParseFixedDigits(Text, StartByte + 5, 2, MonthValue) = 0 Or ParseFixedDigits(Text, StartByte + 8, 2, DayValue) = 0 Then
+    If ParseFixedDigits(InputText, StartByte, 4, YearValue) = 0 Or ParseFixedDigits(InputText, StartByte + 5, 2, MonthValue) = 0 Or ParseFixedDigits(InputText, StartByte + 8, 2, DayValue) = 0 Then
         ValidateDatePart = 0
         Exit Function
     End If
-    If StringByteAt(Text, StartByte + 4) <> 45 Or StringByteAt(Text, StartByte + 7) <> 45 Or YearValue < 1 Or YearValue > 9999 Or MonthValue < 1 Or MonthValue > 12 Then
+    If StringByteAt(InputText, StartByte + 4) <> 45 Or StringByteAt(InputText, StartByte + 7) <> 45 Or YearValue < 1 Or YearValue > 9999 Or MonthValue < 1 Or MonthValue > 12 Then
         ValidateDatePart = 0
         Exit Function
     End If
@@ -250,18 +250,18 @@ Function ValidateDatePart(ByVal Text As String, ByVal StartByte As Long) As Long
     End If
 End Function
 
-Function ValidateTimePart(ByVal Text As String, ByVal StartByte As Long, ByVal Length As Long) As Long
+Function ValidateTimePart(ByVal InputText As String, ByVal StartByte As Long, ByVal Length As Long) As Long
     If Length < 5 Then
         ValidateTimePart = 0
         Exit Function
     End If
     Dim HourValue As Long = 0
     Dim MinuteValue As Long = 0
-    If ParseFixedDigits(Text, StartByte, 2, HourValue) = 0 Or ParseFixedDigits(Text, StartByte + 3, 2, MinuteValue) = 0 Then
+    If ParseFixedDigits(InputText, StartByte, 2, HourValue) = 0 Or ParseFixedDigits(InputText, StartByte + 3, 2, MinuteValue) = 0 Then
         ValidateTimePart = 0
         Exit Function
     End If
-    If StringByteAt(Text, StartByte + 2) <> 58 Or HourValue > 23 Or MinuteValue > 59 Then
+    If StringByteAt(InputText, StartByte + 2) <> 58 Or HourValue > 23 Or MinuteValue > 59 Then
         ValidateTimePart = 0
         Exit Function
     End If
@@ -269,12 +269,12 @@ Function ValidateTimePart(ByVal Text As String, ByVal StartByte As Long, ByVal L
         ValidateTimePart = 1
         Exit Function
     End If
-    If Length < 8 Or StringByteAt(Text, StartByte + 5) <> 58 Then
+    If Length < 8 Or StringByteAt(InputText, StartByte + 5) <> 58 Then
         ValidateTimePart = 0
         Exit Function
     End If
     Dim SecondValue As Long = 0
-    If ParseFixedDigits(Text, StartByte + 6, 2, SecondValue) = 0 Or SecondValue > 59 Then
+    If ParseFixedDigits(InputText, StartByte + 6, 2, SecondValue) = 0 Or SecondValue > 59 Then
         ValidateTimePart = 0
         Exit Function
     End If
@@ -282,13 +282,13 @@ Function ValidateTimePart(ByVal Text As String, ByVal StartByte As Long, ByVal L
         ValidateTimePart = 1
         Exit Function
     End If
-    If StringByteAt(Text, StartByte + 8) <> 46 Or Length < 10 Or Length > 18 Then
+    If StringByteAt(InputText, StartByte + 8) <> 46 Or Length < 10 Or Length > 18 Then
         ValidateTimePart = 0
         Exit Function
     End If
     Dim FractionIndex As Long = StartByte + 9
     While FractionIndex < StartByte + Length
-        If IsAsciiDigit(StringByteAt(Text, FractionIndex)) = 0 Then
+        If IsAsciiDigit(StringByteAt(InputText, FractionIndex)) = 0 Then
             ValidateTimePart = 0
             Exit Function
         End If
@@ -297,42 +297,42 @@ Function ValidateTimePart(ByVal Text As String, ByVal StartByte As Long, ByVal L
     ValidateTimePart = 1
 End Function
 
-Function ValidateInvariantDateText(ByVal Text As String) As Long
-    Dim Length As Long = StringLength(Text)
+Function ValidateInvariantDateText(ByVal InputText As String) As Long
+    Dim Length As Long = StringLength(InputText)
     If Length >= 10 Then
-        If StringByteAt(Text, 4) = 45 Then
+        If StringByteAt(InputText, 4) = 45 Then
             If Length = 10 Then
-            ValidateInvariantDateText = ValidateDatePart(Text, 0)
+            ValidateInvariantDateText = ValidateDatePart(InputText, 0)
                 Exit Function
             End If
             If Length < 16 Or Length > 29 Then
                 ValidateInvariantDateText = 0
                 Exit Function
             End If
-            If ValidateDatePart(Text, 0) = 0 Then
+            If ValidateDatePart(InputText, 0) = 0 Then
                 ValidateInvariantDateText = 0
                 Exit Function
             End If
-            Dim Separator As Long = StringByteAt(Text, 10)
+            Dim Separator As Long = StringByteAt(InputText, 10)
             If Separator <> 84 And Separator <> 32 Then
                 ValidateInvariantDateText = 0
                 Exit Function
             End If
-            ValidateInvariantDateText = ValidateTimePart(Text, 11, Length - 11)
+            ValidateInvariantDateText = ValidateTimePart(InputText, 11, Length - 11)
             Exit Function
         End If
     End If
     If Length >= 5 And Length <= 18 Then
-        ValidateInvariantDateText = ValidateTimePart(Text, 0, Length)
+        ValidateInvariantDateText = ValidateTimePart(InputText, 0, Length)
         Exit Function
     End If
     ValidateInvariantDateText = 0
 End Function
 
-Function ContinuationAfter(ByVal Text As String, ByVal UnderscoreByte As Long, ByVal Length As Long) As Long
+Function ContinuationAfter(ByVal InputText As String, ByVal UnderscoreByte As Long, ByVal Length As Long) As Long
     Dim Cursor As Long = UnderscoreByte + 1
     While Cursor < Length
-        If StringByteAt(Text, Cursor) = 32 Or StringByteAt(Text, Cursor) = 9 Then
+        If StringByteAt(InputText, Cursor) = 32 Or StringByteAt(InputText, Cursor) = 9 Then
             Cursor = Cursor + 1
         Else
             Exit While
@@ -340,13 +340,13 @@ Function ContinuationAfter(ByVal Text As String, ByVal UnderscoreByte As Long, B
     Wend
     Dim HasContinuationComment As Long = 0
     If Cursor < Length Then
-        If StringByteAt(Text, Cursor) = 39 Then
+        If StringByteAt(InputText, Cursor) = 39 Then
             HasContinuationComment = 1
         End If
     End If
     If HasContinuationComment <> 0 Then
         While Cursor < Length
-            If StringByteAt(Text, Cursor) = 10 Or StringByteAt(Text, Cursor) = 13 Then
+            If StringByteAt(InputText, Cursor) = 10 Or StringByteAt(InputText, Cursor) = 13 Then
                 Exit While
             End If
             Cursor = Cursor + 1
@@ -356,25 +356,25 @@ Function ContinuationAfter(ByVal Text As String, ByVal UnderscoreByte As Long, B
         ContinuationAfter = -1
         Exit Function
     End If
-    If StringByteAt(Text, Cursor) = 13 Then
+    If StringByteAt(InputText, Cursor) = 13 Then
         If Cursor + 1 >= Length Then
             ContinuationAfter = -2
             Exit Function
         End If
-        If StringByteAt(Text, Cursor + 1) <> 10 Then
+        If StringByteAt(InputText, Cursor + 1) <> 10 Then
             ContinuationAfter = -2
             Exit Function
         End If
         Cursor = Cursor + 2
     Else
-        If StringByteAt(Text, Cursor) <> 10 Then
+        If StringByteAt(InputText, Cursor) <> 10 Then
             ContinuationAfter = -1
             Exit Function
         End If
         Cursor = Cursor + 1
     End If
     While Cursor < Length
-        If StringByteAt(Text, Cursor) = 32 Or StringByteAt(Text, Cursor) = 9 Then
+        If StringByteAt(InputText, Cursor) = 32 Or StringByteAt(InputText, Cursor) = 9 Then
             Cursor = Cursor + 1
         Else
             Exit While
@@ -672,7 +672,8 @@ Function LexOneSource(ByRef Source As SourceDocument, ByVal SourceText As String
                                                     End If
                                                 End If
                                                 If DateClosed = 0 Then
-                                                    Call AddLexicalDiagnostic(Source, DateStart, "UBE3406", "unterminated date/time literal", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                                    Index = DateStart + 1
+                                                    Call AppendLexicalToken(Tokens, TokenCount, TokenCapacity, 8, Source, DateStart, 1, "#", "#")
                                                 Else
                                                     Dim DateText As String = StringSlice(SourceText, DateContentStart, Index - DateContentStart)
                                                     Index = Index + 1

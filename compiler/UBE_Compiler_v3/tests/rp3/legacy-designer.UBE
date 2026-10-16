@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP3LegacyDesigner"
+Kind = "Library"
+Source = "legacy-form.frm"
+Source = "legacy-class.cls"

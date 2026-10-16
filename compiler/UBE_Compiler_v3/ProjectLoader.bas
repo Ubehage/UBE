@@ -2,7 +2,7 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ProjectLoader"
 
 Type ProjectDescription
-    Name As String
+    ProjectName As String
     Kind As String
     Startup As String
     StartupForm As String
@@ -228,19 +228,19 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
             LoadProjectManifest = 0
             Exit Function
         End If
-        Dim Line As String = ""
-        Call TrimText(StringSlice(Contents, Cursor, LineEnd - Cursor), Line)
-        If StringLength(Line) > 0 Then
-            If StringByteAt(Line, 0) <> 39 Then
+        Dim ManifestLine As String = ""
+        Call TrimText(StringSlice(Contents, Cursor, LineEnd - Cursor), ManifestLine)
+        If StringLength(ManifestLine) > 0 Then
+            If StringByteAt(ManifestLine, 0) <> 39 Then
                 If SawHeader = 0 Then
-                    If Line <> "UBE-Project 1" Then
+                    If ManifestLine <> "UBE-Project 1" Then
                         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3004", ManifestPath, LineNumber, 1, "project manifest must begin with UBE-Project 1")
                         LoadProjectManifest = 0
                         Exit Function
                     End If
                     SawHeader = 1
                 Else
-                    Dim EqualsIndex As Long = StringIndexOf(Line, "=", 0)
+                    Dim EqualsIndex As Long = StringIndexOf(ManifestLine, "=", 0)
                     If EqualsIndex < 1 Then
                         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3005", ManifestPath, LineNumber, 1, "malformed project entry")
                         LoadProjectManifest = 0
@@ -248,8 +248,8 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
                     End If
                     Dim Key As String = ""
                     Dim RawValue As String = ""
-                    Call TrimText(StringSlice(Line, 0, EqualsIndex), Key)
-                    Call TrimText(StringSlice(Line, EqualsIndex + 1, StringLength(Line) - EqualsIndex - 1), RawValue)
+                    Call TrimText(StringSlice(ManifestLine, 0, EqualsIndex), Key)
+                    Call TrimText(StringSlice(ManifestLine, EqualsIndex + 1, StringLength(ManifestLine) - EqualsIndex - 1), RawValue)
                     Dim EntryValue As String = ""
                     If ParseQuotedManifestValue(RawValue, EntryValue) = 0 Then
                         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3006", ManifestPath, LineNumber, EqualsIndex + 2, "project values must be complete quoted strings")
@@ -262,7 +262,7 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
                             LoadProjectManifest = 0
                             Exit Function
                         End If
-                        Project.Name = EntryValue
+                        Project.ProjectName = EntryValue
                         SawName = 1
                     Else
                         If EqualsFolded(Key, "Kind") <> 0 Then

@@ -169,33 +169,35 @@ assigning program meaning prematurely.
 
 ### RP3.1 — syntax representation
 
-- [ ] Define syntax node ownership, stable IDs, source ranges, list storage,
+- [x] Define syntax node ownership, stable IDs, source ranges, list storage,
   and recursion/depth limits.
-- [ ] Keep syntax data independent of native pointers and target details.
-- [ ] Add a deterministic textual syntax dump for golden tests.
+- [x] Keep syntax data independent of native pointers and target details.
+- [x] Add a deterministic textual syntax dump for golden tests.
 
 ### RP3.2 — declarations and expressions
 
-- [ ] Parse modules, variables, constants, procedures, properties, events,
+- [x] Parse modules, variables, constants, procedures, properties, events,
   types, enums, classes, interfaces, forms, controls, and foreign declarations.
-- [ ] Parse the full expression precedence ladder, calls, member/index access,
+- [x] Parse the full expression precedence ladder, calls, member/index access,
   `With` shorthand, `TypeOf`, object identity, and named/omitted arguments.
-- [ ] Parse attributes and designer metadata without treating them as runtime
+- [x] Parse attributes and designer metadata without treating them as runtime
   statements.
 
 ### RP3.3 — statements and recovery
 
-- [ ] Parse structured control flow, assignment, `Set`, `CallNew`, events,
+- [x] Parse structured control flow, assignment, `Set`, `CallNew`, events,
   error handling, synchronization, file statements, and legacy forms.
-- [ ] Retain inline assembly and bytecode as validated opaque envelopes.
-- [ ] Recover at declaration and statement boundaries and report multiple
+- [x] Retain inline assembly and bytecode as validated opaque envelopes.
+- [x] Recover at declaration and statement boundaries and report multiple
   useful diagnostics without cascading without bound.
-- [ ] Derive fixtures for every reachable EBNF production, ambiguity, invalid
+- [x] Derive fixtures for every reachable EBNF production, ambiguity, invalid
   terminator, and recovery point.
 
-RP3 gate: every core EBNF production is exercised; valid fixtures round-trip
-through the deterministic syntax representation; malformed and deeply nested
-input remains bounded; v2 builds the preview and its recorded library slice.
+RP3 gate: complete and verified on 2026-10-16. Every parser-owned core EBNF
+production is exercised, with scanner-owned productions retained in the RP2
+lexical corpus. Valid fixtures reproduce deterministic syntax dumps; malformed
+and deeply nested input remains bounded; both preserved v2 stages emit
+byte-identical RP3 LLVM; the API-empty `UBECore` slice parses successfully.
 
 ## Release Preview 4: symbols, types, and semantic core
 
@@ -428,7 +430,6 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP3.1 by defining bounded, owned syntax-node and list records with stable
-IDs and source ranges. Serialize them deterministically before connecting the
-first declaration parser, and preserve the complete RP2 token and failure
-corpus as the front-end regression boundary.
+Begin RP4.1 by defining bounded package, module, member, procedure, block, and
+label scopes over the owned RP3 syntax records. Preserve the complete RP3
+front-end corpus as the semantic-analysis regression boundary.

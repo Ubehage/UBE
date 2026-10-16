@@ -34,7 +34,11 @@ nearer roadmap or progress file.
   - [x] Complete RP2: native and compatibility source envelopes, frozen UBE
     1.0 tokenization, conditional compilation, stable source mapping,
     deterministic token output, bounded recovery, and malformed-input tests.
-  - [ ] Begin RP3 with the bounded, owned syntax representation.
+  - [x] Complete RP3: embedded frozen grammar, complete bounded parser, owned
+    syntax records, deterministic syntax output, recovery, and grammar-wide
+    coverage.
+  - [ ] Begin RP4 with package, module, member, procedure, block, and label
+    scopes.
 
 ## Handoff protocol
 

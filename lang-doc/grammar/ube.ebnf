@@ -50,7 +50,7 @@ designer-property-block = spacing, "BeginProperty", spacing1, identifier,
                           [ spacing1, line-fragment ], line-end,
                           { designer-property | designer-property-block },
                           spacing, "EndProperty", line-end ;
-designer-property   = spacing, identifier,
+designer-property   = spacing, member-name,
                       [ spacing, "(", integer-literal, ")" ],
                       spacing, "=", spacing, line-fragment, line-end ;
 attribute-block     = attribute-line, { attribute-line } ;
@@ -116,7 +116,7 @@ variable-item       = typed-name, [ array-specifier ], [ spacing1, as-new-clause
 hooked-variable-declaration = [ visibility, spacing1 ], variable-item, line-end,
                               variable-hook, { variable-hook },
                               spacing, "End", spacing1, "Variable", line-end ;
-local-hooked-variable-declaration = ( "Dim" | "Static" ), spacing1,
+local-hooked-variable-declaration = spacing, ( "Dim" | "Static" ), spacing1,
                                     variable-item, line-end,
                                     variable-hook, { variable-hook },
                                     spacing, "End", spacing1, "Variable", line-end ;
@@ -205,17 +205,18 @@ parameter           = [ "Optional", spacing1 ],
 procedure-body      = { procedure-element | empty-line } ;
 procedure-element   = local-hooked-variable-declaration | local-declaration |
                       label-declaration | statement-line ;
-local-declaration   = explicit-variable-declaration, line-end
-                    | const-declaration, line-end ;
+local-declaration   = spacing,
+                      ( explicit-variable-declaration, line-end
+                      | const-declaration, line-end ) ;
 
 (* Statements *)
 statement-line      = spacing, [ line-label, spacing ], statement,
                       { spacing, ":", spacing, statement },
                       [ spacing, ":" ], line-end ;
-statement           = assignment-statement | call-statement | control-statement |
+statement           = assignment-statement | call-new-statement | call-statement | control-statement |
                       io-statement | error-statement | object-statement |
                       dynamic-statement | inline-assembly-statement |
-                      bytecode-statement | call-new-statement ;
+                      bytecode-statement ;
 
 assignment-statement = [ "Let", spacing1 ], lvalue, spacing, "=", spacing, expression
                      | "Set", spacing1, lvalue, spacing, "=", spacing, expression
@@ -281,7 +282,8 @@ with-statement      = "With", spacing1, expression, line-end, statement-block,
 sync-lock-statement = "SyncLock", spacing1, expression, line-end,
                       statement-block, spacing,
                       "End", spacing1, "SyncLock" ;
-statement-block     = { statement-line | label-declaration | empty-line } ;
+statement-block     = { local-hooked-variable-declaration | local-declaration
+                      | statement-line | label-declaration | empty-line } ;
 
 goto-statement      = ( "GoTo" | "GoSub" ), spacing1, label-reference
                     | "On", spacing1, expression, spacing1,
@@ -292,7 +294,8 @@ label-declaration   = spacing, line-label, line-end ;
 line-label          = identifier, ":" | decimal-digits, [ ":" ] ;
 label-reference     = identifier | decimal-digits ;
 exit-statement      = "Exit", spacing1,
-                      ( "Sub" | "Function" | "Property" | "For" | "Do" ) ;
+                      ( "Sub" | "Function" | "Property" | "For" | "Do" |
+                        "While" ) ;
 end-statement       = "End" ;
 stop-statement      = "Stop" ;
 
@@ -303,13 +306,12 @@ io-statement        = open-statement | close-statement | print-statement |
 open-statement      = "Open", spacing1, expression, spacing1, "For", spacing1,
                       ( "Input" | "Output" | "Append" | "Binary" | "Random" ),
                       [ spacing1, "Access", spacing1,
-                        ( "Read" | "Write" |
-                          "Read", spacing1, "Write" ) ],
+                        ( "Read", spacing1, "Write" | "Read" | "Write" ) ],
                       [ spacing1, open-sharing ],
                       spacing1, "As", spacing1, [ "#" ], expression,
                       [ spacing1, "Len", spacing, "=", spacing, expression ] ;
 open-sharing        = "Shared" | "Lock", spacing1,
-                      ( "Read" | "Write" | "Read", spacing1, "Write" ) ;
+                      ( "Read", spacing1, "Write" | "Read" | "Write" ) ;
 close-statement     = "Close", [ spacing1, file-number-list ] ;
 file-number-list    = [ "#" ], expression,
                       { spacing, ",", spacing, [ "#" ], expression } ;
@@ -403,7 +405,7 @@ multiplicative-expression = integer-division-expression,
                             { spacing, ( "*" | "/" ), spacing,
                               integer-division-expression } ;
 integer-division-expression = modulus-expression,
-                              { spacing, "\\", spacing, modulus-expression } ;
+                              { spacing, "\", spacing, modulus-expression } ;
 modulus-expression  = unary-expression,
                       { spacing1, "Mod", spacing1, unary-expression } ;
 unary-expression    = { "+" | "-" }, power-expression ;

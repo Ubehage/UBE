@@ -1,7 +1,7 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Limits"
 
-' RP2 keeps all resource ceilings in one module so later phases can share the
+' RP3 keeps all resource ceilings in one module so later phases can share the
 ' same bounded behavior without scattering unexplained numeric limits.
 
 Function LimitDiagnosticCount() As Long
@@ -54,4 +54,16 @@ End Function
 
 Function LimitConditionalConstants() As Long
     LimitConditionalConstants = 4096
+End Function
+
+Function LimitGrammarRules() As Long
+    LimitGrammarRules = 512
+End Function
+
+Function LimitGrammarNodes() As Long
+    LimitGrammarNodes = 16384
+End Function
+
+Function LimitSyntaxNodes() As Long
+    LimitSyntaxNodes = 1000000
 End Function

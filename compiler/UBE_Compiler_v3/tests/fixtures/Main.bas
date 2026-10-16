@@ -1,6 +1,6 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Main"
 
-' RP1 loads source ownership and text but does not parse this module yet.
+' This inherited fixture remains the multi-module front-end regression case.
 Sub Main()
 End Sub

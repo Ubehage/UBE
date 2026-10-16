@@ -6,16 +6,30 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 2 — lexical and
-  preprocessing front end**
-- Active item: validate native and compatibility source envelopes before
-  implementing the complete token stream.
-- Status: RP1 is complete and verified. The v2-built nine-module compiler
-  shell validates bounded `UBE-Project 1` manifests, owns ordered UTF-8 source
-  documents, reports stable diagnostics, separates host and target records,
-  and validates the API-empty `UBECore` project boundary. RP2 implementation
-  has not started.
+- Active milestone: **Compiler v3 Release Preview 4 — symbols, types, and
+  semantic core**
+- Active item: begin bounded package, module, member, procedure, block, and
+  label scopes over the completed RP3 syntax model.
+- Status: RP3 is complete and verified. The v2-built 18-module compiler embeds
+  the frozen grammar, parses the complete UBE 1.0 syntax surface into owned
+  records, emits deterministic syntax dumps, recovers with bounded multiple
+  diagnostics, parses itself and `UBECore`, and preserves every earlier test.
 - Blockers: none recorded.
+
+## Latest verification
+
+- 2026-10-16: `lang-doc/tools/validate-grammar.ps1` passed with 202 core and
+  19 conditional productions.
+- 2026-10-16: a clean `bootstrap/build.ps1` run passed lexer, parser,
+  semantic, codegen, native, v1, v2, RP1, RP2, and RP3 gates. Both v2 stages
+  emitted byte-identical RP3 LLVM. The linked compiler parsed its own 18
+  modules, the multi-module fixtures, `UBECore`, comprehensive UBE syntax, and
+  legacy designer sources. Syntax dumps were deterministic; every parser-owned
+  production was exercised; scanner-owned lexical productions retained RP2
+  coverage; recovery emitted multiple bounded diagnostics; excessive nesting
+  returned `UBE3701` without uncontrolled termination.
+- Generated reproducibility record:
+  `bootstrap/out/v3-rp3-build-manifest.json`.
 
 ## Verified baseline
 
@@ -112,12 +126,11 @@ roadmap.
 
 ## Next actions
 
-1. Define the RP2 source-envelope records and diagnostics within the frozen
-   UBE 1.0 header contract.
-2. Validate native `UBE SOURCE 1` kind/name headers and recognize legacy VB6
-   compatibility headers without yet parsing procedure syntax.
-3. Add positive, mismatch, missing-header, malformed-attribute, and bounded
-   recovery fixtures to the authoritative bootstrap suite.
+1. Define bounded RP4 scope and symbol records without native pointers.
+2. Build package, module, member, procedure, block, and label scopes from the
+   owned RP3 syntax representation.
+3. Add focused duplicate, visibility, qualification, ambiguity, and recovery
+   fixtures while preserving the complete RP3 front-end gate.
 
 ## Decisions in force
 
@@ -360,6 +373,15 @@ roadmap.
   integration
 
 ## Verification log
+
+- 2026-10-16: completed Compiler v3 Release Preview 3. Both preserved v2
+  stages emit byte-identical RP3 LLVM. The linked 18-module compiler parses
+  itself, inherited multi-module and lexical fixtures, `UBECore`, comprehensive
+  UBE 1.0 syntax, and legacy designer sources. Deterministic syntax dumps cover
+  every parser-owned core production; scanner-owned productions remain covered
+  by RP2. Bounded multi-error recovery and syntax-depth failures return
+  controlled diagnostics. Grammar validation and the clean complete bootstrap
+  suite passed. `bootstrap/out/v3-rp3-build-manifest.json` records the result.
 
 - 2026-10-16: completed Compiler v3 Release Preview 1. V3 now builds as nine
   ordered v2-compatible modules for bootstrap intrinsics, limits, text,

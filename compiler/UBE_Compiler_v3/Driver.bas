@@ -1,7 +1,7 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Driver"
 
-Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal DumpTokens As Long) As Long
+Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal OutputMode As Long) As Long
     Dim Diagnostics() As CompilerDiagnostic
     Dim DiagnosticCount As Long = 0
     Dim DiagnosticCapacity As Long = 0
@@ -55,12 +55,55 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
-    If DumpTokens <> 0 Then
+    Dim GrammarRules() As GrammarRule
+    Dim GrammarRuleCount As Long = 0
+    Dim GrammarNodes() As GrammarExpression
+    Dim GrammarNodeCount As Long = 0
+    Dim GrammarLinks() As GrammarChildLink
+    Dim GrammarLinkCount As Long = 0
+    If LoadGrammarModel(GrammarRules, GrammarRuleCount, GrammarNodes, GrammarNodeCount, GrammarLinks, GrammarLinkCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        Call ReportDiagnostics(Diagnostics, DiagnosticCount)
+        RunCompilerDriver = 1
+        Exit Function
+    End If
+
+    If OutputMode = 1 Then
         Call WriteTokenDump(Tokens, TokenCount)
         RunCompilerDriver = 0
         Exit Function
     End If
 
-    Print "UBE Compiler v3 RP2: project " & Project.Name & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), host " & Host.Id & ", target " & Target.Triple
+    Dim SyntaxNodes() As SyntaxNode
+    Dim SyntaxNodeCount As Long = 0
+    Dim SyntaxNodeCapacity As Long = 0
+    Dim SyntaxLinks() As SyntaxChildLink
+    Dim SyntaxLinkCount As Long = 0
+    Dim SyntaxLinkCapacity As Long = 0
+    Dim TokenCursor As Long = 0
+    SourceIndex = 0
+    While SourceIndex < SourceCount
+        Dim SourceTokenStart As Long = TokenCursor
+        While TokenCursor < TokenCount
+            If Tokens(TokenCursor).SourceId <> Sources(SourceIndex).SourceId Then
+                Exit While
+            End If
+            TokenCursor = TokenCursor + 1
+        Wend
+        Call ParseOneSource(Sources(SourceIndex), GrammarRules, GrammarRuleCount, GrammarNodes, GrammarLinks, Tokens, SourceTokenStart, TokenCursor, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        SourceIndex = SourceIndex + 1
+    Wend
+    If DiagnosticCount <> 0 Then
+        Call ReportDiagnostics(Diagnostics, DiagnosticCount)
+        RunCompilerDriver = 1
+        Exit Function
+    End If
+
+    If OutputMode = 2 Then
+        Call WriteSyntaxDump(SyntaxNodes, SyntaxNodeCount, GrammarRules, Tokens, GrammarRuleCount)
+        RunCompilerDriver = 0
+        Exit Function
+    End If
+
+    Print "UBE Compiler v3 RP3: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), host " & Host.Id & ", target " & Target.Triple
     RunCompilerDriver = 0
 End Function

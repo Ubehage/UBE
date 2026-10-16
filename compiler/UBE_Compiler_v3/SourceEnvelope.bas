@@ -68,10 +68,10 @@ Sub ReadPhysicalLine(ByVal Contents As String, ByVal StartByte As Long, ByRef Li
     LineText = StringSlice(Contents, StartByte, ContentEnd - StartByte)
 End Sub
 
-Function ReadHeaderWord(ByVal Line As String, ByRef Cursor As Long, ByRef Word As String) As Long
-    Dim Length As Long = StringLength(Line)
+Function ReadHeaderWord(ByVal InputLine As String, ByRef Cursor As Long, ByRef Word As String) As Long
+    Dim Length As Long = StringLength(InputLine)
     While Cursor < Length
-        If StringByteAt(Line, Cursor) = 32 Or StringByteAt(Line, Cursor) = 9 Then
+        If StringByteAt(InputLine, Cursor) = 32 Or StringByteAt(InputLine, Cursor) = 9 Then
             Cursor = Cursor + 1
         Else
             Exit While
@@ -79,7 +79,7 @@ Function ReadHeaderWord(ByVal Line As String, ByRef Cursor As Long, ByRef Word A
     Wend
     Dim StartByte As Long = Cursor
     While Cursor < Length
-        Dim CurrentByte As Long = StringByteAt(Line, Cursor)
+        Dim CurrentByte As Long = StringByteAt(InputLine, Cursor)
         If CurrentByte = 32 Or CurrentByte = 9 Then
             Exit While
         End If
@@ -89,21 +89,21 @@ Function ReadHeaderWord(ByVal Line As String, ByRef Cursor As Long, ByRef Word A
         Word = ""
         ReadHeaderWord = 0
     Else
-        Word = StringSlice(Line, StartByte, Cursor - StartByte)
+        Word = StringSlice(InputLine, StartByte, Cursor - StartByte)
         ReadHeaderWord = 1
     End If
 End Function
 
-Function ParseDecimalLong(ByVal Text As String, ByRef Value As Long) As Long
+Function ParseDecimalLong(ByVal InputText As String, ByRef Value As Long) As Long
     Value = 0
-    Dim Length As Long = StringLength(Text)
+    Dim Length As Long = StringLength(InputText)
     If Length = 0 Then
         ParseDecimalLong = 0
         Exit Function
     End If
     Dim Index As Long = 0
     While Index < Length
-        Dim CurrentByte As Long = StringByteAt(Text, Index)
+        Dim CurrentByte As Long = StringByteAt(InputText, Index)
         If CurrentByte < 48 Or CurrentByte > 57 Then
             ParseDecimalLong = 0
             Exit Function
@@ -118,16 +118,16 @@ Function ParseDecimalLong(ByVal Text As String, ByRef Value As Long) As Long
     ParseDecimalLong = 1
 End Function
 
-Function ParseNativeNameAttribute(ByVal Line As String, ByRef SourceName As String) As Long
-    Dim EqualsIndex As Long = StringIndexOf(Line, "=", 0)
+Function ParseNativeNameAttribute(ByVal InputLine As String, ByRef SourceName As String) As Long
+    Dim EqualsIndex As Long = StringIndexOf(InputLine, "=", 0)
     If EqualsIndex < 0 Then
         ParseNativeNameAttribute = 0
         Exit Function
     End If
     Dim LeftText As String = ""
     Dim RawValue As String = ""
-    Call TrimText(StringSlice(Line, 0, EqualsIndex), LeftText)
-    Call TrimText(StringSlice(Line, EqualsIndex + 1, StringLength(Line) - EqualsIndex - 1), RawValue)
+    Call TrimText(StringSlice(InputLine, 0, EqualsIndex), LeftText)
+    Call TrimText(StringSlice(InputLine, EqualsIndex + 1, StringLength(InputLine) - EqualsIndex - 1), RawValue)
     If EqualsFolded(LeftText, "Attribute UBE_Name") = 0 Then
         ParseNativeNameAttribute = 0
         Exit Function
@@ -139,16 +139,16 @@ Function ParseNativeNameAttribute(ByVal Line As String, ByRef SourceName As Stri
     ParseNativeNameAttribute = IsProjectIdentifier(SourceName)
 End Function
 
-Function ParseLegacyNameAttribute(ByVal Line As String, ByRef SourceName As String) As Long
-    Dim EqualsIndex As Long = StringIndexOf(Line, "=", 0)
+Function ParseLegacyNameAttribute(ByVal InputLine As String, ByRef SourceName As String) As Long
+    Dim EqualsIndex As Long = StringIndexOf(InputLine, "=", 0)
     If EqualsIndex < 0 Then
         ParseLegacyNameAttribute = 0
         Exit Function
     End If
     Dim LeftText As String = ""
     Dim RawValue As String = ""
-    Call TrimText(StringSlice(Line, 0, EqualsIndex), LeftText)
-    Call TrimText(StringSlice(Line, EqualsIndex + 1, StringLength(Line) - EqualsIndex - 1), RawValue)
+    Call TrimText(StringSlice(InputLine, 0, EqualsIndex), LeftText)
+    Call TrimText(StringSlice(InputLine, EqualsIndex + 1, StringLength(InputLine) - EqualsIndex - 1), RawValue)
     If EqualsFolded(LeftText, "Attribute VB_Name") = 0 Then
         ParseLegacyNameAttribute = 0
         Exit Function
@@ -160,9 +160,9 @@ Function ParseLegacyNameAttribute(ByVal Line As String, ByRef SourceName As Stri
     ParseLegacyNameAttribute = IsProjectIdentifier(SourceName)
 End Function
 
-Function IsLegacyHeaderStart(ByVal Line As String) As Long
+Function IsLegacyHeaderStart(ByVal InputLine As String) As Long
     Dim Trimmed As String = ""
-    Call TrimText(Line, Trimmed)
+    Call TrimText(InputLine, Trimmed)
     Dim Cursor As Long = 0
     Dim FirstWord As String = ""
     Call ReadHeaderWord(Trimmed, Cursor, FirstWord)
