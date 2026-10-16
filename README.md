@@ -48,33 +48,18 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-UBE is pre-release software and is not yet ready for production use.
+> **Current milestone:** Compiler v3 Release Preview 3 is complete. Development
+> is moving into RP4: symbols, types, and semantic analysis.
 
-The project has reached a verified self-hosting milestone. The preserved UBE
-Compiler v2 can rebuild itself, compile ordered multi-module projects, and
-resolve references between modules.
+<ul>
+  <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
+  <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
+  <li><strong>Compiler v3 RP3</strong><br><sub>The verified 18-module front end implements source loading, conditional compilation, tokenization, the complete grammar, owned syntax records, deterministic output, bounded recovery, and malformed-input coverage.</sub></li>
+  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity and is parsed by RP3. No public library APIs are required by the compiler yet.</sub></li>
+  <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
+</ul>
 
-V2 is a stable transitional compiler used to build UBE Compiler v3. Version 3
-is the first public-release target. Its UBE 1.0 language definition, compiler
-boundaries, and staged development plan are now frozen.
-
-Compiler v3 Release Preview 3 is complete. RP3 is a verified, v2-built,
-18-module front end. It validates native UBE and compatible VB6 source
-envelopes, applies nested conditional compilation without losing source
-locations, implements the frozen UBE 1.0 token and grammar contracts, and
-produces deterministic, bounded token and owned syntax representations. Both
-preserved v2 stages produce byte-identical RP3 LLVM. Grammar-wide fixtures,
-multi-error recovery, deep nesting, malformed input, and deterministic fuzz
-inputs are covered by controlled diagnostics rather than compiler crashes.
-
-The separate source-library project now has the canonical package identity
-`UBECore`. RP3 parses that project but deliberately uses no public library APIs
-yet. Development can now move into Release Preview 4: symbols, types, and
-semantic analysis.
-
-The documentation website already provides an offline, browsable language
-manual with an expandable A-Z reference. Planned behavior is labelled
-separately from implemented and verified behavior.
+UBE remains pre-release software and is not yet ready for production use.
 
 ## First public-release goals
 
@@ -121,7 +106,6 @@ UBE is open-source software. See [LICENSE](LICENSE) for license terms and
 
 ## Support development
 
-UBE does not require payment and donations are strictly voluntary. If you want
-to support further and faster development, you can donate through
-[PayPal](https://www.paypal.me/Ubehage). Donations go directly toward continued
-UBE development.
+UBE is free and open-source. Donations are appreciated, and will help progress
+faster. You can support the project through
+[PayPal](https://www.paypal.me/Ubehage).
