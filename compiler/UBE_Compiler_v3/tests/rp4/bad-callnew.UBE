@@ -1,0 +1,4 @@
+UBE-Project 1
+Name = "BadCallNew"
+Kind = "Library"
+Source = "bad-callnew.bas"

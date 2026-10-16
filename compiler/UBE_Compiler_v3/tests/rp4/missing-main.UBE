@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "MissingMain"
+Kind = "Exe"
+Startup = "Main"
+Source = "missing-main.bas"

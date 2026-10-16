@@ -28,7 +28,9 @@ under `bootstrap/out/` and are not committed.
 | v3 RP1 | `c47b06a` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP2 | `0f4a19d` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP3 | `285fd58` | Windows x86-64 → `x86_64-w64-windows-gnu` |
+| v3 RP4 | pending | Windows x86-64 → `x86_64-w64-windows-gnu` |
 
 RP0 through RP2 were reproduced from their exact completion commits when this
-preservation policy was introduced. RP3 is the executable produced by the
-clean completion build for its source commit.
+preservation policy was introduced. RP3 and RP4 are the executables produced
+by their clean completion builds. The RP4 commit value is replaced with its
+source commit immediately after that commit is created.

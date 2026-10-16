@@ -104,6 +104,32 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
-    Print "UBE Compiler v3 RP3: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), host " & Host.Id & ", target " & Target.Triple
+    Dim SemanticStateValue As SemanticState
+    Dim SemanticTypes() As SemanticType
+    Dim SemanticTypeCount As Long = 0
+    Dim SemanticTypeCapacity As Long = 0
+    Dim SemanticScopes() As SemanticScope
+    Dim SemanticScopeCount As Long = 0
+    Dim SemanticScopeCapacity As Long = 0
+    Dim SemanticSymbols() As SemanticSymbol
+    Dim SemanticSymbolCount As Long = 0
+    Dim SemanticSymbolCapacity As Long = 0
+    Dim SemanticLinks() As SemanticSymbolLink
+    Dim SemanticLinkCount As Long = 0
+    Dim SemanticLinkCapacity As Long = 0
+    Call AnalyzeSemantics(Project, Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, GrammarRules, SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticTypeCapacity, SemanticScopes, SemanticScopeCount, SemanticScopeCapacity, SemanticSymbols, SemanticSymbolCount, SemanticSymbolCapacity, SemanticLinks, SemanticLinkCount, SemanticLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    If DiagnosticCount <> 0 Then
+        Call ReportDiagnostics(Diagnostics, DiagnosticCount)
+        RunCompilerDriver = 1
+        Exit Function
+    End If
+
+    If OutputMode = 3 Then
+        Call WriteSemanticDump(SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticScopes, SemanticScopeCount, SemanticSymbols, SemanticSymbolCount)
+        RunCompilerDriver = 0
+        Exit Function
+    End If
+
+    Print "UBE Compiler v3 RP4: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), " & LongToString(SemanticSymbolCount) & " symbol(s), host " & Host.Id & ", target " & Target.Triple
     RunCompilerDriver = 0
 End Function

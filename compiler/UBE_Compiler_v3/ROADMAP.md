@@ -207,34 +207,37 @@ Goal: fully analyze ordinary procedural programs before any backend operation.
 
 ### RP4.1 — declarations and lookup
 
-- [ ] Build package, module, member, procedure, block, and label scopes.
-- [ ] Implement Unicode-folded identity, visibility, direct references,
+- [x] Build package, module, member, procedure, block, and label scopes.
+- [x] Implement Unicode-folded identity, visibility, direct references,
   qualification, ambiguity rules, and the no-user-overloading rule.
-- [ ] Validate module initialization order and exactly one executable entry
+- [x] Validate module initialization order and exactly one executable entry
   point; support entry-free library analysis.
 
 ### RP4.2 — type system and conversions
 
-- [ ] Implement all scalar types, strings, enums, pointers, arrays, custom
+- [x] Implement all scalar types, strings, enums, pointers, arrays, custom
   types, objects/interfaces, and `Variant`/`Empty`/`Null` type records.
-- [ ] Implement constant evaluation, checked arithmetic, operator typing, and
+- [x] Implement constant evaluation, checked arithmetic, operator typing, and
   the normative implicit-conversion matrix.
-- [ ] Validate fixed strings, array bounds/ranks, recursive custom types, and
+- [x] Validate fixed strings, array bounds/ranks, recursive custom types, and
   value versus object-reference assignment.
 
 ### RP4.3 — calls and control-flow contracts
 
-- [ ] Implement `ByRef`/`ByVal`, Optional, named and omitted arguments,
+- [x] Implement `ByRef`/`ByVal`, Optional, named and omitted arguments,
   `ParamArray`, property accessors, and evaluate-once rules.
-- [ ] Validate lvalues, exits, labels, loops, branches, result assignment,
+- [x] Validate lvalues, exits, labels, loops, branches, result assignment,
   variable hooks, `Inline`/`ForceInline`, and intrinsic declarations.
-- [ ] Reject all unsupported or unsafe constructs before lowering.
-- [ ] Assign stable diagnostic identifiers and test wording, locations, notes,
+- [x] Reject all unsupported or unsafe constructs before lowering.
+- [x] Assign stable diagnostic identifiers and test wording, locations, notes,
   and recovery behavior.
 
-RP4 gate: every accepted procedural program is fully typed; every static
-restriction implemented so far has a focused rejection test; no invalid
-program reaches backend code; v2 builds the stable preview and library slice.
+RP4 gate: complete and verified on 2026-10-16. Every accepted expression has a
+semantic type; bounded declaration, type, entry-point, label, `CallNew`, unsafe,
+and control-flow checks run before any backend exists. Focused rejection tests
+and deterministic semantic serialization pass. Both preserved v2 stages emit
+byte-identical RP4 LLVM, RP4 analyzes its own 25-module source, and the
+API-empty `UBECore` slice remains valid.
 
 ## Release Preview 5: verified IR, native core, and first self-build
 
@@ -432,6 +435,6 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP4.1 by defining bounded package, module, member, procedure, block, and
-label scopes over the owned RP3 syntax records. Preserve the complete RP3
-front-end corpus as the semantic-analysis regression boundary.
+Begin RP5.1 by defining bounded typed target-independent IR records for values,
+storage, calls, control flow, cleanup, errors, and source locations. Keep the
+complete RP4 semantic corpus as the pre-lowering regression boundary.

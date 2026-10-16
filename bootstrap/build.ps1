@@ -344,44 +344,44 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3Rp1StageOneIr = Join-Path $out 'v3-rp3-stage1.ll'
-$v3Rp1StageTwoIr = Join-Path $out 'v3-rp3-stage2.ll'
-$v3Rp1Executable = Join-Path $out 'v3-rp3.exe'
+$v3Rp1StageOneIr = Join-Path $out 'v3-rp4-stage1.ll'
+$v3Rp1StageTwoIr = Join-Path $out 'v3-rp4-stage2.ll'
+$v3Rp1Executable = Join-Path $out 'v3-rp4.exe'
 & $v2StageOne $v3Manifest $v3Rp1StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP3' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP4' }
 & $v2StageTwo $v3Manifest $v3Rp1StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP3' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP4' }
 $v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
 $v3Rp1StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp1StageTwoIr -Algorithm SHA256).Hash
 if ($v3Rp1StageOneIrHash -ne $v3Rp1StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 RP3 LLVM IR'
+    throw 'UBE Compiler v2 stages one and two emitted different v3 RP4 LLVM IR'
 }
 & $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
     (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP3' }
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP4' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP3: project UBE_Compiler_v3 (Exe), 18 source(s), * token(s), * syntax node(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP3 failed to parse its own project'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP4: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP4 failed to analyze its own project'
 }
 
 $v3Rp1Tests = Join-Path $v3Project 'tests'
 $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP3: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP3 failed its inherited multi-module project fixture'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP4: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP4 failed its inherited multi-module project fixture'
 }
 $ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP3: project UBECore (Library), 1 source(s), * token(s), * syntax node(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP3 failed to validate the UBECore project boundary'
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP4: project UBECore (Library), 1 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP4 failed to validate the UBECore project boundary'
 }
 
 $v3Rp2Tests = Join-Path $v3Project 'tests/rp2'
 foreach ($positiveProject in @('basic.UBE', 'lexical.UBE', 'legacy.UBE', 'conditional-continuation.UBE')) {
-    $positiveOutput = & $v3Rp1Executable (Join-Path $v3Rp2Tests $positiveProject) $v3Rp1Target
-    if ($LASTEXITCODE -ne 0 -or $positiveOutput -notlike 'UBE Compiler v3 RP3:*') {
-        throw "UBE Compiler v3 RP3 failed positive fixture $positiveProject"
+    $positiveOutput = & $v3Rp1Executable '--dump-syntax' (Join-Path $v3Rp2Tests $positiveProject) $v3Rp1Target
+    if ($LASTEXITCODE -ne 0 -or $positiveOutput[0] -notlike 'UBE-SYNTAX 1 *') {
+        throw "UBE Compiler v3 RP4 failed inherited front-end fixture $positiveProject"
     }
 }
 $firstTokenDump = & $v3Rp1Executable '--dump-tokens' (Join-Path $v3Rp2Tests 'lexical.UBE') $v3Rp1Target
@@ -415,9 +415,9 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp3 [--dump-tokens|--dump-syntax] <project.UBE> <target-triple>'
+    -ExpectedDiagnostic 'usage: ube-v3-rp4 [--dump-tokens|--dump-syntax|--dump-semantics] <project.UBE> <target-triple>'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
-    -ExpectedDiagnostic 'error UBE3200: unsupported RP3 target: unknown-target'
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP4 target: unknown-target'
 Test-V3Rp1Failure -Name 'duplicate-source' `
     -Arguments @((Join-Path $v3Rp1Tests 'duplicate-source.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3013: duplicate Source after path normalization'
@@ -494,15 +494,15 @@ $v3Rp2BomText = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Bom`"`r`nDim fina
 $v3Rp2BomBytes = [System.Text.UTF8Encoding]::new($true).GetBytes($v3Rp2BomText)
 [System.IO.File]::WriteAllBytes($v3Rp2FuzzSource, $v3Rp2BomBytes)
 $bomOutput = & $v3Rp1Executable $v3Rp2FuzzProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP3:*') {
-    throw 'UBE Compiler v3 RP3 failed BOM, CRLF, or final synthetic newline coverage'
+if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP4:*') {
+    throw 'UBE Compiler v3 RP4 failed BOM, CRLF, or final synthetic newline coverage'
 }
 
 $v3Rp3Tests = Join-Path $v3Project 'tests/rp3'
 foreach ($positiveProject in @('comprehensive.UBE', 'legacy-designer.UBE')) {
-    $positiveOutput = & $v3Rp1Executable (Join-Path $v3Rp3Tests $positiveProject) $v3Rp1Target
-    if ($LASTEXITCODE -ne 0 -or $positiveOutput -notlike 'UBE Compiler v3 RP3:*') {
-        throw "UBE Compiler v3 RP3 failed parser fixture $positiveProject"
+    $positiveOutput = & $v3Rp1Executable '--dump-syntax' (Join-Path $v3Rp3Tests $positiveProject) $v3Rp1Target
+    if ($LASTEXITCODE -ne 0 -or $positiveOutput[0] -notlike 'UBE-SYNTAX 1 *') {
+        throw "UBE Compiler v3 RP4 failed parser fixture $positiveProject"
     }
 }
 
@@ -546,6 +546,31 @@ $depthProjectText = "UBE-Project 1`nName = `"Depth`"`nKind = `"Library`"`nSource
 Test-V3Rp1Failure -Name 'syntax-depth-limit' -Arguments @($v3Rp3DepthProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3701: syntax nesting or node limit exceeded'
 
+$v3Rp4Tests = Join-Path $v3Project 'tests/rp4'
+$v3Rp4Output = & $v3Rp1Executable (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP4: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP4 failed its typed multi-module semantic fixture'
+}
+$firstSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v3 RP4 failed to serialize semantics' }
+$secondSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or (Compare-Object $firstSemanticDump $secondSemanticDump -SyncWindow 0)) {
+    throw 'UBE Compiler v3 RP4 semantic serialization is not deterministic'
+}
+if (($firstSemanticDump -join "`n") -notlike '*expressions=*/*') {
+    throw 'UBE Compiler v3 RP4 did not type every accepted expression'
+}
+Test-V3Rp1Failure -Name 'semantic-duplicate' -Arguments @((Join-Path $v3Rp4Tests 'duplicate.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4001: duplicate declaration after case folding: value'
+Test-V3Rp1Failure -Name 'semantic-entry' -Arguments @((Join-Path $v3Rp4Tests 'missing-main.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4002: executable project requires exactly one module-level Main'
+Test-V3Rp1Failure -Name 'semantic-type' -Arguments @((Join-Path $v3Rp4Tests 'unknown-type.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4011: unknown type: MissingType'
+Test-V3Rp1Failure -Name 'semantic-exit' -Arguments @((Join-Path $v3Rp4Tests 'bad-exit.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4024: Exit does not name an enclosing construct'
+Test-V3Rp1Failure -Name 'semantic-callnew' -Arguments @((Join-Path $v3Rp4Tests 'bad-callnew.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4026: CallNew target must resolve to a known Sub: Missing'
+
 $v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
 $manySourcesText = [System.Text.StringBuilder]::new()
 [void]$manySourcesText.AppendLine('UBE-Project 1')
@@ -581,12 +606,12 @@ Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourcePr
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
 $v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
     $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
 }
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp3-build-manifest-1'
-    preview = 'RP3'
+    schema = 'ube-v3-rp4-build-manifest-1'
+    preview = 'RP4'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
@@ -612,7 +637,7 @@ $v3Rp1BuildManifest = [ordered]@{
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 4 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp3-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp4-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(

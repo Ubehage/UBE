@@ -48,14 +48,14 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 3 is complete. Development
-> is moving into RP4: symbols, types, and semantic analysis.
+> **Current milestone:** Compiler v3 Release Preview 4 is complete. Development
+> is moving into RP5: typed IR, native lowering, and v3 self-hosting.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
-  <li><strong>Compiler v3 RP3</strong><br><sub>The verified 18-module front end implements source loading, conditional compilation, tokenization, the complete grammar, owned syntax records, deterministic output, bounded recovery, and malformed-input coverage.</sub></li>
-  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity and is parsed by RP3. No public library APIs are required by the compiler yet.</sub></li>
+  <li><strong>Compiler v3 RP4</strong><br><sub>The verified 25-module front end adds bounded scopes, Unicode-folded symbols, semantic types, expression typing, stable diagnostics, and declaration, entry-point, call, label, and control-flow checks to the complete RP3 parser.</sub></li>
+  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity and is analyzed by RP4. No public library APIs are required by the compiler yet.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 
@@ -84,7 +84,7 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP3 and its complete front-end corpus,
+v2 self-hosting chain, Compiler v3 RP4 and its complete front-end corpus,
 the `UBECore` project boundary, and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 

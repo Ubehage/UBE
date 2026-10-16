@@ -37,8 +37,11 @@ nearer roadmap or progress file.
   - [x] Complete RP3: embedded frozen grammar, complete bounded parser, owned
     syntax records, deterministic syntax output, recovery, and grammar-wide
     coverage.
-  - [ ] Begin RP4 with package, module, member, procedure, block, and label
-    scopes.
+  - [x] Complete RP4: bounded scopes and Unicode-folded symbols, semantic type
+    and expression records, entry-point and declaration validation, stable
+    semantic diagnostics, deterministic semantic output, and focused rejection
+    tests.
+  - [ ] Begin RP5 with typed target-independent IR and verification.
 
 ## Handoff protocol
 

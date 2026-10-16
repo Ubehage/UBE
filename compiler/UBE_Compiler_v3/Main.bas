@@ -15,9 +15,13 @@ Function Main() As Long
             Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 2)
             Exit Function
         End If
+        If CommandArgument(0) = "--dump-semantics" Then
+            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 3)
+            Exit Function
+        End If
     End If
     If CommandArgumentCount() <> 2 Then
-        Print "usage: ube-v3-rp3 [--dump-tokens|--dump-syntax] <project.UBE> <target-triple>"
+        Print "usage: ube-v3-rp4 [--dump-tokens|--dump-syntax|--dump-semantics] <project.UBE> <target-triple>"
         Main = 2
         Exit Function
     End If

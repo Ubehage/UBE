@@ -67,3 +67,19 @@ End Function
 Function LimitSyntaxNodes() As Long
     LimitSyntaxNodes = 1000000
 End Function
+
+Function LimitSemanticScopes() As Long
+    LimitSemanticScopes = 100000
+End Function
+
+Function LimitSemanticSymbols() As Long
+    LimitSemanticSymbols = 250000
+End Function
+
+Function LimitSemanticTypes() As Long
+    LimitSemanticTypes = 65536
+End Function
+
+Function LimitSemanticDepth() As Long
+    LimitSemanticDepth = 512
+End Function
