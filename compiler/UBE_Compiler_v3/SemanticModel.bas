@@ -58,6 +58,88 @@ Type SemanticState
     TypedExpressionCount As Long
 End Type
 
+Type SemanticExpression
+    StableId As Long
+    SyntaxNode As Long
+    TypeIndex As Long
+    ResolvedSymbol As Long
+    ConversionKind As Long
+    ValueCategory As Long
+    ConstantKind As Long
+    ConstantText As String
+    Flags As Long
+End Type
+
+Type SemanticNodeBinding
+    StableId As Long
+    SyntaxNode As Long
+    ScopeIndex As Long
+    OwnerSymbol As Long
+End Type
+
+Function AppendSemanticExpression(ByRef Items() As SemanticExpression, ByRef Count As Long, ByRef Capacity As Long, ByVal SyntaxNode As Long, ByVal TypeIndex As Long, ByVal ResolvedSymbol As Long, ByVal ConversionKind As Long, ByVal ValueCategory As Long, ByVal ConstantKind As Long, ByVal ConstantText As String, ByVal Flags As Long) As Long
+    If Count >= LimitSyntaxNodes() Then
+        AppendSemanticExpression = -1
+        Exit Function
+    End If
+    If Count = Capacity Then
+        Dim NewCapacity As Long = 256
+        If Capacity > 0 Then
+            NewCapacity = Capacity * 2
+        End If
+        If NewCapacity > LimitSyntaxNodes() Then
+            NewCapacity = LimitSyntaxNodes()
+        End If
+        If Capacity = 0 Then
+            ReDim Items(NewCapacity - 1)
+        Else
+            ReDim Preserve Items(NewCapacity - 1)
+        End If
+        Capacity = NewCapacity
+    End If
+    Dim Result As Long = Count
+    Items(Result).StableId = Result + 1
+    Items(Result).SyntaxNode = SyntaxNode
+    Items(Result).TypeIndex = TypeIndex
+    Items(Result).ResolvedSymbol = ResolvedSymbol
+    Items(Result).ConversionKind = ConversionKind
+    Items(Result).ValueCategory = ValueCategory
+    Items(Result).ConstantKind = ConstantKind
+    Items(Result).ConstantText = ConstantText
+    Items(Result).Flags = Flags
+    Count = Count + 1
+    AppendSemanticExpression = Result
+End Function
+
+Function AppendSemanticNodeBinding(ByRef Items() As SemanticNodeBinding, ByRef Count As Long, ByRef Capacity As Long, ByVal SyntaxNode As Long, ByVal ScopeIndex As Long, ByVal OwnerSymbol As Long) As Long
+    If Count >= LimitSyntaxNodes() Then
+        AppendSemanticNodeBinding = -1
+        Exit Function
+    End If
+    If Count = Capacity Then
+        Dim NewCapacity As Long = 512
+        If Capacity > 0 Then
+            NewCapacity = Capacity * 2
+        End If
+        If NewCapacity > LimitSyntaxNodes() Then
+            NewCapacity = LimitSyntaxNodes()
+        End If
+        If Capacity = 0 Then
+            ReDim Items(NewCapacity - 1)
+        Else
+            ReDim Preserve Items(NewCapacity - 1)
+        End If
+        Capacity = NewCapacity
+    End If
+    Dim Result As Long = Count
+    Items(Result).StableId = Result + 1
+    Items(Result).SyntaxNode = SyntaxNode
+    Items(Result).ScopeIndex = ScopeIndex
+    Items(Result).OwnerSymbol = OwnerSymbol
+    Count = Count + 1
+    AppendSemanticNodeBinding = Result
+End Function
+
 Function AppendSemanticType(ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByVal TypeKind As Long, ByVal TypeName As String, ByVal TypeSymbol As Long, ByVal ElementType As Long, ByVal ArrayRank As Long, ByVal FixedLength As Long) As Long
     If TypeCount >= LimitSemanticTypes() Then
         AppendSemanticType = -1
@@ -197,7 +279,7 @@ Function FindSymbolInScope(ByVal ScopeIndex As Long, ByVal SymbolName As String,
     Dim LinkIndex As Long = Scopes(ScopeIndex).FirstSymbolLink
     While LinkIndex >= 0
         Dim SymbolIndex As Long = Links(LinkIndex).SymbolIndex
-        If EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
+        If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
             FindSymbolInScope = SymbolIndex
             Exit Function
         End If

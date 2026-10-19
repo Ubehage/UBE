@@ -63,6 +63,12 @@ int main() {
         "End Function\nSub Main()\nDim Parts() As String\nReDim Parts(0)\n"
         "Parts(0) = \"ok\"\nPrint StringArrayJoin(Parts, 1)\nEnd Sub\n", module));
     static_cast<void>(analyze(
+        "Intrinsic Function CompilerRunTool(ByVal ExecutablePath As String, ByRef Arguments() As String, ByVal ArgumentCount As Long) As Long\n"
+        "End Function\nSub Main()\nEnd Sub\n", module));
+    static_cast<void>(analyze(
+        "Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long\n"
+        "End Function\nSub Main()\nEnd Sub\n", module));
+    static_cast<void>(analyze(
         "Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Sub Main()\nPrint UnicodeIsLetter(65)\nEnd Sub\n", module));
     static_cast<void>(analyze(
@@ -113,6 +119,14 @@ int main() {
         "Intrinsic Function StringArrayJoin(ByVal Values() As String, ByVal Count As Long) As String\n"
         "End Function\nSub Main()\nEnd Sub\n",
         "intrinsic declaration has the wrong signature: StringArrayJoin");
+    expect_semantic_error(
+        "Intrinsic Function CompilerRunTool(ByVal ExecutablePath As String, ByVal Arguments() As String, ByVal ArgumentCount As Long) As Long\n"
+        "End Function\nSub Main()\nEnd Sub\n",
+        "intrinsic declaration has the wrong signature: CompilerRunTool");
+    expect_semantic_error(
+        "Intrinsic Function CompilerDeleteFile(ByRef Path As String) As Long\n"
+        "End Function\nSub Main()\nEnd Sub\n",
+        "intrinsic declaration has the wrong signature: CompilerDeleteFile");
     expect_semantic_error(
         "Sub Change(ByRef value As Long)\nEnd Sub\nSub Main()\nCall Change(1)\nEnd Sub\n",
         "ByRef argument must be an addressable variable");

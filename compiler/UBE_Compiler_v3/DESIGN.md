@@ -4,8 +4,9 @@
 
 This is the architectural boundary for the v3 generation. V3 is UBE's first
 public-release compiler target. The checked-in program is the verified,
-v2-buildable RP4 front end with complete lexical, preprocessing, owned syntax,
-symbol, scope, type, and semantic-validation phases; typed IR begins in RP5.
+v2-buildable RP5 compiler with complete lexical, preprocessing, owned syntax,
+symbol, scope, type, semantic-validation, bounded typed-IR, IR-verification,
+LLVM, debug-line, target-ABI, and native-tool handoff phases.
 
 ## Bootstrap boundary
 
@@ -50,6 +51,12 @@ every file, pipe, process handle, lock, temporary artifact, and target-tool
 resource it acquires on success and on every failure path. The compiler must
 not rely on collection or process exit for externally visible cleanup.
 
+The initial compiler-tool process adapter is the private, versioned
+`CompilerRunTool` intrinsic documented in
+[`../../lang-doc/bootstrap-intrinsics.md`](../../lang-doc/bootstrap-intrinsics.md).
+It accepts an executable path and separate bounded arguments; compiler code
+must not construct a shell command line.
+
 ## Linked program support and platform boundary
 
 UBE has no separately installed runtime or VM. Required support is compiled and
@@ -89,7 +96,9 @@ external-tool failures must never produce an uncontrolled compiler crash.
 
 ## Reproducibility gate
 
-V3 becomes authoritative only after a clean v2-built stage-one compiler builds
-stage two, the documented deterministic comparison passes, the same positive
-and negative corpus agrees across stages, and native programs pass on every
-declared supported target.
+RP5 satisfies the first complete v3 self-build gate: a clean v2-built compiler
+builds itself and the current `UBECore` slice, the self-built compiler repeats
+both builds, the documented deterministic comparisons pass, and both stages
+agree on the positive and negative native corpus for the declared
+`x86_64-w64-windows-gnu` target. Later previews must preserve this gate while
+expanding toward the complete language and library.

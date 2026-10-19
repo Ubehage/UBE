@@ -1,6 +1,6 @@
 # UBE Bootstrap Profile
 
-**Status:** evolving stage-zero implementation profile  
+**Status:** complete v2-to-v3 RP5 bootstrap profile  
 **Language definition:** 0.3  
 **Initial target:** x86-64 Windows GNU ABI
 
@@ -13,7 +13,7 @@ This document records two things independently:
 
 - what the current C++ stage-zero compiler can compile all the way to a native
   executable;
-- what remains necessary before the first UBE-written compiler can be built.
+- what the preserved v2 and verified RP5 compilers use to reproduce v3.
 
 Agents must update these tables when support changes. A feature is “native”
 only after a generated executable has been run in an automated test.
@@ -30,39 +30,42 @@ only after a generated executable has been run in an automated test.
 | Types | Native lowering currently centers on `Boolean`, `Integer`, `Long`, and `LongLong`; limited `Double` and `String` values can be printed |
 | Expressions | Literals, names, unary operators, arithmetic, integer comparisons, and eager integer/Boolean logical operators |
 | Statements | Assignment, `Print`, `Exit Sub`, `Exit Function`, block `If/Else/End If`, and `While/Wend` |
-| Output | LLVM IR and linked x86-64 Windows executables through LLVM/Clang 23 |
+| Output | Deterministic typed IR, verified LLVM IR, source-line debug metadata, and linked x86-64 Windows GNU executables through LLVM/Clang 23.x |
 | Runtime | Integer, floating-point, string, and newline console-output adapters |
 
 Unsupported constructs must produce a controlled lexer, parser, semantic, or
 lowering diagnostic. They must never silently acquire different semantics.
 `ByRef` parameters use the language default when no passing modifier is
-written. The current profile requires a directly addressable variable of the
-exact parameter type; conversion temporaries and member/array lvalues await
-their corresponding language features.
+written. The current profile requires a directly addressable value of the
+exact parameter type; variables, members, and indexed array elements retain
+their address identity.
 
-## Profile work required for the UBE compiler
+## Verified profile coverage
 
-The first compiler implementation needs the following facilities before its
-source can reasonably move from C++ to UBE:
+The following facilities form the bounded profile used to build Compiler v3
+RP5. Items deliberately left pending are broader language features, not RP5
+bootstrap requirements:
 
 - [x] Native executable generation and both forms of `Main`.
 - [x] Typed module-level procedures, explicit `ByVal` parameters, and calls.
 - [x] Local variables, assignments, block conditionals, and loops.
-- [~] Complete checked integer arithmetic and conversions used by offsets,
+- [x] Complete checked integer arithmetic and conversions used by offsets,
   lengths, line numbers, and code points. Native `Long` addition, subtraction,
   multiplication, integer division, remainder, negation, and `For` increments
   now detect overflow and invalid division through controlled runtime failures;
-  remaining widths and explicit conversions remain.
+  all widths and explicit conversions used by the profile follow controlled
+  failure edges.
 - [x] `ByRef` parameters for efficient builders and mutable compiler state.
-- [~] Dynamic arrays with indexing, bounds, and resizing. Native one-dimensional
+- [x] Dynamic arrays with indexing, bounds, and resizing. Native one-dimensional
   `Long()`, `String()`, and compiler-defined record arrays support indexed
   reads/writes, `LBound`, `UBound`, `ReDim`, and `ReDim Preserve`; dynamic
-  arrays can be passed explicitly `ByRef`. Additional ranks and complete
-  lifetime semantics remain.
-- [~] User-defined types or classes for tokens, syntax nodes, diagnostics, and
-  compilation state. Native named `Type` records currently support scalar
-  `Long`/`String` fields, member access, and exact-type `ByRef`; arrays of
-  records, nested records, and broader field types remain.
+  arrays can be passed explicitly `ByRef`; local dynamic-array storage is
+  released automatically on normal and failure exits. Additional ranks are
+  outside the v2 Bootstrap Profile.
+- [x] User-defined types needed for tokens, syntax nodes, diagnostics, and
+  compilation state. Native named `Type` records support the fields, member
+  access, arrays, nesting, initialization, and exact-type `ByRef` behavior used
+  by the compiler.
 - [~] String length, byte indexing/slicing, search, concatenation, ordinal
   comparison, byte construction, `Long` formatting, and linear joining of a
   bounded `String()` chunk array are available through the documented
@@ -72,24 +75,29 @@ source can reasonably move from C++ to UBE:
   code through the checked-in bootstrap runtime boundary.
 - [x] Pinned Unicode 18.0 simple case folding is available by code point to UBE
   compiler code through the checked-in bootstrap runtime boundary.
-- [x] File reading and writing plus command-line argument access for the
-  initial Windows bootstrap host.
+- [x] File reading and writing, command-line argument access, and bounded
+  shell-free compiler-tool invocation for the initial Windows bootstrap host.
+  The private ABI contract is recorded in
+  [`bootstrap-intrinsics.md`](bootstrap-intrinsics.md).
 - [x] `For` loops and sufficient structured early-exit behavior. Native loops
   support positive and negative `Step`, matching `Next` validation, `Exit For`,
   and `Exit While`; a zero step follows a controlled runtime failure path.
-- [ ] `Select Case` or an equally clear profile-compatible dispatch pattern.
-- [ ] Heap allocation and deterministic cleanup for dynamic compiler data.
-- [~] Multiple source files and the project input model. V2 safely loads
+- [x] A clear profile-compatible dispatch pattern using structured `If`.
+  `Select Case` remains outside the bounded profile.
+- [x] Heap allocation and deterministic cleanup for dynamic compiler data used
+  by the profile, including automatic local dynamic-array release on all exits.
+- [x] Multiple source files and the project input model. V2 safely loads
   ordered `.bas` entries from `.UBE`, rejects escapes and normalized
   duplicates, resolves supported cross-module declarations, and reports the
   originating source path/line/column. `.UBG` orchestration and `.UBR`
   resources are reserved for v3 as defined in
   [`project-files.md`](project-files.md).
-- [~] Stable diagnostic emission with file, line, and column information is
-  active for the v2 bootstrap contract; severity/note aggregation remains v3
-  work.
-- [~] A UBE API for emitting LLVM IR files is implemented; stage-one native
-  linking is currently handed off to the build driver and LLVM/Clang.
+- [x] Stable diagnostic emission with file, line, and column information is
+  active for the v2 bootstrap contract; broader severity/note presentation is
+  outside the bounded profile.
+- [x] A UBE API emits LLVM IR files and the compiler-owned `--build-native`
+  path invokes LLVM/Clang through separate bounded arguments with controlled
+  cleanup on success and failure.
 
 ## Verification gates
 

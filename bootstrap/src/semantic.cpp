@@ -78,6 +78,8 @@ void validate_intrinsic(const ast::Procedure& procedure) {
     } else if (name == "writealltext") {
         require_intrinsic_signature(procedure, ValueType::Long,
                                     {ValueType::String, ValueType::String});
+    } else if (name == "compilerdeletefile") {
+        require_intrinsic_signature(procedure, ValueType::Long, {ValueType::String});
     } else if (name == "stringarrayjoin") {
         if (procedure.kind != ast::ProcedureKind::Function ||
             declared_type(procedure.return_type, procedure.location) != ValueType::String ||
@@ -91,6 +93,27 @@ void validate_intrinsic(const ast::Procedure& procedure) {
             (values.passing_mode != ast::Parameter::PassingMode::ByRef &&
              values.passing_mode != ast::Parameter::PassingMode::DefaultByRef) ||
             declared_type(values.type_name, values.location) != ValueType::String ||
+            count.dynamic_array || count.passing_mode != ast::Parameter::PassingMode::ByVal ||
+            declared_type(count.type_name, count.location) != ValueType::Long) {
+            throw SemanticError(procedure.location,
+                                "intrinsic declaration has the wrong signature: " + procedure.name);
+        }
+    } else if (name == "compilerruntool") {
+        if (procedure.kind != ast::ProcedureKind::Function ||
+            declared_type(procedure.return_type, procedure.location) != ValueType::Long ||
+            procedure.parameters.size() != 3) {
+            throw SemanticError(procedure.location,
+                                "intrinsic declaration has the wrong signature: " + procedure.name);
+        }
+        const auto& path = procedure.parameters[0];
+        const auto& arguments = procedure.parameters[1];
+        const auto& count = procedure.parameters[2];
+        if (path.dynamic_array || path.passing_mode != ast::Parameter::PassingMode::ByVal ||
+            declared_type(path.type_name, path.location) != ValueType::String ||
+            !arguments.dynamic_array ||
+            (arguments.passing_mode != ast::Parameter::PassingMode::ByRef &&
+             arguments.passing_mode != ast::Parameter::PassingMode::DefaultByRef) ||
+            declared_type(arguments.type_name, arguments.location) != ValueType::String ||
             count.dynamic_array || count.passing_mode != ast::Parameter::PassingMode::ByVal ||
             declared_type(count.type_name, count.location) != ValueType::Long) {
             throw SemanticError(procedure.location,

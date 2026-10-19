@@ -6,17 +6,31 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 4 — symbols, types, and
-  semantic core**
-- Active item: begin bounded package, module, member, procedure, block, and
-  label scopes over the completed RP3 syntax model.
-- Status: RP3 is complete and verified. The v2-built 18-module compiler embeds
-  the frozen grammar, parses the complete UBE 1.0 syntax surface into owned
-  records, emits deterministic syntax dumps, recovers with bounded multiple
-  diagnostics, parses itself and `UBECore`, and preserves every earlier test.
+- Active milestone: **Compiler v3 Release Preview 6 — libraries and package
+  consumption**
+- Active item: plan RP6 from the preserved, verified RP5 fixed point.
+- Status: RP5 is complete and verified. Its bounded target-independent typed
+  IR and verifier lower the complete v2 Bootstrap Profile deterministically,
+  including explicit evaluation order, checked arithmetic, exact `ByRef`
+  addresses, cleanup records, and controlled failure edges. The v2-built
+  compiler builds itself and the current `UBECore` source slice; the resulting
+  self-built compiler repeats both builds with deterministic output and
+  identical positive/negative native behavior.
 - Blockers: none recorded.
 
 ## Latest verification
+
+- 2026-10-19: a clean `bootstrap/build.ps1` run completed the RP5 gate with
+  LLVM/Clang 23.1.3 for `x86_64-w64-windows-gnu`. V2-built and self-built v3
+  emitted byte-identical compiler LLVM; their COFF objects matched after only
+  the four-byte producer timestamp was normalized. Both stages agreed on all
+  18 recorded corpus cases, including native output and exit codes. Both also
+  emitted identical LLVM and objects for the `UBECore` slice
+  `src/portable/CoreIdentity.bas`. The gate covered compiler-owned
+  `--build-native`, debug line metadata, automatic local dynamic-array cleanup,
+  and controlled arithmetic, bounds, tool, and output failures.
+- Generated reproducibility record:
+  `bootstrap/out/v3-rp5-build-manifest.json`.
 
 - 2026-10-16: `lang-doc/tools/validate-grammar.ps1` passed with 202 core and
   19 conditional productions.
@@ -130,11 +144,12 @@ roadmap.
 
 ## Next actions
 
-1. Define bounded RP4 scope and symbol records without native pointers.
-2. Build package, module, member, procedure, block, and label scopes from the
-   owned RP3 syntax representation.
-3. Add focused duplicate, visibility, qualification, ambiguity, and recovery
-   fixtures while preserving the complete RP3 front-end gate.
+1. Derive the RP6 package-consumption contract from the frozen language and
+   source-library boundaries.
+2. Define versioned library metadata, dependency resolution, and deterministic
+   linking without weakening the RP5 fixed-point gate.
+3. Add the first required public `UBECore` modules only as RP6 needs them, with
+   focused documentation and native conformance tests.
 
 ## Decisions in force
 
@@ -377,6 +392,16 @@ roadmap.
   integration
 
 ## Verification log
+
+- 2026-10-19: completed Compiler v3 Release Preview 5. The bounded typed IR,
+  verifier, complete Bootstrap Profile lowering, LLVM backend, debug line
+  metadata, target ABI, and compiler-owned Clang handoff are now part of the
+  31-module compiler. A v2-built compiler rebuilt its own project and the
+  `UBECore` `CoreIdentity.bas` slice; the self-built compiler repeated both
+  builds deterministically. Compiler LLVM was byte-identical, normalized COFF
+  objects matched, and all 18 positive/negative corpus cases produced
+  identical results. The clean complete bootstrap suite passed with Clang
+  23.1.3 targeting `x86_64-w64-windows-gnu`.
 
 - 2026-10-16: completed Compiler v3 Release Preview 3. Both preserved v2
   stages emit byte-identical RP3 LLVM. The linked 18-module compiler parses

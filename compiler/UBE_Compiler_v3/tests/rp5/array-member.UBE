@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP5ArrayMember"
+Kind = "Exe"
+Startup = "Main"
+Source = "array-member.bas"

@@ -1,5 +1,7 @@
 #include <inttypes.h>
 #include <limits.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,6 +76,24 @@ static void* ube_allocate_managed(size_t size) {
     return allocation->data;
 }
 
+static void ube_release_managed(void* value) {
+    if (value == NULL) return;
+    struct ube_allocation** link = &ube_allocations;
+    while (*link != NULL) {
+        struct ube_allocation* allocation = *link;
+        if ((void*)allocation->data == value) {
+            *link = allocation->next;
+            free(allocation);
+            return;
+        }
+        link = &allocation->next;
+    }
+}
+
+void ube_array_release(void* value) {
+    ube_release_managed(value);
+}
+
 void* ube_array_redim(void* old_value, int32_t lower, int32_t upper,
                       size_t element_size, int preserve) {
     if (upper < lower || element_size == 0) {
@@ -105,6 +125,7 @@ void* ube_array_redim(void* old_value, int32_t lower, int32_t upper,
                    copy_count * element_size);
         }
     }
+    ube_release_managed(old_value);
     return result;
 }
 
@@ -200,6 +221,7 @@ void ube_print_string(const char* value) {
 
 void ube_print_newline(void) {
     fputc('\n', stdout);
+    fflush(stdout);
 }
 
 void ube_invalid_for_step(void) {
@@ -401,21 +423,187 @@ char* ube_read_all_text(const char* path) {
 }
 
 int32_t ube_write_all_text(const char* path, const char* contents) {
-    if (path == NULL) {
-        fputs("UBE runtime: cannot write a null path\n", stderr);
-        exit(73);
+    static LONG temporary_sequence;
+    if (path == NULL || path[0] == '\0') {
+        fputs("UBE runtime: cannot open for writing: invalid path\n", stderr);
+        return 73;
     }
     if (contents == NULL) contents = "";
-    FILE* file = fopen(path, "wb");
-    if (file == NULL) {
+
+    const size_t path_length = strlen(path);
+    if (path_length > 1048576 || path_length > SIZE_MAX - 64) {
         fprintf(stderr, "UBE runtime: cannot open for writing: %s\n", path);
-        exit(73);
+        return 73;
     }
-    const size_t length = strlen(contents);
-    const size_t written = fwrite(contents, 1, length, file);
-    if (written != length || fclose(file) != 0) {
+    char* temporary_path = malloc(path_length + 64);
+    if (temporary_path == NULL) {
         fprintf(stderr, "UBE runtime: failed while writing: %s\n", path);
-        exit(74);
+        return 74;
     }
+
+    HANDLE file = INVALID_HANDLE_VALUE;
+    for (int attempt = 0; attempt < 32; ++attempt) {
+        const LONG sequence = InterlockedIncrement(&temporary_sequence);
+        const int result = snprintf(temporary_path, path_length + 64,
+                                    "%s.ube-tmp-%lu-%ld", path,
+                                    (unsigned long)GetCurrentProcessId(),
+                                    (long)sequence);
+        if (result < 0 || (size_t)result >= path_length + 64) {
+            free(temporary_path);
+            fprintf(stderr, "UBE runtime: cannot open for writing: %s\n", path);
+            return 73;
+        }
+        file = CreateFileA(temporary_path, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                           FILE_ATTRIBUTE_TEMPORARY, NULL);
+        if (file != INVALID_HANDLE_VALUE) break;
+        if (GetLastError() != ERROR_FILE_EXISTS &&
+            GetLastError() != ERROR_ALREADY_EXISTS) {
+            free(temporary_path);
+            fprintf(stderr, "UBE runtime: cannot open for writing: %s\n", path);
+            return 73;
+        }
+    }
+    if (file == INVALID_HANDLE_VALUE) {
+        free(temporary_path);
+        fprintf(stderr, "UBE runtime: cannot open for writing: %s\n", path);
+        return 73;
+    }
+
+    const size_t length = strlen(contents);
+    size_t offset = 0;
+    int write_failed = 0;
+    while (offset < length) {
+        const size_t remaining = length - offset;
+        const DWORD requested = remaining > 0x40000000u
+            ? 0x40000000u : (DWORD)remaining;
+        DWORD written = 0;
+        if (!WriteFile(file, contents + offset, requested, &written, NULL) ||
+            written != requested) {
+            write_failed = 1;
+            break;
+        }
+        offset += written;
+    }
+    if (!write_failed && !FlushFileBuffers(file)) write_failed = 1;
+    if (!CloseHandle(file)) write_failed = 1;
+    if (write_failed) {
+        DeleteFileA(temporary_path);
+        free(temporary_path);
+        fprintf(stderr, "UBE runtime: failed while writing: %s\n", path);
+        return 74;
+    }
+    if (!MoveFileExA(temporary_path, path,
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(temporary_path);
+        free(temporary_path);
+        fprintf(stderr, "UBE runtime: cannot open for writing: %s\n", path);
+        return 73;
+    }
+    free(temporary_path);
     return 0;
+}
+
+int32_t ube_compiler_run_tool(const char* executable_path,
+                              void** argument_array_reference,
+                              int32_t argument_count) {
+    if (executable_path == NULL || executable_path[0] == '\0' || argument_count < 0) {
+        return -1;
+    }
+    if (argument_count > 4096) {
+        return -1;
+    }
+
+    const struct ube_array* arguments = NULL;
+    if (argument_count > 0) {
+        if (argument_array_reference == NULL || *argument_array_reference == NULL) {
+            return -1;
+        }
+        arguments = *argument_array_reference;
+        const int64_t available = (int64_t)arguments->upper - arguments->lower + 1;
+        if (arguments->lower != 0 || arguments->element_size != sizeof(char*) ||
+            available < argument_count) {
+            return -1;
+        }
+    }
+
+    /* The MinGW _spawnv adapter supplies the child's executable identity;
+       this array contains only the distinct user arguments. */
+    const char* const* values = arguments != NULL
+        ? (const char* const*)arguments->data : NULL;
+    size_t command_capacity = strlen(executable_path) * 2 + 4;
+    for (int32_t index = 0; index < argument_count; ++index) {
+        const char* value = values[index] != NULL ? values[index] : "";
+        const size_t length = strlen(value);
+        if (length > 524288 || command_capacity > 1048576 - length * 2 - 4) {
+            return -1;
+        }
+        command_capacity += length * 2 + 4;
+    }
+    char* command_line = malloc(command_capacity);
+    if (command_line == NULL) {
+        return -2;
+    }
+
+    size_t output = 0;
+    const char* parts[2] = { executable_path, NULL };
+    for (int32_t part_index = -1; part_index < argument_count; ++part_index) {
+        const char* value = part_index < 0 ? parts[0]
+            : (values[part_index] != NULL ? values[part_index] : "");
+        if (output != 0) command_line[output++] = ' ';
+        command_line[output++] = '"';
+        size_t backslashes = 0;
+        for (size_t input = 0;; ++input) {
+            const char current = value[input];
+            if (current == '\\') {
+                ++backslashes;
+                continue;
+            }
+            if (current == '"' || current == '\0') {
+                for (size_t copy = 0; copy < backslashes * 2; ++copy) {
+                    command_line[output++] = '\\';
+                }
+                backslashes = 0;
+                if (current == '"') {
+                    command_line[output++] = '\\';
+                    command_line[output++] = '"';
+                    continue;
+                }
+                break;
+            }
+            while (backslashes > 0) {
+                command_line[output++] = '\\';
+                --backslashes;
+            }
+            command_line[output++] = current;
+        }
+        command_line[output++] = '"';
+    }
+    command_line[output] = '\0';
+
+    STARTUPINFOA startup;
+    PROCESS_INFORMATION process;
+    memset(&startup, 0, sizeof(startup));
+    memset(&process, 0, sizeof(process));
+    startup.cb = sizeof(startup);
+    const BOOL started = CreateProcessA(executable_path, command_line, NULL, NULL,
+                                        TRUE, 0, NULL, NULL, &startup, &process);
+    free(command_line);
+    if (!started) return -2;
+    const DWORD wait_result = WaitForSingleObject(process.hProcess, INFINITE);
+    DWORD exit_code = 0;
+    const BOOL got_exit = wait_result == WAIT_OBJECT_0 &&
+                          GetExitCodeProcess(process.hProcess, &exit_code);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    if (!got_exit) return -2;
+    if (exit_code > INT32_MAX) return -3;
+    return (int32_t)exit_code;
+}
+
+int32_t ube_compiler_delete_file(const char* path) {
+    if (path == NULL || path[0] == '\0') return -1;
+    if (DeleteFileA(path)) return 0;
+    const DWORD error = GetLastError();
+    if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) return 0;
+    return -2;
 }

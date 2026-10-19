@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP5ArrayBounds"
+Kind = "Exe"
+Startup = "Main"
+Source = "array-bounds.bas"

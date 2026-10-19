@@ -40,10 +40,12 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   `CoreIdentity` project-boundary module.
 - [x] Preserve RP1's compiler and library project validation in
   `bootstrap/build.ps1` and `bootstrap/out/v3-rp3-build-manifest.json`.
-- [ ] Test self-compilation and library recompilation whenever the preview is
+- [x] Test self-compilation and library recompilation whenever the preview is
   capable of them; do not make premature self-hosting a prerequisite.
 - [x] Prevent RP1 from silently depending on later APIs by recording an empty
   `source_library_slice` in its build manifest.
+- [x] Compile the RP5 `CoreIdentity.bas` source slice with both the v2-built and
+  self-built v3 compiler and require deterministic LLVM and object output.
 
 ## 3. Complete library after Compiler v3 Beta 1
 
@@ -59,13 +61,15 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## Handoff
 
-- Active compiler preview: RP3, built by both preserved v2 stages.
+- Active compiler preview: RP5, built by preserved v2 and repeated by
+  self-built v3.
 - Selected callable modules: none.
 - Boundary-only module: `src/portable/CoreIdentity.bas`.
 - Intrinsic dependencies: none from `UBECore`; RP1 compiler bootstrap
   intrinsics are recorded separately as `ube-intrinsic-abi-1`.
-- Verification: `bootstrap/build.ps1`; RP3 parses `UBECore.UBE` and records
-  all identities in its generated build manifest.
+- Verification: `bootstrap/build.ps1`; RP5 compiles `UBECore.UBE` through typed
+  IR to LLVM and COFF with both compiler stages, compares the outputs, and
+  records all identities in `bootstrap/out/v3-rp5-build-manifest.json`.
 - Known failures: none.
-- Exact next action: derive the first non-empty library slice only when RP4 or
-  a later preview proves it needs a public operation.
+- Exact next action: derive the first non-empty callable library slice only
+  when RP6 proves it needs a public operation.

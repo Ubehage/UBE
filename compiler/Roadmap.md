@@ -368,7 +368,7 @@ only the generation-level outcome.
   without automatic dialogs or uncontrolled crashes.
 - [ ] Add compatibility, conformance, ABI, debugger, performance, and
   reproducibility suites for every declared supported feature and target.
-- [ ] Bootstrap v3 through stage two and pass the same or stricter comparison
+- [x] Bootstrap v3 through stage two and pass the same or stricter comparison
   policy before making it authoritative.
 
 Exit gate: the current normative UBE language and project model are implemented

@@ -13,11 +13,21 @@ From the repository root in PowerShell:
 
 The script builds `bootstrap/out/ubec.exe`, runs the lexer, parser, semantic,
 lowering, runtime, and native execution tests, preserves the complete v1 and
-v2 build chains, and builds Compiler v3 RP4 with both v2 stages. It requires
-byte-identical RP4 LLVM, links and runs the RP4 compiler, validates its full
-front-end and semantic success/failure corpus, validates the `UBECore` project
-boundary, and records `bootstrap/out/v3-rp4-build-manifest.json`.
-Build output is intentionally not committed.
+v2 build chains, and builds the completed Compiler v3 RP5 with both v2
+stages. It requires byte-identical v2-produced RP5 LLVM, links and runs the RP5
+compiler, preserves the complete RP1-RP4 success/failure corpus, and validates
+the deterministic typed-IR-to-native fixtures. The RP5 gate then
+requires the v2-built compiler to build v3, the self-built compiler to repeat
+that build, and the fixed-point LLVM IR to be byte-identical. COFF objects must
+have equal lengths and identical SHA-256 hashes after normalizing only their
+four-byte producer timestamps.
+V2-built and self-built binaries must also return identical exit codes and
+ordinal output for the recorded positive and negative corpus. Both compilers
+also compile the `UBECore` `CoreIdentity.bas` slice and must produce identical
+LLVM and object files. The script records
+`bootstrap/out/v3-rp5-build-manifest.json` and creates the named RP5 release
+candidate only after every test has passed.
+Intermediate build output is intentionally not committed.
 
 To inspect the token stream for a source file:
 
@@ -44,7 +54,8 @@ To compile and link a native 64-bit executable:
 ./bootstrap/out/ubec.exe --compile example.bas -o example.exe
 ```
 
-Native compilation currently requires LLVM 23 and the MinGW-w64 toolchain. Set
+Native compilation currently requires LLVM/Clang 23.x and the MinGW-w64
+toolchain targeting `x86_64-w64-windows-gnu`. Set
 `UBE_CLANG` to an explicit `clang.exe` path when LLVM is not on `PATH` or in its
 default installation directory. The build also produces
 `bootstrap/out/bootstrap_runtime.o` and

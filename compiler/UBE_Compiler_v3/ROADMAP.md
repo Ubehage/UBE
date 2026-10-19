@@ -246,36 +246,45 @@ and establish v3 self-compilation as a permanent regression gate.
 
 ### RP5.1 — typed target-independent IR
 
-- [ ] Define typed IR for values, storage, calls, control flow, cleanup,
+- [x] Define typed IR for values, storage, calls, control flow, cleanup,
   errors, source locations, and target-neutral managed references.
-- [ ] Lower the complete Bootstrap Profile with explicit evaluation order,
+- [x] Lower the complete Bootstrap Profile with explicit evaluation order,
   overflow behavior, `ByRef` identity, and failure edges.
-- [ ] Add CFG, type, ownership, cleanup, and data-flow verification.
-- [ ] Serialize IR deterministically for golden and bootstrap comparison.
+- [x] Add CFG, type, ownership, cleanup, and data-flow verification.
+- [x] Serialize IR deterministically for golden and bootstrap comparison.
 
 ### RP5.2 — LLVM and toolchain boundary
 
-- [ ] Freeze the supported LLVM/Clang version and invocation contract.
-- [ ] Implement target triples, data layouts, ABI classification, mangling,
+- [x] Freeze the supported LLVM/Clang version and invocation contract.
+- [x] Implement target triples, data layouts, ABI classification, mangling,
   linkage, debug locations, and deterministic LLVM emission.
-- [ ] Invoke assembler/linker tools through bounded argument and process APIs;
+- [x] Invoke assembler/linker tools through bounded argument and process APIs;
   capture failures without false-success artifacts.
-- [ ] Link only the minimal startup, allocation, string, array, and error
+- [x] Link only the minimal startup, allocation, string, array, and error
   support required by the Bootstrap Profile.
 
 ### RP5.3 — self-build gate
 
-- [ ] Make the v2-built v3 preview compile the identical v3 source and exact
+- [x] Make the v2-built v3 preview compile the identical v3 source and exact
   source-library slice.
-- [ ] Make the self-built compiler repeat that build.
-- [ ] Define and pass deterministic IR/object comparison policies, allowing
+- [x] Make the self-built compiler repeat that build.
+- [x] Define and pass deterministic IR/object comparison policies, allowing
   only documented nondeterministic fields if unavoidable.
-- [ ] Run the same positive and negative corpus through v2-built and self-built
+- [x] Run the same positive and negative corpus through v2-built and self-built
   v3 binaries and require identical observable results.
 
 RP5 gate: v2 builds v3; v3 builds itself and its library slice; the next-stage
 compiler repeats the build; comparison and native Bootstrap Profile tests pass.
 Self-hosting remains mandatory from this preview onward.
+
+Gate complete and verified on 2026-10-19. A clean `bootstrap/build.ps1` run
+builds v3 with v2, reaches a byte-identical LLVM fixed point after v3 rebuilds
+itself, and produces equal normalized COFF objects after zeroing only the
+documented four-byte producer timestamp. Both compiler stages produce
+identical LLVM and native behavior for ten positive and controlled-failure
+Bootstrap Profile fixtures, compile the exact `UBECore` `CoreIdentity.bas`
+slice identically, preserve all RP1-RP4 gates, and exercise the compiler-owned
+bounded Clang 23.x invocation path without leaving false-success artifacts.
 
 ## Release Preview 6: managed values, objects, and automatic collection
 
@@ -435,6 +444,6 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP5.1 by defining bounded typed target-independent IR records for values,
-storage, calls, control flow, cleanup, errors, and source locations. Keep the
-complete RP4 semantic corpus as the pre-lowering regression boundary.
+Begin RP6.1 by defining the target-independent managed representation and its
+ownership/GC invariants. Preserve the RP5 self-build, deterministic comparison,
+native Bootstrap Profile corpus, and exact source-library-slice gates unchanged.

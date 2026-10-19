@@ -48,14 +48,14 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 4 is complete. Development
-> is moving into RP5: typed IR, native lowering, and v3 self-hosting.
+> **Current milestone:** Compiler v3 Release Preview 5 is complete. Development
+> is moving into RP6: libraries and package consumption.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
-  <li><strong>Compiler v3 RP4</strong><br><sub>The verified 25-module front end adds bounded scopes, Unicode-folded symbols, semantic types, expression typing, stable diagnostics, and declaration, entry-point, call, label, and control-flow checks to the complete RP3 parser.</sub></li>
-  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity and is analyzed by RP4. No public library APIs are required by the compiler yet.</sub></li>
+  <li><strong>Compiler v3 RP5</strong><br><sub>The v2-built compiler now lowers its complete Bootstrap Profile through verified typed IR to native code, rebuilds itself deterministically, and matches the self-built compiler across the native success and controlled-failure corpus.</sub></li>
+  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity. RP5 compiles its current <code>CoreIdentity.bas</code> slice through the same deterministic native pipeline; public library APIs begin in later previews.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 
@@ -84,8 +84,8 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP4 and its complete front-end corpus,
-the `UBECore` project boundary, and the conformance fixtures. See
+v2 self-hosting chain, Compiler v3 RP5 and its complete front-end and native
+corpora, the current `UBECore` source slice, and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 
 ## Repository guide
@@ -109,3 +109,8 @@ UBE is open-source software. See [LICENSE](LICENSE) for license terms and
 UBE is free and open-source. Donations are appreciated, and will help progress
 faster. You can support the project through
 [PayPal](https://www.paypal.me/Ubehage).
+
+## Community
+
+Join the [UBE Discord](https://discord.gg/XZjSw6wxhR) to suggest ideas, report
+bugs, and follow development.

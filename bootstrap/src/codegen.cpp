@@ -187,10 +187,13 @@ public:
               << "declare ptr @ube_read_all_text(ptr)\n"
               << "declare i32 @ube_write_all_text(ptr, ptr)\n"
               << "declare ptr @ube_string_array_join(ptr, i32)\n"
+              << "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)\n"
+              << "declare i32 @ube_compiler_delete_file(ptr)\n"
               << "declare i32 @ube_unicode_is_letter(i32)\n"
               << "declare i32 @ube_unicode_simple_fold_code_point(i32)\n\n";
         body_ << "declare ptr @ube_array_redim(ptr, i32, i32, i64, i1)\n"
               << "declare ptr @ube_array_element(ptr, i32)\n"
+              << "declare void @ube_array_release(ptr)\n"
               << "declare i32 @ube_array_lbound(ptr)\n"
               << "declare i32 @ube_array_ubound(ptr)\n\n";
         for (const auto& procedure : module_.procedures) {
@@ -907,6 +910,8 @@ private:
         if (name == "readalltext") return "@ube_read_all_text";
         if (name == "writealltext") return "@ube_write_all_text";
         if (name == "stringarrayjoin") return "@ube_string_array_join";
+        if (name == "compilerruntool") return "@ube_compiler_run_tool";
+        if (name == "compilerdeletefile") return "@ube_compiler_delete_file";
         if (name == "unicodeisletter") return "@ube_unicode_is_letter";
         if (name == "unicodesimplefoldcodepoint") return "@ube_unicode_simple_fold_code_point";
         throw CodegenError(procedure.location, "intrinsic has no backend implementation: " + procedure.name);

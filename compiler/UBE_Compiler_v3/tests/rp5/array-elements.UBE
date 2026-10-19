@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP5ArrayElements"
+Kind = "Exe"
+Startup = "Main"
+Source = "array-elements.bas"

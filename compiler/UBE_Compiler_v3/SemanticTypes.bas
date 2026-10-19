@@ -126,6 +126,63 @@ Function ResolveSymbolTypes(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
                 End If
             End If
         End If
+        If Kind = SemanticSymbolProcedure() Or Kind = SemanticSymbolProperty() Then
+            Dim ProcedureNode As Long = Symbols(SymbolIndex).SyntaxNode
+            Dim HasResult As Long = 0
+            ' Inspect the declaration header, not every token in the body. A
+            ' compiler procedure can contain thousands of nested nodes; body
+            ' scans here made type resolution quadratic during self-analysis.
+            Dim ResultHeader As Long = -1
+            If Kind = SemanticSymbolProcedure() Then
+                Dim SubHeader As Long = FirstDirectSyntaxChild(ProcedureNode, "sub-header", SyntaxNodes, SyntaxLinks, Rules)
+                If SubHeader < 0 Then
+                    ResultHeader = FirstDirectSyntaxChild(ProcedureNode, "function-header", SyntaxNodes, SyntaxLinks, Rules)
+                End If
+                If ResultHeader >= 0 Then
+                    HasResult = 1
+                End If
+            Else
+                Dim PropertyHeader As Long = FirstDirectSyntaxChild(ProcedureNode, "property-header", SyntaxNodes, SyntaxLinks, Rules)
+                If PropertyHeader >= 0 Then
+                    ResultHeader = FirstDirectSyntaxChild(PropertyHeader, "property-get-header", SyntaxNodes, SyntaxLinks, Rules)
+                    If ResultHeader >= 0 Then
+                        HasResult = 1
+                    End If
+                End If
+            End If
+            If HasResult <> 0 Then
+                Dim ResultClause As Long = FirstDirectSyntaxChild(ResultHeader, "result-as-clause", SyntaxNodes, SyntaxLinks, Rules)
+                Dim ResultTypeNode As Long = -1
+                If ResultClause >= 0 Then
+                    Dim ResultAsClause As Long = FirstDirectSyntaxChild(ResultClause, "as-clause", SyntaxNodes, SyntaxLinks, Rules)
+                    If ResultAsClause >= 0 Then
+                        ResultTypeNode = FirstDirectSyntaxChild(ResultAsClause, "type-name", SyntaxNodes, SyntaxLinks, Rules)
+                    End If
+                End If
+                Dim ProcedureType As Long = -1
+                If ResultTypeNode >= 0 Then
+                    ProcedureType = FindSemanticType(TypeNodeName(ResultTypeNode, SyntaxNodes, SyntaxLinks, Rules, Tokens), Types, TypeCount)
+                Else
+                    If ResultHeader >= 0 Then
+                        Dim HeaderTypedName As Long = FirstDirectSyntaxChild(ResultHeader, "typed-name", SyntaxNodes, SyntaxLinks, Rules)
+                        Dim HeaderCharacter As Long = -1
+                        If HeaderTypedName >= 0 Then
+                            HeaderCharacter = FirstDirectSyntaxChild(HeaderTypedName, "type-character", SyntaxNodes, SyntaxLinks, Rules)
+                        End If
+                        If HeaderCharacter >= 0 Then
+                            ProcedureType = TypeFromCharacter(SyntaxNodeTokenText(HeaderCharacter, SyntaxNodes, Tokens), Types, TypeCount)
+                        End If
+                    End If
+                End If
+                If ProcedureType < 0 Then
+                    Call AddSemanticDiagnostic("UBE4014", ProcedureNode, "Function or Property Get requires an explicit result type", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Else
+                    Symbols(SymbolIndex).DeclaredType = ProcedureType
+                End If
+            Else
+                Symbols(SymbolIndex).DeclaredType = -1
+            End If
+        End If
         SymbolIndex = SymbolIndex + 1
     Wend
     ResolveSymbolTypes = 1

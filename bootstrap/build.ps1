@@ -147,13 +147,17 @@ if ($LASTEXITCODE -ne 0) { throw 'String program returned a nonzero exit code' }
 if ($stringOutput -ne 'Hello from UBE') { throw 'String program produced unexpected output' }
 
 $intrinsicProgram = Join-Path $out 'intrinsics.exe'
+$toolProbe = Join-Path $out 'tool-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/tool_probe.c') '-o' $toolProbe
+if ($LASTEXITCODE -ne 0) { throw 'Tool-process probe build failed' }
 & (Join-Path $out 'ubec.exe') '--compile' `
     (Join-Path $PSScriptRoot 'tests/fixtures/intrinsics.bas') '-o' $intrinsicProgram
 if ($LASTEXITCODE -ne 0) { throw 'Intrinsic native compilation failed' }
 $roundTripPath = Join-Path $out 'intrinsic-round-trip.txt'
-$intrinsicOutput = & $intrinsicProgram $roundTripPath
+$intrinsicOutput = & $intrinsicProgram $roundTripPath $toolProbe
 if ($LASTEXITCODE -ne 0) { throw 'Intrinsic program returned a nonzero exit code' }
-if (($intrinsicOutput -join ',') -ne '1,3,98,bc,4,line!,-42,joined-text,1,0,229,file-data') { throw 'Intrinsic program produced unexpected output' }
+if (($intrinsicOutput -join ',') -ne '2,3,98,bc,4,line!,-42,joined-text,1,0,229,file-data,33,10,-1,-1,-1,-1') { throw 'Intrinsic program produced unexpected output' }
 if ((Get-Content -Raw $roundTripPath) -ne 'file-data') { throw 'Intrinsic file round trip produced unexpected data' }
 
 $stageOneProject = Join-Path $root 'compiler/UBE_Compiler_v1'
@@ -164,6 +168,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Stage zero failed to compile the UBE-written c
 $clangCommand = Get-Command clang -ErrorAction SilentlyContinue
 $clangPath = if ($clangCommand) { $clangCommand.Source } else { 'C:\Program Files\LLVM\bin\clang.exe' }
 if (-not (Test-Path $clangPath)) { throw 'LLVM clang was not found for stage-one acceptance tests' }
+$clangVersion = ((& $clangPath '--version' | Select-Object -First 1).ToString())
+if ($LASTEXITCODE -ne 0 -or $clangVersion -notmatch '^clang version 23(?:\.|$)') {
+    throw "UBE Compiler v3 RP5 requires Clang major version 23; found: $clangVersion"
+}
+$v3Rp5ClangCompileFlags = @('--target=x86_64-w64-windows-gnu', '-O2', '-c')
+$v3Rp5ClangLinkFlags = @('--target=x86_64-w64-windows-gnu', '-O2')
 
 $stageOneSubIr = Join-Path $out 'stage1-sub.ll'
 $stageOneSub = Join-Path $out 'stage1-sub.exe'
@@ -344,44 +354,44 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3Rp1StageOneIr = Join-Path $out 'v3-rp4-stage1.ll'
-$v3Rp1StageTwoIr = Join-Path $out 'v3-rp4-stage2.ll'
-$v3Rp1Executable = Join-Path $out 'v3-rp4.exe'
+$v3Rp1StageOneIr = Join-Path $out 'v3-rp5-stage1.ll'
+$v3Rp1StageTwoIr = Join-Path $out 'v3-rp5-stage2.ll'
+$v3Rp1Executable = Join-Path $out 'v3-rp5.exe'
 & $v2StageOne $v3Manifest $v3Rp1StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP4' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP5' }
 & $v2StageTwo $v3Manifest $v3Rp1StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP4' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP5' }
 $v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
 $v3Rp1StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp1StageTwoIr -Algorithm SHA256).Hash
 if ($v3Rp1StageOneIrHash -ne $v3Rp1StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 RP4 LLVM IR'
+    throw 'UBE Compiler v2 stages one and two emitted different v3 RP5 LLVM IR'
 }
 & $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
     (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP4' }
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP5' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP4: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP4 failed to analyze its own project'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP5: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP5 failed to analyze its own project'
 }
 
 $v3Rp1Tests = Join-Path $v3Project 'tests'
 $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP4: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP4 failed its inherited multi-module project fixture'
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP5: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP5 failed its inherited multi-module project fixture'
 }
 $ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP4: project UBECore (Library), 1 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP4 failed to validate the UBECore project boundary'
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP5: project UBECore (Library), 1 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP5 failed to validate the UBECore project boundary'
 }
 
 $v3Rp2Tests = Join-Path $v3Project 'tests/rp2'
 foreach ($positiveProject in @('basic.UBE', 'lexical.UBE', 'legacy.UBE', 'conditional-continuation.UBE')) {
     $positiveOutput = & $v3Rp1Executable '--dump-syntax' (Join-Path $v3Rp2Tests $positiveProject) $v3Rp1Target
     if ($LASTEXITCODE -ne 0 -or $positiveOutput[0] -notlike 'UBE-SYNTAX 1 *') {
-        throw "UBE Compiler v3 RP4 failed inherited front-end fixture $positiveProject"
+        throw "UBE Compiler v3 RP5 failed inherited front-end fixture $positiveProject"
     }
 }
 $firstTokenDump = & $v3Rp1Executable '--dump-tokens' (Join-Path $v3Rp2Tests 'lexical.UBE') $v3Rp1Target
@@ -415,9 +425,18 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp4 [--dump-tokens|--dump-syntax|--dump-semantics] <project.UBE> <target-triple>'
+    -ExpectedDiagnostic 'usage: ube-v3-rp5 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir] <project.UBE> <target-triple> [output.ll]'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
-    -ExpectedDiagnostic 'error UBE3200: unsupported RP4 target: unknown-target'
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP5 target: unknown-target'
+$v3Rp5MissingOutputDirectory = Join-Path $out 'missing-output-directory'
+$v3Rp5UnwritableOutput = Join-Path $v3Rp5MissingOutputDirectory 'output.ll'
+Test-V3Rp1Failure -Name 'atomic-output-write-failure' `
+    -Arguments @('--emit-llvm', $v3Manifest, $v3Rp1Target, $v3Rp5UnwritableOutput) `
+    -ExpectedDiagnostic 'error UBE5109: cannot atomically write generated LLVM output'
+if ((Test-Path -LiteralPath $v3Rp5UnwritableOutput) -or `
+        (Test-Path -LiteralPath $v3Rp5MissingOutputDirectory)) {
+    throw 'RP5 atomic output failure left a final or temporary artifact'
+}
 Test-V3Rp1Failure -Name 'duplicate-source' `
     -Arguments @((Join-Path $v3Rp1Tests 'duplicate-source.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3013: duplicate Source after path normalization'
@@ -470,7 +489,7 @@ for ($constantIndex = 0; $constantIndex -le 4096; $constantIndex++) {
 Test-V3Rp1Failure -Name 'conditional-constant-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3502: invalid #Const value or conditional constant limit exceeded'
 
-$tokenLimitText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + (':' * 100001)
+$tokenLimitText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + (':' * 250001)
 [System.IO.File]::WriteAllText($v3Rp2FuzzSource, $tokenLimitText, [System.Text.UTF8Encoding]::new($false))
 Test-V3Rp1Failure -Name 'token-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3400: token limit exceeded'
@@ -494,15 +513,15 @@ $v3Rp2BomText = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Bom`"`r`nDim fina
 $v3Rp2BomBytes = [System.Text.UTF8Encoding]::new($true).GetBytes($v3Rp2BomText)
 [System.IO.File]::WriteAllBytes($v3Rp2FuzzSource, $v3Rp2BomBytes)
 $bomOutput = & $v3Rp1Executable $v3Rp2FuzzProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP4:*') {
-    throw 'UBE Compiler v3 RP4 failed BOM, CRLF, or final synthetic newline coverage'
+if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP5:*') {
+    throw 'UBE Compiler v3 RP5 failed BOM, CRLF, or final synthetic newline coverage'
 }
 
 $v3Rp3Tests = Join-Path $v3Project 'tests/rp3'
 foreach ($positiveProject in @('comprehensive.UBE', 'legacy-designer.UBE')) {
     $positiveOutput = & $v3Rp1Executable '--dump-syntax' (Join-Path $v3Rp3Tests $positiveProject) $v3Rp1Target
     if ($LASTEXITCODE -ne 0 -or $positiveOutput[0] -notlike 'UBE-SYNTAX 1 *') {
-        throw "UBE Compiler v3 RP4 failed parser fixture $positiveProject"
+        throw "UBE Compiler v3 RP5 failed parser fixture $positiveProject"
     }
 }
 
@@ -548,17 +567,17 @@ Test-V3Rp1Failure -Name 'syntax-depth-limit' -Arguments @($v3Rp3DepthProject, $v
 
 $v3Rp4Tests = Join-Path $v3Project 'tests/rp4'
 $v3Rp4Output = & $v3Rp1Executable (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP4: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
-    throw 'UBE Compiler v3 RP4 failed its typed multi-module semantic fixture'
+if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP5: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+    throw 'UBE Compiler v3 RP5 failed its inherited typed multi-module semantic fixture'
 }
 $firstSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v3 RP4 failed to serialize semantics' }
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v3 RP5 failed to serialize inherited semantics' }
 $secondSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
 if ($LASTEXITCODE -ne 0 -or (Compare-Object $firstSemanticDump $secondSemanticDump -SyncWindow 0)) {
-    throw 'UBE Compiler v3 RP4 semantic serialization is not deterministic'
+    throw 'UBE Compiler v3 RP5 inherited semantic serialization is not deterministic'
 }
 if (($firstSemanticDump -join "`n") -notlike '*expressions=*/*') {
-    throw 'UBE Compiler v3 RP4 did not type every accepted expression'
+    throw 'UBE Compiler v3 RP5 did not type every accepted inherited expression'
 }
 Test-V3Rp1Failure -Name 'semantic-duplicate' -Arguments @((Join-Path $v3Rp4Tests 'duplicate.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE4001: duplicate declaration after case folding: value'
@@ -570,6 +589,312 @@ Test-V3Rp1Failure -Name 'semantic-exit' -Arguments @((Join-Path $v3Rp4Tests 'bad
     -ExpectedDiagnostic 'error UBE4024: Exit does not name an enclosing construct'
 Test-V3Rp1Failure -Name 'semantic-callnew' -Arguments @((Join-Path $v3Rp4Tests 'bad-callnew.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE4026: CallNew target must resolve to a known Sub: Missing'
+
+$v3Rp5Tests = Join-Path $v3Project 'tests/rp5'
+$v3Rp5StraightLineProject = Join-Path $v3Rp5Tests 'straight-line.UBE'
+$v3Rp5FirstIr = & $v3Rp1Executable '--dump-ir' $v3Rp5StraightLineProject $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $v3Rp5FirstIr[0] -notlike 'UBE-IR 1*') {
+    throw 'UBE Compiler v3 RP5 failed to lower and verify the straight-line IR fixture'
+}
+$v3Rp5SecondIr = & $v3Rp1Executable '--dump-ir' $v3Rp5StraightLineProject $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or (Compare-Object $v3Rp5FirstIr $v3Rp5SecondIr -SyncWindow 0)) {
+    throw 'UBE Compiler v3 RP5 typed IR serialization is not deterministic'
+}
+$v3Rp5FirstLlvm = Join-Path $out 'v3-rp5-straight-line-1.ll'
+$v3Rp5SecondLlvm = Join-Path $out 'v3-rp5-straight-line-2.ll'
+& $v3Rp1Executable '--emit-llvm' $v3Rp5StraightLineProject $v3Rp1Target $v3Rp5FirstLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5FirstLlvm)) {
+    throw 'UBE Compiler v3 RP5 failed to emit LLVM for the straight-line fixture'
+}
+& $v3Rp1Executable '--emit-llvm' $v3Rp5StraightLineProject $v3Rp1Target $v3Rp5SecondLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SecondLlvm)) {
+    throw 'UBE Compiler v3 RP5 failed to repeat LLVM emission for the straight-line fixture'
+}
+if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
+    (Get-FileHash -LiteralPath $v3Rp5SecondLlvm -Algorithm SHA256).Hash) {
+    throw 'UBE Compiler v3 RP5 LLVM emission is not deterministic'
+}
+$v3Rp5StraightLineExecutable = Join-Path $out 'v3-rp5-straight-line.exe'
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp5FirstLlvm `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+    '-o' $v3Rp5StraightLineExecutable
+if ($LASTEXITCODE -ne 0) {
+    throw 'LLVM failed to link the UBE Compiler v3 RP5 straight-line fixture'
+}
+& $v3Rp5StraightLineExecutable
+if ($LASTEXITCODE -ne 0) {
+    throw 'UBE Compiler v3 RP5 straight-line native fixture returned a nonzero exit code'
+}
+
+# RP5 is the first v3 preview with a permanent self-build gate.  Keep every
+# generated stage under bootstrap/out: only the final, fully verified preview
+# is copied to compiler/release-previews when the milestone is completed.
+$v3Rp5SelfStageTwoIr = Join-Path $out 'v3-rp5-self-stage2.ll'
+$v3Rp5SelfStageTwoObject = Join-Path $out 'v3-rp5-self-stage2.o'
+$v3Rp5SelfStageTwoExecutable = Join-Path $out 'v3-rp5-self-stage2.exe'
+$v3Rp5SelfStageThreeIr = Join-Path $out 'v3-rp5-self-stage3.ll'
+$v3Rp5SelfStageThreeObject = Join-Path $out 'v3-rp5-self-stage3.o'
+$v3Rp5CanonicalObjectInput = Join-Path $out 'v3-rp5-self-canonical.ll'
+
+& $v3Rp1Executable '--emit-llvm' $v3Manifest $v3Rp1Target $v3Rp5SelfStageTwoIr
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SelfStageTwoIr)) {
+    throw 'The v2-built UBE Compiler v3 RP5 failed to emit its own stage-two LLVM IR'
+}
+Copy-Item -LiteralPath $v3Rp5SelfStageTwoIr -Destination $v3Rp5CanonicalObjectInput -Force
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' '-c' $v3Rp5CanonicalObjectInput `
+    '-o' $v3Rp5SelfStageTwoObject
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile v3 RP5 self-build stage-two IR' }
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp5SelfStageTwoIr `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+    '-o' $v3Rp5SelfStageTwoExecutable
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link v3 RP5 self-build stage two' }
+
+& $v3Rp5SelfStageTwoExecutable '--emit-llvm' $v3Manifest $v3Rp1Target $v3Rp5SelfStageThreeIr
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SelfStageThreeIr)) {
+    throw 'The self-built UBE Compiler v3 RP5 failed to repeat its own build'
+}
+Copy-Item -LiteralPath $v3Rp5SelfStageThreeIr -Destination $v3Rp5CanonicalObjectInput -Force
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' '-c' $v3Rp5CanonicalObjectInput `
+    '-o' $v3Rp5SelfStageThreeObject
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile v3 RP5 self-build stage-three IR' }
+
+$v3Rp5SelfStageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageTwoIr -Algorithm SHA256).Hash
+$v3Rp5SelfStageThreeIrHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageThreeIr -Algorithm SHA256).Hash
+if ((Get-Item -LiteralPath $v3Rp5SelfStageTwoIr).Length -ne `
+        (Get-Item -LiteralPath $v3Rp5SelfStageThreeIr).Length -or `
+        $v3Rp5SelfStageTwoIrHash -ne $v3Rp5SelfStageThreeIrHash) {
+    throw 'UBE Compiler v3 RP5 self-build LLVM IR is not byte-identical at the fixed point'
+}
+$v3Rp5SelfStageTwoObjectHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageTwoObject -Algorithm SHA256).Hash
+$v3Rp5SelfStageThreeObjectHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageThreeObject -Algorithm SHA256).Hash
+function Get-NormalizedCoffSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 8) { throw "COFF object is too short to normalize: $Path" }
+    # COFF bytes 4..7 are the producer timestamp. LLVM 21 does not expose a
+    # switch to make that field reproducible, so the fixed-point policy zeros
+    # exactly this documented nondeterministic field before comparison.
+    $bytes[4] = 0
+    $bytes[5] = 0
+    $bytes[6] = 0
+    $bytes[7] = 0
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+$v3Rp5SelfStageTwoNormalizedObjectHash = Get-NormalizedCoffSha256 -Path $v3Rp5SelfStageTwoObject
+$v3Rp5SelfStageThreeNormalizedObjectHash = Get-NormalizedCoffSha256 -Path $v3Rp5SelfStageThreeObject
+if ((Get-Item -LiteralPath $v3Rp5SelfStageTwoObject).Length -ne `
+        (Get-Item -LiteralPath $v3Rp5SelfStageThreeObject).Length -or `
+        $v3Rp5SelfStageTwoNormalizedObjectHash -ne $v3Rp5SelfStageThreeNormalizedObjectHash) {
+    throw 'UBE Compiler v3 RP5 self-build object output differs after documented COFF timestamp normalization'
+}
+
+function Test-V3Rp5NativeFixture {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Project,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$ExpectedOutput,
+        [Parameter(Mandatory = $true)][int]$ExpectedExitCode
+    )
+
+    $v2BuiltIr = Join-Path $out "v3-rp5-fixture-$Name-v2-built.ll"
+    $selfBuiltIr = Join-Path $out "v3-rp5-fixture-$Name-self-built.ll"
+    $v2BuiltExecutable = Join-Path $out "v3-rp5-fixture-$Name-v2-built.exe"
+    $selfBuiltExecutable = Join-Path $out "v3-rp5-fixture-$Name-self-built.exe"
+
+    & $v3Rp1Executable '--emit-llvm' $Project $v3Rp1Target $v2BuiltIr
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v2BuiltIr)) {
+        throw "The v2-built UBE Compiler v3 RP5 failed to emit LLVM for fixture $Name"
+    }
+    & $v3Rp5SelfStageTwoExecutable '--emit-llvm' $Project $v3Rp1Target $selfBuiltIr
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $selfBuiltIr)) {
+        throw "The self-built UBE Compiler v3 RP5 failed to emit LLVM for fixture $Name"
+    }
+
+    $v2BuiltIrHash = (Get-FileHash -LiteralPath $v2BuiltIr -Algorithm SHA256).Hash
+    $selfBuiltIrHash = (Get-FileHash -LiteralPath $selfBuiltIr -Algorithm SHA256).Hash
+    if ((Get-Item -LiteralPath $v2BuiltIr).Length -ne (Get-Item -LiteralPath $selfBuiltIr).Length -or `
+            $v2BuiltIrHash -ne $selfBuiltIrHash) {
+        throw "UBE Compiler v3 RP5 fixture LLVM differs between v2-built and self-built compilers: $Name"
+    }
+
+    & $clangPath @v3Rp5ClangLinkFlags $v2BuiltIr `
+        (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+        '-o' $v2BuiltExecutable
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v2BuiltExecutable)) {
+        throw "LLVM failed to link the v2-built RP5 fixture: $Name"
+    }
+    & $clangPath @v3Rp5ClangLinkFlags $selfBuiltIr `
+        (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+        '-o' $selfBuiltExecutable
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $selfBuiltExecutable)) {
+        throw "LLVM failed to link the self-built RP5 fixture: $Name"
+    }
+
+    $v2BuiltRun = Invoke-ExpectedNativeFailure -FilePath $v2BuiltExecutable
+    $selfBuiltRun = Invoke-ExpectedNativeFailure -FilePath $selfBuiltExecutable
+    if ($v2BuiltRun.ExitCode -ne $selfBuiltRun.ExitCode -or $v2BuiltRun.Output -cne $selfBuiltRun.Output) {
+        throw "RP5 native fixture behavior differs between compiler stages: $Name"
+    }
+    if ($v2BuiltRun.ExitCode -ne $ExpectedExitCode -or $v2BuiltRun.Output -cne $ExpectedOutput) {
+        throw "RP5 native fixture produced an unexpected result: $Name (exit $($v2BuiltRun.ExitCode), output '$($v2BuiltRun.Output)')"
+    }
+
+    return [pscustomobject]@{
+        name = $Name
+        project = $Project.Substring($root.Length + 1).Replace('\', '/')
+        llvm_sha256 = $v2BuiltIrHash
+        expected_exit_code = $ExpectedExitCode
+        expected_output = $ExpectedOutput
+    }
+}
+
+$v3Rp5NativeFixtureResults = @(
+    Test-V3Rp5NativeFixture -Name 'straight-line' -Project (Join-Path $v3Rp5Tests 'straight-line.UBE') -ExpectedOutput '41' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'calls' -Project (Join-Path $v3Rp5Tests 'calls.UBE') -ExpectedOutput '42' -ExpectedExitCode 83
+    Test-V3Rp5NativeFixture -Name 'control-flow' -Project (Join-Path $v3Rp5Tests 'control-flow.UBE') -ExpectedOutput '0' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'custom-type-members' -Project (Join-Path $v3Rp5Tests 'custom-type-members.UBE') -ExpectedOutput '42' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'array-elements' -Project (Join-Path $v3Rp5Tests 'array-elements.UBE') -ExpectedOutput "42`nUBE" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'array-member' -Project (Join-Path $v3Rp5Tests 'array-member.UBE') -ExpectedOutput "42`n42" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'byref-indexed' -Project (Join-Path $v3Rp5Tests 'byref-indexed.UBE') -ExpectedOutput "42`nindexed" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'default-initialization' -Project (Join-Path $v3Rp5Tests 'default-initialization.UBE') -ExpectedOutput 'defaults-ok' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'divide-overflow' -Project (Join-Path $v3Rp5Tests 'divide-overflow.UBE') -ExpectedOutput '' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'array-bounds' -Project (Join-Path $v3Rp5Tests 'array-bounds.UBE') -ExpectedOutput 'UBE runtime: array index out of range: 1' -ExpectedExitCode 65
+)
+
+# Exercise the compiler-owned, bounded toolchain handoff in addition to the
+# harness-owned Clang invocations above. Both compiler stages must build and
+# run the same fixture, while a missing tool must leave no false-success file.
+$v3Rp5NativeModeV2Executable = Join-Path $out 'v3-rp5-build-native-v2-built.exe'
+$v3Rp5NativeModeV2Ir = Join-Path $out 'v3-rp5-build-native-v2-built.ll'
+& $v3Rp1Executable '--build-native' $v3Rp5StraightLineProject $v3Rp1Target $clangPath `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+    $v3Rp5NativeModeV2Executable $v3Rp5NativeModeV2Ir
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5NativeModeV2Executable) -or `
+        (Test-Path -LiteralPath $v3Rp5NativeModeV2Ir)) {
+    throw 'The v2-built RP5 compiler failed its bounded native-build toolchain handoff'
+}
+$v3Rp5NativeModeV2Run = Invoke-ExpectedNativeFailure -FilePath $v3Rp5NativeModeV2Executable
+if ($v3Rp5NativeModeV2Run.ExitCode -ne 0 -or $v3Rp5NativeModeV2Run.Output -cne '41') {
+    throw 'The v2-built RP5 compiler native-build result behaved unexpectedly'
+}
+
+$v3Rp5NativeModeSelfExecutable = Join-Path $out 'v3-rp5-build-native-self-built.exe'
+$v3Rp5NativeModeSelfIr = Join-Path $out 'v3-rp5-build-native-self-built.ll'
+& $v3Rp5SelfStageTwoExecutable '--build-native' $v3Rp5StraightLineProject $v3Rp1Target $clangPath `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+    $v3Rp5NativeModeSelfExecutable $v3Rp5NativeModeSelfIr
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5NativeModeSelfExecutable) -or `
+        (Test-Path -LiteralPath $v3Rp5NativeModeSelfIr)) {
+    throw 'The self-built RP5 compiler failed its bounded native-build toolchain handoff'
+}
+$v3Rp5NativeModeSelfRun = Invoke-ExpectedNativeFailure -FilePath $v3Rp5NativeModeSelfExecutable
+if ($v3Rp5NativeModeSelfRun.ExitCode -ne 0 -or $v3Rp5NativeModeSelfRun.Output -cne '41') {
+    throw 'The RP5 compiler stages disagreed through the bounded native-build toolchain handoff'
+}
+
+$v3Rp5MissingToolExecutable = Join-Path $out 'v3-rp5-missing-tool.exe'
+$v3Rp5MissingToolIr = Join-Path $out 'v3-rp5-missing-tool.ll'
+$v3Rp5MissingTool = Join-Path $out 'missing-clang.exe'
+$v3Rp5MissingToolFailure = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments @(
+    '--build-native', $v3Rp5StraightLineProject, $v3Rp1Target, $v3Rp5MissingTool,
+    (Join-Path $out 'bootstrap_runtime.o'), (Join-Path $out 'bootstrap_unicode_runtime.o'),
+    $v3Rp5MissingToolExecutable, $v3Rp5MissingToolIr)
+if ($v3Rp5MissingToolFailure.ExitCode -eq 0 -or `
+        (Test-Path -LiteralPath $v3Rp5MissingToolExecutable) -or `
+        (Test-Path -LiteralPath $v3Rp5MissingToolIr)) {
+    throw 'RP5 missing-tool failure returned success or left a false-success artifact'
+}
+
+# UBECore is the exact RP5 source-library project slice. Reproduce it with
+# both v3 stages, compare IR, and compile each result through the frozen ABI.
+$v3Rp5CoreV2Ir = Join-Path $out 'v3-rp5-ubecore-v2-built.ll'
+$v3Rp5CoreSelfIr = Join-Path $out 'v3-rp5-ubecore-self-built.ll'
+$v3Rp5CoreCanonicalIr = Join-Path $out 'v3-rp5-ubecore-canonical.ll'
+$v3Rp5CoreV2Object = Join-Path $out 'v3-rp5-ubecore-v2-built.o'
+$v3Rp5CoreSelfObject = Join-Path $out 'v3-rp5-ubecore-self-built.o'
+& $v3Rp1Executable '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Rp5CoreV2Ir
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5CoreV2Ir)) {
+    throw 'The v2-built RP5 compiler failed to emit the exact UBECore slice'
+}
+& $v3Rp5SelfStageTwoExecutable '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Rp5CoreSelfIr
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5CoreSelfIr)) {
+    throw 'The self-built RP5 compiler failed to emit the exact UBECore slice'
+}
+$v3Rp5CoreV2IrHash = (Get-FileHash -LiteralPath $v3Rp5CoreV2Ir -Algorithm SHA256).Hash
+$v3Rp5CoreSelfIrHash = (Get-FileHash -LiteralPath $v3Rp5CoreSelfIr -Algorithm SHA256).Hash
+if ((Get-Item -LiteralPath $v3Rp5CoreV2Ir).Length -ne (Get-Item -LiteralPath $v3Rp5CoreSelfIr).Length -or `
+        $v3Rp5CoreV2IrHash -ne $v3Rp5CoreSelfIrHash) {
+    throw 'UBECore LLVM differs between the v2-built and self-built RP5 compilers'
+}
+Copy-Item -LiteralPath $v3Rp5CoreV2Ir -Destination $v3Rp5CoreCanonicalIr -Force
+& $clangPath @v3Rp5ClangCompileFlags $v3Rp5CoreCanonicalIr '-o' $v3Rp5CoreV2Object
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile the v2-built UBECore IR' }
+Copy-Item -LiteralPath $v3Rp5CoreSelfIr -Destination $v3Rp5CoreCanonicalIr -Force
+& $clangPath @v3Rp5ClangCompileFlags $v3Rp5CoreCanonicalIr '-o' $v3Rp5CoreSelfObject
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile the self-built UBECore IR' }
+$v3Rp5CoreV2ObjectHash = (Get-FileHash -LiteralPath $v3Rp5CoreV2Object -Algorithm SHA256).Hash
+$v3Rp5CoreSelfObjectHash = (Get-FileHash -LiteralPath $v3Rp5CoreSelfObject -Algorithm SHA256).Hash
+$v3Rp5CoreV2NormalizedObjectHash = Get-NormalizedCoffSha256 -Path $v3Rp5CoreV2Object
+$v3Rp5CoreSelfNormalizedObjectHash = Get-NormalizedCoffSha256 -Path $v3Rp5CoreSelfObject
+if ((Get-Item -LiteralPath $v3Rp5CoreV2Object).Length -ne (Get-Item -LiteralPath $v3Rp5CoreSelfObject).Length -or `
+        $v3Rp5CoreV2NormalizedObjectHash -ne $v3Rp5CoreSelfNormalizedObjectHash) {
+    throw 'UBECore object output differs after documented COFF timestamp normalization'
+}
+
+function Assert-V3Rp5CompilerParity {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [string[]]$Arguments = @()
+    )
+
+    $v2BuiltResult = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments $Arguments
+    $selfBuiltResult = Invoke-ExpectedNativeFailure -FilePath $v3Rp5SelfStageTwoExecutable -Arguments $Arguments
+    if ($v2BuiltResult.ExitCode -ne $selfBuiltResult.ExitCode -or `
+            $v2BuiltResult.Output -cne $selfBuiltResult.Output) {
+        throw "UBE Compiler v3 RP5 v2-built and self-built compilers disagreed for $Name"
+    }
+}
+
+$v3Rp5ParityCases = @(
+    [pscustomobject]@{ Name = 'own-project'; Arguments = @($v3Manifest, $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'multi-module'; Arguments = @((Join-Path $v3Rp1Tests 'rp1-valid.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'source-library-slice'; Arguments = @($ubeCoreProject, $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'lexical-tokens'; Arguments = @('--dump-tokens', (Join-Path $v3Rp2Tests 'lexical.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'comprehensive-syntax'; Arguments = @('--dump-syntax', (Join-Path $v3Rp3Tests 'comprehensive.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'typed-semantics'; Arguments = @('--dump-semantics', (Join-Path $v3Rp4Tests 'valid.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'typed-ir'; Arguments = @('--dump-ir', $v3Rp5StraightLineProject, $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'usage-failure'; Arguments = @() },
+    [pscustomobject]@{ Name = 'target-failure'; Arguments = @($v3Manifest, 'unknown-target') },
+    [pscustomobject]@{ Name = 'manifest-failure'; Arguments = @((Join-Path $v3Rp1Tests 'unknown-key.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'missing-source-failure'; Arguments = @((Join-Path $v3Rp1Tests 'missing-source.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'lexer-failure'; Arguments = @((Join-Path $v3Rp2Tests 'malformed.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'preprocessor-failure'; Arguments = @((Join-Path $v3Rp2Tests 'conditional-bad.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'parser-recovery'; Arguments = @((Join-Path $v3Rp3Tests 'recovery.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'semantic-name-failure'; Arguments = @((Join-Path $v3Rp4Tests 'duplicate.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'semantic-type-failure'; Arguments = @((Join-Path $v3Rp4Tests 'unknown-type.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'semantic-control-flow-failure'; Arguments = @((Join-Path $v3Rp4Tests 'bad-exit.UBE'), $v3Rp1Target) },
+    [pscustomobject]@{ Name = 'semantic-callnew-failure'; Arguments = @((Join-Path $v3Rp4Tests 'bad-callnew.UBE'), $v3Rp1Target) }
+)
+foreach ($v3Rp5ParityCase in $v3Rp5ParityCases) {
+    Assert-V3Rp5CompilerParity -Name $v3Rp5ParityCase.Name -Arguments $v3Rp5ParityCase.Arguments
+}
+
+$v3Rp5SelfStraightLineLlvm = Join-Path $out 'v3-rp5-self-straight-line.ll'
+& $v3Rp5SelfStageTwoExecutable '--emit-llvm' $v3Rp5StraightLineProject $v3Rp1Target $v3Rp5SelfStraightLineLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SelfStraightLineLlvm)) {
+    throw 'The self-built UBE Compiler v3 RP5 failed to emit the native corpus fixture'
+}
+if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
+        (Get-FileHash -LiteralPath $v3Rp5SelfStraightLineLlvm -Algorithm SHA256).Hash) {
+    throw 'UBE Compiler v3 RP5 v2-built and self-built native fixture IR differs'
+}
+$v3Rp5ReleaseCandidate = Join-Path $out 'ube-v3-rp5-windows-x86_64-x86_64-w64-windows-gnu.exe'
 
 $v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
 $manySourcesText = [System.Text.StringBuilder]::new()
@@ -606,19 +931,19 @@ Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourcePr
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
 $v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'TargetAbi.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
     $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
 }
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp4-build-manifest-1'
-    preview = 'RP4'
+    schema = 'ube-v3-rp5-build-manifest-1'
+    preview = 'RP5'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
     core_package = 'UBECore'
     core_library_version = '0.1.0-rp1'
     intrinsic_abi = 'ube-intrinsic-abi-1'
-    source_library_slice = @()
+    source_library_slice = @('src/portable/CoreIdentity.bas')
     target = 'x86_64-w64-windows-gnu'
     optimization = '-O2'
     compiler_stage1 = (Get-FileHash -LiteralPath $v2StageOne -Algorithm SHA256).Hash
@@ -633,11 +958,38 @@ $v3Rp1BuildManifest = [ordered]@{
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
     unicode_runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_unicode_runtime.o') -Algorithm SHA256).Hash
     llvm_ir = $v3Rp1StageOneIrHash
+    self_build_comparison = [ordered]@{
+        policy = 'byte-identical LLVM IR; equal-length COFF objects with identical SHA-256 after zeroing only the 4-byte COFF producer timestamp'
+        stage2_ir_sha256 = $v3Rp5SelfStageTwoIrHash
+        stage3_ir_sha256 = $v3Rp5SelfStageThreeIrHash
+        stage2_object_sha256 = $v3Rp5SelfStageTwoObjectHash
+        stage3_object_sha256 = $v3Rp5SelfStageThreeObjectHash
+        stage2_normalized_object_sha256 = $v3Rp5SelfStageTwoNormalizedObjectHash
+        stage3_normalized_object_sha256 = $v3Rp5SelfStageThreeNormalizedObjectHash
+        corpus_policy = 'identical exit code and ordinal output text for the recorded positive and negative RP5 parity corpus'
+        corpus_case_count = $v3Rp5ParityCases.Count
+    }
+    source_library_comparison = [ordered]@{
+        project = 'source-library/UBECore.UBE'
+        v2_built_ir_sha256 = $v3Rp5CoreV2IrHash
+        self_built_ir_sha256 = $v3Rp5CoreSelfIrHash
+        v2_built_object_sha256 = $v3Rp5CoreV2ObjectHash
+        self_built_object_sha256 = $v3Rp5CoreSelfObjectHash
+        v2_built_normalized_object_sha256 = $v3Rp5CoreV2NormalizedObjectHash
+        self_built_normalized_object_sha256 = $v3Rp5CoreSelfNormalizedObjectHash
+    }
+    native_profile_fixtures = $v3Rp5NativeFixtureResults
+    clang_compile_flags = $v3Rp5ClangCompileFlags
+    clang_link_flags = $v3Rp5ClangLinkFlags
+    straight_line_ir = (Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash
+    straight_line_executable = (Get-FileHash -LiteralPath $v3Rp5StraightLineExecutable -Algorithm SHA256).Hash
     executable = (Get-FileHash -LiteralPath $v3Rp1Executable -Algorithm SHA256).Hash
+    self_built_executable = (Get-FileHash -LiteralPath $v3Rp5SelfStageTwoExecutable -Algorithm SHA256).Hash
+    release_candidate = (Get-FileHash -LiteralPath $v3Rp5SelfStageTwoExecutable -Algorithm SHA256).Hash
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 4 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp4-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp5-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(
@@ -838,3 +1190,8 @@ $v2BootstrapManifest = [ordered]@{
     }
 }
 $v2BootstrapManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $v2BootstrapManifestPath -Encoding UTF8
+
+# Materialize the named RP5 release candidate only after every inherited and
+# preview-specific gate above has passed.  The completion workflow can then
+# copy this exact file and hash into compiler/release-previews.
+Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp5ReleaseCandidate

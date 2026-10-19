@@ -57,21 +57,191 @@ Function LiteralExpressionType(ByVal NodeIndex As Long, ByRef SyntaxNodes() As S
     LiteralExpressionType = -1
 End Function
 
-Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function BindingOwnerForNode(ByVal SyntaxNodeIndex As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long) As Long
+    If SyntaxNodeIndex >= 0 And SyntaxNodeIndex < BindingCount Then
+        If Bindings(SyntaxNodeIndex).SyntaxNode = SyntaxNodeIndex Then
+            BindingOwnerForNode = Bindings(SyntaxNodeIndex).OwnerSymbol
+            Exit Function
+        End If
+    End If
+    BindingOwnerForNode = -1
+End Function
+
+Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef ScopedCacheScopes() As Long, ByRef ScopedCacheNames() As String, ByRef ScopedCacheResults() As Long, ByRef ScopedCacheCount As Long, ByRef GlobalCacheSourceIds() As Long, ByRef GlobalCacheNames() As String, ByRef GlobalCacheResults() As Long, ByRef GlobalCacheCount As Long) As Long
+    Dim IdentifierToken As Long = SyntaxNodes(NodeIndex).FirstToken
+    While IdentifierToken <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(IdentifierToken).TokenKind = 2 Or Tokens(IdentifierToken).TokenKind = 3 Then
+            Exit While
+        End If
+        If Tokens(IdentifierToken).TokenKind = 4 Or Tokens(IdentifierToken).TokenKind = 5 Or Tokens(IdentifierToken).TokenKind = 6 Or Tokens(IdentifierToken).TokenKind = 7 Then
+            ResolveExpressionSymbol = -1
+            Exit Function
+        End If
+        If Tokens(IdentifierToken).TokenKind = 1 Then
+            If EqualsFolded(Tokens(IdentifierToken).Spelling, "True") <> 0 Then
+                ResolveExpressionSymbol = -1
+                Exit Function
+            End If
+            If EqualsFolded(Tokens(IdentifierToken).Spelling, "False") <> 0 Then
+                ResolveExpressionSymbol = -1
+                Exit Function
+            End If
+            If EqualsFolded(Tokens(IdentifierToken).Spelling, "Null") <> 0 Then
+                ResolveExpressionSymbol = -1
+                Exit Function
+            End If
+            If EqualsFolded(Tokens(IdentifierToken).Spelling, "Nothing") <> 0 Then
+                ResolveExpressionSymbol = -1
+                Exit Function
+            End If
+            If EqualsFolded(Tokens(IdentifierToken).Spelling, "Empty") <> 0 Then
+                ResolveExpressionSymbol = -1
+                Exit Function
+            End If
+        End If
+        IdentifierToken = IdentifierToken + 1
+    Wend
+    If IdentifierToken > SyntaxNodes(NodeIndex).LastToken Then
+        ResolveExpressionSymbol = -1
+        Exit Function
+    End If
+    Dim SoughtName As String = Tokens(IdentifierToken).Spelling
+    If Tokens(IdentifierToken).TokenKind = 3 Then
+        SoughtName = Tokens(IdentifierToken).Decoded
+    End If
+    Dim BoundScope As Long = -1
+    If NodeIndex >= 0 And NodeIndex < BindingCount Then
+        BoundScope = Bindings(NodeIndex).ScopeIndex
+    End If
+    If BoundScope >= 0 Then
+        Dim ScopedCacheIndex As Long = 0
+        While ScopedCacheIndex < ScopedCacheCount
+            If ScopedCacheScopes(ScopedCacheIndex) = BoundScope Then
+                If ScopedCacheNames(ScopedCacheIndex) = SoughtName Or EqualsFolded(ScopedCacheNames(ScopedCacheIndex), SoughtName) <> 0 Then
+                    ResolveExpressionSymbol = ScopedCacheResults(ScopedCacheIndex)
+                    Exit Function
+                End If
+            End If
+            ScopedCacheIndex = ScopedCacheIndex + 1
+        Wend
+        Dim VisibleSymbol As Long = FindVisibleSymbol(BoundScope, SoughtName, Scopes, Symbols, SymbolLinks)
+        If VisibleSymbol >= 0 Then
+            If ScopedCacheCount < SymbolCount Then
+                ScopedCacheScopes(ScopedCacheCount) = BoundScope
+                ScopedCacheNames(ScopedCacheCount) = SoughtName
+                ScopedCacheResults(ScopedCacheCount) = VisibleSymbol
+                ScopedCacheCount = ScopedCacheCount + 1
+            End If
+            ResolveExpressionSymbol = VisibleSymbol
+            Exit Function
+        End If
+    End If
+    Dim OwnerSymbol As Long = BindingOwnerForNode(NodeIndex, Bindings, BindingCount)
+    If OwnerSymbol >= 0 Then
+        If Symbols(OwnerSymbol).SymbolName = SoughtName Or EqualsFolded(Symbols(OwnerSymbol).SymbolName, SoughtName) <> 0 Then
+            ResolveExpressionSymbol = OwnerSymbol
+            Exit Function
+        End If
+    End If
+    Dim CacheIndex As Long = 0
+    While CacheIndex < GlobalCacheCount
+        If GlobalCacheSourceIds(CacheIndex) = SyntaxNodes(NodeIndex).SourceId Then
+            If GlobalCacheNames(CacheIndex) = SoughtName Then
+                ResolveExpressionSymbol = GlobalCacheResults(CacheIndex)
+                Exit Function
+            End If
+            If EqualsFolded(GlobalCacheNames(CacheIndex), SoughtName) <> 0 Then
+                ResolveExpressionSymbol = GlobalCacheResults(CacheIndex)
+                Exit Function
+            End If
+        End If
+        CacheIndex = CacheIndex + 1
+    Wend
+    Dim MatchIndex As Long = -1
+    Dim MatchCount As Long = 0
+    Dim SymbolIndex As Long = 0
+    While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).SourceId = SyntaxNodes(NodeIndex).SourceId And (Symbols(SymbolIndex).SymbolName = SoughtName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SoughtName) <> 0) Then
+            If Symbols(SymbolIndex).SymbolKind <> SemanticSymbolModule() Then
+                MatchIndex = SymbolIndex
+                MatchCount = MatchCount + 1
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
+    If MatchCount <> 1 Then
+        MatchIndex = -1
+        MatchCount = 0
+        SymbolIndex = 0
+        While SymbolIndex < SymbolCount
+            If Symbols(SymbolIndex).SymbolName = SoughtName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SoughtName) <> 0 Then
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolProcedure() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolProperty() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant() Then
+                    MatchIndex = SymbolIndex
+                    MatchCount = MatchCount + 1
+                End If
+            End If
+            SymbolIndex = SymbolIndex + 1
+        Wend
+    End If
+    If MatchCount = 1 Then
+        ResolveExpressionSymbol = MatchIndex
+    Else
+        ResolveExpressionSymbol = -1
+    End If
+    If GlobalCacheCount < SymbolCount Then
+        GlobalCacheSourceIds(GlobalCacheCount) = SyntaxNodes(NodeIndex).SourceId
+        GlobalCacheNames(GlobalCacheCount) = SoughtName
+        GlobalCacheResults(GlobalCacheCount) = ResolveExpressionSymbol
+        GlobalCacheCount = GlobalCacheCount + 1
+    End If
+End Function
+
+Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     State.ExpressionCount = 0
     State.TypedExpressionCount = 0
     Dim NodeTypes() As Long
     ReDim NodeTypes(SyntaxNodeCount - 1)
+    Dim GlobalCacheNames() As String
+    Dim GlobalCacheSourceIds() As Long
+    Dim GlobalCacheResults() As Long
+    Dim GlobalCacheCount As Long = 0
+    Dim ScopedCacheScopes() As Long
+    Dim ScopedCacheNames() As String
+    Dim ScopedCacheResults() As Long
+    Dim ScopedCacheCount As Long = 0
+    If SymbolCount > 0 Then
+        ReDim ScopedCacheScopes(SymbolCount - 1)
+        ReDim ScopedCacheNames(SymbolCount - 1)
+        ReDim ScopedCacheResults(SymbolCount - 1)
+        ReDim GlobalCacheSourceIds(SymbolCount - 1)
+        ReDim GlobalCacheNames(SymbolCount - 1)
+        ReDim GlobalCacheResults(SymbolCount - 1)
+    End If
     Dim NodeIndex As Long = 0
     While NodeIndex < SyntaxNodeCount
         NodeTypes(NodeIndex) = -1
         NodeIndex = NodeIndex + 1
     Wend
-    NodeIndex = SyntaxNodeCount - 1
-    While NodeIndex >= 0
+    NodeIndex = 0
+    While NodeIndex < SyntaxNodeCount
         If SyntaxRuleIs(NodeIndex, "expression", SyntaxNodes, Rules) <> 0 Then
             State.ExpressionCount = State.ExpressionCount + 1
-            Dim ExpressionType As Long = LiteralExpressionType(NodeIndex, SyntaxNodes, Tokens, Types, TypeCount)
+            Dim ResolvedSymbol As Long = ResolveExpressionSymbol(NodeIndex, SyntaxNodes, SyntaxLinks, Rules, Tokens, Scopes, SymbolLinks, Symbols, SymbolCount, Bindings, BindingCount, ScopedCacheScopes, ScopedCacheNames, ScopedCacheResults, ScopedCacheCount, GlobalCacheSourceIds, GlobalCacheNames, GlobalCacheResults, GlobalCacheCount)
+            Dim ExpressionType As Long = -1
+            Dim ValueCategory As Long = 0
+            If ResolvedSymbol >= 0 Then
+                If Symbols(ResolvedSymbol).DeclaredType >= 0 Then
+                    ExpressionType = Symbols(ResolvedSymbol).DeclaredType
+                End If
+                If Symbols(ResolvedSymbol).SymbolKind = SemanticSymbolVariable() Or Symbols(ResolvedSymbol).SymbolKind = SemanticSymbolParameter() Then
+                    ValueCategory = 1
+                Else
+                    ValueCategory = 2
+                End If
+            End If
+            If ExpressionType < 0 Then
+                ExpressionType = LiteralExpressionType(NodeIndex, SyntaxNodes, Tokens, Types, TypeCount)
+            End If
             If ExpressionType < 0 Then
                 If SyntaxNodeContainsToken(NodeIndex, "Nothing", SyntaxNodes, Tokens) <> 0 Then
                     ExpressionType = FindSemanticType("Nothing", Types, TypeCount)
@@ -94,11 +264,26 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
             NodeTypes(NodeIndex) = ExpressionType
             If ExpressionType >= 0 Then
                 State.TypedExpressionCount = State.TypedExpressionCount + 1
+                Dim ConstantKind As Long = 0
+                Dim ExpressionConstantText As String = ""
+                If SyntaxNodes(NodeIndex).FirstToken = SyntaxNodes(NodeIndex).LastToken Then
+                    Dim OnlyToken As Long = SyntaxNodes(NodeIndex).FirstToken
+                    If Tokens(OnlyToken).TokenKind = 4 Or Tokens(OnlyToken).TokenKind = 5 Or Tokens(OnlyToken).TokenKind = 6 Or Tokens(OnlyToken).TokenKind = 7 Then
+                        ConstantKind = Tokens(OnlyToken).TokenKind
+                        ExpressionConstantText = Tokens(OnlyToken).Decoded
+                        If StringLength(ExpressionConstantText) = 0 Then
+                            ExpressionConstantText = Tokens(OnlyToken).Spelling
+                        End If
+                    End If
+                End If
+                If AppendSemanticExpression(Expressions, ExpressionCount, ExpressionCapacity, NodeIndex, ExpressionType, ResolvedSymbol, 0, ValueCategory, ConstantKind, ExpressionConstantText, 0) < 0 Then
+                    Call AddSemanticDiagnostic("UBE4042", NodeIndex, "semantic expression limit exceeded", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
             Else
                 Call AddSemanticDiagnostic("UBE4040", NodeIndex, "expression has no semantic type", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
         End If
-        NodeIndex = NodeIndex - 1
+        NodeIndex = NodeIndex + 1
     Wend
 
     Dim SymbolIndex As Long = 0

@@ -11,7 +11,8 @@ prove reproducibility and self-hosting.
   transitional compiler. It supports ordered multi-module projects and is the
   compiler used to build v3.
 - [`UBE_Compiler_v3/`](UBE_Compiler_v3/README.md) is the first public-release
-  compiler target. Release Preview 3 is the current verified baseline.
+  compiler target. Release Preview 5 is the current verified baseline and the
+  first complete v3 self-build fixed point.
 
 The generation-wide roadmap is [Roadmap.md](Roadmap.md), and the active handoff
 record is [Progress.md](Progress.md). Intermediate generated artifacts belong

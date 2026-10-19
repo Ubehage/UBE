@@ -18,6 +18,9 @@ Intrinsic Function ReadAllText(ByVal Path As String) As String
 End Function
 Intrinsic Function WriteAllText(ByVal Path As String, ByVal Contents As String) As Long
 End Function
+
+Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long
+End Function
 Intrinsic Function StringArrayJoin(ByRef Values() As String, ByVal Count As Long) As String
 End Function
 Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long
@@ -321,6 +324,14 @@ Sub IntrinsicLlvmSymbol(ByVal IntrinsicName As String, ByRef Result As String)
     End If
     If EqualsIdentifier(IntrinsicName, "StringArrayJoin") <> 0 Then
         Result = "@ube_string_array_join"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerRunTool") <> 0 Then
+        Result = "@ube_compiler_run_tool"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerDeleteFile") <> 0 Then
+        Result = "@ube_compiler_delete_file"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "UnicodeIsLetter") <> 0 Then
@@ -793,8 +804,8 @@ Sub AppendToken(ByRef Tokens() As Token, ByRef Count As Long, ByRef Capacity As 
         If Capacity > 0 Then
             NewCapacity = Capacity * 2
         End If
-        If NewCapacity > 100000 Then
-            NewCapacity = 100000
+        If NewCapacity > 250000 Then
+            NewCapacity = 250000
         End If
         If Capacity = 0 Then
             ReDim Tokens(NewCapacity - 1)
@@ -996,7 +1007,9 @@ Function LexSource(ByVal SourceText As String, ByRef Tokens() As Token, ByRef Co
     Dim Index As Long = 0
     Dim PreviousWasHorizontalSpace As Long = 0
     While Index < Length
-        If Count >= 99999 Then
+        ' Keep one slot for the end-of-file token. This bounded ceiling matches
+        ' the v3 bootstrap profile and is large enough for the RP5 compiler.
+        If Count >= 249999 Then
             Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE1003", Index, 0, "token limit exceeded")
             LexSource = 1
             Exit Function
@@ -3090,9 +3103,12 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_read_all_text(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_write_all_text(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join(ptr, i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_delete_file(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_is_letter(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_simple_fold_code_point(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_redim(ptr, i32, i32, i64, i1)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_array_release(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_element(ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_lbound(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_ubound(ptr)" & NewLine)

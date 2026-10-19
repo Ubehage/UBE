@@ -28,6 +28,18 @@ End Function
 Intrinsic Function ReadAllText(ByVal Path As String) As String
 End Function
 
+Intrinsic Function WriteAllText(ByVal Path As String, ByVal Contents As String) As Long
+End Function
+
+Intrinsic Function StringArrayJoin(ByRef Values() As String, ByVal Count As Long) As String
+End Function
+
+Intrinsic Function CompilerRunTool(ByVal ExecutablePath As String, ByRef Arguments() As String, ByVal ArgumentCount As Long) As Long
+End Function
+
+Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long
+End Function
+
 Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long
 End Function
 

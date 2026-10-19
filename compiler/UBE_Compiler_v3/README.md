@@ -3,31 +3,38 @@
 UBE Compiler v3 is the first public-release compiler target. It is developed
 and compiled with the preserved, self-hosting UBE Compiler v2.
 
-Release Preview 4 is the current verified baseline. It is a v2-buildable,
-25-module compiler front end with the complete RP3 parser plus bounded package,
-module, member, procedure, block, and label scopes; Unicode-folded symbols;
-semantic type records; declaration and control-contract validation; expression
-typing; and deterministic semantic serialization. It analyzes itself and the
-`UBECore` source-library project while intentionally using no public library
-APIs yet.
+Release Preview 5 is the verified baseline. It is a v2-buildable, 31-module
+compiler with bounded target-independent typed IR, an IR verifier, deterministic
+lowering of the complete v2 Bootstrap Profile, LLVM emission with source-line
+debug metadata, and a frozen target/toolchain boundary. Lowering makes
+evaluation order, checked arithmetic, exact `ByRef` addresses, automatic local
+dynamic-array cleanup, and controlled failure edges explicit.
 
-The bootstrap harness builds RP4 with both preserved v2 stages, compares their
-LLVM IR, links and executes the result, runs positive and controlled-failure
-fixtures, and writes `bootstrap/out/v3-rp4-build-manifest.json` with the exact
-compiler, source, library, target, tool, and artifact identities.
+The preserved v2 compiler builds RP5, and that v2-built compiler rebuilds its
+own project and the current `UBECore` slice (`src/portable/CoreIdentity.bas`).
+The self-built compiler repeats both builds. The compiler LLVM is
+byte-identical, its COFF objects match after normalizing only the producer
+timestamp, the library outputs match, and both compiler stages agree on the
+recorded positive and negative native corpus. The exact result is recorded in
+`bootstrap/out/v3-rp5-build-manifest.json`.
 
-The RP4 commands are:
+The current RP5 commands are:
 
 ```text
-ube-v3-rp4 <project.UBE> <target-triple>
-ube-v3-rp4 --dump-tokens <project.UBE> <target-triple>
-ube-v3-rp4 --dump-syntax <project.UBE> <target-triple>
-ube-v3-rp4 --dump-semantics <project.UBE> <target-triple>
+ube-v3-rp5 <project.UBE> <target-triple>
+ube-v3-rp5 --dump-tokens <project.UBE> <target-triple>
+ube-v3-rp5 --dump-syntax <project.UBE> <target-triple>
+ube-v3-rp5 --dump-semantics <project.UBE> <target-triple>
+ube-v3-rp5 --dump-ir <project.UBE> <target-triple>
+ube-v3-rp5 --emit-llvm <project.UBE> <target-triple> <output.ll>
+ube-v3-rp5 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>
 ```
 
-The first supported target description is `x86_64-w64-windows-gnu`. RP5 adds
-typed target-independent IR, verified LLVM lowering, and the first v3
-self-build gate.
+The frozen RP5 toolchain contract is LLVM/Clang 23.x targeting
+`x86_64-w64-windows-gnu` with `-O2`. The compiler-owned `--build-native` path
+passes arguments directly to Clang, removes its intermediate file, and leaves
+no false-success output after a controlled tool failure. RP6 is the next
+milestone.
 
 Authoritative inputs:
 

@@ -130,6 +130,8 @@ int main() {
         "Intrinsic Function StringLength(ByVal Value As String) As Long\nEnd Function\n"
         "Intrinsic Function StringSlice(ByVal Value As String, ByVal Start As Long, ByVal Length As Long) As String\nEnd Function\n"
         "Intrinsic Function StringArrayJoin(ByRef Values() As String, ByVal Count As Long) As String\nEnd Function\n"
+        "Intrinsic Function CompilerRunTool(ByVal ExecutablePath As String, ByRef Arguments() As String, ByVal ArgumentCount As Long) As Long\nEnd Function\n"
+        "Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long\nEnd Function\n"
         "Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Intrinsic Function UnicodeSimpleFoldCodePoint(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Sub Join(ByRef Values() As String)\nPrint StringArrayJoin(Values, 1)\nEnd Sub\n"
@@ -138,6 +140,8 @@ int main() {
     require_fragment(intrinsic_ir, "call i32 @ube_string_length");
     require_fragment(intrinsic_ir, "call ptr @ube_string_slice");
     require_fragment(intrinsic_ir, "call ptr @ube_string_array_join");
+    require_fragment(intrinsic_ir, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)");
+    require_fragment(intrinsic_ir, "declare i32 @ube_compiler_delete_file(ptr)");
     require_fragment(intrinsic_ir, "call i32 @ube_unicode_is_letter");
     require_fragment(intrinsic_ir, "call i32 @ube_unicode_simple_fold_code_point");
     require_fragment(intrinsic_ir, "call void @ube_runtime_set_args(i32 %argc, ptr %argv)");

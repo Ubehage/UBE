@@ -191,7 +191,7 @@ Sub MarkScopeTree(ByVal NodeIndex As Long, ByVal ScopeIndex As Long, ByVal Owner
     NodeOwners(NodeIndex) = OwnerSymbol
 End Sub
 
-Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     If InitializeSemanticTypes(Types, TypeCount, TypeCapacity) = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4099", "<semantic>", 1, 1, "semantic type limit exceeded")
         AnalyzeSemantics = 0
@@ -380,8 +380,27 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
         NodeIndex = NodeIndex + 1
     Wend
 
+    NodeIndex = 0
+    While NodeIndex < SyntaxNodeCount
+        Dim BoundScope As Long = NodeScopes(NodeIndex)
+        Dim BoundOwner As Long = NodeOwners(NodeIndex)
+        If SyntaxNodes(NodeIndex).ParentNode >= 0 Then
+            If BoundScope < 0 Then
+                BoundScope = Bindings(SyntaxNodes(NodeIndex).ParentNode).ScopeIndex
+            End If
+            If BoundOwner < 0 Then
+                BoundOwner = Bindings(SyntaxNodes(NodeIndex).ParentNode).OwnerSymbol
+            End If
+        End If
+        If AppendSemanticNodeBinding(Bindings, BindingCount, BindingCapacity, NodeIndex, BoundScope, BoundOwner) < 0 Then
+            Call AddSemanticDiagnostic("UBE4043", NodeIndex, "semantic binding limit exceeded", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            Exit While
+        End If
+        NodeIndex = NodeIndex + 1
+    Wend
+
     Call ResolveSymbolTypes(Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Types, TypeCount, TypeCapacity, Symbols, SymbolCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     Call ValidateSemanticContracts(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
 
     If EqualsFolded(Project.Kind, "Exe") <> 0 Then
