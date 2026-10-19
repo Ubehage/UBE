@@ -8,3 +8,4 @@
 /media/*
 !/media/logo.png
 !/media/icon.png
+/.agents/

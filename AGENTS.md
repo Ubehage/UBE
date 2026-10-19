@@ -10,26 +10,7 @@ The compiler must also support debugging, as an IDE mimicking VB6's ease of use 
 
 
 ## 1. Orientation
-
-| Read | Why |
-|---|---|
-| `Release-Requirements.md` | Owner-defined requirements for the next release |
-| `Workplan.md` | Current repository-wide goals, progress, and resumable handoff |
-| `Owner-ideas.md` | List of ideas to consider during project development |
-| `Agent-ideas.md` | List of ideas from the agents to the owner |
-| `lang-doc/language-spec.md` | Normative lexical and semantic rules |
-| `lang-doc/grammar/ube.ebnf` | Normative core grammar |
-| `project-docs/architecture.md` | Bootstrap, compiler, runtime, and standard-library boundaries |
-| `lang-doc/bootstrap-profile.md` | Implemented stage-zero subset and requirements for the UBE-written compiler |
-| `bootstrap/README.md` (when present) | Building and testing the stage-zero compiler |
-| `project-docs/Roadmap.md` | Tracks the work from stage zero through a self-hosting compiler, runtime, standard library, debugger, and native IDE |
-| `source-library/` | Separate UBE source library, its boundary, and resumable roadmap |
-| `CONTRIBUTORS.md` | List of everyone who worked on this project. They must be credited in the final program |
-| `docs/` | Public offline UBE language manual |
-| `lang-doc/` | Normative and internal language-definition documents |
-| `project-docs/` | Architecture and project-wide planning documents |
-| `GitHub.md` | Agent instructions for using GitHub |
-| `media/` | Contains cliparts, pictures, icons, and other resources to use in the project |
+Reference `/navigation.md` for details on navigating the repository.
 
 
 ## 2. Golden rules
@@ -41,44 +22,16 @@ Coders spend hours and hours coding in UBE, and a crash loses their work. A malf
 - **Prove it.** Every crash fix comes with a small synthetic regression test that panicked before the fix.
 
 
-## Git and GitHub
-The project uses Git and GitHub for version control.
-Before performing Git or GitHub operations, read and follow `/GitHub.md`.
-These instructions are mandatory for all agents, regardless of their assigned role or task.
+## 3. Git and GitHub
+Reference `/Github.md` for Github rules.
 
 
-### Dependency-minimal and portable
-
-UBE and its supporting tools must be as dependency-free and portable as
-practical. npm and npm-managed tooling are forbidden throughout the repository.
-Do not introduce Node.js build steps, JavaScript package managers, downloaded
-web frameworks, runtime CDNs, or install-on-first-run behavior.
-
-- Prefer UBE code, operating-system facilities, and small repository-owned
-  implementations over third-party libraries.
-- Check in every source file, script, asset, data table, and runtime component
-  required for a supported checkout to work. Builds and documentation must not
-  fetch executable code or content from the network.
-- Browser-facing work may use standards-based HTML, CSS, and JavaScript that is
-  stored directly in the repository and works without a package manager.
-- Treat the current GCC, LLVM/Clang, MinGW-w64, and PowerShell bootstrap tools
-  as explicit temporary prerequisites, not permission to add hidden
-  dependencies. Pin and document them, and move releases toward a portable,
-  self-contained toolchain bundle as self-hosting matures.
-- An unavoidable new third-party dependency requires the project owner's
-  explicit approval. Vendor the exact reviewed source or binary, record its
-  version, license, provenance, and integrity hash, and provide a controlled
-  diagnostic when it is unavailable or corrupt.
+### 4. Dependency-minimal and portable
+Reference `/Dependencies.md` for detailed definitions on dependency-minimalism and portability.
 
 
-
-### Context & Hierarchy Rules
-- Each module folder should use `AGENTS.md` for local boundaries and agent
-  instructions. `README.md` is always reader-facing; put internal technical
-  design in `DESIGN.md` and resumable work state in the relevant roadmap or
-  progress file.
-- **The Nearest-Win Rule:** When operating inside a module, the nearest
-  `AGENTS.md` outranks parent instructions if safe contradictions occur.
+### 5. Context & Hierarchy Rules
+Reference `Hierarchy.md` for detailed hierarchy rules.
 
 
 Agents are authorized to create, modify, move, and delete files within this repository when reasonably necessary to complete the requested task. Preserve unrelated work, follow the project architecture and documentation, and avoid destructive or repository-wide changes unless explicitly requested.
