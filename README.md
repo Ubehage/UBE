@@ -49,7 +49,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
     UBE aims to allow developers to define their own native data types, including their memory representation and how values are initialized, accessed and destroyed.<br>
   - **Modern compilation.**<br>
     UBE uses LLVM as its backend, allowing the compiler to target different architectures without requiring a separate code generator for each platform.<br>
-  - **String declaration, friendly conversions.**<br>
+  - **Strict declaration, friendly conversions.**<br>
     Variables must be explicitly delcared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
   - **A different approach to runtime errors.**<br>
     Rather than interrupting execution for ordinary recoverable failures, UBE is design to return an invalid or default value and record error information for the programmer to inspect.<br>
