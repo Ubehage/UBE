@@ -31,40 +31,46 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 
 
 ## Frequently Asked Questions
-<ul>
-  <li><strong>Is UBE an attempt to create Visual Basic 7?</strong><br>
-  <strong>No. And it isn't trying to be.</strong><br>
+- Is UBE an attempt to create Visual Basic 7?<br>
+  **No.**<br>
   TwinBASIC is carrying the Visual Basic legacy forward, with a strong focus on compatibility with existing VB6 code.<br>
   UBE is a different experiment.<br>
   The idea behind UBE is simple: <i>What if we took a language designed for beginners and kept extending it until it could do virtually anything?</i><br>
-  UBE takes inspiration from the simplicity, readability and accessibility of classic Visual Basic, but does not consider VB6-compatibility a design requirement.</li>
-  <br><li><strong>So, what exactly is UBE?</strong><br>
+  UBE takes inspiration from the simplicity, readability and accessibility of classic Visual Basic, but does not consider VB6-compatibility a design requirement.<br>
+- So, what exactly is UBE?<br>
   UBE is an attempt to build a powerful, modern, general-purpose programming language around the original philosophy of BASIC: Programming should be understandable, approachable and enjoyable.<br>
   The goal is not to make a simpler language. It is to make advanced capabilities accessible through a simple language.<br>
-  In other words, UBE aims to preserve VB's friendliness without preserving its historical limitations.</li>
-  <br><li><strong>What makes UBE different from Visual Basic 6?</strong><br>
-  Several things. Both internally and in the language itself.<br>
-  -<strong>A minimal compiler core.</strong> UBE's compiler is designed to understand only the essential building blocks of the language. Much of the higher-level functionality is implemented in a separate standard library.<br>
-  -<strong>Extensible native types.</strong> UBE aims to allow developers to define their own native data types, including their memory representation and how values are initialized, accessed and destroyed.<br>
-  -<strong>Modern compilation.</strong> UBE uses LLVM as its backend, allowing the compiler to target different architectures without requiring a separate code generator for each platform.<br>
-  -<strong>String declaration, friendly conversions.</strong> Variables must be explicitly delcared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
-  -<strong>A different approach to runtime errors.</strong> Rather than interrupting execution for ordinary recoverable failures, UBE is design to return an invalid or default value and record error information for the programmer to inspect.</sub><br>
-  <br><li><strong>Will UBE compile existing VB6 projects?</strong><br>
-  <strong>Yes. All valid VB6 code is intended to compile in UBE.</strong><br>
+  In other words, UBE aims to preserve VB's friendliness without preserving its historical limitations.<br>
+- What makes UBE different from Visual Basic 6?<br>
+  Several things. Both internally and in the language itself.:
+  - **A minimal compiler core.**<br>
+    UBE's compiler is designed to understand only the essential building blocks of the language. Much of the higher-level functionality is implemented in a separate standard library.<br>
+  - **Extensible native types.**<br>
+    UBE aims to allow developers to define their own native data types, including their memory representation and how values are initialized, accessed and destroyed.<br>
+  -** Modern compilation.**<br>
+    UBE uses LLVM as its backend, allowing the compiler to target different architectures without requiring a separate code generator for each platform.<br>
+  - **String declaration, friendly conversions.**<br>
+    Variables must be explicitly delcared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
+  - **A different approach to runtime errors.**<br>
+    Rather than interrupting execution for ordinary recoverable failures, UBE is design to return an invalid or default value and record error information for the programmer to inspect.<br>
+- Will UBE compile existing VB6 projects?<br>
+  **Yes. All valid VB6 code is intended to compile in UBE.**<br>
   UBE preserves VB6 syntax while deliberate reconsidering some of its underlying semantics, including error handling, type conversions, and other runtime behaviors.<br>
-  This means existing VB6 code will compile without modification, but may behave different when executed.<br>
-  <strong>If exact VB6 behavior is a requirement, TwinBASIC is likely the better choice for you.</strong></li>
-  <br><li><strong>Is UBE designed for beginners or experienced programmers?</strong><br>
-  <strong>Both.</strong><br>
+  This means existing VB6 code will compile without modification, but some specific VB6-quirks might not work as expected.<br>
+  *If exact VB6 behavior is a requirement, TwinBASIC is likely the better choice for you.*
+- Is UBE designed for beginners or experienced programmers?<br>
+  **Both.**<br>
   A beginner should be able to write a simple program without first understanding memory management, compiler architecture og complex type systems.<br>
   An experienced developer should be able to access those capabilities when needed.<br>
-  Complexity is available, not mandatory.</li>
-  <br><li><strong>Is UBE ready for production use?</strong><br>
-  <strong>Not yet. UBE is under active development</strong></li>
-  <br><li><strong>Is UBE intended to replace Visual Basic, TwinBASIC or other programming languages?</strong><br>
-  <strong>No.</strong><br>
-  UBE is not being developed to replace an existing language or win a popularity contest.</li>
-</ul>
+  Complexity is available, not mandatory.<br>
+- Is UBE ready for production use?<br>
+  **Not yet.**<br>
+  UBE is under active development.<br>
+- Is UBE intended to replace Visual Basic, TwinBASIC or other programming languages?<br>
+  **No.**<br>
+  Ube is being developed just because I want to.<br>
+  I am trying to realize an old dream.
+
 
 
 ## How UBE is being built
