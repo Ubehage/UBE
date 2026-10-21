@@ -45,3 +45,26 @@ End Function
 
 Intrinsic Function UnicodeSimpleFoldCodePoint(ByVal CodePoint As Long) As Long
 End Function
+
+' Collector entry used by the UBECore Memory module. User programs receive
+' the documented CollectGarbage wrapper rather than this implementation hook.
+Intrinsic Function ManagedCollectGarbage() As Long
+End Function
+
+Intrinsic Function ManagedVariantEmpty() As String
+End Function
+
+Intrinsic Function ManagedVariantNull() As String
+End Function
+
+Intrinsic Function ManagedVariantFromLong(ByVal Value As Long) As String
+End Function
+
+Intrinsic Function ManagedVariantCopy(ByVal Value As String) As String
+End Function
+
+Intrinsic Function ManagedVariantTag(ByVal Value As String) As Long
+End Function
+
+Intrinsic Function ManagedVariantGetLong(ByVal Value As String, ByRef Result As Long) As Long
+End Function

@@ -178,7 +178,7 @@ Sub FindProjectDirectory(ByVal ManifestPath As String, ByRef Directory As String
     Wend
 End Sub
 
-Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As ProjectDescription, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As ProjectDescription, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ReferencePaths() As String, ByRef ReferenceCount As Long, ByRef ReferenceCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     If HasSuffix(ManifestPath, ".UBE") = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3000", ManifestPath, 1, 1, "normal builds require a .UBE project manifest")
         LoadProjectManifest = 0
@@ -207,9 +207,7 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
     Dim ResourcePaths() As String
     Dim ResourceCount As Long = 0
     Dim ResourceCapacity As Long = 0
-    Dim ReferencePaths() As String
-    Dim ReferenceCount As Long = 0
-    Dim ReferenceCapacity As Long = 0
+    ReferenceCount = 0
     Dim SawHeader As Long = 0
     Dim SawName As Long = 0
     Dim SawKind As Long = 0
@@ -384,6 +382,11 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
     While SourceIndex < SourceCount
         SourcePaths(SourceIndex) = Project.ProjectDirectory & SourcePaths(SourceIndex)
         SourceIndex = SourceIndex + 1
+    Wend
+    Dim ReferenceIndex As Long = 0
+    While ReferenceIndex < ReferenceCount
+        ReferencePaths(ReferenceIndex) = Project.ProjectDirectory & ReferencePaths(ReferenceIndex)
+        ReferenceIndex = ReferenceIndex + 1
     Wend
     LoadProjectManifest = 1
 End Function

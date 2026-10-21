@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP6ReferenceLibrary"
+Kind = "Library"
+Source = "ReferencedValues.bas"
+Reference = "transitive/transitive-library.UBE"

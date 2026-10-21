@@ -38,7 +38,7 @@ Function IrOpcodeIsKnown(ByVal Opcode As Long) As Long
         IrOpcodeIsKnown = 1
         Exit Function
     End If
-    If Opcode >= IrOpArrayAddress() And Opcode <= IrOpPrint() Then
+    If Opcode >= IrOpArrayAddress() And Opcode <= IrOpObjectAllocate() Then
         IrOpcodeIsKnown = 1
         Exit Function
     End If
@@ -365,14 +365,28 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                         Call AddIrDiagnostic("UBE5006", "call instruction references an invalid function", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         Valid = 0
                     Else
-                        If Instructions(Index).OperandCount - 1 <> Functions(CalledFunction).ParameterCount Then
+                        Dim CallFirstArgument As Long = 1
+                        If Instructions(Index).Flags And 256 Then
+                            CallFirstArgument = 2
+                            If Instructions(Index).OperandCount < 2 Then
+                                Call AddIrDiagnostic("UBE5006", "instance call requires an object receiver", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                Valid = 0
+                            Else
+                                Dim ReceiverOperandKind As Long = Operands(Instructions(Index).FirstOperand + 1).OperandKind
+                                If ReceiverOperandKind <> IrOperandStorage() And ReceiverOperandKind <> IrOperandValue() Then
+                                    Call AddIrDiagnostic("UBE5006", "instance call receiver must be a value or storage", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                    Valid = 0
+                                End If
+                            End If
+                        End If
+                        If Instructions(Index).OperandCount - CallFirstArgument <> Functions(CalledFunction).ParameterCount Then
                             Call AddIrDiagnostic("UBE5006", "call argument count does not match the called function", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                             Valid = 0
                         Else
                             Dim CallArgumentOffset As Long = 0
                             While CallArgumentOffset < Functions(CalledFunction).ParameterCount
                                 Dim CalledParameter As Long = Functions(CalledFunction).FirstParameter + CallArgumentOffset
-                                Dim CallOperand As Long = Instructions(Index).FirstOperand + CallArgumentOffset + 1
+                                Dim CallOperand As Long = Instructions(Index).FirstOperand + CallArgumentOffset + CallFirstArgument
                                 Dim CallArgumentType As Long = -1
                                 If Parameters(CalledParameter).PassingMode = IrPassingByRef() Then
                                     If Operands(CallOperand).OperandKind = IrOperandStorage() Then

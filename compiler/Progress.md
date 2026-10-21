@@ -6,19 +6,51 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 6 — libraries and package
-  consumption**
-- Active item: plan RP6 from the preserved, verified RP5 fixed point.
-- Status: RP5 is complete and verified. Its bounded target-independent typed
-  IR and verifier lower the complete v2 Bootstrap Profile deterministically,
-  including explicit evaluation order, checked arithmetic, exact `ByRef`
-  addresses, cleanup records, and controlled failure edges. The v2-built
-  compiler builds itself and the current `UBECore` source slice; the resulting
-  self-built compiler repeats both builds with deterministic output and
-  identical positive/negative native behavior.
+- Active milestone: **Compiler v3 Release Preview 7 — errors, threads, events,
+  and component lifetime**
+- Active item: plan RP7 from the preserved, verified RP6 fixed point.
+- Status: RP6 is complete and verified. The v2-built and self-built compilers
+  reproduce byte-identical LLVM, equivalent normalized objects, the exact
+  seven-module `UBECore` slice, and identical results across the inherited and
+  RP6 corpora. Managed values, objects, interfaces, module lifecycle, project
+  references, automatic collection, and the frozen foreign ownership ABI are
+  now part of the stable preview baseline.
 - Blockers: none recorded.
 
 ## Latest verification
+
+- 2026-10-21: completed Compiler v3 Release Preview 6. A clean
+  `bootstrap/build.ps1` run passed with LLVM/Clang 23.1.3 targeting
+  `x86_64-w64-windows-gnu`. The self-build reached byte-identical LLVM and
+  equal normalized COFF objects; both compiler stages reproduced the
+  seven-module `UBECore` slice and agreed on all 28 recorded corpus cases.
+  Native coverage includes recursive lazy custom values, independent copies,
+  fixed strings, Variants, object/interface/property dispatch, exact-once
+  lifecycle hooks, deterministic module ordering, direct project references,
+  tracing collection, cycle recovery, low-memory paths, and external library
+  leases. The generated C header passed strict C17 validation and the external
+  DLL probe passed. Reproducibility details are in
+  `bootstrap/out/v3-rp6-build-manifest.json`; the release executable is
+  preserved under `compiler/release-previews/`.
+
+- 2026-10-19: audited the frozen RP6 contracts against the RP5 compiler and
+  linked support. The grammar and semantic type table recognize much of the
+  surface, but class identities, retained project references, managed IR
+  metadata, tracing ownership, shared-library output, foreign leases, and
+  callable UBECore modules remain distinct implementation layers. The ordered
+  executable gates are recorded in
+  `compiler/UBE_Compiler_v3/RP6_IMPLEMENTATION.md`; implementation begins with
+  verifier-owned precise metadata before collector integration.
+- 2026-10-19: implemented the first RP6 Slice A records and verifier. The
+  v2-built and newly self-built v3 compilers produce identical deterministic
+  `--dump-managed` output for a fixture containing a recursive custom value,
+  a managed string field, a dynamic string array, and a Variant. The dump
+  identifies the recursive lazy slot, reference slot, roots, allocation safe
+  point, and managed-store barriers. Added a separate linked-support tracing
+  probe covering precise roots, a two-object unreachable cycle, iterative
+  reclamation, barriers, exactly-once finalization, and rejected resurrection.
+  The tracing allocation path deliberately remains separate from RP5 string
+  and array ownership until compiler-emitted root entry/leave calls are wired.
 
 - 2026-10-19: a clean `bootstrap/build.ps1` run completed the RP5 gate with
   LLVM/Clang 23.1.3 for `x86_64-w64-windows-gnu`. V2-built and self-built v3
@@ -144,12 +176,12 @@ roadmap.
 
 ## Next actions
 
-1. Derive the RP6 package-consumption contract from the frozen language and
-   source-library boundaries.
-2. Define versioned library metadata, dependency resolution, and deterministic
-   linking without weakening the RP5 fixed-point gate.
-3. Add the first required public `UBECore` modules only as RP6 needs them, with
-   focused documentation and native conformance tests.
+1. Derive the RP7 implementation slices from the frozen error, threading,
+   event, form/control, and unload contracts.
+2. Preserve the RP6 self-build, exact `UBECore`, managed-memory, and foreign-ABI
+   gates unchanged while adding thread-local error state and cleanup edges.
+3. Add `CallNew`, thread coordination, recursive events, and component lifetime
+   only behind focused native and controlled-failure gates.
 
 ## Decisions in force
 

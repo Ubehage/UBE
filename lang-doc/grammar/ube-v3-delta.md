@@ -157,10 +157,10 @@ Replace the arbitrary repeated modifier list with distinct implemented
 Sub/Function, Property, Export, and Intrinsic prefixes:
 
 ```ebnf
-sub-function-modifiers = [ visibility, spacing1 ], [ "Static", spacing1 ],
-                         [ ( "Inline" | "ForceInline" ), spacing1 ]
-                       | "Public", spacing1, "Export", spacing1,
-                         [ "Inline", spacing1 ] ;
+sub-function-modifiers = "Public", spacing1, "Export", spacing1,
+                         [ "Inline", spacing1 ]
+                       | [ visibility, spacing1 ], [ "Static", spacing1 ],
+                         [ ( "Inline" | "ForceInline" ), spacing1 ] ;
 property-modifiers = [ visibility, spacing1 ], [ "Default", spacing1 ],
                      [ "Static", spacing1 ] ;
 ```

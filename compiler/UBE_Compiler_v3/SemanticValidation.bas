@@ -49,9 +49,357 @@ Function LastIdentifierInNode(ByVal NodeIndex As Long, ByRef SyntaxNodes() As Sy
     LastIdentifierInNode = Result
 End Function
 
+Function InterfaceMemberDeclaredName(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As String
+    Dim SawDeclaration As Long = 0
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Sub") <> 0 Or EqualsFolded(Tokens(TokenIndex).Spelling, "Function") <> 0 Or EqualsFolded(Tokens(TokenIndex).Spelling, "Property") <> 0 Then
+            SawDeclaration = 1
+        Else
+            If SawDeclaration <> 0 And Tokens(TokenIndex).TokenKind = 2 Then
+                If EqualsFolded(Tokens(TokenIndex).Spelling, "Get") = 0 And EqualsFolded(Tokens(TokenIndex).Spelling, "Let") = 0 And EqualsFolded(Tokens(TokenIndex).Spelling, "Set") = 0 Then
+                    InterfaceMemberDeclaredName = Tokens(TokenIndex).Spelling
+                    Exit Function
+                End If
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceMemberDeclaredName = ""
+End Function
+
+Function InterfaceMemberParameterCount(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim OpenToken As Long = -1
+    Dim CloseToken As Long = -1
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(TokenIndex).Spelling = "(" And OpenToken < 0 Then
+            OpenToken = TokenIndex
+        End If
+        If Tokens(TokenIndex).Spelling = ")" And OpenToken >= 0 Then
+            CloseToken = TokenIndex
+            Exit While
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    If OpenToken < 0 Or CloseToken <= OpenToken + 1 Then
+        InterfaceMemberParameterCount = 0
+        Exit Function
+    End If
+    Dim Result As Long = 1
+    TokenIndex = OpenToken + 1
+    While TokenIndex < CloseToken
+        If Tokens(TokenIndex).Spelling = "," Then
+            Result = Result + 1
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceMemberParameterCount = Result
+End Function
+
+Function InterfaceMemberKind(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim HasProperty As Long = 0
+    Dim HasGet As Long = 0
+    Dim HasLet As Long = 0
+    Dim HasSet As Long = 0
+    Dim HasFunction As Long = 0
+    Dim HasSub As Long = 0
+    Dim HeaderLine As Long = Tokens(SyntaxNodes(NodeIndex).FirstToken).LineNumber
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken And Tokens(TokenIndex).LineNumber = HeaderLine
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Property") <> 0 Then
+            HasProperty = 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Get") <> 0 Then
+            HasGet = 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Let") <> 0 Then
+            HasLet = 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Set") <> 0 Then
+            HasSet = 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Function") <> 0 Then
+            HasFunction = 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Sub") <> 0 Then
+            HasSub = 1
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    If HasProperty <> 0 Then
+        If HasGet <> 0 Then
+            InterfaceMemberKind = 3
+        End If
+        If HasLet <> 0 Then
+            InterfaceMemberKind = 4
+        End If
+        If HasSet <> 0 Then
+            InterfaceMemberKind = 5
+        End If
+        Exit Function
+    End If
+    If HasFunction <> 0 Then
+        InterfaceMemberKind = 2
+        Exit Function
+    End If
+    If HasSub <> 0 Then
+        InterfaceMemberKind = 1
+        Exit Function
+    End If
+    InterfaceMemberKind = 0
+End Function
+
+Function InterfaceParameterStart(ByVal NodeIndex As Long, ByVal Ordinal As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    Dim Depth As Long = 0
+    Dim CurrentOrdinal As Long = 0
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(TokenIndex).Spelling = "(" Then
+            Depth = Depth + 1
+            If Depth = 1 Then
+                If Ordinal = 0 Then
+                    InterfaceParameterStart = TokenIndex + 1
+                    Exit Function
+                End If
+            End If
+        Else
+            If Tokens(TokenIndex).Spelling = ")" Then
+                Depth = Depth - 1
+            Else
+                If Depth = 1 And Tokens(TokenIndex).Spelling = "," Then
+                    CurrentOrdinal = CurrentOrdinal + 1
+                    If CurrentOrdinal = Ordinal Then
+                        InterfaceParameterStart = TokenIndex + 1
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceParameterStart = -1
+End Function
+
+Function InterfaceParameterEnd(ByVal NodeIndex As Long, ByVal Ordinal As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim StartToken As Long = InterfaceParameterStart(NodeIndex, Ordinal, SyntaxNodes, Tokens)
+    If StartToken < 0 Then
+        InterfaceParameterEnd = -1
+        Exit Function
+    End If
+    Dim TokenIndex As Long = StartToken
+    Dim NestedDepth As Long = 0
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(TokenIndex).Spelling = "(" Then
+            NestedDepth = NestedDepth + 1
+        Else
+            If Tokens(TokenIndex).Spelling = ")" Then
+                If NestedDepth = 0 Then
+                    InterfaceParameterEnd = TokenIndex - 1
+                    Exit Function
+                End If
+                NestedDepth = NestedDepth - 1
+            Else
+                If Tokens(TokenIndex).Spelling = "," And NestedDepth = 0 Then
+                    InterfaceParameterEnd = TokenIndex - 1
+                    Exit Function
+                End If
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceParameterEnd = SyntaxNodes(NodeIndex).LastToken
+End Function
+
+Function InterfaceParameterFlags(ByVal NodeIndex As Long, ByVal Ordinal As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim FirstToken As Long = InterfaceParameterStart(NodeIndex, Ordinal, SyntaxNodes, Tokens)
+    Dim LastToken As Long = InterfaceParameterEnd(NodeIndex, Ordinal, SyntaxNodes, Tokens)
+    Dim Result As Long = 0
+    Dim TokenIndex As Long = FirstToken
+    While TokenIndex >= 0 And TokenIndex <= LastToken
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "Optional") <> 0 Then
+            Result = Result + 1
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "ByVal") <> 0 Then
+            Result = Result + 2
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "ByRef") <> 0 Then
+            Result = Result + 4
+        End If
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "ParamArray") <> 0 Then
+            Result = Result + 8
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    If (Result And 6) = 0 Then
+        Result = Result + 4
+    End If
+    InterfaceParameterFlags = Result
+End Function
+
+Function InterfaceTypeAfterAs(ByVal AsToken As Long, ByVal LastToken As Long, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long) As Long
+    Dim TypeToken As Long = AsToken + 1
+    While TypeToken <= LastToken
+        If Tokens(TypeToken).TokenKind < 9 Or Tokens(TypeToken).TokenKind > 12 Then
+            Dim TypeName As String = Tokens(TypeToken).Spelling
+            If Tokens(TypeToken).TokenKind = 3 Then
+                TypeName = Tokens(TypeToken).Decoded
+            End If
+            InterfaceTypeAfterAs = FindSemanticType(TypeName, Types, TypeCount)
+            Exit Function
+        End If
+        TypeToken = TypeToken + 1
+    Wend
+    InterfaceTypeAfterAs = -1
+End Function
+
+Function InterfaceParameterType(ByVal NodeIndex As Long, ByVal Ordinal As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long) As Long
+    Dim FirstToken As Long = InterfaceParameterStart(NodeIndex, Ordinal, SyntaxNodes, Tokens)
+    Dim LastToken As Long = InterfaceParameterEnd(NodeIndex, Ordinal, SyntaxNodes, Tokens)
+    Dim ArrayRank As Long = 0
+    Dim TokenIndex As Long = FirstToken
+    While TokenIndex >= 0 And TokenIndex <= LastToken
+        If Tokens(TokenIndex).Spelling = "(" Then
+            ArrayRank = 1
+            Dim RankToken As Long = TokenIndex + 1
+            While RankToken <= LastToken And Tokens(RankToken).Spelling <> ")"
+                If Tokens(RankToken).Spelling = "," Then
+                    ArrayRank = ArrayRank + 1
+                End If
+                RankToken = RankToken + 1
+            Wend
+            Exit While
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    TokenIndex = FirstToken
+    While TokenIndex >= 0 And TokenIndex < LastToken
+        If EqualsFolded(Tokens(TokenIndex).Spelling, "As") <> 0 Then
+            Dim ElementType As Long = InterfaceTypeAfterAs(TokenIndex, LastToken, Tokens, Types, TypeCount)
+            If ArrayRank > 0 Then
+                Dim TypeIndex As Long = 0
+                While TypeIndex < TypeCount
+                    If Types(TypeIndex).TypeKind = 41 And Types(TypeIndex).ElementType = ElementType And Types(TypeIndex).ArrayRank = ArrayRank Then
+                        InterfaceParameterType = TypeIndex
+                        Exit Function
+                    End If
+                    TypeIndex = TypeIndex + 1
+                Wend
+                InterfaceParameterType = -1
+                Exit Function
+            End If
+            InterfaceParameterType = ElementType
+            Exit Function
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceParameterType = FindSemanticType("Variant", Types, TypeCount)
+End Function
+
+Function InterfaceMemberResultType(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long) As Long
+    Dim Kind As Long = InterfaceMemberKind(NodeIndex, SyntaxNodes, Tokens)
+    If Kind = 1 Or Kind = 4 Or Kind = 5 Then
+        InterfaceMemberResultType = -1
+        Exit Function
+    End If
+    Dim HeaderLine As Long = Tokens(SyntaxNodes(NodeIndex).FirstToken).LineNumber
+    Dim CloseToken As Long = -1
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    Dim ParenthesisDepth As Long = 0
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken And Tokens(TokenIndex).LineNumber = HeaderLine
+        If Tokens(TokenIndex).Spelling = "(" Then
+            ParenthesisDepth = ParenthesisDepth + 1
+        Else
+            If Tokens(TokenIndex).Spelling = ")" Then
+                ParenthesisDepth = ParenthesisDepth - 1
+                If ParenthesisDepth = 0 Then
+                    CloseToken = TokenIndex
+                End If
+            End If
+        End If
+        If CloseToken >= 0 And EqualsFolded(Tokens(TokenIndex).Spelling, "As") <> 0 And TokenIndex < SyntaxNodes(NodeIndex).LastToken Then
+            InterfaceMemberResultType = InterfaceTypeAfterAs(TokenIndex, SyntaxNodes(NodeIndex).LastToken, Tokens, Types, TypeCount)
+            Exit Function
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    InterfaceMemberResultType = FindSemanticType("Variant", Types, TypeCount)
+End Function
+
+Function InterfaceMemberSignatureMatches(ByVal InterfaceNode As Long, ByVal CandidateSymbol As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
+    If Symbols(CandidateSymbol).VisibilityKind <> 1 Then
+        InterfaceMemberSignatureMatches = 0
+        Exit Function
+    End If
+    Dim CandidateNode As Long = Symbols(CandidateSymbol).SyntaxNode
+    If InterfaceMemberKind(InterfaceNode, SyntaxNodes, Tokens) <> InterfaceMemberKind(CandidateNode, SyntaxNodes, Tokens) Then
+        InterfaceMemberSignatureMatches = 0
+        Exit Function
+    End If
+    Dim ParameterCount As Long = InterfaceMemberParameterCount(InterfaceNode, SyntaxNodes, Tokens)
+    If CountCalledParameters(CandidateSymbol, Symbols, SymbolCount) <> ParameterCount Then
+        InterfaceMemberSignatureMatches = 0
+        Exit Function
+    End If
+    Dim Ordinal As Long = 0
+    While Ordinal < ParameterCount
+        Dim CandidateParameter As Long = -1
+        Dim SymbolIndex As Long = 0
+        While SymbolIndex < SymbolCount
+            If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() And Symbols(SymbolIndex).ParentSymbol = CandidateSymbol And Symbols(SymbolIndex).ParameterOrdinal = Ordinal Then
+                CandidateParameter = SymbolIndex
+                Exit While
+            End If
+            SymbolIndex = SymbolIndex + 1
+        Wend
+        Dim ExpectedFlags As Long = InterfaceParameterFlags(InterfaceNode, Ordinal, SyntaxNodes, Tokens)
+        Dim ActualFlags As Long = 0
+        If CandidateParameter >= 0 Then
+            ActualFlags = Symbols(CandidateParameter).Flags And 15
+        End If
+        If (ActualFlags And 6) = 0 Then
+            ActualFlags = ActualFlags + 4
+        End If
+        If CandidateParameter < 0 Or ActualFlags <> ExpectedFlags Or Symbols(CandidateParameter).DeclaredType <> InterfaceParameterType(InterfaceNode, Ordinal, SyntaxNodes, Tokens, Types, TypeCount) Then
+            InterfaceMemberSignatureMatches = 0
+            Exit Function
+        End If
+        Ordinal = Ordinal + 1
+    Wend
+    If Symbols(CandidateSymbol).DeclaredType <> InterfaceMemberResultType(InterfaceNode, SyntaxNodes, Tokens, Types, TypeCount) Then
+        InterfaceMemberSignatureMatches = 0
+        Exit Function
+    End If
+    InterfaceMemberSignatureMatches = 1
+End Function
+
 Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
+        If (Symbols(SymbolIndex).Flags And 64) <> 0 Then
+            If EqualsFolded(Project.Kind, "Library") = 0 Then
+                Call AddSemanticDiagnostic("UBE4031", Symbols(SymbolIndex).SyntaxNode, "Public Export is valid only in a Library project", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            End If
+            If Symbols(SymbolIndex).VisibilityKind <> 1 Or Symbols(SymbolIndex).SymbolKind <> SemanticSymbolProcedure() Then
+                Call AddSemanticDiagnostic("UBE4032", Symbols(SymbolIndex).SyntaxNode, "Export requires an explicitly Public Sub or Function", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            End If
+            If Symbols(SymbolIndex).DeclaredType >= 0 Then
+                Dim ExportResultKind As Long = Types(Symbols(SymbolIndex).DeclaredType).TypeKind
+                If ExportResultKind <> 4 And ExportResultKind <> 5 And ExportResultKind <> 12 And ExportResultKind <> 30 And (ExportResultKind < 50 Or ExportResultKind > 52) Then
+                    Call AddSemanticDiagnostic("UBE4036", Symbols(SymbolIndex).SyntaxNode, "this RP6 foreign ABI subset supports only Long, LongLong, or object-like results", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
+            End If
+            Dim ExportParameterSymbol As Long = 0
+            While ExportParameterSymbol < SymbolCount
+                If Symbols(ExportParameterSymbol).SymbolKind = SemanticSymbolParameter() And Symbols(ExportParameterSymbol).ParentSymbol = SymbolIndex Then
+                    Dim ExportParameterKind As Long = Types(Symbols(ExportParameterSymbol).DeclaredType).TypeKind
+                    If ExportParameterKind <> 4 And ExportParameterKind <> 5 Then
+                        Call AddSemanticDiagnostic("UBE4037", Symbols(ExportParameterSymbol).SyntaxNode, "this RP6 foreign ABI subset supports only Long or LongLong parameters", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    End If
+                End If
+                ExportParameterSymbol = ExportParameterSymbol + 1
+            Wend
+        End If
         If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
             If Symbols(SymbolIndex).Flags And 8 Then
                 Dim LaterSymbol As Long = SymbolIndex + 1
@@ -79,6 +427,39 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
                 Wend
                 If HasPriorOptional <> 0 Then
                     Call AddSemanticDiagnostic("UBE4028", Symbols(SymbolIndex).SyntaxNode, "required parameter cannot follow an Optional parameter", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
+            End If
+        End If
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolProcedure() Then
+            Dim IsModuleInitialize As Long = EqualsFolded(Symbols(SymbolIndex).SymbolName, "Module_Initialize")
+            Dim IsModuleTerminate As Long = EqualsFolded(Symbols(SymbolIndex).SymbolName, "Module_Terminate")
+            Dim IsClassInitialize As Long = EqualsFolded(Symbols(SymbolIndex).SymbolName, "Class_Initialize")
+            Dim IsClassTerminate As Long = EqualsFolded(Symbols(SymbolIndex).SymbolName, "Class_Terminate")
+            If IsModuleInitialize <> 0 Or IsModuleTerminate <> 0 Or IsClassInitialize <> 0 Or IsClassTerminate <> 0 Then
+                Dim LifecycleParameterCount As Long = 0
+                Dim LifecycleParameter As Long = 0
+                While LifecycleParameter < SymbolCount
+                    If Symbols(LifecycleParameter).SymbolKind = SemanticSymbolParameter() And Symbols(LifecycleParameter).ParentSymbol = SymbolIndex Then
+                        LifecycleParameterCount = LifecycleParameterCount + 1
+                    End If
+                    LifecycleParameter = LifecycleParameter + 1
+                Wend
+                If LifecycleParameterCount <> 0 Or Symbols(SymbolIndex).DeclaredType >= 0 Or Symbols(SymbolIndex).VisibilityKind <> 2 Then
+                    Call AddSemanticDiagnostic("UBE4033", Symbols(SymbolIndex).SyntaxNode, "lifecycle hooks must be Private parameterless Subs", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
+                Dim LifecycleOwner As Long = Symbols(SymbolIndex).ParentSymbol
+                If LifecycleOwner < 0 Then
+                    Call AddSemanticDiagnostic("UBE4034", Symbols(SymbolIndex).SyntaxNode, "lifecycle hook has no owning module or class", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Else
+                    If IsModuleInitialize <> 0 Or IsModuleTerminate <> 0 Then
+                        If Symbols(LifecycleOwner).SymbolKind <> SemanticSymbolModule() Or Symbols(LifecycleOwner).Flags <> 1 Then
+                            Call AddSemanticDiagnostic("UBE4034", Symbols(SymbolIndex).SyntaxNode, "Module lifecycle hooks are valid only in standard modules", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        End If
+                    Else
+                        If Symbols(LifecycleOwner).SymbolKind <> SemanticSymbolModule() Or Symbols(LifecycleOwner).Flags < 2 Then
+                            Call AddSemanticDiagnostic("UBE4034", Symbols(SymbolIndex).SyntaxNode, "Class lifecycle hooks are valid only in classes, forms, or controls", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        End If
+                    End If
                 End If
             End If
         End If
@@ -160,6 +541,77 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
                 Call AddSemanticDiagnostic("UBE4025", NodeIndex, "unknown procedure label: " & LabelName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
         End If
+        If EqualsFolded(RuleName, "implements-statement") <> 0 Then
+            Dim ImplementedName As String = LastIdentifierInNode(NodeIndex, SyntaxNodes, Tokens)
+            Dim ImplementedInterface As Long = -1
+            Dim ImplementingModule As Long = -1
+            SymbolIndex = 0
+            While SymbolIndex < SymbolCount
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolInterface() And EqualsFolded(Symbols(SymbolIndex).SymbolName, ImplementedName) <> 0 Then
+                    ImplementedInterface = SymbolIndex
+                End If
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolModule() And Symbols(SymbolIndex).SourceId = SyntaxNodes(NodeIndex).SourceId Then
+                    ImplementingModule = SymbolIndex
+                End If
+                SymbolIndex = SymbolIndex + 1
+            Wend
+            If ImplementedInterface < 0 Then
+                Call AddSemanticDiagnostic("UBE4038", NodeIndex, "Implements names an unknown Interface: " & ImplementedName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            Else
+                If ImplementingModule < 0 Or Symbols(ImplementingModule).Flags < 2 Then
+                    Call AddSemanticDiagnostic("UBE4039", NodeIndex, "Implements is valid only in a class, form, or control", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Else
+                    Dim InterfaceNode As Long = Symbols(ImplementedInterface).SyntaxNode
+                    Dim MemberNode As Long = 0
+                    While MemberNode < SyntaxNodeCount
+                        Dim IsInterfaceMember As Long = 0
+                        If EqualsFolded(Rules(SyntaxNodes(MemberNode).ProductionRule).RuleName, "interface-member") <> 0 Then
+                            Dim MemberAncestor As Long = SyntaxNodes(MemberNode).ParentNode
+                            While MemberAncestor >= 0
+                                If MemberAncestor = InterfaceNode Then
+                                    IsInterfaceMember = 1
+                                    MemberAncestor = -1
+                                Else
+                                    MemberAncestor = SyntaxNodes(MemberAncestor).ParentNode
+                                End If
+                            Wend
+                        End If
+                        If IsInterfaceMember <> 0 Then
+                            Dim RequiredName As String = InterfaceMemberDeclaredName(MemberNode, SyntaxNodes, Tokens)
+                            Dim RequiredParameters As Long = InterfaceMemberParameterCount(MemberNode, SyntaxNodes, Tokens)
+                            Dim RequiredIsProperty As Long = SyntaxNodeContainsToken(MemberNode, "Property", SyntaxNodes, Tokens)
+                            Dim MatchingMember As Long = -1
+                            Dim CandidateMember As Long = 0
+                            While CandidateMember < SymbolCount
+                                If Symbols(CandidateMember).ParentSymbol = ImplementingModule Then
+                                    Dim CandidateNameMatches As Long = EqualsFolded(Symbols(CandidateMember).SymbolName, RequiredName)
+                                    If EqualsFolded(Symbols(CandidateMember).ConstantText, RequiredName) <> 0 Then
+                                        CandidateNameMatches = 1
+                                    End If
+                                    If CandidateNameMatches <> 0 Then
+                                        If RequiredIsProperty <> 0 And Symbols(CandidateMember).SymbolKind = SemanticSymbolProperty() Then
+                                            If CountCalledParameters(CandidateMember, Symbols, SymbolCount) = RequiredParameters And InterfaceMemberSignatureMatches(MemberNode, CandidateMember, SyntaxNodes, Tokens, Types, TypeCount, Symbols, SymbolCount) <> 0 Then
+                                                MatchingMember = CandidateMember
+                                            End If
+                                        End If
+                                        If RequiredIsProperty = 0 And Symbols(CandidateMember).SymbolKind = SemanticSymbolProcedure() Then
+                                            If CountCalledParameters(CandidateMember, Symbols, SymbolCount) = RequiredParameters And InterfaceMemberSignatureMatches(MemberNode, CandidateMember, SyntaxNodes, Tokens, Types, TypeCount, Symbols, SymbolCount) <> 0 Then
+                                                MatchingMember = CandidateMember
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                                CandidateMember = CandidateMember + 1
+                            Wend
+                            If MatchingMember < 0 Then
+                                Call AddSemanticDiagnostic("UBE4040", NodeIndex, "class does not provide the required Interface member: " & RequiredName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                            End If
+                        End If
+                        MemberNode = MemberNode + 1
+                    Wend
+                End If
+            End If
+        End If
         If EqualsFolded(RuleName, "call-new-expression") <> 0 Then
             Dim QualifiedNode As Long = FirstDescendantSyntaxNode(NodeIndex, "qualified-name", SyntaxNodes, SyntaxLinks, Rules, 0)
             Dim TargetName As String = LastIdentifierInNode(QualifiedNode, SyntaxNodes, Tokens)
@@ -179,6 +631,12 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
                 If MatchCount > 1 Then
                     Call AddSemanticDiagnostic("UBE4027", NodeIndex, "CallNew target is ambiguous: " & TargetName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 End If
+            End If
+        End If
+        If EqualsFolded(RuleName, "call-statement") <> 0 Then
+            Dim CalledName As String = LastIdentifierInNode(NodeIndex, SyntaxNodes, Tokens)
+            If EqualsFolded(CalledName, "Module_Initialize") <> 0 Or EqualsFolded(CalledName, "Module_Terminate") <> 0 Or EqualsFolded(CalledName, "Class_Initialize") <> 0 Or EqualsFolded(CalledName, "Class_Terminate") <> 0 Then
+                Call AddSemanticDiagnostic("UBE4035", NodeIndex, "lifecycle hooks cannot be called directly", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
         End If
         NodeIndex = NodeIndex + 1

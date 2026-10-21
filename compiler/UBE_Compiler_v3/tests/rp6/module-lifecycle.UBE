@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP6ModuleLifecycle"
+Kind = "Exe"
+Startup = "Main"
+Source = "module-lifecycle-a.bas"
+Source = "module-lifecycle-b.bas"
+Source = "module-lifecycle-main.bas"

@@ -10,6 +10,7 @@ Type SourceDocument
     LocationByte As Long
     LocationLine As Long
     LocationColumn As Long
+    ReferenceDepth As Long
 End Type
 
 Function LoadProjectSources(ByRef SourcePaths() As String, ByVal SourceCount As Long, ByRef Sources() As SourceDocument, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
@@ -30,6 +31,7 @@ Function LoadProjectSources(ByRef SourcePaths() As String, ByVal SourceCount As 
         Sources(Index).LocationByte = 0
         Sources(Index).LocationLine = 1
         Sources(Index).LocationColumn = 1
+        Sources(Index).ReferenceDepth = 0
         If Sources(Index).ByteLength > LimitSourceBytes() Then
             Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3101", Sources(Index).FilePath, 1, 1, "source exceeds the 16777216-byte limit")
             LoadProjectSources = 0

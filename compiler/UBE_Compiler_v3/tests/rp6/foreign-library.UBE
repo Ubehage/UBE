@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP6ForeignLibrary"
+Kind = "Library"
+Source = "LeasedValue.cls"
+Source = "foreign-library.bas"

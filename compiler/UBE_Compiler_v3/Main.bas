@@ -23,6 +23,10 @@ Function Main() As Long
             Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 4, "")
             Exit Function
         End If
+        If CommandArgument(0) = "--dump-managed" Then
+            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 6, "")
+            Exit Function
+        End If
     End If
     If CommandArgumentCount() = 4 Then
         If CommandArgument(0) = "--emit-llvm" Then
@@ -37,8 +41,8 @@ Function Main() As Long
         End If
     End If
     If CommandArgumentCount() <> 2 Then
-        Print "usage: ube-v3-rp5 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir] <project.UBE> <target-triple> [output.ll]"
-        Print "       ube-v3-rp5 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>"
+        Print "usage: ube-v3-rp6 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
+        Print "       ube-v3-rp6 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>"
         Main = 2
         Exit Function
     End If

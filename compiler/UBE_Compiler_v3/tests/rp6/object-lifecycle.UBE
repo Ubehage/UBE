@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP6ObjectLifecycle"
+Kind = "Exe"
+Startup = "Main"
+Source = "object-main.bas"
+Source = "Counter.cls"

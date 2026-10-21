@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP6ObjectDispatch"
+Kind = "Exe"
+Startup = "Main"
+Source = "Worker.cls"
+Source = "object-dispatch-main.bas"

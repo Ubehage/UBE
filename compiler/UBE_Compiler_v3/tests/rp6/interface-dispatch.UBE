@@ -1,0 +1,8 @@
+UBE-Project 1
+Name = "RP6InterfaceDispatch"
+Kind = "Exe"
+Startup = "Main"
+Source = "interface-contract.bas"
+Source = "InterfaceWorker.cls"
+Source = "InterfaceOtherWorker.cls"
+Source = "interface-main.bas"

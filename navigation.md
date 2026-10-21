@@ -19,3 +19,4 @@
 | `project-docs/` | Architecture and project-wide planning documents |
 | `Github.md` | Agent instructions for using GitHub |
 | `media/` | Contains cliparts, pictures, icons, and other resources to use in the project |
+| `bootstrap-vb6` | VB6 port of the bootstrap compiler |

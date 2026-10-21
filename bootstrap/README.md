@@ -13,19 +13,21 @@ From the repository root in PowerShell:
 
 The script builds `bootstrap/out/ubec.exe`, runs the lexer, parser, semantic,
 lowering, runtime, and native execution tests, preserves the complete v1 and
-v2 build chains, and builds the completed Compiler v3 RP5 with both v2
-stages. It requires byte-identical v2-produced RP5 LLVM, links and runs the RP5
-compiler, preserves the complete RP1-RP4 success/failure corpus, and validates
-the deterministic typed-IR-to-native fixtures. The RP5 gate then
+v2 build chains, and builds the completed Compiler v3 RP6 with both v2
+stages. It requires byte-identical v2-produced compiler LLVM, links and runs
+the RP6 compiler, preserves the complete RP1-RP5 success/failure corpus, and
+validates the deterministic typed-IR-to-native and managed-value fixtures. The
+self-build gate then
 requires the v2-built compiler to build v3, the self-built compiler to repeat
 that build, and the fixed-point LLVM IR to be byte-identical. COFF objects must
 have equal lengths and identical SHA-256 hashes after normalizing only their
 four-byte producer timestamps.
 V2-built and self-built binaries must also return identical exit codes and
 ordinal output for the recorded positive and negative corpus. Both compilers
-also compile the `UBECore` `CoreIdentity.bas` slice and must produce identical
-LLVM and object files. The script records
-`bootstrap/out/v3-rp5-build-manifest.json` and creates the named RP5 release
+also compile the exact seven-module `UBECore` slice and must produce identical
+LLVM and object files. Collector, low-memory, generated-header, shared-library,
+and external ownership probes are part of the RP6 gate. The script records
+`bootstrap/out/v3-rp6-build-manifest.json` and creates the named RP6 release
 candidate only after every test has passed.
 Intermediate build output is intentionally not committed.
 

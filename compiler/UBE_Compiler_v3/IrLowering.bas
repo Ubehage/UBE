@@ -256,11 +256,34 @@ Function FindIrStorageForSymbol(ByVal SymbolIndex As Long, ByVal FunctionIndex A
 End Function
 
 Function FindVisibleIrSymbolByName(ByVal SymbolName As String, ByVal OwnerSymbol As Long, ByVal FunctionIndex As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long) As Long
+    If OwnerSymbol >= 0 And OwnerSymbol < SymbolCount Then
+        If Symbols(OwnerSymbol).DeclaredType >= 0 And EqualsFolded(Symbols(OwnerSymbol).SymbolName, SymbolName) <> 0 Then
+            If FindIrStorageForSymbol(OwnerSymbol, FunctionIndex, Storages, StorageCount) >= 0 Then
+                FindVisibleIrSymbolByName = OwnerSymbol
+                Exit Function
+            End If
+        End If
+    End If
     Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
         If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
             If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
                 If Symbols(SymbolIndex).ParentSymbol = OwnerSymbol Then
+                    If FindIrStorageForSymbol(SymbolIndex, FunctionIndex, Storages, StorageCount) >= 0 Then
+                        FindVisibleIrSymbolByName = SymbolIndex
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
+    Dim OwnerContainer As Long = Symbols(OwnerSymbol).ParentSymbol
+    SymbolIndex = 0
+    While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
+            If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Then
+                If Symbols(SymbolIndex).ParentSymbol = OwnerContainer Then
                     If FindIrStorageForSymbol(SymbolIndex, FunctionIndex, Storages, StorageCount) >= 0 Then
                         FindVisibleIrSymbolByName = SymbolIndex
                         Exit Function
@@ -297,12 +320,9 @@ Function ResolveDirectTypeMember(ByVal BaseType As Long, ByVal MemberName As Str
         Exit Function
     End If
     Dim Ordinal As Long = 0
-    Dim SymbolIndex As Long = TypeSymbol + 1
+    Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
-        If Symbols(SymbolIndex).ParentSymbol <> TypeSymbol Then
-            Exit While
-        End If
-        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolMember() Then
+        If Symbols(SymbolIndex).ParentSymbol = TypeSymbol And (Symbols(SymbolIndex).SymbolKind = SemanticSymbolMember() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable()) Then
             If Symbols(SymbolIndex).SymbolName = MemberName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, MemberName) <> 0 Then
                 MemberOrdinal = Ordinal
                 ResolveDirectTypeMember = SymbolIndex
@@ -313,6 +333,87 @@ Function ResolveDirectTypeMember(ByVal BaseType As Long, ByVal MemberName As Str
         SymbolIndex = SymbolIndex + 1
     Wend
     ResolveDirectTypeMember = -1
+End Function
+
+Function ModuleImplementsInterface(ByVal ModuleSymbol As Long, ByVal InterfaceName As String, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
+    If ModuleSymbol < 0 Or ModuleSymbol >= SymbolCount Then
+        ModuleImplementsInterface = 0
+        Exit Function
+    End If
+    Dim Marker As String = "|" & InterfaceName & "|"
+    If StringIndexOf(Symbols(ModuleSymbol).ConstantText, Marker, 0) >= 0 Then
+        ModuleImplementsInterface = 1
+    Else
+        ModuleImplementsInterface = 0
+    End If
+End Function
+
+Function FindClassPropertyAccessor(ByVal BaseType As Long, ByVal PropertyName As String, ByVal WantLet As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    If BaseType < 0 Or BaseType >= TypeCount Then
+        FindClassPropertyAccessor = -1
+        Exit Function
+    End If
+    Dim TypeSymbol As Long = Types(BaseType).TypeSymbol
+    Dim SymbolIndex As Long = 0
+    While SymbolIndex < SymbolCount
+        Dim PropertyOwnerMatches As Long = 0
+        If Symbols(SymbolIndex).ParentSymbol = TypeSymbol Then
+            PropertyOwnerMatches = 1
+        Else
+            If Types(BaseType).TypeKind = 30 Then
+                If ModuleImplementsInterface(Symbols(SymbolIndex).ParentSymbol, Types(BaseType).TypeName, Symbols, SymbolCount) <> 0 Then
+                    PropertyOwnerMatches = 1
+                End If
+            End If
+        End If
+        If PropertyOwnerMatches <> 0 And Symbols(SymbolIndex).SymbolKind = SemanticSymbolProperty() Then
+            Dim NameMatches As Long = EqualsFolded(Symbols(SymbolIndex).SymbolName, PropertyName)
+            If EqualsFolded(Symbols(SymbolIndex).ConstantText, PropertyName) <> 0 Then
+                NameMatches = 1
+            End If
+            If NameMatches <> 0 Then
+                Dim IsLetAccessor As Long = SyntaxNodeContainsToken(Symbols(SymbolIndex).SyntaxNode, "Let", SyntaxNodes, Tokens)
+                Dim IsSetAccessor As Long = SyntaxNodeContainsToken(Symbols(SymbolIndex).SyntaxNode, "Set", SyntaxNodes, Tokens)
+                If WantLet <> 0 Then
+                    If IsLetAccessor <> 0 Or IsSetAccessor <> 0 Then
+                        FindClassPropertyAccessor = SymbolIndex
+                        Exit Function
+                    End If
+                Else
+                    If IsLetAccessor = 0 And IsSetAccessor = 0 Then
+                        FindClassPropertyAccessor = SymbolIndex
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
+    FindClassPropertyAccessor = -1
+End Function
+
+Function ReadDirectObjectMember(ByVal FirstToken As Long, ByVal LastToken As Long, ByRef Tokens() As LexicalToken, ByRef BaseName As String, ByRef MemberName As String) As Long
+    If ReadDirectMemberNames(FirstToken, LastToken, Tokens, BaseName, MemberName) = 0 Then
+        ReadDirectObjectMember = 0
+        Exit Function
+    End If
+    Dim DotCount As Long = 0
+    Dim Index As Long = FirstToken
+    While Index <= LastToken
+        If Tokens(Index).Spelling = "." Then
+            DotCount = DotCount + 1
+        End If
+        If Tokens(Index).Spelling = "(" Or Tokens(Index).Spelling = ")" Then
+            ReadDirectObjectMember = 0
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    If DotCount = 1 Then
+        ReadDirectObjectMember = 1
+    Else
+        ReadDirectObjectMember = 0
+    End If
 End Function
 
 Function ReadDirectMemberNames(ByVal FirstToken As Long, ByVal LastToken As Long, ByRef Tokens() As LexicalToken, ByRef BaseName As String, ByRef MemberName As String) As Long
@@ -356,11 +457,17 @@ Function ReadDirectMemberNames(ByVal FirstToken As Long, ByVal LastToken As Long
 End Function
 
 Function LowerDirectMemberAddress(ByVal FirstToken As Long, ByVal LastToken As Long, ByVal FunctionIndex As Long, ByVal BlockIndex As Long, ByVal OwnerSymbol As Long, ByVal LocationIndex As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Storages() As IrStorage, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Build As IrBuildState, ByRef Tokens() As LexicalToken, ByRef MemberSymbol As Long) As Long
-    Dim BaseName As String = ""
-    Dim MemberName As String = ""
-    If ReadDirectMemberNames(FirstToken, LastToken, Tokens, BaseName, MemberName) = 0 Then
+    Dim TokenIndex As Long = FirstToken
+    While TokenIndex <= LastToken And Tokens(TokenIndex).TokenKind >= 9 And Tokens(TokenIndex).TokenKind <= 12
+        TokenIndex = TokenIndex + 1
+    Wend
+    If TokenIndex > LastToken Or (Tokens(TokenIndex).TokenKind <> 2 And Tokens(TokenIndex).TokenKind <> 3) Then
         LowerDirectMemberAddress = -1
         Exit Function
+    End If
+    Dim BaseName As String = Tokens(TokenIndex).Spelling
+    If Tokens(TokenIndex).TokenKind = 3 Then
+        BaseName = Tokens(TokenIndex).Decoded
     End If
     Dim BaseSymbol As Long = FindVisibleIrSymbolByName(BaseName, OwnerSymbol, FunctionIndex, Symbols, SymbolCount, Storages, Build.StorageCount)
     If BaseSymbol < 0 Then
@@ -368,30 +475,65 @@ Function LowerDirectMemberAddress(ByVal FirstToken As Long, ByVal LastToken As L
         Exit Function
     End If
     Dim BaseStorage As Long = FindIrStorageForSymbol(BaseSymbol, FunctionIndex, Storages, Build.StorageCount)
-    Dim MemberOrdinal As Long = -1
-    MemberSymbol = ResolveDirectTypeMember(Symbols(BaseSymbol).DeclaredType, MemberName, Types, TypeCount, Symbols, SymbolCount, MemberOrdinal)
-    If BaseStorage < 0 Or MemberSymbol < 0 Or MemberOrdinal < 0 Then
+    If BaseStorage < 0 Then
         LowerDirectMemberAddress = -1
         Exit Function
     End If
-    ' Address values carry the type of the storage they identify. LLVM still
-    ' lowers them as opaque pointers, while the target-independent verifier
-    ' can prove exact ByRef identity and load/store compatibility.
-    Dim AddressType As Long = Symbols(MemberSymbol).DeclaredType
-    If AddressType < 0 Then
+    Dim CurrentType As Long = Symbols(BaseSymbol).DeclaredType
+    Dim CurrentOperandKind As Long = IrOperandStorage()
+    Dim CurrentOperandIndex As Long = BaseStorage
+    Dim FoundMember As Long = 0
+    TokenIndex = TokenIndex + 1
+    While TokenIndex <= LastToken
+        While TokenIndex <= LastToken And Tokens(TokenIndex).TokenKind >= 9 And Tokens(TokenIndex).TokenKind <= 12
+            TokenIndex = TokenIndex + 1
+        Wend
+        If TokenIndex > LastToken Then
+            Exit While
+        End If
+        If Tokens(TokenIndex).Spelling <> "." Then
+            LowerDirectMemberAddress = -1
+            Exit Function
+        End If
+        TokenIndex = TokenIndex + 1
+        While TokenIndex <= LastToken And Tokens(TokenIndex).TokenKind >= 9 And Tokens(TokenIndex).TokenKind <= 12
+            TokenIndex = TokenIndex + 1
+        Wend
+        If TokenIndex > LastToken Or (Tokens(TokenIndex).TokenKind <> 2 And Tokens(TokenIndex).TokenKind <> 3) Then
+            LowerDirectMemberAddress = -1
+            Exit Function
+        End If
+        Dim MemberName As String = Tokens(TokenIndex).Spelling
+        If Tokens(TokenIndex).TokenKind = 3 Then
+            MemberName = Tokens(TokenIndex).Decoded
+        End If
+        Dim MemberOrdinal As Long = -1
+        MemberSymbol = ResolveDirectTypeMember(CurrentType, MemberName, Types, TypeCount, Symbols, SymbolCount, MemberOrdinal)
+        If MemberSymbol < 0 Or MemberOrdinal < 0 Then
+            LowerDirectMemberAddress = -1
+            Exit Function
+        End If
+        Dim AddressType As Long = Symbols(MemberSymbol).DeclaredType
+        Dim AddressInstruction As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpFieldAddress(), AddressType, -1, MemberSymbol, 0, "", LocationIndex, Instructions, Values, Build)
+        If AddressInstruction < 0 Then
+            LowerDirectMemberAddress = -1
+            Exit Function
+        End If
+        If AppendIrInstructionOperand(AddressInstruction, CurrentOperandKind, CurrentOperandIndex, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(AddressInstruction, IrOperandType(), CurrentType, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(AddressInstruction, IrOperandInteger(), MemberOrdinal, "", Instructions, Operands, Build) = 0 Then
+            LowerDirectMemberAddress = -1
+            Exit Function
+        End If
+        CurrentOperandKind = IrOperandValue()
+        CurrentOperandIndex = Instructions(AddressInstruction).ResultValue
+        CurrentType = AddressType
+        FoundMember = 1
+        TokenIndex = TokenIndex + 1
+    Wend
+    If FoundMember = 0 Then
         LowerDirectMemberAddress = -1
-        Exit Function
+    Else
+        LowerDirectMemberAddress = CurrentOperandIndex
     End If
-    Dim AddressInstruction As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpFieldAddress(), AddressType, -1, MemberSymbol, 0, "", LocationIndex, Instructions, Values, Build)
-    If AddressInstruction < 0 Then
-        LowerDirectMemberAddress = -1
-        Exit Function
-    End If
-    If AppendIrInstructionOperand(AddressInstruction, IrOperandStorage(), BaseStorage, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(AddressInstruction, IrOperandType(), Symbols(BaseSymbol).DeclaredType, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(AddressInstruction, IrOperandInteger(), MemberOrdinal, "", Instructions, Operands, Build) = 0 Then
-        LowerDirectMemberAddress = -1
-        Exit Function
-    End If
-    LowerDirectMemberAddress = Instructions(AddressInstruction).ResultValue
 End Function
 
 Function FindExpressionInsideTokenRange(ByVal FirstToken As Long, ByVal LastToken As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef SyntaxNodes() As SyntaxNode) As Long
@@ -560,7 +702,52 @@ Function LowerIndexedMemberAddress(ByVal FirstToken As Long, ByVal LastToken As 
         LowerIndexedMemberAddress = -1
         Exit Function
     End If
-    LowerIndexedMemberAddress = Instructions(FieldInstruction).ResultValue
+    Dim CurrentAddress As Long = Instructions(FieldInstruction).ResultValue
+    Dim CurrentType As Long = Symbols(MemberSymbol).DeclaredType
+    Dim ChainToken As Long = TokenIndex + 1
+    While ChainToken <= LastToken
+        While ChainToken <= LastToken
+            If Tokens(ChainToken).Spelling = "." Then
+                Exit While
+            End If
+            ChainToken = ChainToken + 1
+        Wend
+        If ChainToken <= LastToken Then
+            ChainToken = ChainToken + 1
+            While ChainToken <= LastToken
+                If Tokens(ChainToken).TokenKind = 2 Or Tokens(ChainToken).TokenKind = 3 Then
+                    Exit While
+                End If
+                ChainToken = ChainToken + 1
+            Wend
+            If ChainToken <= LastToken Then
+                Dim ChainName As String = Tokens(ChainToken).Spelling
+                If Tokens(ChainToken).TokenKind = 3 Then
+                    ChainName = Tokens(ChainToken).Decoded
+                End If
+                Dim ChainOrdinal As Long = -1
+                Dim ChainMember As Long = ResolveDirectTypeMember(CurrentType, ChainName, Types, TypeCount, Symbols, SymbolCount, ChainOrdinal)
+                If ChainMember < 0 Then
+                    LowerIndexedMemberAddress = -1
+                    Exit Function
+                End If
+                Dim ChainInstruction As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpFieldAddress(), Symbols(ChainMember).DeclaredType, -1, ChainMember, 0, "", LocationIndex, Instructions, Values, Build)
+                If ChainInstruction < 0 Then
+                    LowerIndexedMemberAddress = -1
+                    Exit Function
+                End If
+                If AppendIrInstructionOperand(ChainInstruction, IrOperandValue(), CurrentAddress, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(ChainInstruction, IrOperandType(), CurrentType, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(ChainInstruction, IrOperandInteger(), ChainOrdinal, "", Instructions, Operands, Build) = 0 Then
+                    LowerIndexedMemberAddress = -1
+                    Exit Function
+                End If
+                CurrentAddress = Instructions(ChainInstruction).ResultValue
+                CurrentType = Symbols(ChainMember).DeclaredType
+                MemberSymbol = ChainMember
+                ChainToken = ChainToken + 1
+            End If
+        End If
+    Wend
+    LowerIndexedMemberAddress = CurrentAddress
 End Function
 
 Function LowerIndexedElementAddress(ByVal FirstToken As Long, ByVal LastToken As Long, ByVal FunctionIndex As Long, ByVal BlockIndex As Long, ByVal FailureBlock As Long, ByVal OwnerSymbol As Long, ByVal LocationIndex As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Functions() As IrFunction, ByRef Storages() As IrStorage, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef BaseSymbol As Long, ByRef ElementType As Long) As Long
@@ -779,6 +966,19 @@ Function ResolveAssignmentTargetSymbol(ByVal AssignmentNode As Long, ByVal Owner
         End If
         SymbolIndex = SymbolIndex + 1
     Wend
+    Dim OwnerContainer As Long = Symbols(OwnerSymbol).ParentSymbol
+    SymbolIndex = 0
+    While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).ParentSymbol = OwnerContainer Then
+            If Symbols(SymbolIndex).SymbolName = TargetName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, TargetName) <> 0 Then
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Then
+                    ResolveAssignmentTargetSymbol = SymbolIndex
+                    Exit Function
+                End If
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
     Dim MatchIndex As Long = -1
     Dim MatchCount As Long = 0
     SymbolIndex = 0
@@ -860,7 +1060,7 @@ Function LowerSimpleTokenValue(ByVal FirstToken As Long, ByVal LastToken As Long
         TextValue = Tokens(FirstToken).Spelling
     End If
     If TokenKind = 4 Then
-        TypeIndex = FindSemanticType("Long", Types, TypeCount)
+        TypeIndex = IntegerLiteralSemanticType(Tokens(FirstToken).Spelling, Types, TypeCount)
     Else
         If TokenKind = 6 Then
             TypeIndex = FindSemanticType("String", Types, TypeCount)
@@ -1042,7 +1242,28 @@ Function LowerTokenRangeValue(ByVal FirstToken As Long, ByVal LastToken As Long,
             LowerTokenRangeValue = Instructions(UnaryInstruction).ResultValue
             Exit Function
         End If
-        Dim DirectOpenToken As Long = FirstToken + 1
+        Dim DirectNameToken As Long = FirstToken
+        Dim DirectReceiverStorage As Long = -1
+        Dim DirectReceiverModule As Long = -1
+        Dim DirectProbe As Long = FirstToken + 1
+        While DirectProbe <= LastToken And Tokens(DirectProbe).TokenKind >= 9 And Tokens(DirectProbe).TokenKind <= 12
+            DirectProbe = DirectProbe + 1
+        Wend
+        If DirectProbe <= LastToken And Tokens(DirectProbe).Spelling = "." Then
+            Dim DirectBaseSymbol As Long = FindVisibleIrSymbolByName(Tokens(FirstToken).Spelling, OwnerSymbol, FunctionIndex, Symbols, SymbolCount, Storages, Build.StorageCount)
+            If DirectBaseSymbol >= 0 Then
+                DirectReceiverStorage = FindIrStorageForSymbol(DirectBaseSymbol, FunctionIndex, Storages, Build.StorageCount)
+                Dim DirectBaseType As Long = Symbols(DirectBaseSymbol).DeclaredType
+                If DirectBaseType >= 0 And DirectBaseType < TypeCount Then
+                    DirectReceiverModule = Types(DirectBaseType).TypeSymbol
+                End If
+            End If
+            DirectNameToken = DirectProbe + 1
+            While DirectNameToken <= LastToken And Tokens(DirectNameToken).TokenKind >= 9 And Tokens(DirectNameToken).TokenKind <= 12
+                DirectNameToken = DirectNameToken + 1
+            Wend
+        End If
+        Dim DirectOpenToken As Long = DirectNameToken + 1
         While DirectOpenToken < LastToken And Tokens(DirectOpenToken).TokenKind >= 9 And Tokens(DirectOpenToken).TokenKind <= 12
             DirectOpenToken = DirectOpenToken + 1
         Wend
@@ -1050,12 +1271,36 @@ Function LowerTokenRangeValue(ByVal FirstToken As Long, ByVal LastToken As Long,
             Dim DirectProcedureSymbol As Long = 0
             Dim DirectCalledFunction As Long = -1
             While DirectProcedureSymbol < SymbolCount
-                If EqualsFolded(Symbols(DirectProcedureSymbol).SymbolName, Tokens(FirstToken).Spelling) <> 0 Then
+                Dim DirectNameMatches As Long = EqualsFolded(Symbols(DirectProcedureSymbol).SymbolName, Tokens(DirectNameToken).Spelling)
+                If Symbols(DirectProcedureSymbol).SymbolKind = SemanticSymbolProperty() Then
+                    If EqualsFolded(Symbols(DirectProcedureSymbol).ConstantText, Tokens(DirectNameToken).Spelling) <> 0 Then
+                        DirectNameMatches = 1
+                    End If
+                End If
+                Dim DirectOwnerMatches As Long = 1
+                If DirectReceiverStorage >= 0 Then
+                    If Symbols(DirectProcedureSymbol).ParentSymbol <> DirectReceiverModule Then
+                        DirectOwnerMatches = 0
+                        If DirectBaseType >= 0 And DirectBaseType < TypeCount Then
+                            If Types(DirectBaseType).TypeKind = 30 Then
+                                If ModuleImplementsInterface(Symbols(DirectProcedureSymbol).ParentSymbol, Types(DirectBaseType).TypeName, Symbols, SymbolCount) <> 0 Then
+                                    DirectOwnerMatches = 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+                If DirectNameMatches <> 0 And DirectOwnerMatches <> 0 Then
                     If Symbols(DirectProcedureSymbol).SymbolKind = SemanticSymbolProcedure() Or Symbols(DirectProcedureSymbol).SymbolKind = SemanticSymbolProperty() Then
+                        If Symbols(DirectProcedureSymbol).SymbolKind = SemanticSymbolProperty() And SyntaxNodeContainsToken(Symbols(DirectProcedureSymbol).SyntaxNode, "Get", SyntaxNodes, Tokens) = 0 Then
+                            DirectOwnerMatches = 0
+                        End If
+                    If DirectOwnerMatches <> 0 Then
                         DirectCalledFunction = SemanticFunctionIndex(DirectProcedureSymbol, Functions, FunctionCount)
                         If DirectCalledFunction >= 0 Then
                             Exit While
                         End If
+                    End If
                     End If
                 End If
                 DirectProcedureSymbol = DirectProcedureSymbol + 1
@@ -1155,13 +1400,23 @@ Function LowerTokenRangeValue(ByVal FirstToken As Long, ByVal LastToken As Long,
                 Wend
                 If DirectArgumentCount = DirectExpected Then
                     Dim DirectCallInstruction As Long = -1
+                    Dim DirectCallFlags As Long = 0
+                    If DirectReceiverStorage >= 0 Then
+                        DirectCallFlags = 256
+                    End If
                     If Symbols(DirectProcedureSymbol).DeclaredType >= 0 Then
-                        DirectCallInstruction = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpCall(), Symbols(DirectProcedureSymbol).DeclaredType, FailureBlock, DirectProcedureSymbol, 0, "", LocationIndex, Instructions, Values, Build)
+                        DirectCallInstruction = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpCall(), Symbols(DirectProcedureSymbol).DeclaredType, FailureBlock, DirectProcedureSymbol, DirectCallFlags, "", LocationIndex, Instructions, Values, Build)
                     Else
-                        DirectCallInstruction = AppendIrInstruction(Instructions, Build.InstructionCount, Build.InstructionCapacity, FunctionIndex, BlockIndex, IrOpCall(), -1, -1, -1, -1, -1, 0, DirectProcedureSymbol, 0, "", LocationIndex)
+                        DirectCallInstruction = AppendIrInstruction(Instructions, Build.InstructionCount, Build.InstructionCapacity, FunctionIndex, BlockIndex, IrOpCall(), -1, -1, -1, -1, -1, 0, DirectProcedureSymbol, DirectCallFlags, "", LocationIndex)
                     End If
                     If DirectCallInstruction >= 0 Then
                         If AppendIrInstructionOperand(DirectCallInstruction, IrOperandFunction(), DirectCalledFunction, "", Instructions, Operands, Build) <> 0 Then
+                            If DirectReceiverStorage >= 0 Then
+                                If AppendIrInstructionOperand(DirectCallInstruction, IrOperandStorage(), DirectReceiverStorage, "", Instructions, Operands, Build) = 0 Then
+                                    LowerTokenRangeValue = -23
+                                    Exit Function
+                                End If
+                            End If
                             Dim DirectAppend As Long = 0
                             While DirectAppend < DirectArgumentCount
                                 If AppendIrInstructionOperand(DirectCallInstruction, DirectArgumentKinds(DirectAppend), DirectArgumentValues(DirectAppend), "", Instructions, Operands, Build) = 0 Then
@@ -1180,6 +1435,36 @@ Function LowerTokenRangeValue(ByVal FirstToken As Long, ByVal LastToken As Long,
                                 End If
                                 LowerTokenRangeValue = Instructions(IgnoredCallValue).ResultValue
                             End If
+                            Exit Function
+                        End If
+                    End If
+                End If
+            End If
+        End If
+        Dim PropertyBaseName As String = ""
+        Dim PropertyMemberName As String = ""
+        If ReadDirectObjectMember(FirstToken, LastToken, Tokens, PropertyBaseName, PropertyMemberName) <> 0 Then
+            Dim PropertyBaseSymbol As Long = FindVisibleIrSymbolByName(PropertyBaseName, OwnerSymbol, FunctionIndex, Symbols, SymbolCount, Storages, Build.StorageCount)
+            Dim PropertyReceiverStorage As Long = FindIrStorageForSymbol(PropertyBaseSymbol, FunctionIndex, Storages, Build.StorageCount)
+            If PropertyBaseSymbol >= 0 And PropertyReceiverStorage >= 0 Then
+                Dim PropertyAccessor As Long = FindClassPropertyAccessor(Symbols(PropertyBaseSymbol).DeclaredType, PropertyMemberName, 0, Types, TypeCount, Symbols, SymbolCount, SyntaxNodes, Tokens)
+                Dim PropertyFunction As Long = -1
+                If PropertyAccessor >= 0 Then
+                    PropertyFunction = SemanticFunctionIndex(PropertyAccessor, Functions, FunctionCount)
+                End If
+                If PropertyAccessor >= 0 Then
+                    If PropertyFunction >= 0 Then
+                        If Symbols(PropertyAccessor).DeclaredType >= 0 Then
+                            Dim PropertyCall As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpCall(), Symbols(PropertyAccessor).DeclaredType, FailureBlock, PropertyAccessor, 256, "", LocationIndex, Instructions, Values, Build)
+                            If PropertyCall < 0 Then
+                                LowerTokenRangeValue = -23
+                                Exit Function
+                            End If
+                            If AppendIrInstructionOperand(PropertyCall, IrOperandFunction(), PropertyFunction, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(PropertyCall, IrOperandStorage(), PropertyReceiverStorage, "", Instructions, Operands, Build) = 0 Then
+                                LowerTokenRangeValue = -23
+                                Exit Function
+                            End If
+                            LowerTokenRangeValue = Instructions(PropertyCall).ResultValue
                             Exit Function
                         End If
                     End If
@@ -1340,6 +1625,14 @@ Function LowerSemanticExpressionValue(ByVal ExpressionIndex As Long, ByVal Funct
     Dim ImmediateText As String = Expressions(ExpressionIndex).ConstantText
     Dim ResolvedSymbol As Long = Expressions(ExpressionIndex).ResolvedSymbol
 
+    If SyntaxNodeContainsToken(Expressions(ExpressionIndex).SyntaxNode, "New", SyntaxNodes, Tokens) <> 0 Then
+        If ResolvedSymbol >= 0 And ResolvedSymbol < SymbolCount Then
+            If Symbols(ResolvedSymbol).SymbolKind = SemanticSymbolModule() And Symbols(ResolvedSymbol).DeclaredType >= 0 Then
+                Opcode = IrOpObjectAllocate()
+            End If
+        End If
+    End If
+
     Dim ExpressionNode As Long = Expressions(ExpressionIndex).SyntaxNode
     Dim BinaryToken As Long = -1
     Dim BinaryPriority As Long = 100
@@ -1468,6 +1761,9 @@ Function LowerSemanticExpressionValue(ByVal ExpressionIndex As Long, ByVal Funct
         Exit Function
     End If
 
+    If Opcode = IrOpObjectAllocate() Then
+        OperandIndex = ResolvedSymbol
+    Else
     If Expressions(ExpressionIndex).ConstantKind <> 0 Then
         Opcode = IrOpConstant()
     Else
@@ -1502,6 +1798,7 @@ Function LowerSemanticExpressionValue(ByVal ExpressionIndex As Long, ByVal Funct
             End If
             End If
         End If
+    End If
     End If
 
     Dim CallArgumentKinds() As Long
@@ -1651,6 +1948,47 @@ Function LowerAssignmentToIr(ByVal AssignmentNode As Long, ByVal FunctionIndex A
     While EqualsToken <= SyntaxNodes(AssignmentNode).LastToken And Tokens(EqualsToken).Spelling <> "="
         EqualsToken = EqualsToken + 1
     Wend
+    Dim PropertyBaseName As String = ""
+    Dim PropertyMemberName As String = ""
+    If ReadDirectObjectMember(SyntaxNodes(AssignmentNode).FirstToken, EqualsToken - 1, Tokens, PropertyBaseName, PropertyMemberName) <> 0 Then
+        Dim PropertyBaseSymbol As Long = FindVisibleIrSymbolByName(PropertyBaseName, OwnerSymbol, FunctionIndex, Symbols, SymbolCount, Storages, Build.StorageCount)
+        Dim PropertyReceiverStorage As Long = FindIrStorageForSymbol(PropertyBaseSymbol, FunctionIndex, Storages, Build.StorageCount)
+        If PropertyBaseSymbol >= 0 And PropertyReceiverStorage >= 0 Then
+            Dim PropertyAccessor As Long = FindClassPropertyAccessor(Symbols(PropertyBaseSymbol).DeclaredType, PropertyMemberName, 1, Types, TypeCount, Symbols, SymbolCount, SyntaxNodes, Tokens)
+            If PropertyAccessor >= 0 Then
+                Dim PropertyParameter As Long = FindCalledParameterSymbol(PropertyAccessor, 0, Symbols, SymbolCount)
+                Dim PropertyFunction As Long = SemanticFunctionIndex(PropertyAccessor, Functions, Build.FunctionCount)
+                If PropertyParameter < 0 Or PropertyFunction < 0 Then
+                    LowerAssignmentToIr = -2
+                    Exit Function
+                End If
+                Dim PropertyValue As Long = LowerTokenRangeValue(EqualsToken + 1, SyntaxNodes(AssignmentNode).LastToken, FunctionIndex, BlockIndex, FailureBlock, OwnerSymbol, AssignmentLocation, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Functions, Build.FunctionCount, Storages, Instructions, Operands, Values, Locations, Build, SyntaxNodes, Tokens)
+                If PropertyValue < 0 Then
+                    LowerAssignmentToIr = PropertyValue
+                    Exit Function
+                End If
+                If Values(PropertyValue).TypeIndex <> Symbols(PropertyParameter).DeclaredType Then
+                    Dim PropertyConvert As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpConvert(), Symbols(PropertyParameter).DeclaredType, FailureBlock, PropertyParameter, 0, "", AssignmentLocation, Instructions, Values, Build)
+                    If PropertyConvert < 0 Or AppendIrInstructionOperand(PropertyConvert, IrOperandValue(), PropertyValue, "", Instructions, Operands, Build) = 0 Then
+                        LowerAssignmentToIr = -4
+                        Exit Function
+                    End If
+                    PropertyValue = Instructions(PropertyConvert).ResultValue
+                End If
+                Dim PropertyCall As Long = AppendIrInstruction(Instructions, Build.InstructionCount, Build.InstructionCapacity, FunctionIndex, BlockIndex, IrOpCall(), -1, -1, -1, -1, -1, 0, PropertyAccessor, 256, "", AssignmentLocation)
+                If PropertyCall < 0 Then
+                    LowerAssignmentToIr = -5
+                    Exit Function
+                End If
+                If AppendIrInstructionOperand(PropertyCall, IrOperandFunction(), PropertyFunction, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(PropertyCall, IrOperandStorage(), PropertyReceiverStorage, "", Instructions, Operands, Build) = 0 Or AppendIrInstructionOperand(PropertyCall, IrOperandValue(), PropertyValue, "", Instructions, Operands, Build) = 0 Then
+                    LowerAssignmentToIr = -6
+                    Exit Function
+                End If
+                LowerAssignmentToIr = 1
+                Exit Function
+            End If
+        End If
+    End If
     Dim LeftMemberSymbol As Long = -1
     Dim LeftMemberAddress As Long = LowerIndexedMemberAddress(SyntaxNodes(AssignmentNode).FirstToken, EqualsToken - 1, FunctionIndex, BlockIndex, FailureBlock, OwnerSymbol, AssignmentLocation, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Functions, Storages, Instructions, Operands, Values, Locations, Build, SyntaxNodes, Tokens, LeftMemberSymbol)
     If LeftMemberAddress < 0 Then
@@ -1693,7 +2031,7 @@ Function LowerAssignmentToIr(ByVal AssignmentNode As Long, ByVal FunctionIndex A
     Else
         TargetType = Storages(TargetStorage).TypeIndex
     End If
-    If Values(RightValue).TypeIndex <> TargetType Then
+    If IrTypesExactlyMatch(Values(RightValue).TypeIndex, TargetType, Types, TypeCount) = 0 Then
         Dim ConvertInstruction As Long = AppendTypedIrValueInstruction(FunctionIndex, BlockIndex, IrOpConvert(), TargetType, FailureBlock, LeftSymbol, 0, "", AssignmentLocation, Instructions, Values, Build)
         If ConvertInstruction < 0 Or AppendIrInstructionOperand(ConvertInstruction, IrOperandValue(), RightValue, "", Instructions, Operands, Build) = 0 Then
             LowerAssignmentToIr = -4

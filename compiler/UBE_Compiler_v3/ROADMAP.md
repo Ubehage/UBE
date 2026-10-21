@@ -293,33 +293,46 @@ to exercise it without expanding the compiler into a standard library.
 
 ### RP6.1 — managed representation
 
-- [ ] Emit type-layout, root, stack-map, safe-point, and write-barrier metadata.
-- [ ] Implement strings, arrays, recursive custom-type lazy storage,
+Implementation detail and executable sub-gates are tracked in
+[`RP6_IMPLEMENTATION.md`](RP6_IMPLEMENTATION.md). All RP6 slices are complete.
+
+- [x] Emit type-layout, root, stack-map, safe-point, and write-barrier metadata.
+- [x] Implement strings, arrays, recursive custom-type lazy storage,
   independent value copying, and object-reference identity.
-- [ ] Implement `Variant`, `Empty`, `Null`, fixed strings, and all checked
+- [x] Implement `Variant`, `Empty`, `Null`, fixed strings, and all checked
   dynamic conversions.
 
 ### RP6.2 — object system and lifetime
 
-- [ ] Implement classes, interfaces, `Implements`, `New`, `As New`, `Set`,
+- [x] Implement classes, interfaces, `Implements`, `New`, `As New`, `Set`,
   `Nothing`, properties, module hooks, and initialization ordering.
-- [ ] Implement strong references, exactly-once `Class_Terminate`, orderly
+- [x] Implement strong references, exactly-once `Class_Terminate`, orderly
   shutdown, partial-initialization unwind, and opaque external leases.
-- [ ] Implement library build output and the frozen exported foreign ABI
+- [x] Implement library build output and the frozen exported foreign ABI
   subset needed to test external ownership.
 
 ### RP6.3 — collector and library slice
 
-- [ ] Implement automatic tracing collection, cycle reclamation, controlled
+- [x] Implement automatic tracing collection, cycle reclamation, controlled
   low-memory behavior, and synchronous `CollectGarbage() As Long`.
-- [ ] Add documented source-library modules for conversions, strings, managed
+- [x] Add documented source-library modules for conversions, strings, managed
   memory, variants, and errors as the compiler/tests require them.
-- [ ] Stress roots, barriers, cycles, finalization, shutdown, ignored results,
+- [x] Stress roots, barriers, cycles, finalization, shutdown, ignored results,
   external leases, and repeated collection under concurrency-safe invariants.
 
 RP6 gate: the self-hosting chain and exact library slice reproduce; managed
 semantics pass leak, cycle, lifetime, low-memory, and ABI tests; no collector
 path assumes responsibility for user-owned external resources.
+
+Gate complete and verified on 2026-10-21. A clean `bootstrap/build.ps1` run
+reached byte-identical compiler LLVM after the self-built compiler repeated its
+own build, matched normalized COFF objects, and reproduced the seven-module
+`UBECore` slice. The 28-case parity corpus and native RP6 fixtures cover managed
+values, recursive lazy custom values, fixed strings, Variants, object and
+interface dispatch, lifecycle hooks, referenced projects, tracing collection,
+controlled low-memory behavior, and the frozen foreign ownership ABI. The
+verified Windows x86-64 executable and SHA-256 are preserved under
+`compiler/release-previews/`.
 
 ## Release Preview 7: errors, threads, events, and component lifetime
 

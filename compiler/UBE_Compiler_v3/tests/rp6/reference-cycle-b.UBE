@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP6ReferenceCycleB"
+Kind = "Library"
+Source = "reference-cycle-b.bas"
+Reference = "reference-cycle-a.UBE"

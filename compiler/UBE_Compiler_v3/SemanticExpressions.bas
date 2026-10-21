@@ -25,6 +25,93 @@ Function ValidateDecimalConstant(ByVal DigitText As String) As Long
     ValidateDecimalConstant = 1
 End Function
 
+Function IntegerLiteralFitsBound(ByVal LiteralText As String, ByVal DecimalBound As String, ByVal HexBound As String, ByVal OctalBound As String) As Long
+    Dim FirstDigit As Long = 0
+    Dim BaseValue As Long = 10
+    Dim BoundText As String = DecimalBound
+    Dim Length As Long = StringLength(LiteralText)
+    If Length >= 2 And StringByteAt(LiteralText, 0) = 38 Then
+        Dim Marker As Long = StringByteAt(LiteralText, 1)
+        If Marker = 72 Or Marker = 104 Then
+            BaseValue = 16
+            BoundText = HexBound
+            FirstDigit = 2
+        Else
+            If Marker = 79 Or Marker = 111 Then
+                BaseValue = 8
+                BoundText = OctalBound
+                FirstDigit = 2
+            End If
+        End If
+    End If
+    Dim LastDigit As Long = Length - 1
+    If LastDigit >= FirstDigit Then
+        Dim Suffix As Long = StringByteAt(LiteralText, LastDigit)
+        If Suffix = 37 Or Suffix = 38 Or Suffix = 94 Then
+            LastDigit = LastDigit - 1
+        End If
+    End If
+    While FirstDigit < LastDigit And StringByteAt(LiteralText, FirstDigit) = 48
+        FirstDigit = FirstDigit + 1
+    Wend
+    Dim DigitCount As Long = LastDigit - FirstDigit + 1
+    Dim BoundLength As Long = StringLength(BoundText)
+    If DigitCount < BoundLength Then
+        IntegerLiteralFitsBound = 1
+        Exit Function
+    End If
+    If DigitCount > BoundLength Then
+        IntegerLiteralFitsBound = 0
+        Exit Function
+    End If
+    Dim Offset As Long = 0
+    While Offset < DigitCount
+        Dim ActualByte As Long = StringByteAt(LiteralText, FirstDigit + Offset)
+        If ActualByte >= 97 And ActualByte <= 102 Then
+            ActualByte = ActualByte - 32
+        End If
+        Dim BoundByte As Long = StringByteAt(BoundText, Offset)
+        If ActualByte < BoundByte Then
+            IntegerLiteralFitsBound = 1
+            Exit Function
+        End If
+        If ActualByte > BoundByte Then
+            IntegerLiteralFitsBound = 0
+            Exit Function
+        End If
+        Offset = Offset + 1
+    Wend
+    IntegerLiteralFitsBound = 1
+End Function
+
+Function IntegerLiteralSemanticType(ByVal LiteralText As String, ByRef Types() As SemanticType, ByVal TypeCount As Long) As Long
+    Dim Length As Long = StringLength(LiteralText)
+    If Length > 0 Then
+        Dim Suffix As Long = StringByteAt(LiteralText, Length - 1)
+        If Suffix = 37 Then
+            IntegerLiteralSemanticType = FindSemanticType("Integer", Types, TypeCount)
+            Exit Function
+        End If
+        If Suffix = 38 Then
+            IntegerLiteralSemanticType = FindSemanticType("Long", Types, TypeCount)
+            Exit Function
+        End If
+        If Suffix = 94 Then
+            IntegerLiteralSemanticType = FindSemanticType("LongLong", Types, TypeCount)
+            Exit Function
+        End If
+    End If
+    If IntegerLiteralFitsBound(LiteralText, "32767", "7FFF", "77777") <> 0 Then
+        IntegerLiteralSemanticType = FindSemanticType("Integer", Types, TypeCount)
+        Exit Function
+    End If
+    If IntegerLiteralFitsBound(LiteralText, "2147483647", "7FFFFFFF", "17777777777") <> 0 Then
+        IntegerLiteralSemanticType = FindSemanticType("Long", Types, TypeCount)
+        Exit Function
+    End If
+    IntegerLiteralSemanticType = FindSemanticType("LongLong", Types, TypeCount)
+End Function
+
 Function LiteralExpressionType(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long) As Long
     Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
     While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
@@ -41,7 +128,7 @@ Function LiteralExpressionType(ByVal NodeIndex As Long, ByRef SyntaxNodes() As S
             Exit Function
         End If
         If Tokens(TokenIndex).TokenKind = 4 Then
-            LiteralExpressionType = FindSemanticType("LongLong", Types, TypeCount)
+            LiteralExpressionType = IntegerLiteralSemanticType(Tokens(TokenIndex).Spelling, Types, TypeCount)
             Exit Function
         End If
         If EqualsFolded(Tokens(TokenIndex).Spelling, "True") <> 0 Or EqualsFolded(Tokens(TokenIndex).Spelling, "False") <> 0 Then
@@ -67,7 +154,69 @@ Function BindingOwnerForNode(ByVal SyntaxNodeIndex As Long, ByRef Bindings() As 
     BindingOwnerForNode = -1
 End Function
 
-Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef ScopedCacheScopes() As Long, ByRef ScopedCacheNames() As String, ByRef ScopedCacheResults() As Long, ByRef ScopedCacheCount As Long, ByRef GlobalCacheSourceIds() As Long, ByRef GlobalCacheNames() As String, ByRef GlobalCacheResults() As Long, ByRef GlobalCacheCount As Long) As Long
+Function SymbolAccessibleFromSource(ByVal CurrentSourceId As Long, ByVal SymbolIndex As Long, ByRef Sources() As SourceDocument, ByRef Symbols() As SemanticSymbol) As Long
+    If SymbolIndex < 0 Or CurrentSourceId <= 0 Or Symbols(SymbolIndex).SourceId <= 0 Then
+        SymbolAccessibleFromSource = 0
+        Exit Function
+    End If
+    If Symbols(SymbolIndex).SourceId = CurrentSourceId Then
+        SymbolAccessibleFromSource = 1
+        Exit Function
+    End If
+    Dim CurrentDepth As Long = Sources(CurrentSourceId - 1).ReferenceDepth
+    Dim CandidateDepth As Long = Sources(Symbols(SymbolIndex).SourceId - 1).ReferenceDepth
+    If CurrentDepth = 0 And CandidateDepth > 0 Then
+        If CandidateDepth <> 1 Or Symbols(SymbolIndex).VisibilityKind <> 1 Then
+            SymbolAccessibleFromSource = 0
+            Exit Function
+        End If
+        Dim ParentSymbol As Long = Symbols(SymbolIndex).ParentSymbol
+        If ParentSymbol < 0 Then
+            SymbolAccessibleFromSource = 0
+            Exit Function
+        End If
+        If Symbols(ParentSymbol).SymbolKind <> SemanticSymbolModule() Then
+            SymbolAccessibleFromSource = 0
+            Exit Function
+        End If
+    End If
+    SymbolAccessibleFromSource = 1
+End Function
+
+Function FindInaccessibleReferenceSymbol(ByVal NodeIndex As Long, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
+    Dim NameToken As Long = SyntaxNodes(NodeIndex).FirstToken
+    While NameToken <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(NameToken).TokenKind = 2 Or Tokens(NameToken).TokenKind = 3 Then
+            Exit While
+        End If
+        NameToken = NameToken + 1
+    Wend
+    If NameToken > SyntaxNodes(NodeIndex).LastToken Then
+        FindInaccessibleReferenceSymbol = -1
+        Exit Function
+    End If
+    Dim SoughtName As String = Tokens(NameToken).Spelling
+    If Tokens(NameToken).TokenKind = 3 Then
+        SoughtName = Tokens(NameToken).Decoded
+    End If
+    Dim SymbolIndex As Long = 0
+    While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).SymbolName = SoughtName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SoughtName) <> 0 Then
+            If Symbols(SymbolIndex).SourceId > 0 Then
+                If Sources(Symbols(SymbolIndex).SourceId - 1).ReferenceDepth > 0 Then
+                    If SymbolAccessibleFromSource(SyntaxNodes(NodeIndex).SourceId, SymbolIndex, Sources, Symbols) = 0 Then
+                        FindInaccessibleReferenceSymbol = SymbolIndex
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
+    FindInaccessibleReferenceSymbol = -1
+End Function
+
+Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef ScopedCacheScopes() As Long, ByRef ScopedCacheNames() As String, ByRef ScopedCacheResults() As Long, ByRef ScopedCacheCount As Long, ByRef GlobalCacheSourceIds() As Long, ByRef GlobalCacheNames() As String, ByRef GlobalCacheResults() As Long, ByRef GlobalCacheCount As Long) As Long
     Dim IdentifierToken As Long = SyntaxNodes(NodeIndex).FirstToken
     While IdentifierToken <= SyntaxNodes(NodeIndex).LastToken
         If Tokens(IdentifierToken).TokenKind = 2 Or Tokens(IdentifierToken).TokenKind = 3 Then
@@ -162,7 +311,7 @@ Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef SyntaxNodes() As
     Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
         If Symbols(SymbolIndex).SourceId = SyntaxNodes(NodeIndex).SourceId And (Symbols(SymbolIndex).SymbolName = SoughtName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SoughtName) <> 0) Then
-            If Symbols(SymbolIndex).SymbolKind <> SemanticSymbolModule() Then
+            If Symbols(SymbolIndex).SymbolKind <> SemanticSymbolModule() And SymbolAccessibleFromSource(SyntaxNodes(NodeIndex).SourceId, SymbolIndex, Sources, Symbols) <> 0 Then
                 MatchIndex = SymbolIndex
                 MatchCount = MatchCount + 1
             End If
@@ -175,7 +324,7 @@ Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef SyntaxNodes() As
         SymbolIndex = 0
         While SymbolIndex < SymbolCount
             If Symbols(SymbolIndex).SymbolName = SoughtName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SoughtName) <> 0 Then
-                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolProcedure() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolProperty() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant() Then
+                If (Symbols(SymbolIndex).SymbolKind = SemanticSymbolProcedure() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolProperty() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant()) And SymbolAccessibleFromSource(SyntaxNodes(NodeIndex).SourceId, SymbolIndex, Sources, Symbols) <> 0 Then
                     MatchIndex = SymbolIndex
                     MatchCount = MatchCount + 1
                 End If
@@ -226,7 +375,13 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
     While NodeIndex < SyntaxNodeCount
         If SyntaxRuleIs(NodeIndex, "expression", SyntaxNodes, Rules) <> 0 Then
             State.ExpressionCount = State.ExpressionCount + 1
-            Dim ResolvedSymbol As Long = ResolveExpressionSymbol(NodeIndex, SyntaxNodes, SyntaxLinks, Rules, Tokens, Scopes, SymbolLinks, Symbols, SymbolCount, Bindings, BindingCount, ScopedCacheScopes, ScopedCacheNames, ScopedCacheResults, ScopedCacheCount, GlobalCacheSourceIds, GlobalCacheNames, GlobalCacheResults, GlobalCacheCount)
+            Dim ResolvedSymbol As Long = ResolveExpressionSymbol(NodeIndex, Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Scopes, SymbolLinks, Symbols, SymbolCount, Bindings, BindingCount, ScopedCacheScopes, ScopedCacheNames, ScopedCacheResults, ScopedCacheCount, GlobalCacheSourceIds, GlobalCacheNames, GlobalCacheResults, GlobalCacheCount)
+            If ResolvedSymbol < 0 Then
+                Dim InaccessibleSymbol As Long = FindInaccessibleReferenceSymbol(NodeIndex, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount)
+                If InaccessibleSymbol >= 0 Then
+                    Call AddSemanticDiagnostic("UBE4043", NodeIndex, "declaration is not public in a direct project Reference: " & Symbols(InaccessibleSymbol).SymbolName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
+            End If
             Dim ExpressionType As Long = -1
             Dim ValueCategory As Long = 0
             If ResolvedSymbol >= 0 Then
@@ -272,6 +427,11 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
                         ConstantKind = Tokens(OnlyToken).TokenKind
                         ExpressionConstantText = Tokens(OnlyToken).Decoded
                         If StringLength(ExpressionConstantText) = 0 Then
+                            ExpressionConstantText = Tokens(OnlyToken).Spelling
+                        End If
+                    Else
+                        If EqualsFolded(Tokens(OnlyToken).Spelling, "True") <> 0 Or EqualsFolded(Tokens(OnlyToken).Spelling, "False") <> 0 Or EqualsFolded(Tokens(OnlyToken).Spelling, "Null") <> 0 Or EqualsFolded(Tokens(OnlyToken).Spelling, "Empty") <> 0 Or EqualsFolded(Tokens(OnlyToken).Spelling, "Nothing") <> 0 Then
+                            ConstantKind = Tokens(OnlyToken).TokenKind
                             ExpressionConstantText = Tokens(OnlyToken).Spelling
                         End If
                     End If

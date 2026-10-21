@@ -171,10 +171,10 @@ sub-function-declaration = sub-function-modifiers,
                            [ member-attribute-block ], procedure-body,
                            spacing, "End", spacing1,
                            ( "Sub" | "Function" ), line-end ;
-sub-function-modifiers = [ visibility, spacing1 ], [ "Static", spacing1 ],
-                         [ ( "Inline" | "ForceInline" ), spacing1 ]
-                       | "Public", spacing1, "Export", spacing1,
-                         [ "Inline", spacing1 ] ;
+sub-function-modifiers = "Public", spacing1, "Export", spacing1,
+                         [ "Inline", spacing1 ]
+                       | [ visibility, spacing1 ], [ "Static", spacing1 ],
+                         [ ( "Inline" | "ForceInline" ), spacing1 ] ;
 property-declaration = property-modifiers, property-header, line-end,
                        [ member-attribute-block ], procedure-body,
                        spacing, "End", spacing1, "Property", line-end ;

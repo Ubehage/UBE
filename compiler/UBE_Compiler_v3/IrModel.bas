@@ -374,6 +374,10 @@ Function IrOpPrint() As Long
     IrOpPrint = 26
 End Function
 
+Function IrOpObjectAllocate() As Long
+    IrOpObjectAllocate = 27
+End Function
+
 Function IrOpCall() As Long
     IrOpCall = 30
 End Function

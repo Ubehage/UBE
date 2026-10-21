@@ -93,7 +93,14 @@ Function ResolveSymbolTypes(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
                     FixedNode = FirstDescendantSyntaxNode(TypeNode, "fixed-string-type", SyntaxNodes, SyntaxLinks, Rules, 0)
                 End If
                 If FixedNode >= 0 Then
-                    ResolvedType = AppendSemanticType(Types, TypeCount, TypeCapacity, 40, "String * fixed", -1, FindSemanticType("String", Types, TypeCount), 0, 1)
+                    Dim FixedWidth As Long = 0
+                    Dim FixedDigits As String = Tokens(SyntaxNodes(FixedNode).LastToken).Spelling
+                    If ParseDecimalLong(FixedDigits, FixedWidth) = 0 Or FixedWidth <= 0 Then
+                        Call AddSemanticDiagnostic("UBE4015", FixedNode, "fixed String width must be a positive Long constant", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        ResolvedType = 0
+                    Else
+                        ResolvedType = AppendSemanticType(Types, TypeCount, TypeCapacity, 40, "String * " & FixedDigits, -1, FindSemanticType("String", Types, TypeCount), 0, FixedWidth)
+                    End If
                 End If
                 Dim ArrayNode As Long = FirstDirectSyntaxChild(NodeIndex, "array-specifier", SyntaxNodes, SyntaxLinks, Rules)
                 If ArrayNode < 0 Then

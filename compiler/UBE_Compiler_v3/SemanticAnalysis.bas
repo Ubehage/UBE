@@ -176,7 +176,12 @@ Function AddCheckedSemanticSymbol(ByVal Kind As Long, ByVal SymbolName As String
     Dim Existing As Long = FindSymbolInScope(ScopeIndex, SymbolName, Scopes, Symbols, Links)
     If Existing >= 0 Then
         If AllowPropertyPeer <> 0 And Symbols(Existing).SymbolKind = SemanticSymbolProperty() Then
-            AddCheckedSemanticSymbol = Existing
+            Dim PeerName As String = SymbolName & "#property" & LongToString(SymbolCount)
+            Dim PeerSymbol As Long = AppendSemanticSymbol(Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Kind, PeerName, ScopeIndex, ParentSymbol, SyntaxNodes(NodeIndex).SourceId, NodeIndex, SyntaxNodes(NodeIndex).FirstToken, SyntaxNodes(NodeIndex).LastToken)
+            If PeerSymbol >= 0 Then
+                Symbols(PeerSymbol).ConstantText = SymbolName
+            End If
+            AddCheckedSemanticSymbol = PeerSymbol
             Exit Function
         End If
         Call AddSemanticDiagnostic("UBE4001", NodeIndex, "duplicate declaration after case folding: " & SymbolName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
@@ -225,6 +230,12 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
         If RootNode >= 0 Then
             Dim ModuleSymbol As Long = AddCheckedSemanticSymbol(SemanticSymbolModule(), Envelopes(SourceIndex).SourceName, State.PackageScope, -1, RootNode, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             If ModuleSymbol >= 0 Then
+                Symbols(ModuleSymbol).Flags = Envelopes(SourceIndex).SourceKind
+                If Envelopes(SourceIndex).SourceKind >= 2 Then
+                    Dim InstanceTypeKind As Long = 48 + Envelopes(SourceIndex).SourceKind
+                    Dim InstanceType As Long = AppendSemanticType(Types, TypeCount, TypeCapacity, InstanceTypeKind, Envelopes(SourceIndex).SourceName, ModuleSymbol, -1, 0, 0)
+                    Symbols(ModuleSymbol).DeclaredType = InstanceType
+                End If
                 Dim ModuleScope As Long = AppendSemanticScope(Scopes, ScopeCount, ScopeCapacity, SemanticScopeModule(), State.PackageScope, ModuleSymbol, Sources(SourceIndex).SourceId, RootNode)
                 Symbols(ModuleSymbol).RelatedSymbol = ModuleScope
                 Call MarkScopeTree(RootNode, ModuleScope, ModuleSymbol, NodeScopes, NodeOwners, SyntaxNodes, SyntaxLinks)
@@ -242,6 +253,20 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             If EnclosingScope >= 0 Then
                 Dim BlockScope As Long = AppendSemanticScope(Scopes, ScopeCount, ScopeCapacity, SemanticScopeBlock(), EnclosingScope, EnclosingOwner, SyntaxNodes(NodeIndex).SourceId, NodeIndex)
                 Call MarkScopeTree(NodeIndex, BlockScope, EnclosingOwner, NodeScopes, NodeOwners, SyntaxNodes, SyntaxLinks)
+            End If
+        End If
+        If EqualsFolded(RuleName, "implements-statement") <> 0 Then
+            Dim ImplementsName As String = ""
+            Dim ImplementsToken As Long = SyntaxNodes(NodeIndex).FirstToken
+            While ImplementsToken <= SyntaxNodes(NodeIndex).LastToken
+                If Tokens(ImplementsToken).TokenKind = 2 Or Tokens(ImplementsToken).TokenKind = 3 Then
+                    ImplementsName = Tokens(ImplementsToken).Spelling
+                End If
+                ImplementsToken = ImplementsToken + 1
+            Wend
+            Dim ImplementsOwner As Long = NearestProcedureSymbol(SyntaxNodes(NodeIndex).ParentNode, NodeOwners, SyntaxNodes)
+            If ImplementsOwner >= 0 And StringLength(ImplementsName) > 0 Then
+                Symbols(ImplementsOwner).ConstantText = Symbols(ImplementsOwner).ConstantText & "|" & ImplementsName & "|"
             End If
         End If
         Dim SymbolKind As Long = 0
@@ -300,6 +325,21 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             If StringLength(DeclaredName) > 0 And ParentScope >= 0 Then
                 Dim AddedSymbol As Long = AddCheckedSemanticSymbol(SymbolKind, DeclaredName, ParentScope, ParentOwner, NodeIndex, AllowPropertyPeer, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 If AddedSymbol >= 0 Then
+                    If SymbolKind = SemanticSymbolProperty() And StringLength(Symbols(AddedSymbol).ConstantText) = 0 Then
+                        Symbols(AddedSymbol).ConstantText = DeclaredName
+                    End If
+                    If SyntaxNodeContainsToken(NodeIndex, "Public", SyntaxNodes, Tokens) <> 0 Then
+                        Symbols(AddedSymbol).VisibilityKind = 1
+                    End If
+                    If SyntaxNodeContainsToken(NodeIndex, "Private", SyntaxNodes, Tokens) <> 0 Then
+                        Symbols(AddedSymbol).VisibilityKind = 2
+                    End If
+                    If SyntaxNodeContainsToken(NodeIndex, "Export", SyntaxNodes, Tokens) <> 0 Then
+                        Symbols(AddedSymbol).Flags = Symbols(AddedSymbol).Flags + 64
+                    End If
+                    If SymbolKind = SemanticSymbolVariable() And SyntaxNodeContainsToken(NodeIndex, "New", SyntaxNodes, Tokens) <> 0 Then
+                        Symbols(AddedSymbol).Flags = Symbols(AddedSymbol).Flags + 16
+                    End If
                     If SymbolKind = SemanticSymbolType() Or SymbolKind = SemanticSymbolEnum() Or SymbolKind = SemanticSymbolInterface() Then
                         Dim NewType As Long = AppendSemanticType(Types, TypeCount, TypeCapacity, SymbolKind + 20, DeclaredName, AddedSymbol, -1, 0, 0)
                         Symbols(AddedSymbol).DeclaredType = NewType

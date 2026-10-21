@@ -30,7 +30,8 @@ under `bootstrap/out/` and are not committed.
 | v3 RP3 | `285fd58` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP4 | `9b3d8d9` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP5 | `6090abe` | Windows x86-64 → `x86_64-w64-windows-gnu` |
+| v3 RP6 | pending completion commit | Windows x86-64 → `x86_64-w64-windows-gnu` |
 
 RP0 through RP2 were reproduced from their exact completion commits when this
-preservation policy was introduced. RP3 through RP5 are the executables produced
+preservation policy was introduced. RP3 through RP6 are the executables produced
 by their clean completion builds.

@@ -48,14 +48,14 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 5 is complete. Development
-> is moving into RP6: libraries and package consumption.
+> **Current milestone:** Compiler v3 Release Preview 6 is complete. Development
+> is moving into RP7: errors, threads, events, and component lifetime.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
-  <li><strong>Compiler v3 RP5</strong><br><sub>The v2-built compiler now lowers its complete Bootstrap Profile through verified typed IR to native code, rebuilds itself deterministically, and matches the self-built compiler across the native success and controlled-failure corpus.</sub></li>
-  <li><strong>UBECore</strong><br><sub>The separate source-library project has its permanent package identity. RP5 compiles its current <code>CoreIdentity.bas</code> slice through the same deterministic native pipeline; public library APIs begin in later previews.</sub></li>
+  <li><strong>Compiler v3 RP6</strong><br><sub>The self-hosting compiler now supports managed strings, arrays, recursive custom values, Variants, classes, interfaces, module lifecycle, referenced projects, tracing garbage collection, and the first frozen foreign-library ownership ABI.</sub></li>
+  <li><strong>UBECore</strong><br><sub>The separate source-library project now contains documented modules for runtime intrinsics, conversions, strings, managed memory, Variants, and status helpers. Both compiler stages reproduce the exact seven-module slice.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 
@@ -84,8 +84,9 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP5 and its complete front-end and native
-corpora, the current `UBECore` source slice, and the conformance fixtures. See
+v2 self-hosting chain, Compiler v3 RP6 and its complete inherited and managed
+native corpora, the current `UBECore` source slice, collector probes, foreign
+library ABI checks, and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 
 ## Repository guide

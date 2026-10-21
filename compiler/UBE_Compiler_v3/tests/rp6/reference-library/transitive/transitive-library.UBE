@@ -1,0 +1,4 @@
+UBE-Project 1
+Name = "RP6TransitiveLibrary"
+Kind = "Library"
+Source = "TransitiveValues.bas"

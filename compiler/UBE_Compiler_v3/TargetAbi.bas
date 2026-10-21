@@ -169,7 +169,7 @@ Function ClassifyTargetAbiType(ByVal TypeIndex As Long, ByRef Types() As Semanti
         ClassifyTargetAbiType = 1
         Exit Function
     End If
-    If Types(TypeIndex).TypeKind = 30 Or EqualsFolded(AbiTypeName, "Object") <> 0 Or EqualsFolded(AbiTypeName, "Variant") <> 0 Then
+    If Types(TypeIndex).TypeKind = 30 Or (Types(TypeIndex).TypeKind >= 50 And Types(TypeIndex).TypeKind <= 52) Or EqualsFolded(AbiTypeName, "Object") <> 0 Or EqualsFolded(AbiTypeName, "Variant") <> 0 Or EqualsFolded(AbiTypeName, "Nothing") <> 0 Or EqualsFolded(AbiTypeName, "Empty") <> 0 Or EqualsFolded(AbiTypeName, "Null") <> 0 Then
         Call SetPointerAbiType(Result, 1)
         ClassifyTargetAbiType = 1
         Exit Function
