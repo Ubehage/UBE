@@ -47,7 +47,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
     UBE's compiler is designed to understand only the essential building blocks of the language. Much of the higher-level functionality is implemented in a separate standard library.<br>
   - **Extensible native types.**<br>
     UBE aims to allow developers to define their own native data types, including their memory representation and how values are initialized, accessed and destroyed.<br>
-  -** Modern compilation.**<br>
+  - **Modern compilation.**<br>
     UBE uses LLVM as its backend, allowing the compiler to target different architectures without requiring a separate code generator for each platform.<br>
   - **String declaration, friendly conversions.**<br>
     Variables must be explicitly delcared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
