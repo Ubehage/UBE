@@ -3,11 +3,6 @@
 **UBE** (Ube's Basic Experiment) is a new native, 64-bit programming language
 and compiler inspired by classic Visual Basic 6.
 
-UBE aims to retain the approachable syntax and productive workflow that made
-classic Visual Basic popular, while providing explicit modern semantics,
-native performance, lightweight program support linked into each executable,
-and a fully 64-bit toolchain.
-
 <p align="center">
   <img src="media/logo.png" alt="UBE — Ube's Basic Experiment. Visual Basic, but out of the Kindergarten." width="900">
 </p>
@@ -15,7 +10,6 @@ and a fully 64-bit toolchain.
 <p align="center"><sub><em>Dreamed up by an idiot. Brought to life by AI.</em></sub></p>
 
 ## Vision
-
 UBE keeps the readable syntax and direct workflow that made classic Basic easy
 to learn and productive to use. It adds clearly defined modern behavior,
 strict types, native threads, managed memory, portable libraries, and a fully
@@ -35,8 +29,45 @@ The long-term goal is a complete native development system:
 
 UBE does not use Tauri, Electron, or webview shells for its native tools.
 
-## How UBE is being built
 
+## Frequently Asked Questions
+<ul>
+  <li><strong>Is UBE an attempt to create Visual Basic 7?</strong><br>
+  <sub><strong>No. And it isn't trying to be.</strong><br>
+  TwinBASIC is carrying the Visual Basic legacy forward, with a strong focus on compatibility with existing VB6 code.<br>
+  UBE is a different experiment.<br>
+  The idea behind UBE is simple: <i>What if we took a language designed for beginners and kept extending it until it could do virtually anything?</i><br>
+  UBE takes inspiration from the simplicity, readability and accessibility of classic Visual Basic, but does not consider VB6-compatibility a design requirement.</sub></li>
+  <br><li><strong>So, what exactly is UBE?</strong><br>
+  <sub>UBE is an attempt to build a powerful, modern, general-purpose programming language around the original philosophy of BASIC: Programming should be understandable, approachable and enjoyable.<br>
+  The goal is not to make a simpler language. It is to make advanced capabilities accessible through a simple language.<br>
+  In other words, UBE aims to preserve VB's friendliness without preserving its historical limitations.</sub></li>
+  <br><li><strong>What makes UBE different from Visual Basic 6?</strong><br>
+  <sub>Several things. Both internally and in the language itself.<br>
+  -<strong>A minimal compiler core.</strong> UBE's compiler is designed to understand only the essential building blocks of the language. Much of the higher-level functionality is implemented in a separate standard library.<br>
+  -<strong>Extensible native types.</strong> UBE aims to allow developers to define their own native data types, including their memory representation and how values are initialized, accessed and destroyed.<br>
+  -<strong>Modern compilation.</strong> UBE uses LLVM as its backend, allowing the compiler to target different architectures without requiring a separate code generator for each platform.<br>
+  -<strong>String declaration, friendly conversions.</strong> Variables must be explicitly delcared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
+  -<strong>A different approach to runtime errors.</strong> Rather than interrupting execution for ordinary recoverable failures, UBE is design to return an invalid or default value and record error information for the programmer to inspect.</sub><br>
+  <br><li><strong>Will UBE compile existing VB6 projects?</strong><br>
+  <sub><strong>Yes. All valid VB6 code is intended to compile in UBE.</strong><br>
+  UBE preserves VB6 syntax while deliberate reconsidering some of its underlying semantics, including error handling, type conversions, and other runtime behaviors.<br>
+  This means existing VB6 code will compile without modification, but may behave different when executed.<br>
+  <strong>If exact VB6 behavior is a requirement, TwinBASIC is likely the better choice for you.</strong></sub></li>
+  <br><li><strong>Is UBE designed for beginners or experienced programmers?</strong><br>
+  <sub><strong>Both.</strong><br>
+  A beginner should be able to write a simple program without first understanding memory management, compiler architecture og complex type systems.<br>
+  An experienced developer should be able to access those capabilities when needed.<br>
+  Complexity is available, not mandatory.</sub></li>
+  <br><li><strong>Is UBE ready for production use?</strong><br>
+  <sub><strong>Not yet. UBE is under active development</strong></sub></li>
+  <br><li><strong>Is UBE intended to replace Visual Basic, TwinBASIC or other programming languages?</strong><br>
+  <sub><strong>No.</strong><br>
+  UBE is not being developed to replace an existing language or win a popularity contest.</sub></li>
+</ul>
+
+
+## How UBE is being built
 UBE is created by Ube, who defines the vision, product direction, and final
 decisions. AI coding agents help turn that direction into specifications,
 compiler code, tests, documentation, and project tooling.
