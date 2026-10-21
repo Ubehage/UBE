@@ -100,16 +100,16 @@ UBE remains pre-release software and is not yet ready for production use.
 
 ## First public-release goals
 
-- A stable UBE language definition and grammar.
-- A self-hosting v3 compiler built with the preserved v2 compiler.
-- Lightweight, optimized 64-bit native executables.
+- A stable UBE language definition and grammar. ✔️
+- A self-hosting v3 compiler built with the preserved v2 compiler. 🚧
+- Lightweight, optimized 64-bit native executables. ✔️
 - A minimal compiler with runtime and standard-library functionality kept in a
-  separate UBE source library.
-- Multiple source modules with clear visibility and reference rules.
-- Defined conversions, errors, lifetimes, garbage collection, and threading.
-- Portable behavior with platform-specific features clearly identified.
-- Complete offline language and library documentation.
-- Useful diagnostics and the foundations required for source-level debugging.
+  separate UBE source library. 🚧
+- Multiple source modules with clear visibility and reference rules. ✔️
+- Defined conversions, errors, lifetimes, garbage collection, and threading. ✔️
+- Portable behavior with platform-specific features clearly identified. 🚧
+- Complete offline language and library documentation. 🚧
+- Useful diagnostics and the foundations required for source-level debugging. ✔️
 
 ## Building the current compiler
 
