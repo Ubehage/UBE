@@ -1,7 +1,6 @@
 # UBE — Work in Progress
 
-**UBE** (Ube's Basic Experiment) is a new native, 64-bit programming language
-and compiler inspired by classic Visual Basic 6.
+**UBE** is a new native, 64-bit programming language and compiler inspired by classic Visual Basic 6.
 
 <p align="center">
   <img src="media/logo.png" alt="UBE — Ube's Basic Experiment. Visual Basic, but out of the Kindergarten." width="900">
