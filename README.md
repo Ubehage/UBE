@@ -67,7 +67,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
   UBE is under active development.<br>
 - Is UBE intended to replace Visual Basic, TwinBASIC or other programming languages?<br>
   **No.**<br>
-  Ube is being developed just because I want to.<br>
+  UBE is being developed just because I want to.<br>
   I am trying to realize an old dream.
 
 
