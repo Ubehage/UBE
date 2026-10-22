@@ -35,7 +35,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
   TwinBASIC is carrying the Visual Basic legacy forward, with a strong focus on compatibility with existing VB6 code.<br>
   UBE is a different experiment.<br>
   The idea behind UBE is simple: <i>What if we took a language designed for beginners and kept extending it until it could do virtually anything?</i><br>
-  UBE takes inspiration from the simplicity, readability and accessibility of classic Visual Basic, but does not consider VB6-compatibility a design requirement.<br>
+  UBE takes inspiration from the simplicity, readability and accessibility of classic Visual Basic, but does not consider VB6 Runtime-compatibility a design requirement.<br>
 - So, what exactly is UBE?<br>
   UBE is an attempt to build a powerful, modern, general-purpose programming language around the original philosophy of BASIC: Programming should be understandable, approachable and enjoyable.<br>
   The goal is not to make a simpler language. It is to make advanced capabilities accessible through a simple language.<br>
