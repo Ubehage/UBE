@@ -84,14 +84,16 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 6 is complete. Development
-> is moving into RP7: errors, threads, events, and component lifetime.
+> **Current milestone:** Compiler v3 Release Preview 7 is complete. Development
+> is moving into RP8: the remaining UBE 1.0 surface, project and library
+> packaging, debugger metadata, and the portability boundary.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
-  <li><strong>Compiler v3 RP6</strong><br><sub>The self-hosting compiler now supports managed strings, arrays, recursive custom values, Variants, classes, interfaces, module lifecycle, referenced projects, tracing garbage collection, and the first frozen foreign-library ownership ABI.</sub></li>
-  <li><strong>UBECore</strong><br><sub>The separate source-library project now contains documented modules for runtime intrinsics, conversions, strings, managed memory, Variants, and status helpers. Both compiler stages reproduce the exact seven-module slice.</sub></li>
+  <li><strong>Compiler v3 RP7</strong><br><sub>The self-hosting compiler now adds thread-local errors and structured recovery, CallNew threads, cooperative lifecycle, SyncLock, atomics and coordination objects, synchronous events, and form/control component lifetime to the RP6 managed-code baseline.</sub></li>
+  <li><strong>UBECore</strong><br><sub>The separate source-library project now includes documented error, thread, atomic, event, semaphore, queue, and synchronization APIs alongside the RP6 modules. Both compiler stages reproduce the exact 16-module slice.</sub></li>
+  <li><strong>Verification</strong><br><sub>The clean RP7 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, and 49 recorded cross-stage corpus cases.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 
@@ -100,7 +102,7 @@ UBE remains pre-release software and is not yet ready for production use.
 ## First public-release goals
 
 - A stable UBE language definition and grammar. ✔️
-- A self-hosting v3 compiler built with the preserved v2 compiler. 🚧
+- A self-hosting v3 compiler built with the preserved v2 compiler. ✔️
 - Lightweight, optimized 64-bit native executables. ✔️
 - A minimal compiler with runtime and standard-library functionality kept in a
   separate UBE source library. 🚧
@@ -120,9 +122,10 @@ GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
 ```
 
 The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP6 and its complete inherited and managed
-native corpora, the current `UBECore` source slice, collector probes, foreign
-library ABI checks, and the conformance fixtures. See
+v2 self-hosting chain, Compiler v3 RP7 and its complete inherited, managed,
+threading, synchronization, event, and component-lifetime corpora, the current
+16-module `UBECore` source slice, runtime probes, foreign-library ABI checks,
+and the conformance fixtures. See
 [bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
 
 ## Repository guide
