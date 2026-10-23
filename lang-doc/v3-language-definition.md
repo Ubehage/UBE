@@ -753,6 +753,12 @@ form, or control. A bare form-module name in value context denotes its
 compiler-maintained project default-instance slot; a control type has no such
 project default merely because it is declared.
 
+The first bare value reference to a form creates its default identity on
+demand, with the ordinary classic-style first-load behavior required by the
+operation. Once an accepted `Unload` completes, bare references do not silently
+create another identity: the default remains `Nothing` until an explicit
+`Load FormName` creates and loads a fresh default instance.
+
 `New FormType` creates a distinct identity and runs `Class_Initialize`, but does
 not create a window or load/show the form. First `Load` of that identity creates
 its framework/UI resources and designer controls, invokes `Form_Load`, and

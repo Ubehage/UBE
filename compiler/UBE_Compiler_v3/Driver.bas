@@ -396,6 +396,21 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
             RunCompilerDriver = 1
             Exit Function
         End If
+        If StringLength(Project.StartupForm) > 0 Then
+            Dim StartupFormCandidate As Long = 0
+            While StartupFormCandidate < SemanticSymbolCount
+                If SemanticSymbols(StartupFormCandidate).SymbolKind = SemanticSymbolModule() And SemanticSymbols(StartupFormCandidate).Flags = 3 And EqualsFolded(SemanticSymbols(StartupFormCandidate).SymbolName, Project.StartupForm) <> 0 Then
+                    IrProgramValue.StartupFormSymbol = StartupFormCandidate
+                End If
+                StartupFormCandidate = StartupFormCandidate + 1
+            Wend
+            If IrProgramValue.StartupFormSymbol < 0 Then
+                Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4049", Project.ManifestPath, 1, 1, "StartupForm does not name a project form: " & Project.StartupForm)
+                Call ReportDriverFailure("startup form", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                RunCompilerDriver = 1
+                Exit Function
+            End If
+        End If
         If VerifyProgramIr(IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrBuild.BlockCount, IrInstructions, IrBuild.InstructionCount, IrOperands, IrBuild.OperandCount, IrValues, IrBuild.ValueCount, IrEdges, IrBuild.EdgeCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, SemanticTypes, SemanticTypeCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             Call ReportDriverFailure("IR verification", Diagnostics, DiagnosticCount, DiagnosticCapacity)
             RunCompilerDriver = 1
@@ -470,6 +485,6 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
-    Print "UBE Compiler v3 RP6: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), " & LongToString(SemanticSymbolCount) & " symbol(s), host " & Host.Id & ", target " & Target.Triple
+    Print "UBE Compiler v3 RP7: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), " & LongToString(SemanticSymbolCount) & " symbol(s), host " & Host.Id & ", target " & Target.Triple
     RunCompilerDriver = 0
 End Function

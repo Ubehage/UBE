@@ -42,6 +42,8 @@ Type SemanticSymbol
     ConstantKind As Long
     ConstantInteger As LongLong
     ConstantText As String
+    IrNameBucketHead As Long
+    IrNameNext As Long
 End Type
 
 Type SemanticSymbolLink
@@ -75,6 +77,8 @@ Type SemanticNodeBinding
     SyntaxNode As Long
     ScopeIndex As Long
     OwnerSymbol As Long
+    IrRegionOwnerEncoded As Long
+    IrRegionKind As Long
 End Type
 
 Function AppendSemanticExpression(ByRef Items() As SemanticExpression, ByRef Count As Long, ByRef Capacity As Long, ByVal SyntaxNode As Long, ByVal TypeIndex As Long, ByVal ResolvedSymbol As Long, ByVal ConversionKind As Long, ByVal ValueCategory As Long, ByVal ConstantKind As Long, ByVal ConstantText As String, ByVal Flags As Long) As Long

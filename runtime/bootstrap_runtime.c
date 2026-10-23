@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,6 +76,8 @@ struct ube_gc_header {
     unsigned char owns_layout;
     unsigned char pending_publication;
     uint32_t pin_count;
+    CRITICAL_SECTION monitor;
+    unsigned char monitor_initialized;
     unsigned char data[];
 };
 
@@ -95,6 +98,50 @@ struct ube_object_lease {
     void* object;
     uint32_t generation;
     uint32_t leases;
+};
+
+struct ube_component_state {
+    struct ube_component_state* next;
+    void* object;
+    int32_t kind;
+    int32_t state;
+    uint32_t active_calls;
+    uint64_t load_error_revision;
+};
+
+struct ube_component_parent {
+    struct ube_component_parent* next;
+    void* child;
+    void* parent;
+};
+
+struct ube_default_form_slot {
+    struct ube_default_form_slot* next;
+    void** slot;
+    int tombstone;
+};
+
+typedef void (*ube_event_callback)(void* receiver, void* arguments);
+
+struct ube_event_subscription {
+    struct ube_event_subscription* next;
+    void* source;
+    void* receiver;
+    int64_t field_id;
+    int64_t event_id;
+    uint64_t generation;
+    uint64_t order;
+    ube_event_callback callback;
+};
+
+struct ube_event_snapshot {
+    void* source;
+    void* receiver;
+    int64_t field_id;
+    int64_t event_id;
+    uint64_t generation;
+    uint64_t order;
+    ube_event_callback callback;
 };
 
 struct ube_library_diagnostic_slot {
@@ -122,10 +169,863 @@ static void (*ube_library_terminator)(void);
 static struct ube_object_lease* ube_object_leases;
 static size_t ube_object_lease_count;
 static size_t ube_object_lease_capacity;
+static struct ube_component_state* ube_components;
+static struct ube_component_parent* ube_component_parents;
+static size_t ube_active_event_sources;
+static HANDLE ube_component_sources_done;
+static struct ube_default_form_slot* ube_default_form_slots;
+static struct ube_event_subscription* ube_event_subscriptions;
+static uint64_t ube_event_generation;
+static uint64_t ube_event_order;
+static uint32_t ube_event_test_snapshot_failures;
+static INIT_ONCE ube_event_lock_once = INIT_ONCE_STATIC_INIT;
+static CRITICAL_SECTION ube_event_lock;
 static INIT_ONCE ube_gc_lock_once = INIT_ONCE_STATIC_INIT;
 static CRITICAL_SECTION ube_gc_lock;
+static INIT_ONCE ube_thread_lock_once = INIT_ONCE_STATIC_INIT;
+static CRITICAL_SECTION ube_thread_lock;
 static void ube_gc_release_all(void);
 static char* ube_allocate_string_managed(size_t length);
+int32_t ube_gc_pin(void* value);
+int32_t ube_gc_unpin(void* value);
+static void ube_gc_enter_lock(void);
+static void ube_gc_leave_lock(void);
+
+/* Each native thread admitted to UBE owns an independent recoverable-error
+   record. Fixed buffers keep error publication allocation-free, including on
+   low-memory paths. */
+struct ube_error_state {
+    int32_t number;
+    uint64_t revision;
+    char description[512];
+    char source[256];
+};
+
+#define UBE_MONITOR_TRACKING_CAPACITY 256u
+
+/* Monitor ownership is tracked per native thread so structured error
+   handling can temporarily release locks while a handler runs. */
+struct ube_monitor_tracking {
+    void* object;
+    uint32_t held_count;
+    uint32_t released_for_error;
+};
+
+struct ube_thread_record;
+struct ube_thread_local_state {
+    struct ube_error_state error;
+    int64_t thread_id;
+    struct ube_thread_record* thread_record;
+    uint32_t event_depth;
+    struct ube_monitor_tracking monitors[UBE_MONITOR_TRACKING_CAPACITY];
+};
+
+static INIT_ONCE ube_tls_once = INIT_ONCE_STATIC_INIT;
+static DWORD ube_tls_index = FLS_OUT_OF_INDEXES;
+
+static VOID CALLBACK ube_tls_release(PVOID value) {
+    free(value);
+}
+
+static BOOL CALLBACK ube_tls_initialize(PINIT_ONCE once, PVOID parameter,
+                                        PVOID* context) {
+    (void)once;
+    (void)parameter;
+    (void)context;
+    ube_tls_index = FlsAlloc(ube_tls_release);
+    return ube_tls_index != FLS_OUT_OF_INDEXES;
+}
+
+static struct ube_thread_local_state* ube_tls_get(int create) {
+    if (!InitOnceExecuteOnce(&ube_tls_once, ube_tls_initialize, NULL, NULL)) {
+        return NULL;
+    }
+    struct ube_thread_local_state* state = FlsGetValue(ube_tls_index);
+    if (state == NULL && create) {
+        state = calloc(1, sizeof(*state));
+        if (state == NULL || !FlsSetValue(ube_tls_index, state)) {
+            free(state);
+            return NULL;
+        }
+    }
+    return state;
+}
+
+/* Copies bounded diagnostic text without depending on locale or allocation. */
+static void ube_error_copy_text(char* destination, size_t capacity,
+                                const char* source) {
+    if (capacity == 0u) return;
+    if (source == NULL) source = "";
+    const size_t length = strlen(source);
+    const size_t copied = length < capacity - 1u ? length : capacity - 1u;
+    memcpy(destination, source, copied);
+    destination[copied] = '\0';
+}
+
+/* Records a recoverable failure in the calling thread without clearing any
+   other thread's state. */
+void ube_err_set(int32_t number, const char* description, const char* source) {
+    struct ube_thread_local_state* state = ube_tls_get(1);
+    if (state == NULL) return;
+    ++state->error.revision;
+    if (state->error.revision == 0) ++state->error.revision;
+    state->error.number = number;
+    ube_error_copy_text(state->error.description,
+                        sizeof(state->error.description), description);
+    ube_error_copy_text(state->error.source,
+                        sizeof(state->error.source), source);
+}
+
+/* Returns the calling thread's current UBE error number. */
+int32_t ube_err_number(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    return state != NULL ? state->error.number : 0;
+}
+
+/* Explicitly clears the calling thread's error record. Successful operations
+   deliberately do not call this function. */
+void ube_err_clear(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    if (state != NULL) {
+        uint64_t revision = state->error.revision + 1u;
+        if (revision == 0) revision = 1u;
+        memset(&state->error, 0, sizeof(state->error));
+        state->error.revision = revision;
+    }
+}
+
+/* Event recursion is admitted before generated dispatch enters user code so a
+   recursive event cycle becomes an ordinary recoverable error before native
+   stack exhaustion. */
+int32_t ube_event_enter(void) {
+    struct ube_thread_local_state* state = ube_tls_get(1);
+    if (state == NULL) {
+        ube_err_set(7, "event recursion state allocation failed", "UBE.Events");
+        return 0;
+    }
+    if (state->event_depth >= 128u) {
+        ube_err_set(28, "event recursion limit exceeded", "UBE.Events");
+        return 0;
+    }
+    ++state->event_depth;
+    return 1;
+}
+
+void ube_event_leave(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    if (state != NULL && state->event_depth != 0u) --state->event_depth;
+}
+
+static BOOL CALLBACK ube_event_initialize_lock(PINIT_ONCE once, PVOID parameter,
+                                                PVOID* context) {
+    (void)once;
+    (void)parameter;
+    (void)context;
+    InitializeCriticalSection(&ube_event_lock);
+    return TRUE;
+}
+
+static int ube_event_enter_lock(void) {
+    if (!InitOnceExecuteOnce(&ube_event_lock_once, ube_event_initialize_lock,
+                             NULL, NULL)) {
+        ube_err_set(7, "event registry initialization failed", "UBE.Events");
+        return 0;
+    }
+    EnterCriticalSection(&ube_event_lock);
+    return 1;
+}
+
+static void ube_event_leave_lock(void) {
+    LeaveCriticalSection(&ube_event_lock);
+}
+
+/* Called with the event lock held. The event->collector lock order is shared
+   by connect and dispatch; component unload never holds the collector lock
+   while acquiring the event lock. */
+static int ube_event_component_identity_allowed(void* value) {
+    if (value == NULL) return 1;
+    int allowed = 1;
+    ube_gc_enter_lock();
+    for (struct ube_component_state* item = ube_components;
+         item != NULL; item = item->next) {
+        if (item->object == value) {
+            allowed = item->state != 3;
+            break;
+        }
+    }
+    ube_gc_leave_lock();
+    return allowed;
+}
+
+void ube_event_disconnect(void* receiver, int64_t field_id) {
+    if (!ube_event_enter_lock()) return;
+    struct ube_event_subscription** link = &ube_event_subscriptions;
+    struct ube_event_subscription* removed = NULL;
+    while (*link != NULL) {
+        struct ube_event_subscription* item = *link;
+        if (item->receiver == receiver && item->field_id == field_id) {
+            *link = item->next;
+            item->next = removed;
+            removed = item;
+        } else {
+            link = &item->next;
+        }
+    }
+    ube_event_leave_lock();
+    while (removed != NULL) {
+        struct ube_event_subscription* next = removed->next;
+        if (removed->receiver != NULL) (void)ube_gc_unpin(removed->receiver);
+        free(removed);
+        removed = next;
+    }
+}
+
+static void ube_event_disconnect_identity(void* identity) {
+    if (identity == NULL || !ube_event_enter_lock()) return;
+    struct ube_event_subscription** link = &ube_event_subscriptions;
+    struct ube_event_subscription* removed = NULL;
+    while (*link != NULL) {
+        struct ube_event_subscription* item = *link;
+        if (item->source == identity || item->receiver == identity) {
+            *link = item->next;
+            item->next = removed;
+            removed = item;
+        } else {
+            link = &item->next;
+        }
+    }
+    ube_event_leave_lock();
+    while (removed != NULL) {
+        struct ube_event_subscription* next = removed->next;
+        if (removed->receiver != NULL) (void)ube_gc_unpin(removed->receiver);
+        free(removed);
+        removed = next;
+    }
+}
+
+int32_t ube_event_connect(void* receiver, int64_t field_id, void* source,
+                          int64_t event_id, ube_event_callback callback) {
+    if (source == NULL || callback == NULL) return 1;
+    struct ube_event_subscription* item = calloc(1, sizeof(*item));
+    if (item == NULL) {
+        ube_err_set(7, "event subscription allocation failed", "UBE.Events");
+        return 0;
+    }
+    if (receiver != NULL && !ube_gc_pin(receiver)) {
+        free(item);
+        ube_err_set(91, "event receiver is not live", "UBE.Events");
+        return 0;
+    }
+    if (!ube_event_enter_lock()) {
+        if (receiver != NULL) (void)ube_gc_unpin(receiver);
+        free(item);
+        return 0;
+    }
+    if (!ube_event_component_identity_allowed(source) ||
+        !ube_event_component_identity_allowed(receiver)) {
+        ube_event_leave_lock();
+        if (receiver != NULL) (void)ube_gc_unpin(receiver);
+        free(item);
+        ube_err_set(91, "event endpoint is unloading", "UBE.Events");
+        return 0;
+    }
+    if (ube_event_generation == UINT64_MAX || ube_event_order == UINT64_MAX) {
+        ube_event_leave_lock();
+        if (receiver != NULL) (void)ube_gc_unpin(receiver);
+        free(item);
+        ube_err_set(7, "event subscription identity capacity exhausted", "UBE.Events");
+        return 0;
+    }
+    item->source = source;
+    item->receiver = receiver;
+    item->field_id = field_id;
+    item->event_id = event_id;
+    item->callback = callback;
+    item->generation = ++ube_event_generation;
+    item->order = ++ube_event_order;
+    item->next = ube_event_subscriptions;
+    ube_event_subscriptions = item;
+    ube_event_leave_lock();
+    return 1;
+}
+
+static int ube_event_snapshot_compare(const void* left, const void* right) {
+    const struct ube_event_snapshot* a = left;
+    const struct ube_event_snapshot* b = right;
+    return a->order < b->order ? -1 : a->order > b->order ? 1 : 0;
+}
+
+int32_t ube_event_dispatch(void* source, int64_t event_id, void* arguments) {
+    if (source == NULL) return 1;
+    if (!ube_event_enter()) return 0;
+    if (!ube_gc_pin(source)) {
+        ube_event_leave();
+        ube_err_set(91, "event source is not live", "UBE.Events");
+        return 0;
+    }
+    if (!ube_event_enter_lock()) {
+        (void)ube_gc_unpin(source);
+        ube_event_leave();
+        return 0;
+    }
+    if (!ube_event_component_identity_allowed(source)) {
+        ube_event_leave_lock();
+        (void)ube_gc_unpin(source);
+        ube_event_leave();
+        ube_err_set(91, "event source is unloading", "UBE.Events");
+        return 0;
+    }
+    size_t count = 0;
+    for (struct ube_event_subscription* item = ube_event_subscriptions;
+         item != NULL; item = item->next) {
+        if (item->source == source && item->event_id == event_id) ++count;
+    }
+    const int inject_snapshot_failure = count != 0 &&
+        ube_event_test_snapshot_failures != 0;
+    if (inject_snapshot_failure) --ube_event_test_snapshot_failures;
+    struct ube_event_snapshot* snapshot = count == 0 || inject_snapshot_failure
+        ? NULL : calloc(count, sizeof(*snapshot));
+    if (count != 0 && snapshot == NULL) {
+        ube_event_leave_lock();
+        (void)ube_gc_unpin(source);
+        ube_event_leave();
+        ube_err_set(7, "event dispatch snapshot allocation failed", "UBE.Events");
+        return 0;
+    }
+    size_t index = 0;
+    for (struct ube_event_subscription* item = ube_event_subscriptions;
+         item != NULL; item = item->next) {
+        if (item->source == source && item->event_id == event_id) {
+            snapshot[index].source = item->source;
+            snapshot[index].receiver = item->receiver;
+            snapshot[index].field_id = item->field_id;
+            snapshot[index].event_id = item->event_id;
+            snapshot[index].generation = item->generation;
+            snapshot[index].order = item->order;
+            snapshot[index].callback = item->callback;
+            ++index;
+        }
+    }
+    ube_event_leave_lock();
+    if (count > 1) qsort(snapshot, count, sizeof(*snapshot), ube_event_snapshot_compare);
+    int dispatch_ok = 1;
+    for (index = 0; index < count; ++index) {
+        int active = 0;
+        if (!ube_event_enter_lock()) {
+            dispatch_ok = 0;
+            break;
+        }
+        for (struct ube_event_subscription* item = ube_event_subscriptions;
+             item != NULL; item = item->next) {
+            if (item->generation == snapshot[index].generation &&
+                item->source == snapshot[index].source &&
+                item->receiver == snapshot[index].receiver &&
+                item->field_id == snapshot[index].field_id &&
+                item->event_id == snapshot[index].event_id) {
+                active = snapshot[index].receiver == NULL ||
+                    ube_gc_pin(snapshot[index].receiver);
+                break;
+            }
+        }
+        ube_event_leave_lock();
+        if (active) {
+            snapshot[index].callback(snapshot[index].receiver, arguments);
+            if (snapshot[index].receiver != NULL) {
+                (void)ube_gc_unpin(snapshot[index].receiver);
+            }
+        }
+    }
+    free(snapshot);
+    (void)ube_gc_unpin(source);
+    ube_event_leave();
+    return dispatch_ok;
+}
+
+void ube_event_test_fail_snapshots(uint32_t count) {
+    if (!ube_event_enter_lock()) return;
+    ube_event_test_snapshot_failures = count;
+    ube_event_leave_lock();
+}
+
+/* Returns an independently managed copy of the current error description. */
+void* ube_err_description(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    const char* description = state != NULL ? state->error.description : "";
+    const size_t length = strlen(description);
+    char* result = ube_allocate_string_managed(length);
+    if (result == NULL) return NULL;
+    memcpy(result, description, length + 1u);
+    return result;
+}
+
+/* Returns an independently managed copy of the current error source. */
+void* ube_err_source(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    const char* source = state != NULL ? state->error.source : "";
+    const size_t length = strlen(source);
+    char* result = ube_allocate_string_managed(length);
+    if (result == NULL) return NULL;
+    memcpy(result, source, length + 1u);
+    return result;
+}
+
+/* The executable carries its own native-thread registry. Completed records are
+   discarded immediately; the monotonically increasing high-water mark is
+   enough to distinguish an issued/completed identifier from an invalid one. */
+typedef void (*ube_thread_entry)(void* capture);
+typedef void (*ube_thread_capture_destructor)(void* capture);
+typedef void (*ube_dispatch_callback)(void* context);
+typedef int32_t (*ube_dispatch_adapter)(int64_t target_thread_id,
+                                        ube_dispatch_callback callback,
+                                        void* context);
+
+struct ube_thread_record {
+    struct ube_thread_record* next;
+    int64_t id;
+    HANDLE completed;
+    HANDLE stop_requested;
+    ube_thread_entry entry;
+    ube_thread_capture_destructor destroy_capture;
+    void* capture;
+    int is_worker;
+    int64_t dispatch_wait_target;
+};
+
+static struct ube_thread_record* ube_threads;
+static int64_t ube_thread_high_water;
+static int ube_thread_accepting = 1;
+static uint32_t ube_thread_test_start_failures;
+static uint32_t ube_thread_test_wait_failures;
+static uint32_t ube_dispatch_test_admission_failures;
+static ube_dispatch_adapter ube_platform_dispatch_adapter;
+static HANDLE ube_thread_workers_done;
+static BOOL CALLBACK ube_thread_initialize_lock(PINIT_ONCE once, PVOID parameter,
+                                                 PVOID* context) {
+    (void)once;
+    (void)parameter;
+    (void)context;
+    InitializeCriticalSection(&ube_thread_lock);
+    ube_thread_workers_done = CreateEventA(NULL, TRUE, TRUE, NULL);
+    if (ube_thread_workers_done == NULL) {
+        DeleteCriticalSection(&ube_thread_lock);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static int ube_thread_enter_lock(void) {
+    if (!InitOnceExecuteOnce(&ube_thread_lock_once, ube_thread_initialize_lock,
+                             NULL, NULL)) {
+        ube_err_set(7, "thread registry initialization failed", "UBECore.Threads");
+        return 0;
+    }
+    EnterCriticalSection(&ube_thread_lock);
+    return 1;
+}
+
+static void ube_thread_leave_lock(void) {
+    LeaveCriticalSection(&ube_thread_lock);
+}
+
+static struct ube_thread_record* ube_thread_find_locked(int64_t id) {
+    struct ube_thread_record* record = ube_threads;
+    while (record != NULL) {
+        if (record->id == id) return record;
+        record = record->next;
+    }
+    return NULL;
+}
+
+static void ube_thread_signal_if_idle_locked(void) {
+    struct ube_thread_record* record = ube_threads;
+    while (record != NULL) {
+        if (record->is_worker) return;
+        record = record->next;
+    }
+    SetEvent(ube_thread_workers_done);
+}
+
+static DWORD WINAPI ube_thread_worker(LPVOID raw_record) {
+    struct ube_thread_record* record = raw_record;
+    struct ube_thread_local_state* state = ube_tls_get(1);
+    if (state == NULL) {
+        if (record->destroy_capture != NULL) {
+            record->destroy_capture(record->capture);
+        }
+        record->capture = NULL;
+        if (ube_thread_enter_lock()) {
+            struct ube_thread_record** link = &ube_threads;
+            while (*link != NULL && *link != record) link = &(*link)->next;
+            if (*link == record) *link = record->next;
+            SetEvent(record->completed);
+            ube_thread_signal_if_idle_locked();
+            ube_thread_leave_lock();
+            CloseHandle(record->stop_requested);
+            CloseHandle(record->completed);
+            free(record);
+        } else {
+            /* A registry-lock initialization failure is unrecoverable for this
+               worker, but retaining the record is safer than leaving a live
+               list entry that points at freed memory. */
+            SetEvent(record->completed);
+        }
+        return 0;
+    }
+    state->thread_id = record->id;
+    state->thread_record = record;
+    record->entry(record->capture);
+    if (record->destroy_capture != NULL) {
+        record->destroy_capture(record->capture);
+    }
+    record->capture = NULL;
+    ube_err_clear();
+
+    if (ube_thread_enter_lock()) {
+        struct ube_thread_record** link = &ube_threads;
+        while (*link != NULL && *link != record) link = &(*link)->next;
+        if (*link == record) *link = record->next;
+        SetEvent(record->completed);
+        ube_thread_signal_if_idle_locked();
+        ube_thread_leave_lock();
+        state->thread_record = NULL;
+        CloseHandle(record->stop_requested);
+        CloseHandle(record->completed);
+        free(record);
+    } else {
+        /* Preserve the registry node if it could not be detached. */
+        SetEvent(record->completed);
+    }
+    return 0;
+}
+
+/* Starts a native worker after its complete ByVal capture has been published.
+   The compiler supplies a typed thunk and an optional capture destructor. */
+int64_t ube_thread_start(ube_thread_entry entry, void* capture,
+                         ube_thread_capture_destructor destroy_capture) {
+    if (entry == NULL) {
+        if (destroy_capture != NULL) destroy_capture(capture);
+        ube_err_set(5, "CallNew target is invalid", "UBECore.Threads");
+        return 0;
+    }
+    struct ube_thread_record* record = calloc(1, sizeof(*record));
+    if (record == NULL) {
+        if (destroy_capture != NULL) destroy_capture(capture);
+        ube_err_set(7, "thread record allocation failed", "UBECore.Threads");
+        return 0;
+    }
+    record->completed = CreateEventA(NULL, TRUE, FALSE, NULL);
+    record->stop_requested = CreateEventA(NULL, TRUE, FALSE, NULL);
+    record->entry = entry;
+    record->destroy_capture = destroy_capture;
+    record->capture = capture;
+    record->is_worker = 1;
+    if (record->completed == NULL || record->stop_requested == NULL) {
+        if (record->completed != NULL) CloseHandle(record->completed);
+        if (record->stop_requested != NULL) CloseHandle(record->stop_requested);
+        free(record);
+        if (destroy_capture != NULL) destroy_capture(capture);
+        ube_err_set(7, "thread event allocation failed", "UBECore.Threads");
+        return 0;
+    }
+    if (!ube_thread_enter_lock()) {
+        CloseHandle(record->completed);
+        CloseHandle(record->stop_requested);
+        free(record);
+        if (destroy_capture != NULL) destroy_capture(capture);
+        return 0;
+    }
+    if (!ube_thread_accepting || ube_thread_high_water == INT64_MAX) {
+        ube_thread_leave_lock();
+        CloseHandle(record->completed);
+        CloseHandle(record->stop_requested);
+        free(record);
+        if (destroy_capture != NULL) destroy_capture(capture);
+        ube_err_set(7, "thread creation is closed", "UBECore.Threads");
+        return 0;
+    }
+    record->id = ++ube_thread_high_water;
+    record->next = ube_threads;
+    ube_threads = record;
+    ResetEvent(ube_thread_workers_done);
+    const int inject_failure = ube_thread_test_start_failures != 0;
+    if (inject_failure) --ube_thread_test_start_failures;
+    HANDLE native_thread = inject_failure
+        ? NULL : CreateThread(NULL, 0, ube_thread_worker, record, 0, NULL);
+    if (native_thread == NULL) {
+        ube_threads = record->next;
+        ube_thread_signal_if_idle_locked();
+        ube_thread_leave_lock();
+        CloseHandle(record->completed);
+        CloseHandle(record->stop_requested);
+        free(record);
+        if (destroy_capture != NULL) destroy_capture(capture);
+        ube_err_set(7, "native thread creation failed", "UBECore.Threads");
+        return 0;
+    }
+    const int64_t issued_id = record->id;
+    CloseHandle(native_thread);
+    ube_thread_leave_lock();
+    return issued_id;
+}
+
+int64_t ube_thread_current_id(void) {
+    struct ube_thread_local_state* state = ube_tls_get(1);
+    if (state == NULL) return 0;
+    if (state->thread_id == 0 && ube_thread_enter_lock()) {
+        struct ube_thread_record* record = calloc(1, sizeof(*record));
+        if (record != NULL && ube_thread_high_water < INT64_MAX) {
+            record->completed = CreateEventA(NULL, TRUE, FALSE, NULL);
+            record->stop_requested = CreateEventA(NULL, TRUE, FALSE, NULL);
+            if (record->completed != NULL && record->stop_requested != NULL) {
+                record->id = ++ube_thread_high_water;
+                record->next = ube_threads;
+                ube_threads = record;
+                state->thread_id = record->id;
+                state->thread_record = record;
+            } else {
+                if (record->completed != NULL) CloseHandle(record->completed);
+                if (record->stop_requested != NULL) CloseHandle(record->stop_requested);
+                free(record);
+            }
+        } else {
+            free(record);
+        }
+        ube_thread_leave_lock();
+        if (state->thread_id == 0) {
+            ube_err_set(7, "current thread registration failed", "UBECore.Threads");
+        }
+    }
+    return state->thread_id;
+}
+
+bool ube_thread_is_alive(int64_t id) {
+    if (id <= 0 || !ube_thread_enter_lock()) {
+        if (id <= 0) ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+        return 0;
+    }
+    const int found = ube_thread_find_locked(id) != NULL;
+    const int issued = id <= ube_thread_high_water;
+    ube_thread_leave_lock();
+    if (!issued) ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+    return found ? 1 : 0;
+}
+
+int32_t ube_thread_request_stop(int64_t id) {
+    if (id <= 0 || !ube_thread_enter_lock()) {
+        if (id <= 0) ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+        return 0;
+    }
+    struct ube_thread_record* record = ube_thread_find_locked(id);
+    const int issued = id <= ube_thread_high_water;
+    int32_t result = 0;
+    if (record != NULL) result = SetEvent(record->stop_requested) ? 1 : 0;
+    ube_thread_leave_lock();
+    if (!issued) ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+    else if (record != NULL && !result) ube_err_set(7, "stop request failed", "UBECore.Threads");
+    return result;
+}
+
+bool ube_thread_stop_requested(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    struct ube_thread_record* record = state != NULL ? state->thread_record : NULL;
+    if (record == NULL) return 0;
+    return WaitForSingleObject(record->stop_requested, 0) == WAIT_OBJECT_0 ? 1 : 0;
+}
+
+int32_t ube_thread_wait(int64_t id, int64_t timeout_milliseconds) {
+    if (id <= 0) {
+        ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+        return 0;
+    }
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    if (state != NULL && id == state->thread_id && id != 0) {
+        ube_err_set(5, "a thread cannot wait for itself", "UBECore.Threads");
+        return 0;
+    }
+    if (timeout_milliseconds < -1 || timeout_milliseconds > UINT32_MAX) {
+        ube_err_set(5, "thread wait timeout is invalid", "UBECore.Threads");
+        return 0;
+    }
+    if (!ube_thread_enter_lock()) return 0;
+    struct ube_thread_record* target = ube_thread_find_locked(id);
+    const int issued = id <= ube_thread_high_water;
+    HANDLE completed_copy = NULL;
+    const int inject_wait_failure = target != NULL &&
+        ube_thread_test_wait_failures != 0;
+    if (inject_wait_failure) --ube_thread_test_wait_failures;
+    if (target != NULL && !inject_wait_failure) {
+        DuplicateHandle(GetCurrentProcess(), target->completed,
+                        GetCurrentProcess(), &completed_copy, SYNCHRONIZE,
+                        FALSE, 0);
+    }
+    ube_thread_leave_lock();
+    if (!issued) {
+        ube_err_set(5, "thread identifier was never issued", "UBECore.Threads");
+        return 0;
+    }
+    if (target == NULL) return 1;
+    if (completed_copy == NULL) {
+        ube_err_set(7, "thread wait registration failed", "UBECore.Threads");
+        return 0;
+    }
+    HANDLE waits[2] = { completed_copy, NULL };
+    DWORD wait_count = 1;
+    if (state != NULL && state->thread_record != NULL) {
+        waits[1] = state->thread_record->stop_requested;
+        wait_count = 2;
+    }
+    const DWORD timeout = timeout_milliseconds < 0
+        ? INFINITE : (DWORD)timeout_milliseconds;
+    const DWORD wait_result = WaitForMultipleObjects(wait_count, waits, FALSE, timeout);
+    CloseHandle(completed_copy);
+    if (wait_result == WAIT_OBJECT_0) return 1;
+    if (wait_result == WAIT_TIMEOUT || (wait_count == 2 && wait_result == WAIT_OBJECT_0 + 1)) return 0;
+    ube_err_set(7, "thread wait failed", "UBECore.Threads");
+    return 0;
+}
+
+void ube_thread_yield(void) {
+    SwitchToThread();
+}
+
+/* Installs the framework-owned UI dispatcher adapter. The adapter is invoked
+   without any UBE registry/collector lock held and must synchronously execute
+   the callback on target_thread_id before returning success. */
+void ube_dispatch_install_adapter(ube_dispatch_adapter adapter) {
+    if (!ube_thread_enter_lock()) return;
+    ube_platform_dispatch_adapter = adapter;
+    ube_thread_leave_lock();
+}
+
+int32_t ube_dispatch_invoke(int64_t target_thread_id,
+                            ube_dispatch_callback callback, void* context) {
+    if (target_thread_id <= 0 || callback == NULL) {
+        ube_err_set(5, "dispatcher target or callback is invalid", "UBE.Dispatcher");
+        return 0;
+    }
+    const int64_t current_thread_id = ube_thread_current_id();
+    if (current_thread_id == 0) return 0;
+    if (current_thread_id == target_thread_id) {
+        callback(context);
+        return 1;
+    }
+    if (!ube_thread_enter_lock()) return 0;
+    struct ube_thread_record* current =
+        ube_thread_find_locked(current_thread_id);
+    struct ube_thread_record* target =
+        ube_thread_find_locked(target_thread_id);
+    const int inject_failure = ube_dispatch_test_admission_failures != 0;
+    if (inject_failure) --ube_dispatch_test_admission_failures;
+    if (current == NULL || target == NULL || inject_failure) {
+        ube_thread_leave_lock();
+        ube_err_set(inject_failure ? 7 : 91,
+                    inject_failure ? "dispatcher admission failed" :
+                        "dispatcher thread is not live",
+                    "UBE.Dispatcher");
+        return 0;
+    }
+    if (target->dispatch_wait_target == current_thread_id) {
+        ube_thread_leave_lock();
+        ube_err_set(5, "direct dispatcher wait cycle detected", "UBE.Dispatcher");
+        return 0;
+    }
+    ube_dispatch_adapter adapter = ube_platform_dispatch_adapter;
+    if (adapter == NULL) {
+        ube_thread_leave_lock();
+        ube_err_set(91, "platform dispatcher is not installed", "UBE.Dispatcher");
+        return 0;
+    }
+    current->dispatch_wait_target = target_thread_id;
+    ube_thread_leave_lock();
+
+    const int32_t result = adapter(target_thread_id, callback, context);
+
+    if (ube_thread_enter_lock()) {
+        current = ube_thread_find_locked(current_thread_id);
+        if (current != NULL && current->dispatch_wait_target == target_thread_id) {
+            current->dispatch_wait_target = 0;
+        }
+        ube_thread_leave_lock();
+    }
+    if (!result) {
+        ube_err_set(7, "platform dispatcher rejected the callback", "UBE.Dispatcher");
+        return 0;
+    }
+    return 1;
+}
+
+void ube_thread_test_fail_starts(uint32_t count) {
+    if (!ube_thread_enter_lock()) return;
+    ube_thread_test_start_failures = count;
+    ube_thread_leave_lock();
+}
+
+void ube_thread_test_fail_waits(uint32_t count) {
+    if (!ube_thread_enter_lock()) return;
+    ube_thread_test_wait_failures = count;
+    ube_thread_leave_lock();
+}
+
+void ube_dispatch_test_fail_admissions(uint32_t count) {
+    if (!ube_thread_enter_lock()) return;
+    ube_dispatch_test_admission_failures = count;
+    ube_thread_leave_lock();
+}
+
+int32_t ube_dispatch_test_set_wait_target(int64_t thread_id,
+                                          int64_t target_thread_id) {
+    if (!ube_thread_enter_lock()) return 0;
+    struct ube_thread_record* record = ube_thread_find_locked(thread_id);
+    if (record != NULL) record->dispatch_wait_target = target_thread_id;
+    ube_thread_leave_lock();
+    return record != NULL ? 1 : 0;
+}
+
+void ube_thread_close_admission(void) {
+    if (!ube_thread_enter_lock()) return;
+    ube_thread_accepting = 0;
+    ube_thread_leave_lock();
+}
+
+void ube_thread_program_wait(void) {
+    for (;;) {
+        if (!ube_thread_enter_lock()) return;
+        int found_worker = 0;
+        struct ube_thread_record* record = ube_threads;
+        while (record != NULL) {
+            if (record->is_worker) {
+                found_worker = 1;
+                break;
+            }
+            record = record->next;
+        }
+        ube_thread_leave_lock();
+
+        ube_gc_enter_lock();
+        const int found_event_source = ube_active_event_sources != 0;
+        HANDLE sources_done = ube_component_sources_done;
+        ube_gc_leave_lock();
+
+        if (!found_worker && !found_event_source) {
+            if (!ube_thread_enter_lock()) return;
+            ube_thread_accepting = 0;
+            ube_thread_leave_lock();
+            return;
+        }
+        HANDLE waits[2];
+        DWORD wait_count = 0;
+        if (found_worker) waits[wait_count++] = ube_thread_workers_done;
+        if (found_event_source && sources_done != NULL) {
+            waits[wait_count++] = sources_done;
+        }
+        if (wait_count == 0 ||
+            WaitForMultipleObjects(wait_count, waits, FALSE, INFINITE) == WAIT_FAILED) {
+            ube_err_set(7, "program shutdown wait failed", "UBECore.Threads");
+            fputs("UBE thread support: program shutdown wait failed\n", stderr);
+            return;
+        }
+    }
+}
 
 static BOOL CALLBACK ube_gc_initialize_lock(PINIT_ONCE once, PVOID parameter,
                                              PVOID* context) {
@@ -133,6 +1033,11 @@ static BOOL CALLBACK ube_gc_initialize_lock(PINIT_ONCE once, PVOID parameter,
     (void)parameter;
     (void)context;
     InitializeCriticalSection(&ube_gc_lock);
+    ube_component_sources_done = CreateEventA(NULL, TRUE, TRUE, NULL);
+    if (ube_component_sources_done == NULL) {
+        DeleteCriticalSection(&ube_gc_lock);
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -195,7 +1100,16 @@ int32_t ube_library_call_enter(void) {
     if (!ube_library_accepting_calls || ube_gc_shutdown ||
         ube_library_active_calls == SIZE_MAX) {
         if (!ube_gc_shutdown) {
-            ube_library_set_diagnostic_text("library is shutting down");
+            struct ube_library_diagnostic_slot* slot =
+                ube_library_diagnostic_slot_for_current_thread(1);
+            if (slot != NULL) {
+                const char* message = "library is shutting down";
+                const size_t length = strlen(message);
+                const size_t copied = length < sizeof(slot->text) - 1
+                    ? length : sizeof(slot->text) - 1;
+                memcpy(slot->text, message, copied);
+                slot->text[copied] = '\0';
+            }
         }
         ube_gc_leave_lock();
         return 0;
@@ -443,6 +1357,7 @@ int32_t ube_gc_collect(void) {
             }
             ube_gc_hash_remove(item);
             item->magic = 0;
+            if (item->monitor_initialized) DeleteCriticalSection(&item->monitor);
             if (item->owns_layout) free((void*)item->layout);
             free(item);
             performed = 1;
@@ -504,6 +1419,8 @@ void* ube_gc_allocate(const struct ube_gc_layout* layout) {
     header->layout = layout;
     header->payload_size = layout->size;
     header->magic = UBE_GC_MAGIC;
+    InitializeCriticalSection(&header->monitor);
+    header->monitor_initialized = 1;
     ube_gc_allocations = header;
     ube_gc_hash_insert(header);
     ube_gc_live_bytes += layout->size;
@@ -566,6 +1483,8 @@ static void* ube_gc_allocate_untraced_pending(size_t size) {
     header->payload_size = size;
     header->magic = UBE_GC_MAGIC;
     header->pending_publication = 1;
+    InitializeCriticalSection(&header->monitor);
+    header->monitor_initialized = 1;
     ube_gc_allocations = header;
     ube_gc_hash_insert(header);
     ube_gc_live_bytes += size;
@@ -638,6 +1557,1112 @@ int32_t ube_gc_unpin(void* value) {
     }
     header->pin_count -= 1;
     ube_gc_leave_lock();
+    return 1;
+}
+
+int32_t ube_component_begin_load(void* value, int32_t kind) {
+    if (value == NULL) {
+        ube_err_set(91, "Load target is Nothing", "UBE.Components");
+        return 0;
+    }
+    ube_gc_enter_lock();
+    struct ube_gc_header* header = ube_gc_header_from_value(value);
+    if (header == NULL) {
+        ube_gc_leave_lock();
+        ube_err_set(91, "Load target is not a live managed component", "UBE.Components");
+        return 0;
+    }
+    struct ube_component_state* item = ube_components;
+    while (item != NULL && item->object != value) item = item->next;
+    if (item != NULL) {
+        const int32_t result = item->state == 2 ? 2 : 0;
+        ube_gc_leave_lock();
+        if (result == 0) {
+            ube_err_set(91, "component is loading or unloading", "UBE.Components");
+        }
+        return result;
+    }
+    if (kind == 52) {
+        struct ube_component_parent* parent_link = ube_component_parents;
+        while (parent_link != NULL && parent_link->child != value) {
+            parent_link = parent_link->next;
+        }
+        struct ube_component_state* parent_state = ube_components;
+        while (parent_link != NULL && parent_state != NULL &&
+               parent_state->object != parent_link->parent) {
+            parent_state = parent_state->next;
+        }
+        if (parent_link == NULL || parent_state == NULL ||
+            parent_state->state != 2) {
+            ube_gc_leave_lock();
+            ube_err_set(91, "control has no loaded parent context", "UBE.Components");
+            return 0;
+        }
+    }
+    item = calloc(1, sizeof(*item));
+    if (item == NULL || header->pin_count == UINT32_MAX) {
+        free(item);
+        ube_gc_leave_lock();
+        ube_err_set(7, "component load bookkeeping failed", "UBE.Components");
+        return 0;
+    }
+    ++header->pin_count;
+    item->object = value;
+    item->kind = kind;
+    item->state = 1;
+    struct ube_thread_local_state* thread_state = ube_tls_get(0);
+    item->load_error_revision = thread_state != NULL
+        ? thread_state->error.revision : 0u;
+    item->next = ube_components;
+    ube_components = item;
+    ube_gc_leave_lock();
+    return 1;
+}
+
+/* Framework/designer adapter used before loading a control identity. */
+int32_t ube_component_attach_parent(void* child, void* parent) {
+    if (child == NULL || parent == NULL) {
+        ube_err_set(91, "control parent context is invalid", "UBE.Components");
+        return 0;
+    }
+    ube_gc_enter_lock();
+    if (ube_gc_header_from_value(child) == NULL ||
+        ube_gc_header_from_value(parent) == NULL) {
+        ube_gc_leave_lock();
+        ube_err_set(91, "control parent context is not live", "UBE.Components");
+        return 0;
+    }
+    struct ube_component_parent* item = ube_component_parents;
+    while (item != NULL && item->child != child) item = item->next;
+    if (item == NULL) {
+        item = calloc(1u, sizeof(*item));
+        if (item == NULL) {
+            ube_gc_leave_lock();
+            ube_err_set(7, "control parent bookkeeping failed", "UBE.Components");
+            return 0;
+        }
+        item->child = child;
+        item->next = ube_component_parents;
+        ube_component_parents = item;
+    }
+    item->parent = parent;
+    ube_gc_leave_lock();
+    return 1;
+}
+
+int32_t ube_component_finish_load(void* value, int32_t succeeded) {
+    int32_t result = 0;
+    ube_gc_enter_lock();
+    struct ube_component_state** link = &ube_components;
+    while (*link != NULL && (*link)->object != value) link = &(*link)->next;
+    if (*link != NULL && (*link)->state == 1) {
+        struct ube_thread_local_state* thread_state = ube_tls_get(0);
+        const int hook_failed = succeeded && thread_state != NULL &&
+            thread_state->error.revision != (*link)->load_error_revision &&
+            thread_state->error.number != 0;
+        if (succeeded && !hook_failed) {
+            (*link)->state = 2;
+            if (ube_active_event_sources == 0 &&
+                ube_component_sources_done != NULL) {
+                ResetEvent(ube_component_sources_done);
+            }
+            ++ube_active_event_sources;
+            result = 1;
+        } else {
+            struct ube_component_state* removed = *link;
+            *link = removed->next;
+            struct ube_gc_header* header = ube_gc_header_from_value(value);
+            if (header != NULL && header->pin_count != 0) --header->pin_count;
+            free(removed);
+        }
+    }
+    ube_gc_leave_lock();
+    return result;
+}
+
+static void ube_component_clear_aliases_locked(void* value) {
+    struct ube_component_parent** parent_link = &ube_component_parents;
+    while (*parent_link != NULL) {
+        if ((*parent_link)->child == value || (*parent_link)->parent == value) {
+            struct ube_component_parent* removed = *parent_link;
+            *parent_link = removed->next;
+            free(removed);
+        } else {
+            parent_link = &(*parent_link)->next;
+        }
+    }
+    for (struct ube_default_form_slot* item = ube_default_form_slots;
+         item != NULL; item = item->next) {
+        if (item->slot != NULL && *item->slot == value) item->tombstone = 1;
+    }
+    for (struct ube_gc_root* root = ube_gc_roots; root != NULL; root = root->next) {
+        if (root->slot == NULL) continue;
+        if (root->slot_count <= 1 && root->slot_offsets == NULL) {
+            if (*root->slot == value) *root->slot = NULL;
+        } else {
+            unsigned char* base = (unsigned char*)root->slot;
+            for (size_t index = 0; index < root->slot_count; ++index) {
+                void** slot = (void**)(base + root->slot_offsets[index]);
+                if (*slot == value) *slot = NULL;
+            }
+        }
+    }
+    for (struct ube_gc_header* header = ube_gc_allocations;
+         header != NULL; header = header->next) {
+        if (header->layout == NULL) continue;
+        for (size_t index = 0; index < header->layout->slot_count; ++index) {
+            void** slot = (void**)(header->data + header->layout->slot_offsets[index]);
+            if (*slot == value) *slot = NULL;
+        }
+    }
+    for (size_t index = 0; index < ube_object_lease_count; ++index) {
+        if (ube_object_leases[index].object == value) {
+            ube_object_leases[index].object = NULL;
+            ube_object_leases[index].leases = 0;
+            ++ube_object_leases[index].generation;
+            if (ube_object_leases[index].generation == 0) {
+                ube_object_leases[index].generation = 1;
+            }
+        }
+    }
+}
+
+static void ube_component_finalize_unload_locked(
+    struct ube_component_state** link) {
+    struct ube_component_state* removed = *link;
+    void* value = removed->object;
+    *link = removed->next;
+    if (ube_active_event_sources != 0) {
+        --ube_active_event_sources;
+        if (ube_active_event_sources == 0 &&
+            ube_component_sources_done != NULL) {
+            SetEvent(ube_component_sources_done);
+        }
+    }
+    struct ube_gc_header* header = ube_gc_header_from_value(value);
+    if (header != NULL && header->pin_count != 0) --header->pin_count;
+    ube_component_clear_aliases_locked(value);
+    free(removed);
+}
+
+int32_t ube_component_enter_call(void* value) {
+    if (value == NULL) {
+        ube_err_set(91, "component call target is Nothing", "UBE.Components");
+        return 0;
+    }
+    int32_t admitted = 0;
+    ube_gc_enter_lock();
+    struct ube_component_state* item = ube_components;
+    while (item != NULL && item->object != value) item = item->next;
+    if (item != NULL && item->state == 2 && item->active_calls != UINT32_MAX) {
+        ++item->active_calls;
+        admitted = 1;
+    }
+    ube_gc_leave_lock();
+    if (!admitted) {
+        ube_err_set(91, "component is not accepting procedure calls", "UBE.Components");
+    }
+    return admitted;
+}
+
+void ube_component_leave_call(void* value) {
+    if (value == NULL) return;
+    ube_gc_enter_lock();
+    struct ube_component_state** link = &ube_components;
+    while (*link != NULL && (*link)->object != value) link = &(*link)->next;
+    if (*link != NULL && (*link)->active_calls != 0) {
+        --(*link)->active_calls;
+        if ((*link)->state == 3 && (*link)->active_calls == 0) {
+            ube_component_finalize_unload_locked(link);
+        }
+    }
+    ube_gc_leave_lock();
+}
+
+int32_t ube_component_accept_unload(void* value) {
+    if (value == NULL) return 1;
+    ube_gc_enter_lock();
+    struct ube_component_state** link = &ube_components;
+    while (*link != NULL && (*link)->object != value) link = &(*link)->next;
+    if (*link == NULL || (*link)->state != 2) {
+        ube_gc_leave_lock();
+        return 1;
+    }
+    (*link)->state = 3;
+    ube_gc_leave_lock();
+    ube_event_disconnect_identity(value);
+    ube_gc_enter_lock();
+    link = &ube_components;
+    while (*link != NULL && (*link)->object != value) link = &(*link)->next;
+    if (*link != NULL && (*link)->state == 3 && (*link)->active_calls == 0) {
+        ube_component_finalize_unload_locked(link);
+    }
+    ube_gc_leave_lock();
+    return 1;
+}
+
+/* Acquires the reentrant synchronization identity carried by a managed
+   object. Pinning before the potentially blocking host call prevents the
+   collector from reclaiming either an owner or a waiter. */
+static struct ube_monitor_tracking* ube_monitor_tracking_find(
+    struct ube_thread_local_state* state, void* value, int create) {
+    struct ube_monitor_tracking* available = NULL;
+    if (state == NULL || value == NULL) return NULL;
+    for (size_t index = 0u; index < UBE_MONITOR_TRACKING_CAPACITY; ++index) {
+        struct ube_monitor_tracking* entry = &state->monitors[index];
+        if (entry->object == value) return entry;
+        if (available == NULL && entry->object == NULL &&
+            entry->held_count == 0u && entry->released_for_error == 0u) {
+            available = entry;
+        }
+    }
+    if (create && available != NULL) available->object = value;
+    return create ? available : NULL;
+}
+
+static CRITICAL_SECTION* ube_monitor_for_object(void* value) {
+    CRITICAL_SECTION* monitor = NULL;
+    ube_gc_enter_lock();
+    struct ube_gc_header* header = ube_gc_header_from_value(value);
+    if (header != NULL && header->monitor_initialized) {
+        monitor = &header->monitor;
+    }
+    ube_gc_leave_lock();
+    return monitor;
+}
+
+static void ube_monitor_tracking_clear_if_unused(
+    struct ube_monitor_tracking* entry) {
+    if (entry != NULL && entry->held_count == 0u &&
+        entry->released_for_error == 0u) {
+        entry->object = NULL;
+    }
+}
+
+int32_t ube_monitor_enter(void* value) {
+    if (value == NULL) {
+        ube_err_set(91, "SyncLock object is Nothing", "UBE.SyncLock");
+        return 0;
+    }
+    struct ube_thread_local_state* state = ube_tls_get(1);
+    struct ube_monitor_tracking* tracking =
+        ube_monitor_tracking_find(state, value, 1);
+    if (tracking == NULL || tracking->held_count == UINT32_MAX) {
+        ube_err_set(7, "SyncLock ownership capacity exhausted", "UBE.SyncLock");
+        return 0;
+    }
+    if (!ube_gc_pin(value)) {
+        ube_monitor_tracking_clear_if_unused(tracking);
+        ube_err_set(91, "SyncLock object is invalid", "UBE.SyncLock");
+        return 0;
+    }
+    CRITICAL_SECTION* monitor = ube_monitor_for_object(value);
+    if (monitor == NULL) {
+        (void)ube_gc_unpin(value);
+        ube_monitor_tracking_clear_if_unused(tracking);
+        ube_err_set(91, "SyncLock object is invalid", "UBE.SyncLock");
+        return 0;
+    }
+    EnterCriticalSection(monitor);
+    tracking->held_count += 1u;
+    return 1;
+}
+
+/* Releases one reentrant monitor level and the matching collector pin. */
+void ube_monitor_exit(void* value) {
+    if (value == NULL) return;
+    struct ube_monitor_tracking* tracking =
+        ube_monitor_tracking_find(ube_tls_get(0), value, 0);
+    if (tracking == NULL) return;
+    if (tracking->held_count > 0u) {
+        CRITICAL_SECTION* monitor = ube_monitor_for_object(value);
+        if (monitor == NULL) return;
+        tracking->held_count -= 1u;
+        LeaveCriticalSection(monitor);
+        (void)ube_gc_unpin(value);
+    } else if (tracking->released_for_error > 0u) {
+        tracking->released_for_error -= 1u;
+    }
+    ube_monitor_tracking_clear_if_unused(tracking);
+}
+
+/* Temporarily releases one compiler-owned monitor level before transferring
+   control to an On Error handler. */
+void ube_monitor_error_release(void* value) {
+    if (value == NULL) return;
+    struct ube_monitor_tracking* tracking =
+        ube_monitor_tracking_find(ube_tls_get(0), value, 0);
+    if (tracking == NULL || tracking->held_count == 0u ||
+        tracking->released_for_error == UINT32_MAX) return;
+    CRITICAL_SECTION* monitor = ube_monitor_for_object(value);
+    if (monitor == NULL) return;
+    tracking->held_count -= 1u;
+    tracking->released_for_error += 1u;
+    LeaveCriticalSection(monitor);
+    (void)ube_gc_unpin(value);
+}
+
+/* Reacquires one monitor level when Resume or Resume Next returns to the
+   protected statement. Resume <label> deliberately abandons released levels. */
+void ube_monitor_error_resume(void* value) {
+    if (value == NULL) return;
+    struct ube_monitor_tracking* tracking =
+        ube_monitor_tracking_find(ube_tls_get(0), value, 0);
+    if (tracking == NULL || tracking->released_for_error == 0u ||
+        tracking->held_count == UINT32_MAX) return;
+    if (!ube_gc_pin(value)) {
+        ube_err_set(91, "SyncLock object is invalid", "UBE.SyncLock");
+        return;
+    }
+    CRITICAL_SECTION* monitor = ube_monitor_for_object(value);
+    if (monitor == NULL) {
+        (void)ube_gc_unpin(value);
+        ube_err_set(91, "SyncLock object is invalid", "UBE.SyncLock");
+        return;
+    }
+    EnterCriticalSection(monitor);
+    tracking->released_for_error -= 1u;
+    tracking->held_count += 1u;
+}
+
+/* Releases a monitor recorded in compiler-owned cleanup storage and clears the
+   slot so converging return/error paths cannot release it twice. */
+void ube_monitor_exit_storage(void** slot) {
+    if (slot == NULL || *slot == NULL) return;
+    void* value = *slot;
+    *slot = NULL;
+    ube_monitor_exit(value);
+}
+
+typedef struct ube_atomic_i32_state {
+    volatile LONG value;
+} ube_atomic_i32_state;
+
+typedef struct ube_atomic_i64_state {
+    volatile LONG64 value;
+} ube_atomic_i64_state;
+
+int64_t ube_atomic_i32_create(int32_t initial_value) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, NULL, NULL);
+        return 0;
+    }
+    InterlockedExchange(&state->value, (LONG)initial_value);
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_atomic_i32_destroy(int64_t handle) {
+    if (handle != 0) free((void*)(intptr_t)handle);
+}
+
+int32_t ube_atomic_i32_load(int64_t handle) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int32_t)InterlockedCompareExchange(&state->value, 0, 0);
+}
+
+int32_t ube_atomic_i32_store(int64_t handle, int32_t value) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    InterlockedExchange(&state->value, (LONG)value);
+    return 1;
+}
+
+int32_t ube_atomic_i32_exchange(int64_t handle, int32_t value) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int32_t)InterlockedExchange(&state->value, (LONG)value);
+}
+
+int32_t ube_atomic_i32_compare_exchange(int64_t handle, int32_t expected, int32_t replacement) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int32_t)InterlockedCompareExchange(&state->value, (LONG)replacement, (LONG)expected);
+}
+
+int32_t ube_atomic_i32_add(int64_t handle, int32_t delta) {
+    ube_atomic_i32_state* state = (ube_atomic_i32_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int32_t)(InterlockedExchangeAdd(&state->value, (LONG)delta) + delta);
+}
+
+int64_t ube_atomic_i64_create(int64_t initial_value) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, NULL, NULL);
+        return 0;
+    }
+    InterlockedExchange64(&state->value, (LONG64)initial_value);
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_atomic_i64_destroy(int64_t handle) {
+    if (handle != 0) free((void*)(intptr_t)handle);
+}
+
+int64_t ube_atomic_i64_load(int64_t handle) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int64_t)InterlockedCompareExchange64(&state->value, 0, 0);
+}
+
+int32_t ube_atomic_i64_store(int64_t handle, int64_t value) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    InterlockedExchange64(&state->value, (LONG64)value);
+    return 1;
+}
+
+int64_t ube_atomic_i64_exchange(int64_t handle, int64_t value) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int64_t)InterlockedExchange64(&state->value, (LONG64)value);
+}
+
+int64_t ube_atomic_i64_compare_exchange(int64_t handle, int64_t expected, int64_t replacement) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int64_t)InterlockedCompareExchange64(&state->value, (LONG64)replacement, (LONG64)expected);
+}
+
+int64_t ube_atomic_i64_add(int64_t handle, int64_t delta) {
+    ube_atomic_i64_state* state = (ube_atomic_i64_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, NULL, NULL);
+        return 0;
+    }
+    return (int64_t)(InterlockedExchangeAdd64(&state->value, (LONG64)delta) + delta);
+}
+
+struct ube_thread_event_state {
+    CRITICAL_SECTION lock;
+    HANDLE signal;
+    HANDLE shutdown;
+    HANDLE drained;
+    LONG active_waiters;
+    int unloading;
+};
+
+static HANDLE ube_current_stop_event(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    return state != NULL && state->thread_record != NULL
+        ? state->thread_record->stop_requested : NULL;
+}
+
+int64_t ube_thread_event_create(int32_t manual_reset, int32_t initially_signaled) {
+    struct ube_thread_event_state* state = calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, "thread event allocation failed", "UBECore.ThreadEvent");
+        return 0;
+    }
+    InitializeCriticalSection(&state->lock);
+    state->signal = CreateEventA(NULL, manual_reset != 0, initially_signaled != 0, NULL);
+    state->shutdown = CreateEventA(NULL, TRUE, FALSE, NULL);
+    state->drained = CreateEventA(NULL, TRUE, TRUE, NULL);
+    if (state->signal == NULL || state->shutdown == NULL || state->drained == NULL) {
+        if (state->signal != NULL) CloseHandle(state->signal);
+        if (state->shutdown != NULL) CloseHandle(state->shutdown);
+        if (state->drained != NULL) CloseHandle(state->drained);
+        DeleteCriticalSection(&state->lock);
+        free(state);
+        ube_err_set(7, "thread event creation failed", "UBECore.ThreadEvent");
+        return 0;
+    }
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_thread_event_destroy(int64_t handle) {
+    struct ube_thread_event_state* state = (struct ube_thread_event_state*)(intptr_t)handle;
+    if (state == NULL) return;
+    EnterCriticalSection(&state->lock);
+    state->unloading = 1;
+    SetEvent(state->shutdown);
+    const LONG waiters = state->active_waiters;
+    LeaveCriticalSection(&state->lock);
+    if (waiters > 0) WaitForSingleObject(state->drained, INFINITE);
+    CloseHandle(state->signal);
+    CloseHandle(state->shutdown);
+    CloseHandle(state->drained);
+    DeleteCriticalSection(&state->lock);
+    free(state);
+}
+
+int32_t ube_thread_event_set(int64_t handle) {
+    struct ube_thread_event_state* state = (struct ube_thread_event_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "thread event is not loaded", "UBECore.ThreadEvent");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    const int allowed = !state->unloading;
+    const int32_t result = allowed && SetEvent(state->signal) ? 1 : 0;
+    LeaveCriticalSection(&state->lock);
+    if (!allowed) ube_err_set(91, "thread event is unloading", "UBECore.ThreadEvent");
+    else if (!result) ube_err_set(7, "thread event signal failed", "UBECore.ThreadEvent");
+    return result;
+}
+
+int32_t ube_thread_event_reset(int64_t handle) {
+    struct ube_thread_event_state* state = (struct ube_thread_event_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "thread event is not loaded", "UBECore.ThreadEvent");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    const int allowed = !state->unloading;
+    const int32_t result = allowed && ResetEvent(state->signal) ? 1 : 0;
+    LeaveCriticalSection(&state->lock);
+    if (!allowed) ube_err_set(91, "thread event is unloading", "UBECore.ThreadEvent");
+    else if (!result) ube_err_set(7, "thread event reset failed", "UBECore.ThreadEvent");
+    return result;
+}
+
+int32_t ube_thread_event_wait(int64_t handle, int64_t timeout_milliseconds) {
+    struct ube_thread_event_state* state = (struct ube_thread_event_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "thread event is not loaded", "UBECore.ThreadEvent");
+        return 0;
+    }
+    if (timeout_milliseconds < -1 || timeout_milliseconds > UINT32_MAX) {
+        ube_err_set(5, "thread event timeout is invalid", "UBECore.ThreadEvent");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    if (state->unloading) {
+        LeaveCriticalSection(&state->lock);
+        ube_err_set(91, "thread event is unloading", "UBECore.ThreadEvent");
+        return 0;
+    }
+    if (state->active_waiters == 0) ResetEvent(state->drained);
+    state->active_waiters += 1;
+    LeaveCriticalSection(&state->lock);
+    HANDLE waits[3] = { state->signal, state->shutdown, ube_current_stop_event() };
+    const DWORD wait_count = waits[2] != NULL ? 3u : 2u;
+    const DWORD timeout = timeout_milliseconds < 0 ? INFINITE : (DWORD)timeout_milliseconds;
+    const DWORD wait_result = WaitForMultipleObjects(wait_count, waits, FALSE, timeout);
+    EnterCriticalSection(&state->lock);
+    state->active_waiters -= 1;
+    if (state->active_waiters == 0) SetEvent(state->drained);
+    LeaveCriticalSection(&state->lock);
+    if (wait_result == WAIT_OBJECT_0) return 1;
+    if (wait_result == WAIT_TIMEOUT || (wait_count == 3u && wait_result == WAIT_OBJECT_0 + 2)) return 0;
+    if (wait_result == WAIT_OBJECT_0 + 1) {
+        ube_err_set(91, "thread event was unloaded while waiting", "UBECore.ThreadEvent");
+        return 0;
+    }
+    ube_err_set(7, "thread event wait failed", "UBECore.ThreadEvent");
+    return 0;
+}
+
+struct ube_semaphore_waiter {
+    struct ube_semaphore_waiter* next;
+    HANDLE ready;
+    int granted;
+};
+
+struct ube_semaphore_state {
+    CRITICAL_SECTION lock;
+    int64_t count;
+    int64_t maximum;
+    struct ube_semaphore_waiter* first;
+    struct ube_semaphore_waiter* last;
+    HANDLE drained;
+    LONG active_waiters;
+    int unloading;
+};
+
+int64_t ube_semaphore_create(int64_t initial_count, int64_t maximum_count) {
+    if (initial_count < 0 || maximum_count <= 0 || initial_count > maximum_count) {
+        ube_err_set(5, "semaphore bounds are invalid", "UBECore.Semaphore");
+        return 0;
+    }
+    struct ube_semaphore_state* state = calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, "semaphore allocation failed", "UBECore.Semaphore");
+        return 0;
+    }
+    InitializeCriticalSection(&state->lock);
+    state->drained = CreateEventA(NULL, TRUE, TRUE, NULL);
+    if (state->drained == NULL) {
+        DeleteCriticalSection(&state->lock);
+        free(state);
+        ube_err_set(7, "semaphore creation failed", "UBECore.Semaphore");
+        return 0;
+    }
+    state->count = initial_count;
+    state->maximum = maximum_count;
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_semaphore_destroy(int64_t handle) {
+    struct ube_semaphore_state* state = (struct ube_semaphore_state*)(intptr_t)handle;
+    if (state == NULL) return;
+    EnterCriticalSection(&state->lock);
+    state->unloading = 1;
+    struct ube_semaphore_waiter* waiter = state->first;
+    while (waiter != NULL) {
+        SetEvent(waiter->ready);
+        waiter = waiter->next;
+    }
+    const LONG waiters = state->active_waiters;
+    LeaveCriticalSection(&state->lock);
+    if (waiters > 0) WaitForSingleObject(state->drained, INFINITE);
+    CloseHandle(state->drained);
+    DeleteCriticalSection(&state->lock);
+    free(state);
+}
+
+static void ube_semaphore_remove_waiter(struct ube_semaphore_state* state,
+                                        struct ube_semaphore_waiter* sought) {
+    struct ube_semaphore_waiter** link = &state->first;
+    while (*link != NULL) {
+        if (*link == sought) {
+            *link = sought->next;
+            if (state->last == sought) {
+                state->last = NULL;
+                struct ube_semaphore_waiter* tail = state->first;
+                while (tail != NULL && tail->next != NULL) tail = tail->next;
+                state->last = tail;
+            }
+            sought->next = NULL;
+            return;
+        }
+        link = &(*link)->next;
+    }
+}
+
+int32_t ube_semaphore_wait(int64_t handle, int64_t timeout_milliseconds) {
+    struct ube_semaphore_state* state = (struct ube_semaphore_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "semaphore is not loaded", "UBECore.Semaphore");
+        return 0;
+    }
+    if (timeout_milliseconds < -1 || timeout_milliseconds > UINT32_MAX) {
+        ube_err_set(5, "semaphore timeout is invalid", "UBECore.Semaphore");
+        return 0;
+    }
+    struct ube_semaphore_waiter waiter = { 0 };
+    waiter.ready = CreateEventA(NULL, FALSE, FALSE, NULL);
+    if (waiter.ready == NULL) {
+        ube_err_set(7, "semaphore waiter allocation failed", "UBECore.Semaphore");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    if (state->unloading) {
+        LeaveCriticalSection(&state->lock);
+        CloseHandle(waiter.ready);
+        ube_err_set(91, "semaphore is unloading", "UBECore.Semaphore");
+        return 0;
+    }
+    if (state->count > 0 && state->first == NULL) {
+        state->count -= 1;
+        LeaveCriticalSection(&state->lock);
+        CloseHandle(waiter.ready);
+        return 1;
+    }
+    if (state->last == NULL) state->first = &waiter;
+    else state->last->next = &waiter;
+    state->last = &waiter;
+    if (state->active_waiters == 0) ResetEvent(state->drained);
+    state->active_waiters += 1;
+    LeaveCriticalSection(&state->lock);
+    HANDLE waits[2] = { waiter.ready, ube_current_stop_event() };
+    const DWORD wait_count = waits[1] != NULL ? 2u : 1u;
+    const DWORD timeout = timeout_milliseconds < 0 ? INFINITE : (DWORD)timeout_milliseconds;
+    const DWORD wait_result = WaitForMultipleObjects(wait_count, waits, FALSE, timeout);
+    EnterCriticalSection(&state->lock);
+    const int granted = waiter.granted;
+    const int unloading = state->unloading;
+    if (!granted) ube_semaphore_remove_waiter(state, &waiter);
+    state->active_waiters -= 1;
+    if (state->active_waiters == 0) SetEvent(state->drained);
+    LeaveCriticalSection(&state->lock);
+    CloseHandle(waiter.ready);
+    if (granted) return 1;
+    if (unloading) {
+        ube_err_set(91, "semaphore was unloaded while waiting", "UBECore.Semaphore");
+        return 0;
+    }
+    if (wait_result == WAIT_TIMEOUT || (wait_count == 2u && wait_result == WAIT_OBJECT_0 + 1)) return 0;
+    ube_err_set(7, "semaphore wait failed", "UBECore.Semaphore");
+    return 0;
+}
+
+int32_t ube_semaphore_release(int64_t handle, int64_t release_count) {
+    struct ube_semaphore_state* state = (struct ube_semaphore_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "semaphore is not loaded", "UBECore.Semaphore");
+        return 0;
+    }
+    if (release_count <= 0) {
+        ube_err_set(5, "semaphore release count must be positive", "UBECore.Semaphore");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    if (state->unloading) {
+        LeaveCriticalSection(&state->lock);
+        ube_err_set(91, "semaphore is unloading", "UBECore.Semaphore");
+        return 0;
+    }
+    int64_t queued = 0;
+    struct ube_semaphore_waiter* scan = state->first;
+    while (scan != NULL && queued < release_count) {
+        queued += 1;
+        scan = scan->next;
+    }
+    const int64_t remaining = release_count - queued;
+    if (remaining > state->maximum - state->count) {
+        LeaveCriticalSection(&state->lock);
+        ube_err_set(5, "semaphore release exceeds its maximum", "UBECore.Semaphore");
+        return 0;
+    }
+    int64_t granted = 0;
+    while (granted < queued && state->first != NULL) {
+        struct ube_semaphore_waiter* waiter = state->first;
+        state->first = waiter->next;
+        if (state->first == NULL) state->last = NULL;
+        waiter->next = NULL;
+        waiter->granted = 1;
+        SetEvent(waiter->ready);
+        granted += 1;
+    }
+    state->count += remaining;
+    LeaveCriticalSection(&state->lock);
+    return 1;
+}
+
+int32_t ube_semaphore_test_waiter_count(int64_t handle) {
+    struct ube_semaphore_state* state = (struct ube_semaphore_state*)(intptr_t)handle;
+    if (state == NULL) return -1;
+    EnterCriticalSection(&state->lock);
+    int32_t count = 0;
+    struct ube_semaphore_waiter* waiter = state->first;
+    while (waiter != NULL) {
+        count += 1;
+        waiter = waiter->next;
+    }
+    LeaveCriticalSection(&state->lock);
+    return count;
+}
+
+struct ube_message_item {
+    struct ube_message_item* next;
+    void* value;
+    struct ube_gc_root root;
+};
+
+struct ube_message_waiter {
+    struct ube_message_waiter* next;
+    HANDLE ready;
+    int granted;
+};
+
+struct ube_message_queue_state {
+    CRITICAL_SECTION lock;
+    struct ube_message_item* first_item;
+    struct ube_message_item* last_item;
+    struct ube_message_waiter* first_waiter;
+    struct ube_message_waiter* last_waiter;
+    HANDLE drained;
+    LONG active_waiters;
+    int unloading;
+};
+
+/* These managed-value helpers are defined later in this bootstrap adapter. */
+int32_t ube_gc_root_enter(void* root_storage, void** slot);
+int32_t ube_gc_root_leave(void* root_storage);
+int32_t ube_gc_publish(void* value);
+int32_t ube_gc_write_barrier(void* owner, void** slot, void* value);
+void* ube_variant_copy(const void* value);
+
+struct ube_atomic_object_state {
+    CRITICAL_SECTION lock;
+    void* value;
+    struct ube_gc_root root;
+};
+
+int64_t ube_atomic_object_create(void) {
+    struct ube_atomic_object_state* state = calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, "atomic object allocation failed", "UBECore.AtomicObject");
+        return 0;
+    }
+    InitializeCriticalSection(&state->lock);
+    if (!ube_gc_root_enter(&state->root, &state->value)) {
+        DeleteCriticalSection(&state->lock);
+        free(state);
+        ube_err_set(7, "atomic object root registration failed", "UBECore.AtomicObject");
+        return 0;
+    }
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_atomic_object_destroy(int64_t handle) {
+    struct ube_atomic_object_state* state = (struct ube_atomic_object_state*)(intptr_t)handle;
+    if (state == NULL) return;
+    ube_gc_root_leave(&state->root);
+    DeleteCriticalSection(&state->lock);
+    free(state);
+}
+
+int32_t ube_atomic_object_load(int64_t handle, void** destination) {
+    struct ube_atomic_object_state* state = (struct ube_atomic_object_state*)(intptr_t)handle;
+    if (state == NULL || destination == NULL) {
+        ube_err_set(91, "atomic object or destination is not available", "UBECore.AtomicObject");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    const int32_t result = ube_gc_write_barrier(NULL, destination, state->value);
+    LeaveCriticalSection(&state->lock);
+    if (!result) ube_err_set(7, "atomic object load failed", "UBECore.AtomicObject");
+    return result;
+}
+
+int32_t ube_atomic_object_store(int64_t handle, void* value) {
+    struct ube_atomic_object_state* state = (struct ube_atomic_object_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "atomic object is not loaded", "UBECore.AtomicObject");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    const int32_t result = ube_gc_write_barrier(NULL, &state->value, value);
+    LeaveCriticalSection(&state->lock);
+    if (!result) ube_err_set(7, "atomic object store failed", "UBECore.AtomicObject");
+    return result;
+}
+
+int32_t ube_atomic_object_exchange(int64_t handle, void* value, void** observed) {
+    struct ube_atomic_object_state* state = (struct ube_atomic_object_state*)(intptr_t)handle;
+    if (state == NULL || observed == NULL) {
+        ube_err_set(91, "atomic object or destination is not available", "UBECore.AtomicObject");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    int32_t result = ube_gc_write_barrier(NULL, observed, state->value);
+    if (result) result = ube_gc_write_barrier(NULL, &state->value, value);
+    LeaveCriticalSection(&state->lock);
+    if (!result) ube_err_set(7, "atomic object exchange failed", "UBECore.AtomicObject");
+    return result;
+}
+
+int32_t ube_atomic_object_compare_exchange(int64_t handle, void* expected,
+                                           void* replacement, void** observed) {
+    struct ube_atomic_object_state* state = (struct ube_atomic_object_state*)(intptr_t)handle;
+    if (state == NULL || observed == NULL) {
+        ube_err_set(91, "atomic object or destination is not available", "UBECore.AtomicObject");
+        return 0;
+    }
+    EnterCriticalSection(&state->lock);
+    int32_t result = ube_gc_write_barrier(NULL, observed, state->value);
+    if (result && state->value == expected)
+        result = ube_gc_write_barrier(NULL, &state->value, replacement);
+    LeaveCriticalSection(&state->lock);
+    if (!result) ube_err_set(7, "atomic object comparison failed", "UBECore.AtomicObject");
+    return result;
+}
+
+int64_t ube_message_queue_create(void) {
+    struct ube_message_queue_state* state = calloc(1u, sizeof(*state));
+    if (state == NULL) {
+        ube_err_set(7, "message queue allocation failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    InitializeCriticalSection(&state->lock);
+    state->drained = CreateEventA(NULL, TRUE, TRUE, NULL);
+    if (state->drained == NULL) {
+        DeleteCriticalSection(&state->lock);
+        free(state);
+        ube_err_set(7, "message queue creation failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    return (int64_t)(intptr_t)state;
+}
+
+void ube_message_queue_destroy(int64_t handle) {
+    struct ube_message_queue_state* state = (struct ube_message_queue_state*)(intptr_t)handle;
+    if (state == NULL) return;
+    EnterCriticalSection(&state->lock);
+    state->unloading = 1;
+    struct ube_message_waiter* waiter = state->first_waiter;
+    while (waiter != NULL) {
+        SetEvent(waiter->ready);
+        waiter = waiter->next;
+    }
+    const LONG waiters = state->active_waiters;
+    LeaveCriticalSection(&state->lock);
+    if (waiters > 0) WaitForSingleObject(state->drained, INFINITE);
+    struct ube_message_item* item = state->first_item;
+    while (item != NULL) {
+        struct ube_message_item* next = item->next;
+        ube_gc_root_leave(&item->root);
+        free(item);
+        item = next;
+    }
+    CloseHandle(state->drained);
+    DeleteCriticalSection(&state->lock);
+    free(state);
+}
+
+int32_t ube_message_queue_enqueue(int64_t handle, void* value) {
+    struct ube_message_queue_state* state = (struct ube_message_queue_state*)(intptr_t)handle;
+    if (state == NULL) {
+        ube_err_set(91, "message queue is not loaded", "UBECore.MessageQueue");
+        return 0;
+    }
+    void* copied = ube_variant_copy(value);
+    if (copied == NULL) {
+        ube_err_set(7, "message copy failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    struct ube_message_item* item = calloc(1u, sizeof(*item));
+    if (item == NULL || !ube_gc_root_enter(&item->root, &item->value)) {
+        free(item);
+        ube_err_set(7, "message queue item allocation failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    item->value = copied;
+    ube_gc_publish(copied);
+    EnterCriticalSection(&state->lock);
+    if (state->unloading) {
+        LeaveCriticalSection(&state->lock);
+        ube_gc_root_leave(&item->root);
+        free(item);
+        ube_err_set(91, "message queue is unloading", "UBECore.MessageQueue");
+        return 0;
+    }
+    if (state->last_item == NULL) state->first_item = item;
+    else state->last_item->next = item;
+    state->last_item = item;
+    if (state->first_waiter != NULL) {
+        struct ube_message_waiter* selected = state->first_waiter;
+        state->first_waiter = selected->next;
+        if (state->first_waiter == NULL) state->last_waiter = NULL;
+        selected->next = NULL;
+        selected->granted = 1;
+        SetEvent(selected->ready);
+    }
+    LeaveCriticalSection(&state->lock);
+    return 1;
+}
+
+static void ube_message_queue_remove_waiter(struct ube_message_queue_state* state,
+                                             struct ube_message_waiter* sought) {
+    struct ube_message_waiter** link = &state->first_waiter;
+    while (*link != NULL) {
+        if (*link == sought) {
+            *link = sought->next;
+            if (state->last_waiter == sought) {
+                state->last_waiter = NULL;
+                struct ube_message_waiter* tail = state->first_waiter;
+                while (tail != NULL && tail->next != NULL) tail = tail->next;
+                state->last_waiter = tail;
+            }
+            sought->next = NULL;
+            return;
+        }
+        link = &(*link)->next;
+    }
+}
+
+int32_t ube_message_queue_dequeue(int64_t handle, void** destination,
+                                  int64_t timeout_milliseconds) {
+    struct ube_message_queue_state* state = (struct ube_message_queue_state*)(intptr_t)handle;
+    if (state == NULL || destination == NULL) {
+        ube_err_set(91, "message queue or destination is not available", "UBECore.MessageQueue");
+        return 0;
+    }
+    if (timeout_milliseconds < -1 || timeout_milliseconds > UINT32_MAX) {
+        ube_err_set(5, "message queue timeout is invalid", "UBECore.MessageQueue");
+        return 0;
+    }
+    struct ube_message_waiter waiter = { 0 };
+    waiter.ready = CreateEventA(NULL, FALSE, FALSE, NULL);
+    if (waiter.ready == NULL) {
+        ube_err_set(7, "message queue waiter allocation failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    struct ube_message_item* item = NULL;
+    EnterCriticalSection(&state->lock);
+    if (state->unloading) {
+        LeaveCriticalSection(&state->lock);
+        CloseHandle(waiter.ready);
+        ube_err_set(91, "message queue is unloading", "UBECore.MessageQueue");
+        return 0;
+    }
+    if (state->first_item != NULL && state->first_waiter == NULL) {
+        item = state->first_item;
+        state->first_item = item->next;
+        if (state->first_item == NULL) state->last_item = NULL;
+        item->next = NULL;
+        LeaveCriticalSection(&state->lock);
+    } else {
+        if (state->last_waiter == NULL) state->first_waiter = &waiter;
+        else state->last_waiter->next = &waiter;
+        state->last_waiter = &waiter;
+        if (state->active_waiters == 0) ResetEvent(state->drained);
+        state->active_waiters += 1;
+        LeaveCriticalSection(&state->lock);
+        HANDLE waits[2] = { waiter.ready, ube_current_stop_event() };
+        const DWORD wait_count = waits[1] != NULL ? 2u : 1u;
+        const DWORD timeout = timeout_milliseconds < 0 ? INFINITE : (DWORD)timeout_milliseconds;
+        const DWORD wait_result = WaitForMultipleObjects(wait_count, waits, FALSE, timeout);
+        EnterCriticalSection(&state->lock);
+        const int granted = waiter.granted;
+        const int unloading = state->unloading;
+        if (!granted) ube_message_queue_remove_waiter(state, &waiter);
+        if (granted && state->first_item != NULL) {
+            item = state->first_item;
+            state->first_item = item->next;
+            if (state->first_item == NULL) state->last_item = NULL;
+            item->next = NULL;
+        }
+        state->active_waiters -= 1;
+        if (state->active_waiters == 0) SetEvent(state->drained);
+        LeaveCriticalSection(&state->lock);
+        CloseHandle(waiter.ready);
+        if (item == NULL) {
+            if (unloading) ube_err_set(91, "message queue was unloaded while waiting", "UBECore.MessageQueue");
+            else if (wait_result != WAIT_TIMEOUT && !(wait_count == 2u && wait_result == WAIT_OBJECT_0 + 1))
+                ube_err_set(7, "message queue wait failed", "UBECore.MessageQueue");
+            return 0;
+        }
+    }
+    if (!ube_gc_write_barrier(NULL, destination, item->value)) {
+        ube_gc_root_leave(&item->root);
+        free(item);
+        ube_err_set(7, "message destination update failed", "UBECore.MessageQueue");
+        return 0;
+    }
+    ube_gc_root_leave(&item->root);
+    free(item);
     return 1;
 }
 
@@ -721,6 +2746,50 @@ int32_t ube_gc_root_leave(void* root_storage) {
     return 0;
 }
 
+struct ube_thread_capture {
+    struct ube_gc_root root;
+    int rooted;
+    max_align_t alignment;
+    unsigned char data[];
+};
+
+/* Allocates a compiler-described ByVal capture and publishes every managed
+   slot as one aggregate root before a worker can become visible. */
+void* ube_thread_capture_allocate(size_t size, size_t slot_count,
+                                  const size_t* slot_offsets) {
+    if (size > SIZE_MAX - sizeof(struct ube_thread_capture)) {
+        ube_err_set(7, "thread capture is too large", "UBECore.Threads");
+        return NULL;
+    }
+    struct ube_thread_capture* capture =
+        calloc(1, sizeof(*capture) + size);
+    if (capture == NULL) {
+        ube_err_set(7, "thread capture allocation failed", "UBECore.Threads");
+        return NULL;
+    }
+    if (slot_count != 0) {
+        if (!ube_gc_root_enter_layout(&capture->root, capture->data,
+                                      slot_count, slot_offsets)) {
+            free(capture);
+            ube_err_set(7, "thread capture root registration failed", "UBECore.Threads");
+            return NULL;
+        }
+        capture->rooted = 1;
+    }
+    return capture->data;
+}
+
+/* Releases the aggregate roots and storage after the worker returns, or when
+   native thread creation fails after ownership has transferred. */
+void ube_thread_capture_destroy(void* data) {
+    if (data == NULL) return;
+    struct ube_thread_capture* capture =
+        (struct ube_thread_capture*)((unsigned char*)data -
+            offsetof(struct ube_thread_capture, data));
+    if (capture->rooted) (void)ube_gc_root_leave(&capture->root);
+    free(capture);
+}
+
 int32_t ube_gc_write_barrier(void* owner, void** slot, void* value) {
     if (slot == NULL) return 0;
     ube_gc_enter_lock();
@@ -759,6 +2828,33 @@ void* ube_object_lazy_ensure(void** slot, const struct ube_gc_layout* layout,
         if (initializer != NULL) initializer(object);
     }
     void* result = *slot;
+    ube_gc_leave_lock();
+    return result;
+}
+
+void* ube_default_form_ensure(void** slot, const struct ube_gc_layout* layout,
+                              void (*initializer)(void*), int32_t explicit_load) {
+    if (slot == NULL || layout == NULL) return NULL;
+    ube_gc_enter_lock();
+    struct ube_default_form_slot* item = ube_default_form_slots;
+    while (item != NULL && item->slot != slot) item = item->next;
+    if (item == NULL) {
+        item = calloc(1, sizeof(*item));
+        if (item == NULL) {
+            ube_gc_leave_lock();
+            ube_err_set(7, "default form bookkeeping allocation failed", "UBE.Components");
+            return NULL;
+        }
+        item->slot = slot;
+        item->next = ube_default_form_slots;
+        ube_default_form_slots = item;
+    }
+    if (item->tombstone && !explicit_load) {
+        ube_gc_leave_lock();
+        return NULL;
+    }
+    if (explicit_load) item->tombstone = 0;
+    void* result = ube_object_lazy_ensure(slot, layout, initializer);
     ube_gc_leave_lock();
     return result;
 }
@@ -1165,7 +3261,10 @@ char* ube_fixed_string_copy_managed(const char* source, size_t width) {
 }
 
 int32_t ube_checked_string_to_long(const char* value, int32_t* result) {
-    if (value == NULL || result == NULL) return 0;
+    if (value == NULL || result == NULL) {
+        ube_err_set(13, "String-to-Long conversion received an invalid value", "conversion");
+        return 0;
+    }
     const unsigned char* cursor = (const unsigned char*)value;
     while (*cursor == ' ' || *cursor == '\t') ++cursor;
     int negative = 0;
@@ -1173,17 +3272,26 @@ int32_t ube_checked_string_to_long(const char* value, int32_t* result) {
         negative = *cursor == '-';
         ++cursor;
     }
-    if (*cursor < '0' || *cursor > '9') return 0;
+    if (*cursor < '0' || *cursor > '9') {
+        ube_err_set(13, "String is not a complete Long value", "conversion");
+        return 0;
+    }
     uint64_t magnitude = 0;
     while (*cursor >= '0' && *cursor <= '9') {
         const uint32_t digit = (uint32_t)(*cursor - '0');
         const uint64_t limit = negative ? UINT64_C(2147483648) : UINT64_C(2147483647);
-        if (magnitude > (limit - digit) / 10) return 0;
+        if (magnitude > (limit - digit) / 10) {
+            ube_err_set(6, "String-to-Long conversion overflow", "conversion");
+            return 0;
+        }
         magnitude = magnitude * 10 + digit;
         ++cursor;
     }
     while (*cursor == ' ' || *cursor == '\t') ++cursor;
-    if (*cursor != '\0') return 0;
+    if (*cursor != '\0') {
+        ube_err_set(13, "String is not a complete Long value", "conversion");
+        return 0;
+    }
     *result = negative ? (magnitude == UINT64_C(2147483648) ? INT32_MIN : -(int32_t)magnitude)
                        : (int32_t)magnitude;
     return 1;
@@ -1215,6 +3323,7 @@ static void ube_gc_release_all(void) {
         }
         ube_gc_hash_remove(item);
         item->magic = 0;
+        if (item->monitor_initialized) DeleteCriticalSection(&item->monitor);
         if (item->owns_layout) free((void*)item->layout);
         free(item);
     }
@@ -1650,8 +3759,22 @@ int32_t ube_string_compare(const char* left, const char* right) {
     return comparison < 0 ? -1 : comparison > 0 ? 1 : 0;
 }
 
+static int ube_managed_string_length(const char* value, size_t* length) {
+    if (value == NULL || length == NULL) return 0;
+    ube_gc_enter_lock();
+    struct ube_gc_header* header = ube_gc_header_from_value((void*)value);
+    const int found = header != NULL && header->payload_size > 0 &&
+        value[header->payload_size - 1u] == '\0';
+    if (found) *length = header->payload_size - 1u;
+    ube_gc_leave_lock();
+    return found;
+}
+
 int32_t ube_string_length(const char* value) {
-    const size_t length = value != NULL ? strlen(value) : 0;
+    size_t length = 0;
+    if (value != NULL && !ube_managed_string_length(value, &length)) {
+        length = strlen(value);
+    }
     if (length > INT32_MAX) {
         fputs("UBE runtime: string is too long for a Long length\n", stderr);
         exit(70);
@@ -1660,7 +3783,10 @@ int32_t ube_string_length(const char* value) {
 }
 
 int32_t ube_string_byte_at(const char* value, int32_t index) {
-    const size_t length = value != NULL ? strlen(value) : 0;
+    size_t length = 0;
+    if (value != NULL && !ube_managed_string_length(value, &length)) {
+        length = strlen(value);
+    }
     if (index < 0 || (size_t)index >= length) {
         fprintf(stderr, "UBE runtime: string byte index out of range: %" PRId32 "\n", index);
         exit(65);

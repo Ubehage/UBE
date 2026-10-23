@@ -16,7 +16,7 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="language/topics/index.html">Language reference</a> / WithEvents binding</nav>
     <h1>WithEvents binding</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Compiler support in progress</span></div>
+    <div class="metadata"><span class="badge status">Implemented</span><span class="badge">UBE 1.0</span><span class="badge">Compiler v3 RP7</span></div>
     <p class="lede"><code>WithEvents</code> connects an object field to handlers named after that field and its events.</p>
     <h2>Declaration and handler</h2>
     <pre><code>Private WithEvents Source As Button
@@ -34,7 +34,7 @@ Set Source = Nothing      ' Disconnects the handlers.</code></pre>
     <p>A connection retains its source and receiver according to the managed lifetime rules. Successful form or control unloading clears affected aliases to <code>Nothing</code> and disconnects them safely.</p>
     <h2>Not in UBE 1.0</h2>
     <p>Local <code>WithEvents</code> declarations and dynamic <code>AddHandler</code>/<code>RemoveHandler</code> statements are not part of UBE 1.0.</p>
-    <footer class="article-footer">Article ID: language.event-binding · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.event-binding · Verified with Compiler v3 RP7 · Last reviewed 2026-10-23</footer>
   </main>
 </body>
 </html>

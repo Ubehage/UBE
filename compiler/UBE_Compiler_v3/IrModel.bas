@@ -7,6 +7,7 @@ Attribute UBE_Name = "IrModel"
 Type IrProgram
     FormatVersion As Long
     EntryFunction As Long
+    StartupFormSymbol As Long
     HasErrors As Long
 End Type
 
@@ -66,6 +67,10 @@ Type IrFunction
     ResultType As Long
     EntryBlock As Long
     ReturnBlock As Long
+    FailureBlock As Long
+    ErrorModeStorage As Long
+    ErrorResumeSiteStorage As Long
+    ErrorActiveStorage As Long
     FirstParameter As Long
     ParameterCount As Long
     FirstStorage As Long
@@ -106,6 +111,7 @@ Type IrBlock
     InstructionCount As Long
     Flags As Long
     LocationIndex As Long
+    LabelName As String
 End Type
 
 Type IrInstruction
@@ -394,6 +400,22 @@ Function IrOpReturn() As Long
     IrOpReturn = 33
 End Function
 
+Function IrOpCallNew() As Long
+    IrOpCallNew = 34
+End Function
+
+Function IrOpRaiseEvent() As Long
+    IrOpRaiseEvent = 35
+End Function
+
+Function IrOpLoadComponent() As Long
+    IrOpLoadComponent = 36
+End Function
+
+Function IrOpUnloadComponent() As Long
+    IrOpUnloadComponent = 37
+End Function
+
 Function IrOpErrorTest() As Long
     IrOpErrorTest = 40
 End Function
@@ -404,6 +426,22 @@ End Function
 
 Function IrOpErrorClear() As Long
     IrOpErrorClear = 42
+End Function
+
+Function IrOpMonitorEnter() As Long
+    IrOpMonitorEnter = 43
+End Function
+
+Function IrOpMonitorExit() As Long
+    IrOpMonitorExit = 44
+End Function
+
+Function IrOpErrorDispatch() As Long
+    IrOpErrorDispatch = 45
+End Function
+
+Function IrOpResume() As Long
+    IrOpResume = 46
 End Function
 
 Function IrOpCleanupBegin() As Long
@@ -499,6 +537,10 @@ Function AppendIrFunction(ByRef Items() As IrFunction, ByRef Count As Long, ByRe
     Items(Result).ResultType = ResultType
     Items(Result).EntryBlock = -1
     Items(Result).ReturnBlock = -1
+    Items(Result).FailureBlock = -1
+    Items(Result).ErrorModeStorage = -1
+    Items(Result).ErrorResumeSiteStorage = -1
+    Items(Result).ErrorActiveStorage = -1
     Items(Result).FirstParameter = -1
     Items(Result).ParameterCount = 0
     Items(Result).FirstStorage = -1
@@ -587,6 +629,7 @@ Function AppendIrBlock(ByRef Items() As IrBlock, ByRef Count As Long, ByRef Capa
     Items(Result).InstructionCount = 0
     Items(Result).Flags = Flags
     Items(Result).LocationIndex = LocationIndex
+    Items(Result).LabelName = ""
     Count = Count + 1
     AppendIrBlock = Result
 End Function

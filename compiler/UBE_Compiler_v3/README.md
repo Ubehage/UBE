@@ -3,37 +3,37 @@
 UBE Compiler v3 is the first public-release compiler target. It is developed
 and compiled with the preserved, self-hosting UBE Compiler v2.
 
-Release Preview 6 is the verified baseline. It is a v2-buildable, 35-module
-self-hosting compiler. In addition to the RP5 typed-IR and native backend
-baseline, RP6 implements managed metadata and values, recursive custom-value
-storage, object and interface dispatch, lifecycle hooks, project references,
-automatic tracing collection, callable `UBECore` modules, and the first frozen
-foreign-library ownership ABI.
+Release Preview 7 is the verified baseline. It is a v2-buildable, 37-module
+self-hosting compiler. In addition to the RP6 managed-value, object, project,
+collection, and foreign-ABI baseline, RP7 implements thread-local `Err` and
+structured recovery, `CallNew`, cooperative thread lifecycle, `SyncLock`,
+atomics and coordination objects, synchronous events, and form/control
+component lifetime.
 
-The preserved v2 compiler builds RP6. That compiler rebuilds its own project
-and the exact seven-module `UBECore` slice, and the self-built compiler repeats
+The preserved v2 compiler builds RP7. That compiler rebuilds its own project
+and the exact 16-module `UBECore` slice, and the self-built compiler repeats
 both builds. Compiler LLVM is byte-identical, COFF objects match after
 normalizing only the producer timestamp, library outputs match, and both stages
-agree on the recorded inherited and RP6 corpora. The exact result is recorded
-in `bootstrap/out/v3-rp6-build-manifest.json`.
+agree on 49 recorded inherited, RP6, and RP7 corpus cases. The exact result is
+recorded in `bootstrap/out/v3-rp7-build-manifest.json`.
 
-The current RP6 commands are:
+The current RP7 commands are:
 
 ```text
-ube-v3-rp6 <project.UBE> <target-triple>
-ube-v3-rp6 --dump-tokens <project.UBE> <target-triple>
-ube-v3-rp6 --dump-syntax <project.UBE> <target-triple>
-ube-v3-rp6 --dump-semantics <project.UBE> <target-triple>
-ube-v3-rp6 --dump-ir <project.UBE> <target-triple>
-ube-v3-rp6 --dump-managed <project.UBE> <target-triple>
-ube-v3-rp6 --emit-llvm <project.UBE> <target-triple> <output.ll>
-ube-v3-rp6 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>
+ube-v3-rp7 <project.UBE> <target-triple>
+ube-v3-rp7 --dump-tokens <project.UBE> <target-triple>
+ube-v3-rp7 --dump-syntax <project.UBE> <target-triple>
+ube-v3-rp7 --dump-semantics <project.UBE> <target-triple>
+ube-v3-rp7 --dump-ir <project.UBE> <target-triple>
+ube-v3-rp7 --dump-managed <project.UBE> <target-triple>
+ube-v3-rp7 --emit-llvm <project.UBE> <target-triple> <output.ll>
+ube-v3-rp7 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>
 ```
 
-The frozen RP6 toolchain contract is LLVM/Clang 23.x targeting
+The frozen RP7 toolchain contract is LLVM/Clang 23.x targeting
 `x86_64-w64-windows-gnu` with `-O2`. The compiler-owned `--build-native` path
 passes arguments directly to Clang, removes its intermediate file, and leaves
-no false-success output after a controlled tool failure. RP7 is the next
+no false-success output after a controlled tool failure. RP8 is the next
 milestone.
 
 Authoritative inputs:

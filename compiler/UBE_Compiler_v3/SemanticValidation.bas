@@ -373,9 +373,117 @@ Function InterfaceMemberSignatureMatches(ByVal InterfaceNode As Long, ByVal Cand
     InterfaceMemberSignatureMatches = 1
 End Function
 
+Function EventHandlerSignatureMatches(ByVal EventSymbol As Long, ByVal HandlerSymbol As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
+    Dim EventCount As Long = 0
+    Dim HandlerCount As Long = 0
+    Dim SymbolIndex As Long = 0
+    While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
+            If Symbols(SymbolIndex).ParentSymbol = EventSymbol Then
+                EventCount = EventCount + 1
+            End If
+            If Symbols(SymbolIndex).ParentSymbol = HandlerSymbol Then
+                HandlerCount = HandlerCount + 1
+            End If
+        End If
+        SymbolIndex = SymbolIndex + 1
+    Wend
+    If EventCount <> HandlerCount Then
+        EventHandlerSignatureMatches = 0
+        Exit Function
+    End If
+    Dim Ordinal As Long = 0
+    While Ordinal < EventCount
+        Dim EventParameter As Long = -1
+        Dim HandlerParameter As Long = -1
+        SymbolIndex = 0
+        While SymbolIndex < SymbolCount
+            If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() And Symbols(SymbolIndex).ParameterOrdinal = Ordinal Then
+                If Symbols(SymbolIndex).ParentSymbol = EventSymbol Then
+                    EventParameter = SymbolIndex
+                End If
+                If Symbols(SymbolIndex).ParentSymbol = HandlerSymbol Then
+                    HandlerParameter = SymbolIndex
+                End If
+            End If
+            SymbolIndex = SymbolIndex + 1
+        Wend
+        If EventParameter < 0 Or HandlerParameter < 0 Then
+            EventHandlerSignatureMatches = 0
+            Exit Function
+        End If
+        Dim EventPassing As Long = Symbols(EventParameter).Flags And 6
+        Dim HandlerPassing As Long = Symbols(HandlerParameter).Flags And 6
+        If EventPassing = 0 Then
+            EventPassing = 4
+        End If
+        If HandlerPassing = 0 Then
+            HandlerPassing = 4
+        End If
+        If EventPassing <> HandlerPassing Or Symbols(EventParameter).DeclaredType <> Symbols(HandlerParameter).DeclaredType Then
+            EventHandlerSignatureMatches = 0
+            Exit Function
+        End If
+        Ordinal = Ordinal + 1
+    Wend
+    EventHandlerSignatureMatches = 1
+End Function
+
 Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() And (Symbols(SymbolIndex).Flags And 128) <> 0 Then
+            Dim EventFieldOwner As Long = Symbols(SymbolIndex).ParentSymbol
+            Dim EventFieldType As Long = Symbols(SymbolIndex).DeclaredType
+            Dim EventSourceSymbol As Long = -1
+            If EventFieldOwner < 0 Or EventFieldOwner >= SymbolCount Or Symbols(EventFieldOwner).SymbolKind <> SemanticSymbolModule() Then
+                Call AddSemanticDiagnostic("UBE4044", Symbols(SymbolIndex).SyntaxNode, "WithEvents is available only for a module, class, form, or control field", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            End If
+            If EventFieldType >= 0 And EventFieldType < TypeCount Then
+                Dim EventFieldTypeKind As Long = Types(EventFieldType).TypeKind
+                If EventFieldTypeKind = 30 Or (EventFieldTypeKind >= 50 And EventFieldTypeKind <= 52) Then
+                    EventSourceSymbol = Types(EventFieldType).TypeSymbol
+                End If
+            End If
+            If EventSourceSymbol < 0 Then
+                Call AddSemanticDiagnostic("UBE4045", Symbols(SymbolIndex).SyntaxNode, "WithEvents requires a scalar class, interface, form, or control type", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            Else
+                Dim DeclaredEventCount As Long = 0
+                Dim EventCandidate As Long = 0
+                While EventCandidate < SymbolCount
+                    If Symbols(EventCandidate).SymbolKind = SemanticSymbolEvent() And Symbols(EventCandidate).ParentSymbol = EventSourceSymbol Then
+                        DeclaredEventCount = DeclaredEventCount + 1
+                        Dim HandlerName As String = Symbols(SymbolIndex).SymbolName & "_" & Symbols(EventCandidate).SymbolName
+                        Dim HandlerCandidate As Long = 0
+                        While HandlerCandidate < SymbolCount
+                            If Symbols(HandlerCandidate).ParentSymbol = EventFieldOwner And EqualsFolded(Symbols(HandlerCandidate).SymbolName, HandlerName) <> 0 Then
+                                Dim HandlerValid As Long = 1
+                                If Symbols(HandlerCandidate).SymbolKind <> SemanticSymbolProcedure() Or Symbols(HandlerCandidate).VisibilityKind <> 2 Or Symbols(HandlerCandidate).DeclaredType >= 0 Then
+                                    HandlerValid = 0
+                                End If
+                                If SyntaxNodeContainsToken(Symbols(HandlerCandidate).SyntaxNode, "Sub", SyntaxNodes, Tokens) = 0 Then
+                                    HandlerValid = 0
+                                End If
+                                If HandlerValid <> 0 Then
+                                    HandlerValid = EventHandlerSignatureMatches(EventCandidate, HandlerCandidate, Symbols, SymbolCount)
+                                End If
+                                If HandlerValid = 0 Then
+                                    Call AddSemanticDiagnostic("UBE4047", Symbols(HandlerCandidate).SyntaxNode, "WithEvents handler must be a Private Sub with the exact Event signature: " & HandlerName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                End If
+                            End If
+                            HandlerCandidate = HandlerCandidate + 1
+                        Wend
+                    End If
+                    EventCandidate = EventCandidate + 1
+                Wend
+                If DeclaredEventCount = 0 Then
+                    Call AddSemanticDiagnostic("UBE4046", Symbols(SymbolIndex).SyntaxNode, "WithEvents type does not declare any events", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                End If
+            End If
+            If (Symbols(SymbolIndex).Flags And 16) <> 0 Then
+                Call AddSemanticDiagnostic("UBE4048", Symbols(SymbolIndex).SyntaxNode, "WithEvents cannot be combined with As New", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            End If
+        End If
         If (Symbols(SymbolIndex).Flags And 64) <> 0 Then
             If EqualsFolded(Project.Kind, "Library") = 0 Then
                 Call AddSemanticDiagnostic("UBE4031", Symbols(SymbolIndex).SyntaxNode, "Public Export is valid only in a Library project", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
@@ -528,6 +636,19 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
             End If
             Dim OwnerSymbol As Long = ProcedureOwnerForNode(NodeIndex, SyntaxNodes, Symbols, SymbolCount)
             Dim FoundLabel As Long = 0
+            If LabelName = "0" Then
+                Dim LabelAncestor As Long = SyntaxNodes(NodeIndex).ParentNode
+                While LabelAncestor >= 0 And FoundLabel = 0
+                    If EqualsFolded(Rules(SyntaxNodes(LabelAncestor).ProductionRule).RuleName, "error-statement") <> 0 Then
+                        If SyntaxNodeContainsToken(LabelAncestor, "On", SyntaxNodes, Tokens) <> 0 And SyntaxNodeContainsToken(LabelAncestor, "GoTo", SyntaxNodes, Tokens) <> 0 Then
+                            FoundLabel = 1
+                        End If
+                        LabelAncestor = -1
+                    Else
+                        LabelAncestor = SyntaxNodes(LabelAncestor).ParentNode
+                    End If
+                Wend
+            End If
             SymbolIndex = 0
             While SymbolIndex < SymbolCount
                 If Symbols(SymbolIndex).SymbolKind = SemanticSymbolLabel() And Symbols(SymbolIndex).ParentSymbol = OwnerSymbol Then
@@ -616,11 +737,13 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
             Dim QualifiedNode As Long = FirstDescendantSyntaxNode(NodeIndex, "qualified-name", SyntaxNodes, SyntaxLinks, Rules, 0)
             Dim TargetName As String = LastIdentifierInNode(QualifiedNode, SyntaxNodes, Tokens)
             Dim MatchCount As Long = 0
+            Dim CallNewTargetSymbol As Long = -1
             SymbolIndex = 0
             While SymbolIndex < SymbolCount
                 If Symbols(SymbolIndex).SymbolKind = SemanticSymbolProcedure() And EqualsFolded(Symbols(SymbolIndex).SymbolName, TargetName) <> 0 Then
                     If SyntaxNodeContainsToken(Symbols(SymbolIndex).SyntaxNode, "Sub", SyntaxNodes, Tokens) <> 0 Then
                         MatchCount = MatchCount + 1
+                        CallNewTargetSymbol = SymbolIndex
                     End If
                 End If
                 SymbolIndex = SymbolIndex + 1
@@ -630,6 +753,16 @@ Function ValidateSemanticContracts(ByRef Project As ProjectDescription, ByRef So
             Else
                 If MatchCount > 1 Then
                     Call AddSemanticDiagnostic("UBE4027", NodeIndex, "CallNew target is ambiguous: " & TargetName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Else
+                    Dim CallNewParameterSymbol As Long = 0
+                    While CallNewParameterSymbol < SymbolCount
+                        If Symbols(CallNewParameterSymbol).SymbolKind = SemanticSymbolParameter() And Symbols(CallNewParameterSymbol).ParentSymbol = CallNewTargetSymbol Then
+                            If (Symbols(CallNewParameterSymbol).Flags And 2) = 0 Then
+                                Call AddSemanticDiagnostic("UBE4028", NodeIndex, "CallNew target parameters must be declared ByVal: " & Symbols(CallNewParameterSymbol).SymbolName, Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                            End If
+                        End If
+                        CallNewParameterSymbol = CallNewParameterSymbol + 1
+                    Wend
                 End If
             End If
         End If

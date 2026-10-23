@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP7ComponentLoadRollback"
+Kind = "Exe"
+Startup = "Main"
+Source = "FailingLoadForm.frm"
+Source = "component-load-rollback.bas"

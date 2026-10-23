@@ -63,6 +63,78 @@ if ($LASTEXITCODE -ne 0) { throw 'Codegen tests failed' }
 & gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' '-c' `
     (Join-Path $root 'runtime/bootstrap_runtime.c') '-o' (Join-Path $out 'bootstrap_runtime.o')
 if ($LASTEXITCODE -ne 0) { throw 'Bootstrap runtime build failed' }
+$errorStateProbe = Join-Path $out 'error-state-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/error_state_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $errorStateProbe
+if ($LASTEXITCODE -ne 0) { throw 'Thread-local error-state probe build failed' }
+$errorStateOutput = & $errorStateProbe
+if ($LASTEXITCODE -ne 0 -or $errorStateOutput -ne 'error state probe passed') {
+    throw 'Thread-local error-state probe failed'
+}
+$threadLifecycleProbe = Join-Path $out 'thread-lifecycle-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/thread_lifecycle_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $threadLifecycleProbe
+if ($LASTEXITCODE -ne 0) { throw 'Thread lifecycle probe build failed' }
+$threadLifecycleOutput = & $threadLifecycleProbe
+if ($LASTEXITCODE -ne 0 -or $threadLifecycleOutput -ne 'thread lifecycle probe passed') {
+    throw 'Thread lifecycle probe failed'
+}
+$monitorProbe = Join-Path $out 'monitor-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/monitor_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $monitorProbe
+if ($LASTEXITCODE -ne 0) { throw 'Object monitor probe build failed' }
+$monitorOutput = & $monitorProbe
+if ($LASTEXITCODE -ne 0 -or $monitorOutput -ne 'monitor probe passed') {
+    throw 'Object monitor probe failed'
+}
+$atomicProbe = Join-Path $out 'atomic-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/atomic_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $atomicProbe
+if ($LASTEXITCODE -ne 0) { throw 'Atomic operation probe build failed' }
+$atomicOutput = & $atomicProbe
+if ($LASTEXITCODE -ne 0 -or $atomicOutput -ne 'atomic probe passed') {
+    throw 'Atomic operation probe failed'
+}
+$threadEventProbe = Join-Path $out 'thread-event-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/thread_event_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $threadEventProbe
+if ($LASTEXITCODE -ne 0) { throw 'Thread-event probe build failed' }
+$threadEventOutput = & $threadEventProbe
+if ($LASTEXITCODE -ne 0 -or $threadEventOutput -ne 'thread event probe passed') {
+    throw 'Thread-event probe failed'
+}
+$semaphoreProbe = Join-Path $out 'semaphore-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/semaphore_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $semaphoreProbe
+if ($LASTEXITCODE -ne 0) { throw 'Semaphore probe build failed' }
+$semaphoreOutput = & $semaphoreProbe
+if ($LASTEXITCODE -ne 0 -or $semaphoreOutput -ne 'semaphore probe passed') {
+    throw 'Semaphore probe failed'
+}
+$messageQueueProbe = Join-Path $out 'message-queue-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/message_queue_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $messageQueueProbe
+if ($LASTEXITCODE -ne 0) { throw 'Message-queue probe build failed' }
+$messageQueueOutput = & $messageQueueProbe
+if ($LASTEXITCODE -ne 0 -or $messageQueueOutput -ne 'message queue probe passed') {
+    throw 'Message-queue probe failed'
+}
+$componentProbe = Join-Path $out 'component-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/component_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $componentProbe
+if ($LASTEXITCODE -ne 0) { throw 'Component lifetime probe build failed' }
+$componentOutput = & $componentProbe
+if ($LASTEXITCODE -ne 0 -or $componentOutput -ne 'component probe passed') {
+    throw 'Component lifetime probe failed'
+}
 $gcProbe = Join-Path $out 'gc-probe.exe'
 & gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
     (Join-Path $PSScriptRoot 'tests/gc_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
@@ -394,18 +466,18 @@ if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP5' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP6: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP7: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to analyze its own project'
 }
 
 $v3Rp1Tests = Join-Path $v3Project 'tests'
 $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP6: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP7: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed its inherited multi-module project fixture'
 }
 $ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP6: project UBECore (Library), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP7: project UBECore (Library), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to validate the UBECore project boundary'
 }
 
@@ -447,9 +519,9 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp6 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
+    -ExpectedDiagnostic 'usage: ube-v3-rp7 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
-    -ExpectedDiagnostic 'error UBE3200: unsupported RP6 target: unknown-target'
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP7 target: unknown-target'
 $v3Rp5MissingOutputDirectory = Join-Path $out 'missing-output-directory'
 $v3Rp5UnwritableOutput = Join-Path $v3Rp5MissingOutputDirectory 'output.ll'
 Test-V3Rp1Failure -Name 'atomic-output-write-failure' `
@@ -511,7 +583,7 @@ for ($constantIndex = 0; $constantIndex -le 4096; $constantIndex++) {
 Test-V3Rp1Failure -Name 'conditional-constant-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3502: invalid #Const value or conditional constant limit exceeded'
 
-$tokenLimitText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + (':' * 250001)
+$tokenLimitText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Fuzz`"`n" + (':' * 300001)
 [System.IO.File]::WriteAllText($v3Rp2FuzzSource, $tokenLimitText, [System.Text.UTF8Encoding]::new($false))
 Test-V3Rp1Failure -Name 'token-limit' -Arguments @($v3Rp2FuzzProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3400: token limit exceeded'
@@ -535,7 +607,7 @@ $v3Rp2BomText = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Bom`"`r`nDim fina
 $v3Rp2BomBytes = [System.Text.UTF8Encoding]::new($true).GetBytes($v3Rp2BomText)
 [System.IO.File]::WriteAllBytes($v3Rp2FuzzSource, $v3Rp2BomBytes)
 $bomOutput = & $v3Rp1Executable $v3Rp2FuzzProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP6:*') {
+if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP7:*') {
     throw 'UBE Compiler v3 RP5 failed BOM, CRLF, or final synthetic newline coverage'
 }
 
@@ -580,7 +652,7 @@ if ($recoveryFailure.ExitCode -ne 1 -or $recoveryDiagnosticCount -lt 2 -or $reco
 
 $v3Rp3DepthSource = Join-Path $out 'v3-rp3-depth.bas'
 $v3Rp3DepthProject = Join-Path $out 'v3-rp3-depth.UBE'
-$depthText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Depth`"`nDim Value As Long = " + ('(' * 300) + '0' + (')' * 300) + "`n"
+$depthText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Depth`"`nDim Value As Long = " + ('(' * 800) + '0' + (')' * 800) + "`n"
 [System.IO.File]::WriteAllText($v3Rp3DepthSource, $depthText, [System.Text.UTF8Encoding]::new($false))
 $depthProjectText = "UBE-Project 1`nName = `"Depth`"`nKind = `"Library`"`nSource = `"v3-rp3-depth.bas`"`n"
 [System.IO.File]::WriteAllText($v3Rp3DepthProject, $depthProjectText, [System.Text.UTF8Encoding]::new($false))
@@ -589,7 +661,7 @@ Test-V3Rp1Failure -Name 'syntax-depth-limit' -Arguments @($v3Rp3DepthProject, $v
 
 $v3Rp4Tests = Join-Path $v3Project 'tests/rp4'
 $v3Rp4Output = & $v3Rp1Executable (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP6: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP7: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed its inherited typed multi-module semantic fixture'
 }
 $firstSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
@@ -785,7 +857,7 @@ $v3Rp5NativeFixtureResults = @(
     Test-V3Rp5NativeFixture -Name 'array-member' -Project (Join-Path $v3Rp5Tests 'array-member.UBE') -ExpectedOutput "42`n42" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'byref-indexed' -Project (Join-Path $v3Rp5Tests 'byref-indexed.UBE') -ExpectedOutput "42`nindexed" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'default-initialization' -Project (Join-Path $v3Rp5Tests 'default-initialization.UBE') -ExpectedOutput 'defaults-ok' -ExpectedExitCode 0
-    Test-V3Rp5NativeFixture -Name 'divide-overflow' -Project (Join-Path $v3Rp5Tests 'divide-overflow.UBE') -ExpectedOutput '' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'divide-overflow' -Project (Join-Path $v3Rp5Tests 'divide-overflow.UBE') -ExpectedOutput "0`n11" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'array-bounds' -Project (Join-Path $v3Rp5Tests 'array-bounds.UBE') -ExpectedOutput 'UBE runtime: array index out of range: 1' -ExpectedExitCode 65
 )
 
@@ -969,6 +1041,35 @@ Test-V3Rp6Failure -Name 'reference-cycle' `
     -Project (Join-Path $v3Rp6Tests 'reference-cycle-a.UBE') `
     -ExpectedDiagnostic 'cyclic project Reference'
 
+# RP7 error recovery, threads, synchronization, events, and component lifetime
+# must reproduce through both the v2-built and self-built compilers.
+$v3Rp7Tests = Join-Path $v3Project 'tests/rp7'
+$v3Rp7NativeFixtureResults = @(
+    Test-V3Rp5NativeFixture -Name 'rp7-callnew-ignored' -Project (Join-Path $v3Rp7Tests 'callnew-ignored.UBE') -ExpectedOutput '77' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-callnew' -Project (Join-Path $v3Rp7Tests 'callnew.UBE') -ExpectedOutput "-1`n1`n42" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-callnew-capture' -Project (Join-Path $v3Rp7Tests 'callnew-capture.UBE') -ExpectedOutput "12`n1`n30`n1`n31" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-error-state' -Project (Join-Path $v3Rp7Tests 'error-state.UBE') -ExpectedOutput "123`n0" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-neutral-errors' -Project (Join-Path $v3Rp7Tests 'neutral-errors.UBE') -ExpectedOutput "0`n11`n0`n13`n0" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-on-error' -Project (Join-Path $v3Rp7Tests 'on-error.UBE') -ExpectedOutput "0`n11`n11`n22`n0`n5`n44`n123`n55`n1`n2`n0`n33" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-synclock-error' -Project (Join-Path $v3Rp7Tests 'synclock-error.UBE') -ExpectedOutput "5`n44`n1`n6" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-synclock' -Project (Join-Path $v3Rp7Tests 'synclock.UBE') -ExpectedOutput "1`n1`n3" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-events' -Project (Join-Path $v3Rp7Tests 'events.UBE') -ExpectedOutput "1`n101`n102" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-events-mutation' -Project (Join-Path $v3Rp7Tests 'events-mutation.UBE') -ExpectedOutput "1`n2`n202`n3`n4`n204`n203" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-events-class' -Project (Join-Path $v3Rp7Tests 'events-class.UBE') -ExpectedOutput "5`n12" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-events-cross-thread' -Project (Join-Path $v3Rp7Tests 'events-cross-thread.UBE') -ExpectedOutput "9`n1`n9`n-1" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-events-handler-error' -Project (Join-Path $v3Rp7Tests 'events-handler-error.UBE') -ExpectedOutput '222' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-component-lifecycle' -Project (Join-Path $v3Rp7Tests 'component-lifecycle.UBE') -ExpectedOutput "10`n20`n-1`n20`n-1" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-component-load-rollback' -Project (Join-Path $v3Rp7Tests 'component-load-rollback.UBE') -ExpectedOutput "-1`n0" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-component-drain' -Project (Join-Path $v3Rp7Tests 'component-drain.UBE') -ExpectedOutput "10`n30`n20`n40`n91" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-control-parent' -Project (Join-Path $v3Rp7Tests 'control-parent.UBE') -ExpectedOutput '91' -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-startup-form' -Project (Join-Path $v3Rp7Tests 'startup-form.UBE') -ExpectedOutput "10`n30`n20`n10`n20" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-object-identity' -Project (Join-Path $v3Rp7Tests 'object-identity.UBE') -ExpectedOutput "-1`n-1" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-ubecore-coordination' -Project (Join-Path $root 'source-library/AtomicTest.UBE') -ExpectedOutput "1`n5`n5`n8`n1`n4000000009`n1`n-1`n1`n1`n2008`n0`n1`n1`n0`n1`n0`n1`n1`n1`n1`n1`n1`n42`n0" -ExpectedExitCode 0
+)
+Test-V3Rp6Failure -Name 'rp7-event-handler-signature' `
+    -Project (Join-Path $v3Rp7Tests 'events-invalid-handler.UBE') `
+    -ExpectedDiagnostic 'error UBE4047: WithEvents handler must be a Private Sub with the exact Event signature: Source_Progress'
+
 $v3Rp6ManagedDumpV2 = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable `
     -Arguments @('--dump-managed', (Join-Path $v3Rp6Tests 'managed-layout.UBE'), $v3Rp1Target)
 $v3Rp6ManagedDumpSelf = Invoke-ExpectedNativeFailure -FilePath $v3Rp5SelfStageTwoExecutable `
@@ -1021,7 +1122,7 @@ if ($LASTEXITCODE -ne 0 -or $v3Rp6ForeignProbeOutput -ne 'foreign ABI probe pass
     throw 'RP6 foreign ABI probe failed'
 }
 
-$v3Rp6ReleaseCandidate = Join-Path $out 'ube-v3-rp6-windows-x86_64-x86_64-w64-windows-gnu.exe'
+$v3Rp7ReleaseCandidate = Join-Path $out 'ube-v3-rp7-windows-x86_64-x86_64-w64-windows-gnu.exe'
 
 $v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
 $manySourcesText = [System.Text.StringBuilder]::new()
@@ -1058,17 +1159,17 @@ Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourcePr
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
 $v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'ManagedModel.bas', 'ManagedAnalysis.bas', 'ManagedOutput.bas', 'TargetAbi.bas', 'ForeignAbiOutput.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrTypeRelations.bas', 'IrRp7Lowering.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'ManagedModel.bas', 'ManagedAnalysis.bas', 'ManagedOutput.bas', 'TargetAbi.bas', 'ForeignAbiOutput.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
     $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
 }
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp6-build-manifest-1'
-    preview = 'RP6'
+    schema = 'ube-v3-rp7-build-manifest-1'
+    preview = 'RP7'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
     core_package = 'UBECore'
-    core_library_version = '0.1.0-rp6'
+    core_library_version = '0.1.0-rp7'
     intrinsic_abi = 'ube-intrinsic-abi-1'
     source_library_slice = @(
         'src/portable/CoreIdentity.bas',
@@ -1077,7 +1178,16 @@ $v3Rp1BuildManifest = [ordered]@{
         'src/portable/Strings.bas',
         'src/portable/Memory.bas',
         'src/portable/Variants.bas',
-        'src/portable/Errors.bas'
+        'src/portable/Errors.bas',
+        'src/portable/Threads.bas',
+        'src/portable/AtomicBoolean.cls',
+        'src/portable/AtomicLong.cls',
+        'src/portable/AtomicLongLong.cls',
+        'src/portable/AtomicObject.cls',
+        'src/portable/ThreadEvent.cls',
+        'src/portable/Semaphore.cls',
+        'src/portable/MessageQueue.cls',
+        'src/portable/Synchronization.bas'
     )
     target = 'x86_64-w64-windows-gnu'
     optimization = '-O2'
@@ -1101,8 +1211,8 @@ $v3Rp1BuildManifest = [ordered]@{
         stage3_object_sha256 = $v3Rp5SelfStageThreeObjectHash
         stage2_normalized_object_sha256 = $v3Rp5SelfStageTwoNormalizedObjectHash
         stage3_normalized_object_sha256 = $v3Rp5SelfStageThreeNormalizedObjectHash
-        corpus_policy = 'identical exit code and ordinal output text for the recorded inherited and RP6 parity corpora'
-        corpus_case_count = $v3Rp5ParityCases.Count + $v3Rp6NativeFixtureResults.Count + 4
+        corpus_policy = 'identical exit code and ordinal output text for the recorded inherited, RP6, and RP7 parity corpora'
+        corpus_case_count = $v3Rp5ParityCases.Count + $v3Rp6NativeFixtureResults.Count + $v3Rp7NativeFixtureResults.Count + 5
     }
     source_library_comparison = [ordered]@{
         project = 'source-library/UBECore.UBE'
@@ -1113,7 +1223,7 @@ $v3Rp1BuildManifest = [ordered]@{
         v2_built_normalized_object_sha256 = $v3Rp5CoreV2NormalizedObjectHash
         self_built_normalized_object_sha256 = $v3Rp5CoreSelfNormalizedObjectHash
     }
-    native_profile_fixtures = @($v3Rp5NativeFixtureResults + $v3Rp6NativeFixtureResults)
+    native_profile_fixtures = @($v3Rp5NativeFixtureResults + $v3Rp6NativeFixtureResults + $v3Rp7NativeFixtureResults)
     managed_metadata_sha256 = $v3Rp6ManagedDumpHash
     foreign_library_ir = (Get-FileHash -LiteralPath $v3Rp6ForeignBootstrapIr -Algorithm SHA256).Hash
     foreign_library = (Get-FileHash -LiteralPath $v3Rp6ForeignDll -Algorithm SHA256).Hash
@@ -1127,7 +1237,7 @@ $v3Rp1BuildManifest = [ordered]@{
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 5 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp6-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp7-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(
@@ -1329,7 +1439,7 @@ $v2BootstrapManifest = [ordered]@{
 }
 $v2BootstrapManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $v2BootstrapManifestPath -Encoding UTF8
 
-# Materialize the named RP6 release candidate only after every inherited and
+# Materialize the named RP7 release candidate only after every inherited and
 # preview-specific gate above has passed.  The completion workflow can then
 # copy this exact file and hash into compiler/release-previews.
-Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp6ReleaseCandidate
+Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp7ReleaseCandidate

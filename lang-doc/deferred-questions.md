@@ -6,13 +6,6 @@ closed
 conflict with approved UBE architecture, or for which VB provides no portable
 model. Ordinary VB-compatible behavior does not require owner confirmation.
 
-## Language behavior
-
-- **Default form after unload.** Classic VB silently creates a new default
-  instance when a bare form name is used after unload. That conflicts with the
-  approved rule against hidden object reconstruction. Decide whether a fresh
-  `Load FormName` is required; explicit loading is recommended.
-
 ## Portable library architecture
 
 - Define the portable compiled-library bundle/container and its manifest.
@@ -26,6 +19,15 @@ model. Ordinary VB-compatible behavior does not require owner confirmation.
 These deferred decisions do not change parsing of source-library
 `Reference = "path/Library.UBE"` entries or any other currently frozen core
 production, so they do not block the core source grammar.
+
+## Procedure error propagation
+
+- Decide whether a recoverable failure inside a called UBE procedure may
+  transfer control to an enabled handler in its caller, as classic VB does, or
+  whether the callee always applies UBE's neutral-result continuation locally.
+  The current rules make handlers procedure-local and define neutral results,
+  but do not specify the cross-procedure boundary. Implementations must not
+  infer a new failure by inspecting a possibly older nonzero `Err` record.
 
 The canonical core package identity (`UBECore`) and the combined semantic-
 version/public-interface-hash compatibility model are frozen in

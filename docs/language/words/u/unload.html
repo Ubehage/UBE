@@ -16,7 +16,7 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/u/index.html">U</a> / Unload</nav>
     <h1>Unload</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Object statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <div class="metadata"><span class="badge status">Implemented</span><span class="badge">Object statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
     <p class="lede">Unloads a loaded form or compatible object.</p>
     <h2>Syntax</h2>
     <pre><code>Unload objectExpression</code></pre>
@@ -29,7 +29,7 @@ End Sub</code></pre>
     <h2>Important rules</h2>
     <p>Unload does not replace cleanup of files, handles, or other resources owned by user code.</p>
     <h2>UBE 1.0 rules</h2><p><code>Unload</code> applies to forms and controls, not ordinary class instances. A form first calls <code>Form_Unload(ByRef Cancel As Integer)</code>; nonzero <code>Cancel</code> leaves it loaded. After acceptance, UBE rejects new callbacks, releases the window and handles, lets active procedures finish, and then changes all aliases to <code>Nothing</code>.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../u/uintptr.html" data-doc-path="language/words/u/uintptr.html">← Previous: UIntPtr</a><a href="../u/unlock.html" data-doc-path="language/words/u/unlock.html">Next: Unlock →</a></nav>
-    <footer class="article-footer">Article ID: language.word.unload · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.word.unload · Status verified against UBE 1.0 · Last reviewed 2026-10-23</footer>
   </main>
 </body>
 </html>

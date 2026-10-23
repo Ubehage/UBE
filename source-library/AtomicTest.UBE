@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "UBECoreAtomicTest"
+Kind = "Exe"
+Startup = "Main"
+Source = "tests/AtomicTestObject.cls"
+Source = "tests/AtomicTest.bas"
+Reference = "UBECore.UBE"

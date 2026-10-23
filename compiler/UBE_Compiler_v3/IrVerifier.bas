@@ -6,7 +6,7 @@ Sub AddIrDiagnostic(ByVal Code As String, ByVal Message As String, ByRef Diagnos
 End Sub
 
 Function IrOpcodeIsTerminator(ByVal Opcode As Long) As Long
-    If Opcode = IrOpBranch() Or Opcode = IrOpConditionalBranch() Or Opcode = IrOpReturn() Then
+    If Opcode = IrOpBranch() Or Opcode = IrOpConditionalBranch() Or Opcode = IrOpReturn() Or Opcode = IrOpErrorDispatch() Or Opcode = IrOpResume() Then
         IrOpcodeIsTerminator = 1
     Else
         IrOpcodeIsTerminator = 0
@@ -26,6 +26,10 @@ Function IrOpcodeMayFail(ByVal Opcode As Long) As Long
         IrOpcodeMayFail = 1
         Exit Function
     End If
+    If Opcode = IrOpCall() Or Opcode = IrOpResume() Or Opcode = IrOpRaiseEvent() Or Opcode = IrOpLoadComponent() Or Opcode = IrOpUnloadComponent() Then
+        IrOpcodeMayFail = 1
+        Exit Function
+    End If
     IrOpcodeMayFail = 0
 End Function
 
@@ -42,11 +46,11 @@ Function IrOpcodeIsKnown(ByVal Opcode As Long) As Long
         IrOpcodeIsKnown = 1
         Exit Function
     End If
-    If Opcode >= IrOpCall() And Opcode <= IrOpReturn() Then
+    If Opcode >= IrOpCall() And Opcode <= IrOpUnloadComponent() Then
         IrOpcodeIsKnown = 1
         Exit Function
     End If
-    If Opcode >= IrOpErrorTest() And Opcode <= IrOpErrorClear() Then
+    If Opcode >= IrOpErrorTest() And Opcode <= IrOpResume() Then
         IrOpcodeIsKnown = 1
         Exit Function
     End If
@@ -355,7 +359,44 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                     End If
                 End If
             End If
-            If Instructions(Index).Opcode = IrOpCall() Then
+            If Instructions(Index).Opcode = IrOpRaiseEvent() Then
+                If Instructions(Index).OperandCount < 1 Or Operands(Instructions(Index).FirstOperand).OperandKind <> IrOperandInteger() Then
+                    Call AddIrDiagnostic("UBE5006", "RaiseEvent instruction requires an Event symbol operand", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    Valid = 0
+                End If
+                If Instructions(Index).ResultValue >= 0 Then
+                    Call AddIrDiagnostic("UBE5006", "RaiseEvent instruction cannot produce a value", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    Valid = 0
+                End If
+            End If
+            If Instructions(Index).Opcode = IrOpLoadComponent() Or Instructions(Index).Opcode = IrOpUnloadComponent() Then
+                If Instructions(Index).OperandCount <> 2 Or Operands(Instructions(Index).FirstOperand).OperandKind <> IrOperandStorage() Or Operands(Instructions(Index).FirstOperand + 1).OperandKind <> IrOperandInteger() Then
+                    Call AddIrDiagnostic("UBE5006", "component lifecycle instruction requires storage and component-kind operands", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    Valid = 0
+                End If
+                If Instructions(Index).ResultValue >= 0 Then
+                    Call AddIrDiagnostic("UBE5006", "component lifecycle instruction cannot produce a value", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    Valid = 0
+                End If
+            End If
+            If Instructions(Index).Opcode = IrOpMonitorEnter() Or Instructions(Index).Opcode = IrOpMonitorExit() Then
+                If Instructions(Index).OperandCount <> 1 Or Operands(Instructions(Index).FirstOperand).OperandKind <> IrOperandStorage() Then
+                    Call AddIrDiagnostic("UBE5006", "monitor instruction requires one object storage operand", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    Valid = 0
+                End If
+                If Instructions(Index).Opcode = IrOpMonitorEnter() Then
+                    If Instructions(Index).ResultValue < 0 Or EqualsFolded(Types(Instructions(Index).ResultType).TypeName, "Boolean") = 0 Then
+                        Call AddIrDiagnostic("UBE5006", "monitor-enter instruction must produce Boolean", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        Valid = 0
+                    End If
+                Else
+                    If Instructions(Index).ResultValue >= 0 Then
+                        Call AddIrDiagnostic("UBE5006", "monitor-exit instruction cannot produce a value", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        Valid = 0
+                    End If
+                End If
+            End If
+            If Instructions(Index).Opcode = IrOpCall() Or Instructions(Index).Opcode = IrOpCallNew() Then
                 If Instructions(Index).OperandCount < 1 Or Operands(Instructions(Index).FirstOperand).OperandKind <> IrOperandFunction() Then
                     Call AddIrDiagnostic("UBE5006", "call instruction requires a function operand", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                     Valid = 0
@@ -366,6 +407,16 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                         Valid = 0
                     Else
                         Dim CallFirstArgument As Long = 1
+                        If Instructions(Index).Opcode = IrOpCallNew() Then
+                            If Instructions(Index).ResultValue < 0 Or EqualsFolded(Types(Instructions(Index).ResultType).TypeName, "LongLong") = 0 Then
+                                Call AddIrDiagnostic("UBE5006", "CallNew must produce a LongLong thread identifier", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                Valid = 0
+                            End If
+                            If Functions(CalledFunction).ResultType >= 0 Then
+                                Call AddIrDiagnostic("UBE5006", "CallNew target must be a Sub", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                Valid = 0
+                            End If
+                        End If
                         If Instructions(Index).Flags And 256 Then
                             CallFirstArgument = 2
                             If Instructions(Index).OperandCount < 2 Then
@@ -388,6 +439,10 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                                 Dim CalledParameter As Long = Functions(CalledFunction).FirstParameter + CallArgumentOffset
                                 Dim CallOperand As Long = Instructions(Index).FirstOperand + CallArgumentOffset + CallFirstArgument
                                 Dim CallArgumentType As Long = -1
+                                If Instructions(Index).Opcode = IrOpCallNew() And Parameters(CalledParameter).PassingMode <> IrPassingByVal() Then
+                                    Call AddIrDiagnostic("UBE5007", "CallNew parameters must be ByVal", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                    Valid = 0
+                                End If
                                 If Parameters(CalledParameter).PassingMode = IrPassingByRef() Then
                                     If Operands(CallOperand).OperandKind = IrOperandStorage() Then
                                         If Operands(CallOperand).ReferencedIndex >= 0 And Operands(CallOperand).ReferencedIndex < StorageCount Then
@@ -428,15 +483,17 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                                 CallArgumentOffset = CallArgumentOffset + 1
                             Wend
                         End If
-                        If Functions(CalledFunction).ResultType < 0 Then
-                            If Instructions(Index).ResultValue >= 0 Then
-                                Call AddIrDiagnostic("UBE5006", "Sub call unexpectedly produces a result value", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-                                Valid = 0
-                            End If
-                        Else
-                            If Instructions(Index).ResultValue < 0 Or Instructions(Index).ResultType <> Functions(CalledFunction).ResultType Then
-                                Call AddIrDiagnostic("UBE5006", "Function call result does not match the called function", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-                                Valid = 0
+                        If Instructions(Index).Opcode <> IrOpCallNew() Then
+                            If Functions(CalledFunction).ResultType < 0 Then
+                                If Instructions(Index).ResultValue >= 0 Then
+                                    Call AddIrDiagnostic("UBE5006", "Sub call unexpectedly produces a result value", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                    Valid = 0
+                                End If
+                            Else
+                                If Instructions(Index).ResultValue < 0 Or Instructions(Index).ResultType <> Functions(CalledFunction).ResultType Then
+                                    Call AddIrDiagnostic("UBE5006", "Function call result does not match the called function", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                                    Valid = 0
+                                End If
                             End If
                         End If
                     End If

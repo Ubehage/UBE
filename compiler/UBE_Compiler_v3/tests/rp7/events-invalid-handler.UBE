@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP7EventsInvalidHandler"
+Kind = "Exe"
+Startup = "Main"
+Source = "EventSource.cls"
+Source = "events-invalid-handler.bas"

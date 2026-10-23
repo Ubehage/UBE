@@ -1,8 +1,8 @@
 # Form and control source-semantics audit
 
 **Scope:** UBE 1.0 / Compiler v3 candidate definition  
-**Status:** compatible rules and startup ordering promoted; default-instance
-recreation retained for later resolution  
+**Status:** compatible rules, startup ordering, and default-instance lifetime
+promoted  
 **Method:** use classic VB6 behavior where it does not contradict an approved
 UBE rule. Questions created by a real conflict are collected at the end for
 later resolution.
@@ -83,6 +83,12 @@ Unload CustomerForm
 This slot is separate from every identity created by `New CustomerForm`.
 Loading or unloading an explicitly created instance does not change the
 default slot unless it is in fact that same identity.
+
+The first bare value reference creates the slot's identity on demand and uses
+classic VB-compatible first-load behavior. Accepted unload then records an
+explicit user decision: the slot stays `Nothing` and later bare references do
+not recreate it. `Load CustomerForm` is the explicit operation that begins a
+new default-instance lifetime.
 
 The slot is a precise managed root only while it contains an identity. It is
 not a raw global pointer and does not bypass garbage collection. Accepted
@@ -193,10 +199,10 @@ installed UBE runtime, process, VM, or universal object service.
 
 Ordinary `As New` variables remain immediate constructions and never recreate
 themselves after `Set variable = Nothing`. Explicit instances created with
-`New` likewise never reconstruct themselves. The only possible implicit
-construction under review is the legacy form *default-instance slot*, whose
-VB6 behavior conflicts with the spirit of this approved rule and therefore
-requires the recorded decision below.
+`New` likewise never reconstruct themselves. A form default-instance slot has
+one narrow compatibility rule: its first bare value reference may construct
+it. That permission is consumed by accepted unload and cannot become hidden
+post-unload reconstruction.
 
 ### Garbage collection and unloading
 
@@ -221,34 +227,14 @@ dispatch-wait-cycle detection and must not hold internal collector or
 dispatcher locks while invoking `Class_Initialize`, `Form_Load`,
 `Control_Initialize`, unload handlers, or other user code.
 
-## Questions saved for later resolution
+## Resolved owner decisions
 
-Promotion adopted the recommended startup ordering in Question 2 and the
-separate `StartupForm` manifest key from the project-reference audit. Question
-1 remains unresolved because it conflicts with the approved no-hidden-
-reconstruction rule.
+### Default-instance creation and post-unload behavior
 
-### Question 1: default-instance recreation after unload
-
-Classic VB6 automatically creates a form's default instance on demand, and a
-later bare reference can create a fresh instance after the previous one was
-unloaded. UBE has already approved immediate/predictable construction, no
-hidden `As New` recreation, and identity-wide clearing of every alias after
-accepted unload.
-
-Choose one rule:
-
-1. **VB-compatible recreation:** a bare form name in a value operation creates
-   a fresh default identity whenever its slot is `Nothing`. `Unload Form1`
-   clears the old identity, but a later `Form1.Show` constructs another one.
-2. **Explicit recreation:** the compiler creates the default identity only for
-   generated startup-form loading or an explicit `Load Form1`; other access
-   while the slot is `Nothing` fails in the controlled manner. After unload,
-   recreation requires another explicit `Load Form1`.
-
-The second choice better matches UBE's explicit construction rule; the first
-is closer to classic VB6. Neither may be silently inferred from the currently
-approved text.
+The first bare form reference creates the default identity as classic VB does.
+After accepted unload, the user has explicitly decided that identity should be
+unloaded, so a later bare reference does not create another one. A new default
+lifetime requires explicit `Load FormName`.
 
 ### Question 2: startup-form ordering relative to `Main`
 

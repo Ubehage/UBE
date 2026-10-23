@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP7EventsCrossThread"
+Kind = "Exe"
+Startup = "Main"
+Source = "EventSource.cls"
+Source = "EventSubscriber.cls"
+Source = "events-cross-thread.bas"

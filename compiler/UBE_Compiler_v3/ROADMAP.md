@@ -339,38 +339,45 @@ verified Windows x86-64 executable and SHA-256 are preserved under
 Goal: implement UBE's complete concurrency and callback model with controlled
 failure and cleanup.
 
+Implementation detail and executable sub-gates are tracked in
+[`RP7_IMPLEMENTATION.md`](RP7_IMPLEMENTATION.md). All slices are verified.
+
 ### RP7.1 — runtime error model
 
-- [ ] Implement thread-local `Err`, neutral failure values, `On Error`,
+- [x] Implement thread-local `Err`, neutral failure values, `On Error`,
   `Resume`, and cleanup on every control-flow edge.
-- [ ] Define controlled unrecoverable failure for resource exhaustion and
+- [x] Define controlled unrecoverable failure for resource exhaustion and
   recursion/stack limits without an uncontrolled process crash.
 
 ### RP7.2 — threads and synchronization
 
-- [ ] Implement `CallNew`, non-recycled `LongLong` thread IDs, left-to-right
+- [x] Implement `CallNew`, non-recycled `LongLong` thread IDs, left-to-right
   argument snapshots, and shared object identity.
-- [ ] Implement cooperative stop, wait, liveness, yield, safe program shutdown,
+- [x] Implement cooperative stop, wait, liveness, yield, safe program shutdown,
   and callback-event-source liveness.
-- [ ] Implement `SyncLock`, sequentially consistent atomic wrappers,
+- [x] Implement `SyncLock`, sequentially consistent atomic wrappers,
   `ThreadEvent`, `Semaphore`, and FIFO `MessageQueue` in the proper compiler,
   linked-substrate, and source-library layers.
-- [ ] Verify data-race memory safety, safe points, cancellation wakeups,
+- [x] Verify data-race memory safety, safe points, cancellation wakeups,
   reentrant locks, dead-object failures, and multiple waiters.
 
 ### RP7.3 — events, forms, and controls
 
-- [ ] Implement `Event`, `RaiseEvent`, `WithEvents`, synchronous ordered and
+- [x] Implement `Event`, `RaiseEvent`, `WithEvents`, synchronous ordered and
   recursively reentrant dispatch, subscription changes, and signature checks.
-- [ ] Resolve the default-form-after-unload question before implementing bare
-  default-form recreation behavior.
-- [ ] Implement startup forms, `Load`, cancellable `Unload`, drain-before-
+- [x] Resolve default-form lifetime: the first bare reference creates on
+  demand; after accepted unload, only explicit `Load FormName` recreates it.
+- [x] Implement startup forms, `Load`, cancellable `Unload`, drain-before-
   termination, alias clearing, native callback admission, and UI-thread
   dispatch without exposing an owner-thread restriction in UBE source.
 
 RP7 gate: the self-hosting/compiler-library chain reproduces; threading,
 events, unload, shutdown, cancellation, GC interaction, recursion limits, and
 failure suites pass repeatedly and under stress.
+
+RP7 gate complete and verified on 2026-10-23. The clean build records 49
+cross-stage corpus cases, byte-identical self-hosted LLVM, matching normalized
+COFF objects, and identical 16-module `UBECore` output.
 
 ## Release Preview 8: complete UBE 1.0 surface and portability boundary
 
@@ -457,6 +464,6 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP6.1 by defining the target-independent managed representation and its
-ownership/GC invariants. Preserve the RP5 self-build, deterministic comparison,
-native Bootstrap Profile corpus, and exact source-library-slice gates unchanged.
+Begin RP8.1 by completing project/dependency orchestration and freezing the
+portable resource and compiled-library bundle contracts. Preserve every RP7
+self-build, concurrency, callback, component-lifetime, and exact-library gate.

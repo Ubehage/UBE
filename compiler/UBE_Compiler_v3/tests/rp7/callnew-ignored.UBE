@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP7CallNewIgnored"
+Kind = "Exe"
+Startup = "Main"
+Source = "callnew-ignored.bas"

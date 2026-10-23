@@ -73,6 +73,28 @@ Function SemanticSymbolLabel() As Long
     SemanticSymbolLabel = 12
 End Function
 
+Function SemanticLabelName(ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As String
+    Dim TokenIndex As Long = SyntaxNodes(NodeIndex).FirstToken
+    While TokenIndex <= SyntaxNodes(NodeIndex).LastToken
+        If Tokens(TokenIndex).TokenKind = 2 Then
+            SemanticLabelName = Tokens(TokenIndex).Spelling
+            Exit Function
+        End If
+        If Tokens(TokenIndex).TokenKind = 3 Then
+            SemanticLabelName = Tokens(TokenIndex).Decoded
+            Exit Function
+        End If
+        If Tokens(TokenIndex).TokenKind >= 4 And Tokens(TokenIndex).TokenKind <= 8 Then
+            If Tokens(TokenIndex).Spelling <> ":" Then
+                SemanticLabelName = Tokens(TokenIndex).Spelling
+                Exit Function
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    SemanticLabelName = ""
+End Function
+
 Function SemanticTypeUnknown() As Long
     SemanticTypeUnknown = 0
 End Function
@@ -295,6 +317,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
         End If
         If EqualsFolded(RuleName, "event-declaration") <> 0 Then
             SymbolKind = SemanticSymbolEvent()
+            CreatesProcedureScope = 1
         End If
         If EqualsFolded(RuleName, "interface-declaration") <> 0 Then
             SymbolKind = SemanticSymbolInterface()
@@ -339,6 +362,14 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
                     End If
                     If SymbolKind = SemanticSymbolVariable() And SyntaxNodeContainsToken(NodeIndex, "New", SyntaxNodes, Tokens) <> 0 Then
                         Symbols(AddedSymbol).Flags = Symbols(AddedSymbol).Flags + 16
+                    End If
+                    If SymbolKind = SemanticSymbolVariable() Then
+                        Dim VariableParentNode As Long = SyntaxNodes(NodeIndex).ParentNode
+                        If VariableParentNode >= 0 Then
+                            If SyntaxRuleIs(VariableParentNode, "event-variable-declaration", SyntaxNodes, Rules) <> 0 Then
+                                Symbols(AddedSymbol).Flags = Symbols(AddedSymbol).Flags + 128
+                            End If
+                        End If
                     End If
                     If SymbolKind = SemanticSymbolType() Or SymbolKind = SemanticSymbolEnum() Or SymbolKind = SemanticSymbolInterface() Then
                         Dim NewType As Long = AppendSemanticType(Types, TypeCount, TypeCapacity, SymbolKind + 20, DeclaredName, AddedSymbol, -1, 0, 0)
@@ -401,7 +432,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             End If
         End If
         If EqualsFolded(CurrentRule, "label-declaration") <> 0 Then
-            Dim LabelName As String = SyntaxIdentifierName(NodeIndex, SyntaxNodes, SyntaxLinks, Rules, Tokens)
+            Dim LabelName As String = SemanticLabelName(NodeIndex, SyntaxNodes, Tokens)
             Dim LabelOwner As Long = NearestProcedureSymbol(NodeIndex, NodeOwners, SyntaxNodes)
             Dim LabelParent As Long = -1
             If LabelOwner >= 0 Then

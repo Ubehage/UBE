@@ -789,6 +789,10 @@ form, or control identity; it is a reference, not a copy. A form name in a type
 context denotes the form type. In a value context, a bare form-module name
 denotes that form's compiler-maintained project default-instance slot. Controls
 do not receive a project default instance merely because their type exists.
+The first bare value reference creates the default form identity on demand and
+uses classic VB-compatible first-load behavior for the requested operation.
+This implicit creation is available only before that default identity has ever
+completed an accepted unload.
 
 `New FormType` creates a distinct identity and runs its parameterless
 `Class_Initialize`, but does not create a platform window, make the form
@@ -846,9 +850,10 @@ control lifecycle without inventing class-wide `Unload` behavior.
 Accepted unload clears a matching default-instance slot and every ordinary or
 `WithEvents` alias to that identity. Cancellation changes none of those
 references, subscriptions, resources, or liveness registrations. An identity
-whose unload completed cannot be revived; a subsequent default-form operation
-can only refer to a newly created identity under the separately resolved
-default-slot creation rule.
+whose unload completed cannot be revived. Accepted unload also records the
+user's decision in the default slot: later bare form references do not recreate
+it and fail in the controlled manner. `Load FormName` explicitly creates and
+loads a fresh default identity for a new lifetime.
 
 ## 13. Threads, events, and program lifetime
 

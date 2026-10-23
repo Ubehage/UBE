@@ -41,8 +41,8 @@ Function Main() As Long
         End If
     End If
     If CommandArgumentCount() <> 2 Then
-        Print "usage: ube-v3-rp6 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
-        Print "       ube-v3-rp6 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>"
+        Print "usage: ube-v3-rp7 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
+        Print "       ube-v3-rp7 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>"
         Main = 2
         Exit Function
     End If

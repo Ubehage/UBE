@@ -41,7 +41,14 @@ nearer roadmap or progress file.
     and expression records, entry-point and declaration validation, stable
     semantic diagnostics, deterministic semantic output, and focused rejection
     tests.
-  - [ ] Begin RP5 with typed target-independent IR and verification.
+  - [x] Complete RP5: verified typed IR, native LLVM output, compiler-owned
+    toolchain handoff, and deterministic self-compilation.
+  - [x] Complete RP6: managed values, objects/interfaces, tracing collection,
+    project references, callable `UBECore`, and the foreign ownership ABI.
+  - [x] Complete RP7: structured errors, threads and synchronization, events,
+    forms/controls, and component lifetime with deterministic failure gates.
+  - [ ] Begin RP8 with complete project/resource/library-bundle support and the
+    remaining UBE 1.0 surface and portability boundary.
 
 ## Handoff protocol
 

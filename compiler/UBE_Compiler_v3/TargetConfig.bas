@@ -31,6 +31,6 @@ Function ResolveTarget(ByVal Triple As String, ByRef Target As TargetDescription
         ResolveTarget = 1
         Exit Function
     End If
-    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP6 target: " & Triple)
+    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP7 target: " & Triple)
     ResolveTarget = 0
 End Function

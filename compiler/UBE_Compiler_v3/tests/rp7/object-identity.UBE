@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP7ObjectIdentity"
+Kind = "Exe"
+Startup = "Main"
+Source = "EventSource.cls"
+Source = "object-identity.bas"

@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP7EventsHandlerError"
+Kind = "Exe"
+Startup = "Main"
+Source = "EventSource.cls"
+Source = "EventErrorSubscriber.cls"
+Source = "events-handler-error.bas"

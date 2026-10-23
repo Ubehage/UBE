@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP7ComponentLifecycle"
+Kind = "Exe"
+Startup = "Main"
+Source = "LifecycleForm.frm"
+Source = "component-lifecycle.bas"

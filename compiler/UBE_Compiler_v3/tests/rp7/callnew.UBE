@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP7CallNew"
+Kind = "Exe"
+Startup = "Main"
+Source = "callnew.bas"

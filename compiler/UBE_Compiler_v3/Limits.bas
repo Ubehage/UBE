@@ -37,7 +37,7 @@ Function LimitCombinedSourceBytes() As Long
 End Function
 
 Function LimitSyntaxDepth() As Long
-    LimitSyntaxDepth = 512
+    LimitSyntaxDepth = 2048
 End Function
 
 Function LimitGeneratedBytes() As Long
@@ -46,8 +46,8 @@ End Function
 
 Function LimitTokenCount() As Long
     ' Compiler-sized projects exceed the early-preview ceiling. Keep the
-    ' limit explicit and bounded while allowing the RP5 self-build corpus.
-    LimitTokenCount = 250000
+    ' limit explicit and bounded while allowing the RP7 self-build corpus.
+    LimitTokenCount = 300000
 End Function
 
 Function LimitConditionalDepth() As Long
@@ -67,7 +67,7 @@ Function LimitGrammarNodes() As Long
 End Function
 
 Function LimitSyntaxNodes() As Long
-    LimitSyntaxNodes = 1000000
+    LimitSyntaxNodes = 1250000
 End Function
 
 Function LimitSemanticScopes() As Long

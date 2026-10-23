@@ -104,14 +104,10 @@ controlled-failure transitions; user code owns native unregistration.
 Module/type identity, `Me`, distinct explicit instances, first/repeated Load,
 Form_Load, control containment, rollback, aliases, GC roots, event binding,
 `StartupForm`, and startup-before-Main ordering are defined.
-`audits/forms-controls.md` preserves the full analysis. One conflicting choice
-remains intentionally unresolved:
-
-1. **Default-form recreation:** classic VB silently creates a fresh default
-   identity when a bare form name is used after unload. UBE's approved object
-   model forbids hidden `As New` reconstruction. Choose either VB-compatible
-   on-demand recreation or require explicit `Load FormName` after the slot is
-   empty. The audit recommends explicit recreation.
+`audits/forms-controls.md` preserves the full analysis. The default-form choice
+is resolved: the first bare reference creates the default identity on demand,
+but accepted unload records an explicit user decision and prevents later bare
+recreation. A fresh lifetime then requires `Load FormName`.
 
 The compatible manifest rule is now `Startup = "Main"` plus optional
 `StartupForm = "FormName"`; dependencies and modules initialize first, then the
@@ -183,7 +179,8 @@ The complete analysis is retained in `audits/project-references.md`.
   ByRef, parenthesized temporaries, Optional, and ParamArray behavior.
 - Derive lookup/ambiguity and no-user-overload fixtures.
 - Derive raw `AddressOf` target, ABI, lifetime, and rejection fixtures.
-- Resolve default-form recreation after accepted unload.
+- Derive first-reference and post-unload default-form fixtures from the frozen
+  hybrid creation rule.
 - Resolve compiled-library packaging/version constraints and core package name.
 - Derive modifier/default-visibility and Static-procedure fixtures.
 - Derive positive, negative, ambiguity, and recovery grammar fixtures. Static

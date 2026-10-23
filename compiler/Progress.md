@@ -6,18 +6,40 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 7 — errors, threads, events,
-  and component lifetime**
-- Active item: plan RP7 from the preserved, verified RP6 fixed point.
-- Status: RP6 is complete and verified. The v2-built and self-built compilers
+- Active milestone: **Compiler v3 Release Preview 8 — complete UBE 1.0 surface
+  and portability boundary**
+- Active item: begin RP8.1 project, resource, and compiled-library bundle work
+  from the preserved RP7 fixed point.
+- Status: RP7 is complete and verified. The v2-built and self-built compilers
   reproduce byte-identical LLVM, equivalent normalized objects, the exact
-  seven-module `UBECore` slice, and identical results across the inherited and
-  RP6 corpora. Managed values, objects, interfaces, module lifecycle, project
-  references, automatic collection, and the frozen foreign ownership ABI are
-  now part of the stable preview baseline.
+  16-module `UBECore` slice, and identical results across 49 recorded inherited,
+  RP6, and RP7 corpus cases. Thread-local errors, `CallNew`, coordination,
+  events, forms/controls, and component lifetime are now stable preview
+  behavior.
 - Blockers: none recorded.
 
 ## Latest verification
+
+- 2026-10-23: completed Compiler v3 Release Preview 7. A clean
+  `bootstrap/build.ps1` run passed with LLVM/Clang 23.1.3 targeting
+  `x86_64-w64-windows-gnu`. The fixed-point compiler emitted byte-identical
+  stage-two/stage-three LLVM and matching timestamp-normalized COFF; both
+  compiler stages emitted identical LLVM and objects for the 16-module
+  `UBECore` slice and agreed on 49 recorded corpus cases. Native probes cover
+  independent error records, thread lifecycle/failure injection, reentrant
+  monitors, atomics, waits, semaphores, FIFO queues, recursive/mutating events,
+  dispatcher-cycle rejection, load rollback, component draining, startup and
+  default forms, control parents, cancellation, and GC interaction. The build
+  record is `bootstrap/out/v3-rp7-build-manifest.json`; the verified executable
+  and SHA-256 are preserved under `compiler/release-previews/`.
+
+- 2026-10-21: audited the frozen RP7 contracts and divided implementation into
+  six executable slices in `UBE_Compiler_v3/RP7_IMPLEMENTATION.md`. The one
+  default-form behavior that conflicts with UBE's no-hidden-reconstruction rule
+  remains recorded in `lang-doc/deferred-questions.md`; RP7 will implement
+  explicit `Load FormName` without silently choosing bare post-unload
+  recreation. Work begins with the shared thread-local error substrate needed
+  by every later thread, wait, callback, and unload failure path.
 
 - 2026-10-21: completed Compiler v3 Release Preview 6. A clean
   `bootstrap/build.ps1` run passed with LLVM/Clang 23.1.3 targeting
@@ -176,12 +198,12 @@ roadmap.
 
 ## Next actions
 
-1. Derive the RP7 implementation slices from the frozen error, threading,
-   event, form/control, and unload contracts.
-2. Preserve the RP6 self-build, exact `UBECore`, managed-memory, and foreign-ABI
-   gates unchanged while adding thread-local error state and cleanup edges.
-3. Add `CallNew`, thread coordination, recursive events, and component lifetime
-   only behind focused native and controlled-failure gates.
+1. Begin RP8.1 project/dependency orchestration from the preserved RP7 fixed
+   point.
+2. Freeze the bounded `.UBR` resource container and portable compiled-library
+   bundle contracts before implementing their readers or writers.
+3. Preserve the complete RP7 self-build, exact `UBECore`, concurrency,
+   callback, component-lifetime, managed-memory, and foreign-ABI gates.
 
 ## Decisions in force
 

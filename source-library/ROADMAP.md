@@ -50,6 +50,10 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   require deterministic LLVM and object output.
 - [x] Add documented modules for runtime intrinsics, conversions, strings,
   managed memory, Variants, and status helpers as required by RP6.
+- [x] Compile the RP7 16-module portable slice with both compiler stages and
+  require deterministic LLVM and object output.
+- [x] Add documented error, thread, atomic, event, semaphore, queue, and
+  synchronization modules required by RP7.
 
 ## 3. Complete library after Compiler v3 Beta 1
 
@@ -65,16 +69,17 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## Handoff
 
-- Active compiler preview: RP6, built by preserved v2 and repeated by
+- Active compiler preview: RP7, built by preserved v2 and repeated by
   self-built v3.
 - Selected callable modules: `Conversions`, `Strings`, `Memory`, `Variants`,
-  and `Errors`.
+  `Errors`, `Threads`, the four atomic wrappers, `ThreadEvent`, `Semaphore`,
+  `MessageQueue`, and `Synchronization`.
 - Boundary and intrinsic modules: `CoreIdentity` and `RuntimeIntrinsics`.
 - Intrinsic dependencies: none from `UBECore`; RP1 compiler bootstrap
   intrinsics are recorded separately as `ube-intrinsic-abi-1`.
-- Verification: `bootstrap/build.ps1`; RP6 compiles `UBECore.UBE` through typed
+- Verification: `bootstrap/build.ps1`; RP7 compiles `UBECore.UBE` through typed
   IR to LLVM and COFF with both compiler stages, compares the outputs, and
-  records all identities in `bootstrap/out/v3-rp6-build-manifest.json`.
+  records all identities in `bootstrap/out/v3-rp7-build-manifest.json`.
 - Known failures: none.
-- Exact next action: extend the callable slice only as RP7 requires error,
-  threading, event, or component-lifetime operations.
+- Exact next action: extend the callable slice only as RP8 requires complete
+  project, resource, compiled-library, or remaining language support.

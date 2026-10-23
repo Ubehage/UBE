@@ -231,7 +231,7 @@ Function BuildManagedMetadata(ByRef Types() As SemanticType, ByVal TypeCount As 
         If Opcode = IrOpArrayResize() Or Opcode = IrOpConcatenate() Then
             SafePointKind = ManagedSafePointAllocation()
         Else
-            If Opcode = IrOpCall() Then
+            If Opcode = IrOpCall() Or Opcode = IrOpCallNew() Or Opcode = IrOpRaiseEvent() Or Opcode = IrOpLoadComponent() Or Opcode = IrOpUnloadComponent() Or Opcode = IrOpMonitorEnter() Then
                 SafePointKind = ManagedSafePointCall()
             End If
         End If
