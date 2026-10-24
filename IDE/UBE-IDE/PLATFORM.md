@@ -16,7 +16,7 @@ the message loop, standard native controls, menu/accelerator binding, focus
 transfer, actual monitor work areas, DPI notifications, and reparenting a tool
 between child and top-level native windows.
 
-The current Compiler v3 RP7 cannot yet lower arbitrary foreign declarations
+Compiler v3 RP8 cannot yet lower arbitrary foreign declarations
 and native callbacks. Therefore the UBE executable invokes the adapter through
 the existing bounded `CompilerRunTool` bootstrap boundary. It supplies a
 validated, localized shell configuration; the adapter returns only a bounded
@@ -25,6 +25,15 @@ a temporary transport limitation, not permission for native policy to spread.
 When direct foreign calls and callbacks are available, the transport can be
 replaced without changing the UBE layout, localization, command, or document
 models.
+
+Step 3 extends that bounded process bridge with three transient files: the UBE
+model publishes the validated source snapshot, the adapter atomically
+checkpoints the current native edit-control text, and a versioned action record
+returns stable document identity, base version, and Save/Discard/Close intent.
+UBE rejects stale or malformed results, checks the on-disk source again, writes
+recovery first, and alone decides whether to publish the source. A native crash
+can therefore leave a complete checkpoint but cannot directly overwrite the
+project file.
 
 ## Proven native behavior
 
@@ -60,5 +69,7 @@ monitor-query failures follow checked paths. The adapter writes a sibling
 temporary result, flushes it, and atomically replaces the result file; UBE then
 performs its own validation and atomic final publication.
 
-No OS failure is allowed to mutate a document. The adapter never owns source
-text, undo, compiler state, or the authoritative settings file.
+No OS failure is allowed to mutate authoritative document state. The adapter
+may hold and checkpoint the transient native-view text, but it never owns the
+document model, undo history, save decision, compiler state, project source
+publication, or authoritative settings file.

@@ -46,6 +46,7 @@ Function IdeSaveDocument(ByRef Document As IdeDocument, ByVal SimulateFailure As
     End If
     Document.SavedContents = Document.CurrentContents
     Document.SavedVersion = Document.Version
+    Document.DiskState = IdeDocumentDiskUnchanged()
     If Document.HasRecovery <> 0 Then
         Dim CleanupStatus As Long = CompilerDeleteFile(Document.RecoveryPath)
         If CleanupStatus = 0 Then
@@ -55,6 +56,98 @@ Function IdeSaveDocument(ByRef Document As IdeDocument, ByVal SimulateFailure As
         End If
     End If
     IdeSaveDocument = 1
+End Function
+
+Function IdeCloseSave() As Long
+    IdeCloseSave = 1
+End Function
+
+Function IdeCloseDiscard() As Long
+    IdeCloseDiscard = 2
+End Function
+
+Function IdeCloseCancel() As Long
+    IdeCloseCancel = 3
+End Function
+
+Function IdeSaveDocumentTransaction(ByRef Document As IdeDocument, ByVal ObservedDiskText As String, ByVal RequireDiskMatch As Long, ByVal StopAfterBoundary As Long, ByRef Diagnostics() As IdeDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    If StopAfterBoundary < 0 Or StopAfterBoundary > 4 Then
+        Call IdeAddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "IDE4006", Document.FilePath, 1, 1, 2)
+        IdeSaveDocumentTransaction = 0
+        Exit Function
+    End If
+    If IdeDocumentIsDirty(Document) = 0 Then
+        Document.DiskState = IdeDocumentDiskUnchanged()
+        IdeSaveDocumentTransaction = 1
+        Exit Function
+    End If
+    If StopAfterBoundary = 1 Then
+        IdeSaveDocumentTransaction = -1
+        Exit Function
+    End If
+    If IdeWriteRecovery(Document, 0, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        IdeSaveDocumentTransaction = 0
+        Exit Function
+    End If
+    If StopAfterBoundary = 2 Then
+        IdeSaveDocumentTransaction = -2
+        Exit Function
+    End If
+    If RequireDiskMatch <> 0 And ObservedDiskText <> Document.SavedContents Then
+        Document.DiskState = IdeDocumentDiskChanged()
+        Call IdeAddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "IDE4007", Document.FilePath, 1, 1, 2)
+        IdeSaveDocumentTransaction = 0
+        Exit Function
+    End If
+    If IdePublishText(Document.FilePath, Document.CurrentContents, 0, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        IdeSaveDocumentTransaction = 0
+        Exit Function
+    End If
+    If StopAfterBoundary = 3 Then
+        IdeSaveDocumentTransaction = -3
+        Exit Function
+    End If
+    Document.SavedContents = Document.CurrentContents
+    Document.SavedVersion = Document.Version
+    Document.DiskState = IdeDocumentDiskUnchanged()
+    If StopAfterBoundary = 4 Then
+        IdeSaveDocumentTransaction = -4
+        Exit Function
+    End If
+    If Document.HasRecovery <> 0 Then
+        Dim CleanupStatus As Long = CompilerDeleteFile(Document.RecoveryPath)
+        If CleanupStatus = 0 Then
+            Document.HasRecovery = 0
+        Else
+            Call IdeAddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "IDE4004", Document.RecoveryPath, 1, 1, 1)
+        End If
+    End If
+    IdeSaveDocumentTransaction = 1
+End Function
+
+Function IdeResolveDocumentClose(ByRef Document As IdeDocument, ByVal Decision As Long, ByVal ObservedDiskText As String, ByVal StopAfterBoundary As Long, ByRef Diagnostics() As IdeDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    If IdeDocumentIsDirty(Document) = 0 Then
+        IdeResolveDocumentClose = 1
+        Exit Function
+    End If
+    If Decision = IdeCloseCancel() Then
+        IdeResolveDocumentClose = 0
+        Exit Function
+    End If
+    If Decision = IdeCloseDiscard() Then
+        IdeResolveDocumentClose = 1
+        Exit Function
+    End If
+    If Decision <> IdeCloseSave() Then
+        Call IdeAddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "IDE4006", Document.FilePath, 1, 1, 2)
+        IdeResolveDocumentClose = 0
+        Exit Function
+    End If
+    If IdeSaveDocumentTransaction(Document, ObservedDiskText, 1, StopAfterBoundary, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 1 Then
+        IdeResolveDocumentClose = 1
+    Else
+        IdeResolveDocumentClose = 0
+    End If
 End Function
 
 Function IdeRestoreRecovery(ByRef Document As IdeDocument, ByVal RecoveryText As String) As Long

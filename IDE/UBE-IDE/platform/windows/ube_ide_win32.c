@@ -13,7 +13,7 @@
 #include <string.h>
 #include <wchar.h>
 
-#define IDE_MAX_FILE_BYTES (1024u * 1024u)
+#define IDE_MAX_FILE_BYTES (16u * 1024u * 1024u)
 #define IDE_MAX_ENTRIES 128
 #define IDE_MAX_KEY 96
 #define IDE_MAX_VALUE 768
@@ -44,6 +44,8 @@ enum {
     CMD_RESET_LAYOUT,
     CMD_HELP_ABOUT = 1401
 };
+
+enum { CONTROL_DOCUMENT = 2001 };
 
 typedef struct ConfigEntry {
     wchar_t key[IDE_MAX_KEY];
@@ -82,6 +84,13 @@ typedef struct AppState {
     Config config;
     LayoutState layout;
     const wchar_t *result_path;
+    const wchar_t *document_input_path;
+    const wchar_t *document_output_path;
+    const wchar_t *document_action_path;
+    wchar_t *initial_document_text;
+    int document_enabled;
+    int document_result_written;
+    int suppress_document_change;
     int verifying;
     int result_written;
     int exit_code;
@@ -89,6 +98,10 @@ typedef struct AppState {
 
 static const wchar_t MAIN_CLASS[] = L"UBE.IDE.MainWindow.Step2";
 static const wchar_t TOOL_CLASS[] = L"UBE.IDE.ToolWindow.Step2";
+
+static int write_document_snapshot(AppState *app);
+static int write_document_result(AppState *app, const wchar_t *action);
+static int write_document_checkpoint(AppState *app);
 
 static int controlled_failure(const wchar_t *detail, int code) {
     fwprintf(stderr, L"UBE IDE native shell: %ls (code %d)\n", detail, code);
@@ -582,6 +595,22 @@ static void reset_layout(AppState *app) {
 
 static void route_command(AppState *app, int command) {
     switch (command) {
+        case CMD_FILE_SAVE:
+            if (app->document_enabled) {
+                if (!write_document_result(app, L"Save")) {
+                    app->exit_code = 22;
+                    return;
+                }
+                PostMessageW(app->main_window, WM_CLOSE, 1, 0);
+                return;
+            }
+            break;
+        case CMD_EDIT_UNDO:
+            if (app->document_enabled) SendMessageW(app->document, EM_UNDO, 0, 0);
+            return;
+        case CMD_EDIT_REDO:
+            if (app->document_enabled) SendMessageW(app->document, EM_UNDO, 0, 0);
+            return;
         case CMD_FILE_EXIT: PostMessageW(app->main_window, WM_CLOSE, 0, 0); return;
         case CMD_VIEW_PROJECT:
         case CMD_VIEW_PROPERTIES:
@@ -624,7 +653,9 @@ static void capture_main_layout(AppState *app) {
 
 static int append_utf8(HANDLE file, const wchar_t *text) {
     int bytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1, NULL, 0, NULL, NULL);
-    if (bytes <= 1) return 0;
+    if (bytes <= 0) return 0;
+    if ((size_t)(bytes - 1) > IDE_MAX_FILE_BYTES) return 0;
+    if (bytes == 1) return 1;
     char *buffer = (char *)HeapAlloc(GetProcessHeap(), 0, (SIZE_T)bytes);
     if (!buffer) return 0;
     int converted = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1,
@@ -634,6 +665,73 @@ static int append_utf8(HANDLE file, const wchar_t *text) {
              written == (DWORD)(bytes - 1);
     HeapFree(GetProcessHeap(), 0, buffer);
     return ok;
+}
+
+static int write_utf8_atomic(const wchar_t *path, const wchar_t *text) {
+    if (!path || !*path || !text) return 0;
+    size_t path_length = wcslen(path);
+    if (path_length > 30000) return 0;
+    wchar_t *temporary = (wchar_t *)HeapAlloc(GetProcessHeap(), 0,
+                                               (path_length + 32u) * sizeof(wchar_t));
+    if (!temporary) return 0;
+    _snwprintf_s(temporary, path_length + 32u, _TRUNCATE, L"%ls.tmp.%lu", path,
+                 (unsigned long)GetCurrentProcessId());
+    HANDLE file = CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        HeapFree(GetProcessHeap(), 0, temporary);
+        return 0;
+    }
+    int ok = append_utf8(file, text) && FlushFileBuffers(file);
+    if (!CloseHandle(file)) ok = 0;
+    if (ok) ok = MoveFileExW(temporary, path,
+                              MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+    if (!ok) DeleteFileW(temporary);
+    HeapFree(GetProcessHeap(), 0, temporary);
+    return ok;
+}
+
+static wchar_t *document_text(AppState *app) {
+    if (!app || !app->document) return NULL;
+    int length = GetWindowTextLengthW(app->document);
+    if (length < 0 || (size_t)length > IDE_MAX_FILE_BYTES) return NULL;
+    wchar_t *text = (wchar_t *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                         ((size_t)length + 1u) * sizeof(wchar_t));
+    if (!text) return NULL;
+    if (GetWindowTextW(app->document, text, length + 1) != length) {
+        HeapFree(GetProcessHeap(), 0, text);
+        return NULL;
+    }
+    return text;
+}
+
+static int write_document_snapshot(AppState *app) {
+    if (!app || !app->document_enabled || !app->document_output_path) return 0;
+    wchar_t *text = document_text(app);
+    if (!text) return 0;
+    int ok = write_utf8_atomic(app->document_output_path, text);
+    HeapFree(GetProcessHeap(), 0, text);
+    return ok;
+}
+
+static int write_document_result(AppState *app, const wchar_t *action) {
+    if (!write_document_snapshot(app)) return 0;
+    const wchar_t *stable_id = config_get(&app->config, L"Document.StableId");
+    const wchar_t *base_version = config_get(&app->config, L"Document.BaseVersion");
+    if (!stable_id || !base_version || !action) return 0;
+    wchar_t result[512];
+    int count = _snwprintf_s(result, sizeof(result) / sizeof(result[0]), _TRUNCATE,
+        L"UBE-IDE-Document-Session 1\nStableId = \"%ls\"\nBaseVersion = \"%ls\"\nAction = \"%ls\"\n",
+        stable_id, base_version, action);
+    if (count <= 0 || !write_utf8_atomic(app->document_action_path, result)) return 0;
+    app->document_result_written = 1;
+    return 1;
+}
+
+static int write_document_checkpoint(AppState *app) {
+    if (!write_document_result(app, L"Recover")) return 0;
+    app->document_result_written = 0;
+    return 1;
 }
 
 static int write_layout_atomic(AppState *app) {
@@ -686,6 +784,11 @@ static LRESULT CALLBACK main_window_proc(HWND window, UINT message, WPARAM wpara
     }
     switch (message) {
         case WM_COMMAND:
+            if (app && app->document_enabled && LOWORD(wparam) == CONTROL_DOCUMENT &&
+                HIWORD(wparam) == EN_CHANGE && !app->suppress_document_change) {
+                if (!write_document_checkpoint(app)) app->exit_code = 23;
+                return 0;
+            }
             if (app) route_command(app, LOWORD(wparam));
             return 0;
         case WM_SIZE:
@@ -717,6 +820,27 @@ static LRESULT CALLBACK main_window_proc(HWND window, UINT message, WPARAM wpara
             return 0;
         }
         case WM_CLOSE:
+            if (app && app->document_enabled && !app->document_result_written) {
+                const wchar_t *action = L"Close";
+                if (SendMessageW(app->document, EM_GETMODIFY, 0, 0)) {
+                    if (wparam == 1) {
+                        action = L"Save";
+                    } else if (app->verifying) {
+                        action = L"Save";
+                    } else {
+                        int choice = MessageBoxW(window,
+                            config_get(&app->config, L"Text.Prompt.CloseDirty.Message"),
+                            config_get(&app->config, L"Text.Prompt.CloseDirty.Title"),
+                            MB_YESNOCANCEL | MB_ICONWARNING);
+                        if (choice == IDCANCEL) return 0;
+                        action = choice == IDYES ? L"Save" : L"Discard";
+                    }
+                }
+                if (!write_document_result(app, action)) {
+                    app->exit_code = 22;
+                    return 0;
+                }
+            }
             if (app && !write_layout_atomic(app)) app->exit_code = 20;
             DestroyWindow(window);
             return 0;
@@ -745,6 +869,22 @@ static int register_classes(AppState *app) {
     return RegisterClassExW(&tool_class) || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
 }
 
+static int create_document_view(AppState *app, const wchar_t *text, int modified) {
+    DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_MULTILINE | ES_AUTOVSCROLL |
+                  ES_WANTRETURN | WS_VSCROLL;
+    if (!app->document_enabled) style |= ES_READONLY;
+    app->suppress_document_change = 1;
+    app->document = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", text ? text : L"",
+        style, 0, 0, 100, 100, app->main_window,
+        (HMENU)(INT_PTR)CONTROL_DOCUMENT, app->instance, NULL);
+    app->suppress_document_change = 0;
+    if (!app->document) return 0;
+    SendMessageW(app->document, EM_LIMITTEXT, IDE_MAX_FILE_BYTES, 0);
+    SendMessageW(app->document, EM_SETMODIFY, modified ? TRUE : FALSE, 0);
+    apply_font(app->document, app->ui_font);
+    return 1;
+}
+
 static int create_application_windows(AppState *app) {
     repair_rect_to_monitor(&app->layout.main_bounds, 640, 480);
     app->main_window = CreateWindowExW(WS_EX_CONTROLPARENT, MAIN_CLASS,
@@ -756,15 +896,14 @@ static int create_application_windows(AppState *app) {
     app->ui_font = create_ui_font(window_dpi(app->main_window));
     app->main_menu = make_menu(app);
     if (!app->main_menu || !SetMenu(app->main_window, app->main_menu)) return 0;
-    app->document = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
-        config_get(&app->config, L"Text.Document.Welcome.Text"),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_MULTILINE | ES_AUTOVSCROLL |
-        ES_READONLY | WS_VSCROLL, 0, 0, 100, 100, app->main_window, NULL, app->instance, NULL);
+    const wchar_t *document_text_value = app->document_enabled
+        ? app->initial_document_text
+        : config_get(&app->config, L"Text.Document.Welcome.Text");
+    if (!create_document_view(app, document_text_value, 0)) return 0;
     app->status = CreateWindowExW(0, L"STATIC", config_get(&app->config, L"Text.Status.Ready"),
         WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0, 0, 100, 24,
         app->main_window, NULL, app->instance, NULL);
-    if (!app->document || !app->status) return 0;
-    apply_font(app->document, app->ui_font);
+    if (!app->status) return 0;
     apply_font(app->status, app->ui_font);
     if (!create_tool(app, &app->layout.project) || !create_tool(app, &app->layout.properties) ||
         !create_tool(app, &app->layout.output)) return 0;
@@ -784,6 +923,61 @@ static int create_application_windows(AppState *app) {
     if (!app->accelerators) return 0;
     layout_children(app);
     return 1;
+}
+
+static int verify_document_view(AppState *app) {
+    if (!app->document_enabled || !app->initial_document_text) return 0;
+    if (GetWindowLongPtrW(app->document, GWL_STYLE) & ES_READONLY) return 50;
+    static const wchar_t edit_text[] = L"\r\n' Step 3 native document edit";
+    SendMessageW(app->document, EM_SETSEL, (WPARAM)-1, (LPARAM)-1);
+    SendMessageW(app->document, EM_REPLACESEL, TRUE, (LPARAM)edit_text);
+    if (!SendMessageW(app->document, EM_GETMODIFY, 0, 0)) return 51;
+    wchar_t *edited = document_text(app);
+    if (!edited || !wcsstr(edited, L"Step 3 native document edit")) {
+        if (edited) HeapFree(GetProcessHeap(), 0, edited);
+        return 52;
+    }
+    if (!SendMessageW(app->document, EM_CANUNDO, 0, 0) ||
+        !SendMessageW(app->document, EM_UNDO, 0, 0)) {
+        HeapFree(GetProcessHeap(), 0, edited);
+        return 53;
+    }
+    wchar_t *undone = document_text(app);
+    if (!undone || wcsstr(undone, L"Step 3 native document edit")) {
+        if (undone) HeapFree(GetProcessHeap(), 0, undone);
+        HeapFree(GetProcessHeap(), 0, edited);
+        return 54;
+    }
+    if (!SendMessageW(app->document, EM_UNDO, 0, 0)) {
+        HeapFree(GetProcessHeap(), 0, undone);
+        HeapFree(GetProcessHeap(), 0, edited);
+        return 55;
+    }
+    wchar_t *redone = document_text(app);
+    if (!redone || !wcsstr(redone, L"Step 3 native document edit")) {
+        if (redone) HeapFree(GetProcessHeap(), 0, redone);
+        HeapFree(GetProcessHeap(), 0, undone);
+        HeapFree(GetProcessHeap(), 0, edited);
+        return 56;
+    }
+    DestroyWindow(app->document);
+    app->document = NULL;
+    if (!create_document_view(app, redone, 1)) {
+        HeapFree(GetProcessHeap(), 0, redone);
+        HeapFree(GetProcessHeap(), 0, undone);
+        HeapFree(GetProcessHeap(), 0, edited);
+        return 57;
+    }
+    layout_children(app);
+    wchar_t *recreated = document_text(app);
+    int preserved = recreated && wcscmp(recreated, redone) == 0;
+    if (recreated) HeapFree(GetProcessHeap(), 0, recreated);
+    HeapFree(GetProcessHeap(), 0, redone);
+    HeapFree(GetProcessHeap(), 0, undone);
+    HeapFree(GetProcessHeap(), 0, edited);
+    if (!preserved) return 58;
+    if (!write_document_result(app, L"Save")) return 59;
+    return 0;
 }
 
 static int verify_shell(AppState *app) {
@@ -838,6 +1032,10 @@ static int verify_shell(AppState *app) {
     SetWindowPos(app->main_window, NULL, main_before.left, main_before.top,
                  rect_width(&main_before), rect_height(&main_before),
                  SWP_NOZORDER | SWP_NOACTIVATE);
+    if (app->document_enabled) {
+        int document_status = verify_document_view(app);
+        if (document_status != 0) return document_status;
+    }
     if (!write_layout_atomic(app)) return 42;
     app->exit_code = 0;
     DestroyWindow(app->main_window);
@@ -860,10 +1058,19 @@ static int run_message_loop(AppState *app) {
 int wmain(int argc, wchar_t **argv) {
     const wchar_t *config_path = NULL;
     const wchar_t *result_path = NULL;
+    const wchar_t *document_input_path = NULL;
+    const wchar_t *document_output_path = NULL;
+    const wchar_t *document_action_path = NULL;
     int verify = 0;
     for (int i = 1; i < argc; ++i) {
         if (wcscmp(argv[i], L"--config") == 0 && i + 1 < argc) config_path = argv[++i];
         else if (wcscmp(argv[i], L"--result") == 0 && i + 1 < argc) result_path = argv[++i];
+        else if (wcscmp(argv[i], L"--document-input") == 0 && i + 1 < argc)
+            document_input_path = argv[++i];
+        else if (wcscmp(argv[i], L"--document-output") == 0 && i + 1 < argc)
+            document_output_path = argv[++i];
+        else if (wcscmp(argv[i], L"--document-action") == 0 && i + 1 < argc)
+            document_action_path = argv[++i];
         else if (wcscmp(argv[i], L"--verify") == 0) verify = 1;
         else return controlled_failure(L"invalid command line", 2);
     }
@@ -881,9 +1088,24 @@ int wmain(int argc, wchar_t **argv) {
     app.instance = GetModuleHandleW(NULL);
     app.result_path = result_path;
     app.verifying = verify;
+    app.document_input_path = document_input_path;
+    app.document_output_path = document_output_path;
+    app.document_action_path = document_action_path;
+    app.document_enabled = document_input_path || document_output_path || document_action_path;
     int valid = parse_config(configuration_text, &app.config) && required_text_present(&app.config) &&
                 load_layout(&app.config, &app.layout);
     HeapFree(GetProcessHeap(), 0, configuration_text);
+    if (valid && app.document_enabled) {
+        long stable_id = 0, base_version = 0;
+        valid = document_input_path && document_output_path && document_action_path &&
+                config_long(&app.config, L"Document.Enabled", 1, 1, &stable_id) &&
+                config_long(&app.config, L"Document.StableId", 1, 2147483647L, &stable_id) &&
+                config_long(&app.config, L"Document.BaseVersion", 1, 2147483647L, &base_version) &&
+                config_get(&app.config, L"Document.DisplayName") &&
+                config_get(&app.config, L"Text.Prompt.CloseDirty.Title") &&
+                config_get(&app.config, L"Text.Prompt.CloseDirty.Message");
+        if (valid) valid = read_utf8_file(document_input_path, &app.initial_document_text);
+    }
     if (!valid) {
         OleUninitialize();
         return controlled_failure(L"configuration is invalid", 5);
@@ -891,11 +1113,13 @@ int wmain(int argc, wchar_t **argv) {
     if (!register_classes(&app) || !create_application_windows(&app)) {
         if (app.main_window) DestroyWindow(app.main_window);
         OleUninitialize();
+        if (app.initial_document_text) HeapFree(GetProcessHeap(), 0, app.initial_document_text);
         return controlled_failure(L"native window creation failed", 6);
     }
     int result = verify ? verify_shell(&app) : run_message_loop(&app);
     if (app.accelerators) DestroyAcceleratorTable(app.accelerators);
     if (app.ui_font && app.ui_font != GetStockObject(DEFAULT_GUI_FONT)) DeleteObject(app.ui_font);
+    if (app.initial_document_text) HeapFree(GetProcessHeap(), 0, app.initial_document_text);
     OleUninitialize();
     if (result != 0) return controlled_failure(L"verification or message loop failed", result);
     if (!app.result_written) return controlled_failure(L"layout result was not published", 21);

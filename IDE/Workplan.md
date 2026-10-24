@@ -87,10 +87,10 @@ remains keyboard-operable, and recovers from corrupt or off-screen layout data.
 
 ### Step 3: connect one real document end to end
 
-- [ ] Open one real UBE source document through the workspace model.
-- [ ] Connect editing, dirty state, undo/redo, external-change detection,
+- [x] Open one real UBE source document through the workspace model.
+- [x] Connect editing, dirty state, undo/redo, external-change detection,
   atomic saving, close behavior, and crash recovery.
-- [ ] Ensure docking, closing, or recreating its view never loses the document
+- [x] Ensure docking, closing, or recreating its view never loses the document
   buffer or undo history.
 
 Checkpoint: a synthetic interruption at every save and close boundary retains
@@ -158,27 +158,26 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Steps 1 and 2 complete; Step 3 not started.
+- **Current sequence step:** Steps 1 through 3 complete; Step 4 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step2.ps1` built the UBE shell model and launcher with
-  the preserved Compiler v3 RP7 and Clang 23, built the narrow Win32 adapter
-  with the existing MinGW GCC toolchain, passed 29 UBE assertions plus normal,
-  corrupt-layout, off-screen, accessibility, docking/floating, DPI, keyboard,
-  and malformed-input native checks, and produced byte-identical LLVM in two
-  independent emissions at SHA-256
-  `72909EBE320D8AFB20013B3091B69BC3646E982BB84476B9BE5FB15938FF2FFF`.
+  `IDE/UBE-IDE/tests/run-step3.ps1` built the UBE document model and launcher
+  with Compiler v3 RP8 and Clang 23, built the narrow Win32 adapter with the
+  existing MinGW GCC toolchain, passed 45 UBE assertions plus a real native
+  source edit/undo/redo/view-recreation/save check, and produced byte-identical
+  LLVM in two emissions at SHA-256
+  `E1B69293B0446DF343AC77C7EA41462AE2C3AE657C987B7E0979343670BCA06B`.
 - **Active files:** None.
-- **Validation performed:** all Step 1 checks plus versioned layout parsing and
-  fallback, command inventory/routing, source-locale shell coverage, native
-  window/control creation, accepted docking geometry, hide/show/float/dock/
-  reset transitions, F6 focus targets, accelerators, MSAA access, per-monitor
-  DPI setup, nearest-monitor repair, atomic layout return, and bounded invalid
-  native configuration.
-- **Known failures or blockers:** none for Step 2. The C process transport is a
-  documented temporary boundary required by RP7's lack of general foreign-call
-  and callback lowering; state and policy remain in UBE.
-- **Next concrete action:** Start Step 3 by binding one real UBE document view
-  to the existing document/undo/save/recovery model.
+- **Validation performed:** all Step 1 and Step 2 checks plus real source open,
+  dirty/version transitions, undo/redo across view recreation, versioned
+  document-session validation, Save/Discard/Cancel policy, external-change
+  refusal, four synthetic interruption boundaries, recovery-first atomic save,
+  native edit checkpoints, and cleanup after a successful save.
+- **Known failures or blockers:** none for Step 3. The C process transport is a
+  documented temporary boundary because RP8 still diagnoses arbitrary foreign
+  imports and callbacks rather than lowering them; state and safety policy
+  remain in UBE.
+- **Next concrete action:** Start Step 4 with the real ordered project model in
+  Project Explorer, then connect minimal Properties and bounded Output views.
 
 ## Phase 0: requirements and UX contracts
 
@@ -351,15 +350,15 @@ work, corrupted state cannot block startup, and layout regression tests pass.
 
 - [ ] Implement `.UBE` and `.UBG` workspace loading with ordered inputs and
   controlled diagnostics.
-- [ ] Implement document identities, dirty state, shared buffers, views,
+- [~] Implement document identities, dirty state, shared buffers, views,
   versioning, undo/redo, and external-change detection.
-- [ ] Implement atomic text saving and transactional paired source/`.UBR`
+- [~] Implement atomic text saving and transactional paired source/`.UBR`
   saving or recovery journals.
 - [ ] Preserve unknown project keys, designer metadata, comments, ordering,
   spelling, encoding rules, and unedited text.
-- [ ] Implement periodic recovery copies, abnormal-exit detection, comparison,
+- [~] Implement periodic recovery copies, abnormal-exit detection, comparison,
   selective restoration, and safe cleanup.
-- [ ] Test full disks, permission failures, truncated files, conflicting
+- [~] Test full disks, permission failures, truncated files, conflicting
   changes, interrupted writes, corrupt recovery data, and close/reload paths.
 
 Exit criteria: no covered failure loses the last good on-disk version or an

@@ -205,7 +205,10 @@ Function IdeReadLine(ByVal Contents As String, ByRef Cursor As Long, ByRef LineT
         Exit Function
     End If
     Dim Start As Long = Cursor
-    While Cursor < Length And StringByteAt(Contents, Cursor) <> 10
+    While Cursor < Length
+        If StringByteAt(Contents, Cursor) = 10 Then
+            Exit While
+        End If
         Cursor = Cursor + 1
     Wend
     LineText = StringSlice(Contents, Start, Cursor - Start)

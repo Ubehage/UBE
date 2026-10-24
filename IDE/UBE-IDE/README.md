@@ -1,10 +1,11 @@
 # UBE IDE
 
-This directory contains the native UBE development environment. Steps 1 and 2
-are implemented: the headless project/document/safety foundation and a plain
+This directory contains the native UBE development environment. Steps 1 through
+3 are implemented: the headless project/document/safety foundation, a plain
 native Windows application shell with a central document workspace, docked or
 floating Project Explorer, Properties, and Output tools, native menus,
-keyboard routing, accessibility, DPI handling, and safe layout recovery.
+keyboard routing, accessibility, DPI handling, safe layout recovery, and one
+real editable UBE source document carried end to end by the UBE-owned model.
 
 Run the complete Step 1 verification from the repository root:
 
@@ -18,6 +19,12 @@ Run the complete Step 2 verification with:
 & .\IDE\UBE-IDE\tests\run-step2.ps1
 ```
 
+Run the RP8 real-document checkpoint with:
+
+```powershell
+& .\IDE\UBE-IDE\tests\run-step3.ps1
+```
+
 Add `-Launch` to open the interactive shell after verification. Generated
 binaries, layouts, configurations, and LLVM remain under `out/`.
 
@@ -27,6 +34,6 @@ diagnostic coverage, builds and runs the native headless suite, exercises real
 and injected failure paths, and compares two independent LLVM emissions for
 byte identity.
 
-Steps 1 and 2 are complete. The next vertical slice connects one real source
-document to the native center workspace without moving document ownership or
-undo history into the Windows adapter.
+Steps 1 through 3 are complete. The next vertical slice replaces the Project
+Explorer placeholder with the real ordered project model and connects minimal
+Properties and bounded Output views.

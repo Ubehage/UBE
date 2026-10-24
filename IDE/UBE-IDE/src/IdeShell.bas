@@ -30,7 +30,7 @@ Result = Result & LineText & StringFromByte(10)
 Wend
 Dim TextValue As String = ""
 Dim RequiredKeys() As String
-ReDim RequiredKeys(32)
+ReDim RequiredKeys(34)
 RequiredKeys(0) = "Shell.Title"
 RequiredKeys(1) = "Menu.File"
 RequiredKeys(2) = "Menu.Edit"
@@ -64,8 +64,10 @@ RequiredKeys(29) = "Status.Ready"
 RequiredKeys(30) = "Shell.Placeholder.Project"
 RequiredKeys(31) = "Shell.Placeholder.Properties"
 RequiredKeys(32) = "Shell.Placeholder.Output"
+RequiredKeys(33) = "Prompt.CloseDirty.Title"
+RequiredKeys(34) = "Prompt.CloseDirty.Message"
 Dim Index As Long = 0
-While Index <= 32
+While Index <= 34
 If IdeShellText(LocaleKeys, LocaleValues, LocaleCount, RequiredKeys(Index), TextValue) = 0 Then
 Result = ""
 IdeBuildShellConfiguration = 0

@@ -1,6 +1,6 @@
 # UBE IDE interaction contracts
 
-**Status:** accepted implementation baseline for Steps 1 and 2  
+**Status:** accepted implementation baseline for Steps 1 through 3  
 **Presentation:** structural only; colors, final typography, and finished icons
 remain deliberately undecided
 

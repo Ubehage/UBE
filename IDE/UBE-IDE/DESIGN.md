@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Steps 1 and 2 verified foundations
+**Status:** Steps 1 through 3 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -48,7 +48,7 @@ UBE application
   -> Win32 adapter: HWNDs, messages, monitors, DPI and accessibility
 ```
 
-The temporary process transport exists because the preserved Compiler v3 RP7
+The temporary process transport exists because Compiler v3 RP8
 does not lower arbitrary foreign imports and callbacks. It is not an
 alternative application architecture: the adapter cannot own documents, undo,
 settings, compiler state, or user-work safety decisions.
@@ -59,3 +59,15 @@ Output begins at the bottom, and each placeholder can be hidden, reopened,
 floated, moved by the operating system, docked again, or restored through
 Reset Layout. Final colors, type, metrics, and icons remain intentionally
 undecided.
+
+## Step 3 real-document slice
+
+One real UBE source file now opens through the UBE document model and appears
+in an editable standard Win32 EDIT control. The native view atomically
+checkpoints edits and returns a bounded versioned session record; it does not
+decide whether project source may be overwritten. UBE validates document
+identity and base version, retains undo history across view detach/recreation,
+detects external changes, writes recovery first, and uses RP8's durable atomic
+text publication for an accepted save. Save, Discard, Cancel, clean close,
+stale results, malformed results, host failure, and every save boundary are
+ordinary controlled outcomes.

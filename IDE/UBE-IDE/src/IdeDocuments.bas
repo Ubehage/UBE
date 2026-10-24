@@ -10,6 +10,9 @@ SavedContents As String
     Version As Long
     SavedVersion As Long
     HasRecovery As Long
+    DiskState As Long
+    ViewAttached As Long
+    ViewGeneration As Long
 End Type
 
 Type IdeUndoEntry
@@ -69,8 +72,63 @@ Function IdeOpenDocument(ByRef Documents() As IdeDocument, ByRef Count As Long, 
     Documents(Count).Version = 1
     Documents(Count).SavedVersion = 1
     Documents(Count).HasRecovery = 0
+    Documents(Count).DiskState = IdeDocumentDiskUnchanged()
+    Documents(Count).ViewAttached = 0
+    Documents(Count).ViewGeneration = 0
     IdeOpenDocument = Count
     Count = Count + 1
+End Function
+
+Function IdeDocumentDiskUnchanged() As Long
+    IdeDocumentDiskUnchanged = 0
+End Function
+
+Function IdeDocumentDiskChanged() As Long
+    IdeDocumentDiskChanged = 1
+End Function
+
+Function IdeDocumentDiskMissing() As Long
+    IdeDocumentDiskMissing = 2
+End Function
+
+Function IdeAttachDocumentView(ByRef Document As IdeDocument) As Long
+    If Document.StableId <= 0 Or StringLength(Document.FilePath) = 0 Then
+        IdeAttachDocumentView = 0
+        Exit Function
+    End If
+    If Document.ViewAttached = 0 Then
+        Document.ViewGeneration = Document.ViewGeneration + 1
+    End If
+    Document.ViewAttached = 1
+    IdeAttachDocumentView = Document.ViewGeneration
+End Function
+
+Function IdeDetachDocumentView(ByRef Document As IdeDocument) As Long
+    If Document.ViewAttached = 0 Then
+        IdeDetachDocumentView = 0
+        Exit Function
+    End If
+    Document.ViewAttached = 0
+    IdeDetachDocumentView = 1
+End Function
+
+Function IdeObserveDocumentDisk(ByRef Document As IdeDocument, ByVal Exists As Long, ByVal DiskText As String) As Long
+    If Exists = 0 Then
+        Document.DiskState = IdeDocumentDiskMissing()
+        IdeObserveDocumentDisk = Document.DiskState
+        Exit Function
+    End If
+    Dim InvalidByte As Long = -1
+    If StringLength(DiskText) > IdeLimitTextBytes() Or IdeValidateUtf8(DiskText, InvalidByte) = 0 Then
+        IdeObserveDocumentDisk = -1
+        Exit Function
+    End If
+    If DiskText = Document.SavedContents Then
+        Document.DiskState = IdeDocumentDiskUnchanged()
+    Else
+        Document.DiskState = IdeDocumentDiskChanged()
+    End If
+    IdeObserveDocumentDisk = Document.DiskState
 End Function
 
 Function IdeApplyDocumentText(ByRef Documents() As IdeDocument, ByVal DocumentCount As Long, ByVal DocumentIndex As Long, ByVal NewText As String, ByRef UndoEntries() As IdeUndoEntry, ByRef UndoCount As Long, ByRef UndoCapacity As Long, ByRef UndoCursor As Long) As Long
