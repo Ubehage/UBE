@@ -41,6 +41,13 @@ render these strings and preserve tool mode, group, order, and bounds, but it
 cannot parse or mutate the project model. Auto-hidden tools are removed from
 the focus cycle until reopened; floating bounds remain monitor-repaired.
 
+Step 5 adds a separate UBE language-service executable reached through the
+same bounded child-process facility. Request and response files are versioned,
+UTF-8 validated, size-limited, and atomically published. The service owns the
+first compiler-aligned declaration-resolution slice; the IDE owns document
+versions, stale-result rejection, diagnostic presentation, navigation, and
+verification of the selected `UBECore` source identity.
+
 ## Proven native behavior
 
 - One native top-level main window contains the central document workspace.

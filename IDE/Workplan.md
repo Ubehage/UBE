@@ -110,10 +110,10 @@ windows.
 
 ### Step 5: connect one compiler and navigation path
 
-- [ ] Run one real compiler or language-service request out of process.
-- [ ] Display one diagnostic with correct source navigation.
-- [ ] Resolve and execute one semantic View Definition operation.
-- [ ] Include one exact-version `UBECore` definition when the required source
+- [x] Run one real compiler or language-service request out of process.
+- [x] Display one diagnostic with correct source navigation.
+- [x] Resolve and execute one semantic View Definition operation.
+- [x] Include one exact-version `UBECore` definition when the required source
   identity is available.
 
 Checkpoint: editing a document produces a version-matched diagnostic and View
@@ -158,26 +158,26 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Steps 1 through 4 complete; Step 5 not started.
+- **Current sequence step:** Steps 1 through 5 complete; Step 6 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step4.ps1` built the real workspace model and launcher
-  with Compiler v3 RP8 and Clang 23, built the narrow Win32 adapter with the
-  existing MinGW GCC toolchain, passed 31 UBE assertions and a two-launch
-  native customize/restore/reset cycle, retained the active source
-  byte-for-byte, and produced byte-identical LLVM at SHA-256
-  `35AA1D67844DA1F46F4DB4A84F863D13BE704F7E88739441FFFF37890F8632ED`.
+  `IDE/UBE-IDE/tests/run-step5.ps1` built the UBE-written language service and
+  integration model with Compiler v3 RP8 and Clang 23, passed 30 assertions
+  across diagnostics, project and exact-identity `UBECore` navigation, stale,
+  cancelled, failed, and malformed results, and produced byte-identical
+  service LLVM at SHA-256
+  `8E29462216FF69D2E12B5D71ACF03C37FD309B9189BC867786C82335D290E105`.
 - **Active files:** None.
-- **Validation performed:** ordered project rendering, project/source
-  selection and properties, bounded output and overflow refusal, tool mode,
-  grouping and order persistence, focus repair, restart restoration, Reset
-  Layout, deterministic emission, and source-integrity comparison.
-- **Known failures or blockers:** none for Step 4. The C process transport is a
+- **Validation performed:** edited document versioning, out-of-process request
+  execution, navigable diagnostics, bounded Output display, case-insensitive
+  semantic declaration resolution, exact `UBECore` source identity, stale
+  rejection, cancellation, controlled failure, malformed protocol rejection,
+  and deterministic emission.
+- **Known failures or blockers:** none for Step 5. The C process transport is a
   documented temporary boundary because RP8 still diagnoses arbitrary foreign
   imports and callbacks rather than lowering them; state and safety policy
   remain in UBE.
-- **Next concrete action:** Start Step 5 with one bounded out-of-process
-  language-service request and apply only current diagnostic and definition
-  results.
+- **Next concrete action:** Start Step 6 with service crash/hang/restart and
+  keyboard/accessibility risk validation across the complete vertical slice.
 
 ## Phase 0: requirements and UX contracts
 
@@ -383,12 +383,13 @@ without requiring compiler services to remain available.
 
 ## Phase 8: language intelligence
 
-- [ ] Define a versioned, bounded language-service protocol.
+- [~] Define a versioned, bounded language-service protocol. Step 5 freezes
+  the first diagnostic and definition request/result slice.
 - [ ] Define documented compiler APIs for syntax trees, semantic queries, and
   refactoring without exposing mutable compiler internals.
-- [ ] Add live diagnostics, completion, signature help, hover, navigation,
+- [~] Add live diagnostics, completion, signature help, hover, navigation,
   references, symbol search, rename, and formatting as compiler APIs mature.
-- [ ] Implement View Definition from compiler-resolved symbol identity and
+- [~] Implement View Definition from compiler-resolved symbol identity and
   exact source range, including project references and the selected `UBECore`
   source identity.
 - [ ] Package or otherwise make available the exact standard-library source
@@ -408,7 +409,7 @@ without requiring compiler services to remain available.
   deterministic full-rebuild fallback and equivalence tests.
 - [ ] Keep lightweight presentation separate from authoritative semantic
   results.
-- [ ] Implement document-version cancellation and stale-result rejection.
+- [~] Implement document-version cancellation and stale-result rejection.
 - [ ] Restart a failed service without losing documents or blocking editing.
 - [ ] Test malformed messages, huge result sets, crashes, hangs, cancellation,
   rapid edits, and incompatible protocol versions.
@@ -420,7 +421,7 @@ temporarily removing assistance, never by disabling editing or losing work.
 
 - [ ] Integrate `.UBE`/`.UBG` build orchestration through documented compiler
   interfaces.
-- [ ] Implement Problems and Output with stable diagnostic identity, source
+- [~] Implement Problems and Output with stable diagnostic identity, source
   navigation, bounded storage, copying, and export.
 - [ ] Implement Build, Rebuild, Clean, Run, Stop, and target/configuration
   selection with explicit source-version behavior.

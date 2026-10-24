@@ -53,12 +53,24 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 - [x] Verify a two-launch customize/restore/reset cycle without changing the
   active source document.
 
+## Step 5: compiler and navigation path
+
+- [x] Run a bounded UBE-written language service outside the IDE process with
+  versioned, atomically published request and result files.
+- [x] Apply one unresolved-name diagnostic only when its request and document
+  versions match, and retain its exact source-navigation range in Output.
+- [x] Resolve View Definition semantically to a project declaration.
+- [x] Resolve `StringIsEmpty` to the exact selected `UBECore` 0.1.0-rp1 source
+  and refuse a mismatched source identity.
+- [x] Verify stale, malformed, cancelled, and failed results do not disturb
+  editing.
+
 ## Handoff
 
-- **Current checkpoint:** Steps 1 through 4 complete and verified on 2026-10-24.
+- **Current checkpoint:** Steps 1 through 5 complete and verified on 2026-10-24.
 - **Generated output:** `out/` only.
 - **Verification commands:** `tests/run-step1.ps1` through
-  `tests/run-step4.ps1`.
+  `tests/run-step5.ps1`.
 - **Verified Step 3 behavior:** 45 UBE model assertions pass; a real UBE source
   opens in the editable native center view; native edit, undo, redo, and view
   recreation preserve its contents; UBE validates the returned version and
@@ -85,6 +97,12 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   while the active source remains byte-identical. Repeated RP8 LLVM emission
   is byte-identical at SHA-256
   `35AA1D67844DA1F46F4DB4A84F863D13BE704F7E88739441FFFF37890F8632ED`.
-- **Next action:** begin Step 5 with a bounded out-of-process language-service
-  request, then connect version-matched diagnostics and semantic View
-  Definition without moving compiler policy into the native adapter.
+- **Verified Step 5 behavior:** 30 UBE assertions cover a real edited document,
+  out-of-process diagnostics, Output presentation and navigation, project
+  definition resolution, exact-version `UBECore` resolution, identity mismatch,
+  stale result, cancellation, service failure, and malformed protocol data.
+  Repeated language-service LLVM emission is byte-identical at SHA-256
+  `8E29462216FF69D2E12B5D71ACF03C37FD309B9189BC867786C82335D290E105`.
+- **Next action:** begin Step 6 by exercising the architectural risk matrix,
+  starting with language-service crash/hang recovery and keyboard/accessibility
+  checks across the now-complete vertical slice.

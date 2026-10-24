@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Steps 1 through 4 verified foundations
+**Status:** Steps 1 through 5 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -84,3 +84,17 @@ Layout state now distinguishes docked, floating, hidden, and auto-hidden
 tools and preserves group and order identities. A two-launch native check
 customizes and restores the three real tools, repairs focus, resets the layout,
 and proves the active source remains byte-for-byte unchanged.
+
+## Step 5 language-service and definition slice
+
+A bounded UBE-written language service now runs outside the IDE process. Its
+versioned request/result records carry request and document versions, and the
+IDE rejects stale, malformed, failed, or cancelled results without changing
+the editor. The first semantic slice reports an unresolved-name diagnostic
+with a navigable source range and resolves View Definition to project or
+standard-library declarations.
+
+`UBECore` navigation carries package `UBECore`, semantic version
+`0.1.0-rp1`, the source path and range, and the exact SHA-256 source identity
+verified by the coordinator. The IDE refuses to navigate when the returned
+identity differs from the selected source identity.

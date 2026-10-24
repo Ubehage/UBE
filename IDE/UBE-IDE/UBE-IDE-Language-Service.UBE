@@ -1,0 +1,11 @@
+UBE-Project 1
+Name = "UBE_IDE_Language_Service"
+Kind = "Exe"
+Startup = "Main"
+Source = "src/IdeIntrinsics.bas"
+Source = "src/IdeLimits.bas"
+Source = "src/IdeText.bas"
+Source = "src/IdeDiagnostics.bas"
+Source = "src/IdeSettings.bas"
+Source = "src/IdeLanguageService.bas"
+Source = "src/IdeLanguageServiceMain.bas"

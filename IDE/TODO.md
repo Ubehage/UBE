@@ -9,8 +9,9 @@ typography, iconography, accessibility, and packaging decision points, is in
 
 The application is now active in [`UBE-IDE/`](UBE-IDE/). Its headless
 foundation, plain native Windows shell, first real editable UBE document, and
-real workspace tools are complete through Step 4. The next vertical slice
-connects an out-of-process compiler or language service to version-matched
-diagnostics and semantic View Definition. Detailed resume state and
-verification commands are recorded in both workplans.
+real workspace tools, version-matched diagnostics, and semantic project and
+`UBECore` View Definition are complete through Step 5. The next vertical slice
+validates the architectural accessibility, recovery, isolation, malformed-
+input, cancellation, low-memory, and performance risks. Detailed resume state
+and verification commands are recorded in both workplans.
 
