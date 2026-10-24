@@ -1,7 +1,7 @@
 # UBE IDE
 
 This directory contains the native UBE development environment. Steps 1 through
-6 are implemented: the headless project/document/safety foundation, a plain
+7 are implemented: the headless project/document/safety foundation, a plain
 native Windows application shell with a central document workspace, docked or
 floating Project Explorer, Properties, and Output tools, native menus,
 keyboard routing, accessibility, DPI handling, safe layout recovery, and one
@@ -16,6 +16,10 @@ policy, real crash/hang isolation, allocation-failure recovery, stronger
 keyboard and accessibility exposure, mixed-DPI transitions, removed-monitor
 repair, and responsiveness gates without making compiler assistance a
 condition for editing.
+The frozen initial visual system adds shared light, dark, and high-contrast
+semantic tokens, compiler-aligned syntax roles, native font fallbacks and
+scaled metrics, a reproducible original icon family, and reference Code,
+Design, and Debug presentations.
 
 Run the complete Step 1 verification from the repository root:
 
@@ -53,6 +57,12 @@ Run the RP8 architectural-risk checkpoint with:
 & .\IDE\UBE-IDE\tests\run-step6.ps1
 ```
 
+Run the RP8 visual-system checkpoint with:
+
+```powershell
+& .\IDE\UBE-IDE\tests\run-step7.ps1
+```
+
 Add `-Launch` to open the interactive shell after verification. Generated
 binaries, layouts, configurations, and LLVM remain under `out/`.
 
@@ -62,6 +72,5 @@ diagnostic coverage, builds and runs the native headless suite, exercises real
 and injected failure paths, and compares two independent LLVM emissions for
 byte identity.
 
-Steps 1 through 6 are complete. The next checkpoint freezes the initial shared
-visual system: light, dark, and high-contrast tokens, typography, metrics,
-reproducible icons, and Code, Design, and Debug reference screens.
+Steps 1 through 7 are complete. Step 8 expands the IDE one end-to-end feature
+at a time using the proven foundations and frozen visual system.

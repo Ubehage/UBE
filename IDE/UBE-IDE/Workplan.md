@@ -78,12 +78,25 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 - [x] Enforce the cold-shell and supervisor responsiveness budgets and verify
   deterministic RP8 emission.
 
+## Step 7: initial visual system
+
+- [x] Freeze the modern-classic personality and coordinated light, dark, and
+  high-contrast semantic resources.
+- [x] Implement bounded UBE theme loading, validation, font fallback, and
+  logical-pixel scaling through shared visual-system state.
+- [x] Verify text, selection, focus, diagnostic, debugger, and compiler-aligned
+  syntax contrast against the applicable backgrounds.
+- [x] Create the original 25-icon core family and deterministic 16, 20, 24,
+  and 32 pixel SVG export service with authorship and MIT licensing recorded.
+- [x] Create and validate Code, Design, and Debug reference screens spanning
+  all three themes, long labels, bidirectional text, and non-color state cues.
+
 ## Handoff
 
-- **Current checkpoint:** Steps 1 through 6 complete and verified on 2026-10-24.
+- **Current checkpoint:** Steps 1 through 7 complete and verified on 2026-10-24.
 - **Generated output:** `out/` only.
 - **Verification commands:** `tests/run-step1.ps1` through
-  `tests/run-step6.ps1`.
+  `tests/run-step7.ps1`.
 - **Verified Step 3 behavior:** 45 UBE model assertions pass; a real UBE source
   opens in the editable native center view; native edit, undo, redo, and view
   recreation preserve its contents; UBE validates the returned version and
@@ -123,5 +136,12 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   completed in 88 ms, and injected allocation failure preserved the last good
   result. Repeated RP8 LLVM emission is byte-identical at SHA-256
   `07E001289B70D6606075F84C3629E87FF2009D3FA232B21BC08A54880262D555`.
-- **Next action:** complete Step 7's shared visual tokens and reproducible icon
-  assets, then validate the Code, Design, and Debug reference screens.
+- **Verified Step 7 behavior:** all semantic and syntax contrast pairs pass;
+  22 UBE assertions cover three theme resources, malformed input, shared
+  typography and metrics, and 100-200% scaling. The 25-icon family exports
+  byte-identically at four native sizes, and the three accessible reference
+  SVGs cover Code/light, Design/dark, and Debug/high-contrast presentations.
+  Repeated RP8 LLVM emission is byte-identical at SHA-256
+  `6DB2D82B0094F7D4F3FE1C9E2204FAD4CD86BB42F696614AFD39EB4B7FFD26FD`.
+- **Next action:** begin Step 8 with one remaining feature implemented and
+  verified end to end on the frozen foundations and visual system.

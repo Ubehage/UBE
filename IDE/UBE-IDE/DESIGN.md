@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Steps 1 through 6 verified foundations
+**Status:** Steps 1 through 7 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -108,3 +108,13 @@ healthy. The native boundary has deterministic allocation-failure injection
 for recovery tests and verifies keyboard pane traversal, MSAA exposure,
 monitor repair, and repeated per-monitor DPI changes. Generated verification
 artifacts remain under `out/`.
+
+## Step 7 initial visual system
+
+The frozen modern-classic system is defined in `VISUAL-SYSTEM.md` and the
+versioned resources under `resources/themes/`. `IdeVisualSystem` owns bounded
+loading, semantic roles, structural metrics, typography fallbacks, and DPI
+scaling. The original icon manifest and deterministic exporter are shared
+assets rather than control-specific drawings. Code, Design, and Debug
+reference SVGs prove the existing shell hierarchy works in light, dark, and
+high contrast without a structural workaround.

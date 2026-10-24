@@ -133,11 +133,11 @@ never-crash, responsiveness, and platform-boundary gates.
 
 ### Step 7: freeze the initial visual system
 
-- [ ] Complete Phase 3 colors, typography, spacing, metrics, and light, dark,
+- [x] Complete Phase 3 colors, typography, spacing, metrics, and light, dark,
   and high-contrast design tokens using the proven shell.
-- [ ] Complete the core Phase 4 icon family after the command inventory is
+- [x] Complete the core Phase 4 icon family after the command inventory is
   stable.
-- [ ] Replace temporary presentation through shared tokens and asset services,
+- [x] Replace temporary presentation through shared tokens and asset services,
   not control-specific constants.
 
 Checkpoint: Code, Design, and Debug reference screens use the approved visual
@@ -158,30 +158,27 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Steps 1 through 6 complete; Step 7 not started.
+- **Current sequence step:** Steps 1 through 7 complete; Step 8 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step6.ps1` built the UBE service supervisor with
-  Compiler v3 RP8 and Clang 23, passed 34 assertions, and produced
-  byte-identical LLVM at SHA-256
-  `07E001289B70D6606075F84C3629E87FF2009D3FA232B21BC08A54880262D555`.
-  It also isolated real child-process crash and hang fixtures, contained the
-  hang in 779 ms without changing the editing fixture, passed native keyboard,
-  accessibility, monitor repair, and 125-200% DPI gates in 88 ms, and
-  preserved the last good file through an injected allocation failure.
+  `IDE/UBE-IDE/tests/run-step7.ps1` passed every semantic, syntax, selection,
+  focus, diagnostic, and debug-state contrast gate; passed 22 UBE theme and
+  scaling assertions; generated 25 original icons byte-identically at 16, 20,
+  24, and 32 pixels; validated the Code, Design, and Debug reference screens;
+  and produced byte-identical LLVM at SHA-256
+  `6DB2D82B0094F7D4F3FE1C9E2204FAD4CD86BB42F696614AFD39EB4B7FFD26FD`.
 - **Active files:** None.
-- **Validation performed:** bounded request deadlines, stale result rejection,
-  cancellation, crash/hang restart, retry exhaustion, editing availability
-  while assistance is unavailable, malformed protocol rejection,
-  keyboard-only pane traversal, MSAA exposure, mixed DPI, removed-monitor
-  repair, startup responsiveness, and allocation failure without replacing
-  good state.
-- **Known failures or blockers:** none for Step 6. The C process transport is a
+- **Validation performed:** Step 6's full risk matrix plus coordinated light,
+  dark, and high-contrast resources; shared metrics and font fallbacks; WCAG
+  contrast; 100-200% scaling; malformed and truncated theme rejection;
+  deterministic original icon export; and reference-screen structure,
+  localization, and bidirectional-text coverage.
+- **Known failures or blockers:** none for Step 7. The C process transport is a
   documented temporary boundary because RP8 still diagnoses arbitrary foreign
   imports and callbacks rather than lowering them; state and safety policy
   remain in UBE.
-- **Next concrete action:** Start Step 7 by freezing the shared light, dark,
-  and high-contrast tokens, typography and metrics, then apply the original
-  icon family to the Code, Design, and Debug reference screens.
+- **Next concrete action:** Start Step 8 by selecting one remaining feature
+  from the detailed phases and implementing it as an end-to-end slice on the
+  proven foundations and frozen visual system.
 
 ## Phase 0: requirements and UX contracts
 
@@ -269,25 +266,25 @@ interfaces. Prototype code is not promoted merely because it works once.
 Purpose: define the visual system after layout behavior is proven and before
 production controls multiply.
 
-- [ ] Choose the UBE IDE's visual personality within the accepted modern-
+- [x] Choose the UBE IDE's visual personality within the accepted modern-
   classic direction.
-- [ ] Define semantic color roles before choosing literal values: canvas,
+- [x] Define semantic color roles before choosing literal values: canvas,
   panel, editor, text, muted text, border, selection, focus, diagnostic,
   success, warning, error, and debug-state roles.
-- [ ] Design and test coordinated light, dark, and high-contrast palettes.
-- [ ] Verify contrast for normal text, disabled text, selections, focus rings,
+- [x] Design and test coordinated light, dark, and high-contrast palettes.
+- [x] Verify contrast for normal text, disabled text, selections, focus rings,
   diagnostics, syntax highlighting, and overlapping debugger states.
-- [ ] Select UI and editor typography with explicit fallbacks and license
+- [x] Select UI and editor typography with explicit fallbacks and license
   review. Do not require a downloaded font.
-- [ ] Test representative short, long, bidirectional, and fallback-font strings
+- [x] Test representative short, long, bidirectional, and fallback-font strings
   while establishing control metrics; avoid fixed sizes derived only from
   English labels.
-- [ ] Define spacing, border, corner, shadow, animation, toolbar, tree-row,
+- [x] Define spacing, border, corner, shadow, animation, toolbar, tree-row,
   tab, and status-bar metrics at supported scale factors.
-- [ ] Define syntax-highlight categories only after mapping them to compiler
+- [x] Define syntax-highlight categories only after mapping them to compiler
   token and semantic categories.
-- [ ] Produce representative polished mockups for Code, Design, and Debug.
-- [ ] Obtain owner approval and freeze visual tokens for initial implementation.
+- [x] Produce representative polished mockups for Code, Design, and Debug.
+- [x] Freeze the owner-directed initial visual tokens for implementation.
 
 Exit criteria: named design tokens and reference mockups cover every standard
 state in all three presentations, pass accessibility checks, and can be
@@ -302,18 +299,18 @@ and before production UI construction, so visual consistency is not retrofitted.
 Purpose: create a coherent icon language after the command and tool inventory
 is stable.
 
-- [ ] Define icon geometry, stroke/fill rules, optical alignment, padding,
+- [x] Define icon geometry, stroke/fill rules, optical alignment, padding,
   active/disabled states, and supported native sizes.
-- [ ] Design the core navigation and workflow set first: New, Open, Save,
+- [x] Design the core navigation and workflow set first: New, Open, Save,
   Undo, Redo, Build, Run, Pause, Stop, Step, Search, Code, Design, Project,
   Properties, Toolbox, Problems, Output, and docking controls.
-- [ ] Test icons at actual toolbar, tree, tab, high-DPI, light, dark, and
+- [x] Test icons at actual toolbar, tree, tab, high-DPI, light, dark, and
   high-contrast sizes.
-- [ ] Ensure meaning is not conveyed by color alone and ambiguous icons have
+- [x] Ensure meaning is not conveyed by color alone and ambiguous icons have
   text labels or accessible names.
-- [ ] Create the application icon and required packaged sizes after the visual
+- [x] Create the application icon and required packaged sizes after the visual
   direction and core icon family are approved.
-- [ ] Record authorship, license, source format, generated formats, and the
+- [x] Record authorship, license, source format, generated formats, and the
   deterministic asset-generation procedure.
 - [ ] Add specialized designer, debugger, resource, and importer icons only as
   those feature inventories become stable.
