@@ -32,7 +32,7 @@ under `bootstrap/out/` and are not committed.
 | v3 RP5 | `6090abe` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP6 | `e2504b5` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 | v3 RP7 | `4eebebe` | Windows x86-64 → `x86_64-w64-windows-gnu` |
-| v3 RP8 | completion commit | Windows x86-64 → `x86_64-w64-windows-gnu` |
+| v3 RP8 | `dd4d775` | Windows x86-64 → `x86_64-w64-windows-gnu` |
 
 RP0 through RP2 were reproduced from their exact completion commits when this
 preservation policy was introduced. RP3 through RP8 are the executables produced
