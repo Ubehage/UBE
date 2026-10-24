@@ -122,10 +122,10 @@ cancelled requests do not disturb editing.
 
 ### Step 6: validate the architectural risks
 
-- [ ] Exercise keyboard-only use, accessibility exposure, mixed DPI,
+- [x] Exercise keyboard-only use, accessibility exposure, mixed DPI,
   multi-monitor changes, service failure, malformed input, cancellation,
   low-memory behavior, and the agreed performance budgets.
-- [ ] Fix architectural failures before expanding the number of screens or
+- [x] Fix architectural failures before expanding the number of screens or
   tools.
 
 Checkpoint: the first vertical slice passes its accessibility, recovery,
@@ -158,26 +158,30 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Steps 1 through 5 complete; Step 6 not started.
+- **Current sequence step:** Steps 1 through 6 complete; Step 7 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step5.ps1` built the UBE-written language service and
-  integration model with Compiler v3 RP8 and Clang 23, passed 30 assertions
-  across diagnostics, project and exact-identity `UBECore` navigation, stale,
-  cancelled, failed, and malformed results, and produced byte-identical
-  service LLVM at SHA-256
-  `8E29462216FF69D2E12B5D71ACF03C37FD309B9189BC867786C82335D290E105`.
+  `IDE/UBE-IDE/tests/run-step6.ps1` built the UBE service supervisor with
+  Compiler v3 RP8 and Clang 23, passed 34 assertions, and produced
+  byte-identical LLVM at SHA-256
+  `07E001289B70D6606075F84C3629E87FF2009D3FA232B21BC08A54880262D555`.
+  It also isolated real child-process crash and hang fixtures, contained the
+  hang in 779 ms without changing the editing fixture, passed native keyboard,
+  accessibility, monitor repair, and 125-200% DPI gates in 88 ms, and
+  preserved the last good file through an injected allocation failure.
 - **Active files:** None.
-- **Validation performed:** edited document versioning, out-of-process request
-  execution, navigable diagnostics, bounded Output display, case-insensitive
-  semantic declaration resolution, exact `UBECore` source identity, stale
-  rejection, cancellation, controlled failure, malformed protocol rejection,
-  and deterministic emission.
-- **Known failures or blockers:** none for Step 5. The C process transport is a
+- **Validation performed:** bounded request deadlines, stale result rejection,
+  cancellation, crash/hang restart, retry exhaustion, editing availability
+  while assistance is unavailable, malformed protocol rejection,
+  keyboard-only pane traversal, MSAA exposure, mixed DPI, removed-monitor
+  repair, startup responsiveness, and allocation failure without replacing
+  good state.
+- **Known failures or blockers:** none for Step 6. The C process transport is a
   documented temporary boundary because RP8 still diagnoses arbitrary foreign
   imports and callbacks rather than lowering them; state and safety policy
   remain in UBE.
-- **Next concrete action:** Start Step 6 with service crash/hang/restart and
-  keyboard/accessibility risk validation across the complete vertical slice.
+- **Next concrete action:** Start Step 7 by freezing the shared light, dark,
+  and high-contrast tokens, typography and metrics, then apply the original
+  icon family to the Code, Design, and Debug reference screens.
 
 ## Phase 0: requirements and UX contracts
 

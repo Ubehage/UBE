@@ -189,6 +189,9 @@ public:
               << "declare ptr @ube_string_array_join(ptr, i32)\n"
               << "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)\n"
               << "declare i32 @ube_compiler_delete_file(ptr)\n"
+              << "declare i32 @ube_compiler_monotonic_milliseconds()\n"
+              << "declare i32 @ube_compiler_process_cpu_milliseconds()\n"
+              << "declare i32 @ube_compiler_peak_working_set_kilobytes()\n"
               << "declare i32 @ube_compiler_validate_resource(ptr)\n"
               << "declare ptr @ube_compiler_resource_llvm_escape(ptr)\n"
               << "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)\n"
@@ -915,6 +918,9 @@ private:
         if (name == "stringarrayjoin") return "@ube_string_array_join";
         if (name == "compilerruntool") return "@ube_compiler_run_tool";
         if (name == "compilerdeletefile") return "@ube_compiler_delete_file";
+        if (name == "compilermonotonicmilliseconds") return "@ube_compiler_monotonic_milliseconds";
+        if (name == "compilerprocesscpumilliseconds") return "@ube_compiler_process_cpu_milliseconds";
+        if (name == "compilerpeakworkingsetkilobytes") return "@ube_compiler_peak_working_set_kilobytes";
         if (name == "compilervalidateresource") return "@ube_compiler_validate_resource";
         if (name == "compilerresourcellvmescape") return "@ube_compiler_resource_llvm_escape";
         if (name == "compilervalidatelibrarybundle") return "@ube_compiler_validate_library_bundle";

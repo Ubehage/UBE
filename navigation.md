@@ -20,3 +20,4 @@
 | `Github.md` | Agent instructions for using GitHub |
 | `media/` | Contains cliparts, pictures, icons, and other resources to use in the project |
 | `bootstrap-vb6` | VB6 port of the bootstrap compiler |
+| `IDE` | The UBE development system (IDE) |

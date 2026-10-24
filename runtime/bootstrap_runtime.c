@@ -2,6 +2,7 @@
 #include <limits.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <psapi.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -4461,4 +4462,52 @@ int32_t ube_compiler_delete_file(const char* path) {
     const DWORD error = GetLastError();
     if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) return 0;
     return -2;
+}
+
+int32_t ube_compiler_monotonic_milliseconds(void) {
+    static LARGE_INTEGER frequency = {0};
+    static LARGE_INTEGER origin = {0};
+    LARGE_INTEGER current;
+    if (frequency.QuadPart == 0) {
+        if (!QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0 ||
+            !QueryPerformanceCounter(&origin)) {
+            frequency.QuadPart = -1;
+            return -1;
+        }
+    }
+    if (frequency.QuadPart < 0 || !QueryPerformanceCounter(&current) ||
+        current.QuadPart < origin.QuadPart) {
+        return -1;
+    }
+    const uint64_t ticks = (uint64_t)(current.QuadPart - origin.QuadPart);
+    const uint64_t milliseconds = (ticks / (uint64_t)frequency.QuadPart) * UINT64_C(1000) +
+        ((ticks % (uint64_t)frequency.QuadPart) * UINT64_C(1000)) /
+            (uint64_t)frequency.QuadPart;
+    return milliseconds <= (uint64_t)INT32_MAX ? (int32_t)milliseconds : INT32_MAX;
+}
+
+int32_t ube_compiler_process_cpu_milliseconds(void) {
+    FILETIME created;
+    FILETIME exited;
+    FILETIME kernel;
+    FILETIME user;
+    if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) return -1;
+    ULARGE_INTEGER kernel_value;
+    ULARGE_INTEGER user_value;
+    kernel_value.LowPart = kernel.dwLowDateTime;
+    kernel_value.HighPart = kernel.dwHighDateTime;
+    user_value.LowPart = user.dwLowDateTime;
+    user_value.HighPart = user.dwHighDateTime;
+    const uint64_t milliseconds =
+        (kernel_value.QuadPart + user_value.QuadPart) / UINT64_C(10000);
+    return milliseconds <= (uint64_t)INT32_MAX ? (int32_t)milliseconds : INT32_MAX;
+}
+
+int32_t ube_compiler_peak_working_set_kilobytes(void) {
+    PROCESS_MEMORY_COUNTERS counters;
+    memset(&counters, 0, sizeof(counters));
+    counters.cb = sizeof(counters);
+    if (!K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) return -1;
+    const SIZE_T kibibytes = counters.PeakWorkingSetSize / 1024u;
+    return kibibytes <= (SIZE_T)INT32_MAX ? (int32_t)kibibytes : INT32_MAX;
 }

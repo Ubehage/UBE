@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Steps 1 through 5 verified foundations
+**Status:** Steps 1 through 6 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -98,3 +98,13 @@ standard-library declarations.
 `0.1.0-rp1`, the source path and range, and the exact SHA-256 source identity
 verified by the coordinator. The IDE refuses to navigate when the returned
 identity differs from the selected source identity.
+
+## Step 6 architectural risk gates
+
+The UBE-owned service supervisor treats timeout, cancellation, crash, restart,
+and unavailable assistance as explicit bounded states. It rejects stale
+request/document identities and never makes editing depend on a service being
+healthy. The native boundary has deterministic allocation-failure injection
+for recovery tests and verifies keyboard pane traversal, MSAA exposure,
+monitor repair, and repeated per-monitor DPI changes. Generated verification
+artifacts remain under `out/`.

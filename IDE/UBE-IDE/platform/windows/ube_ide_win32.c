@@ -18,6 +18,14 @@
 #define IDE_MAX_KEY 96
 #define IDE_MAX_VALUE 2048
 
+/* Command-line-gated fault injection used by the Step 6 risk verification. */
+static LONG ide_fail_next_allocation = 0;
+
+static void *ide_heap_alloc(DWORD flags, SIZE_T bytes) {
+    if (InterlockedExchange(&ide_fail_next_allocation, 0) != 0) return NULL;
+    return HeapAlloc(GetProcessHeap(), flags, bytes);
+}
+
 enum {
     IDE_DOCKED = 0,
     IDE_FLOATING = 1,
@@ -121,7 +129,7 @@ static int read_utf8_file(const wchar_t *path, wchar_t **text_out) {
         return 0;
     }
     DWORD bytes = (DWORD)size.QuadPart;
-    char *raw = (char *)HeapAlloc(GetProcessHeap(), 0, (SIZE_T)bytes + 1u);
+    char *raw = (char *)ide_heap_alloc(0, (SIZE_T)bytes + 1u);
     if (!raw) {
         CloseHandle(file);
         return 0;
@@ -144,7 +152,7 @@ static int read_utf8_file(const wchar_t *path, wchar_t **text_out) {
         HeapFree(GetProcessHeap(), 0, raw);
         return 0;
     }
-    wchar_t *wide = (wchar_t *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+    wchar_t *wide = (wchar_t *)ide_heap_alloc(HEAP_ZERO_MEMORY,
                                          ((SIZE_T)wide_count + 1u) * sizeof(wchar_t));
     if (!wide) {
         HeapFree(GetProcessHeap(), 0, raw);
@@ -675,7 +683,7 @@ static int append_utf8(HANDLE file, const wchar_t *text) {
     if (bytes <= 0) return 0;
     if ((size_t)(bytes - 1) > IDE_MAX_FILE_BYTES) return 0;
     if (bytes == 1) return 1;
-    char *buffer = (char *)HeapAlloc(GetProcessHeap(), 0, (SIZE_T)bytes);
+    char *buffer = (char *)ide_heap_alloc(0, (SIZE_T)bytes);
     if (!buffer) return 0;
     int converted = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, -1,
                                         buffer, bytes, NULL, NULL);
@@ -690,7 +698,7 @@ static int write_utf8_atomic(const wchar_t *path, const wchar_t *text) {
     if (!path || !*path || !text) return 0;
     size_t path_length = wcslen(path);
     if (path_length > 30000) return 0;
-    wchar_t *temporary = (wchar_t *)HeapAlloc(GetProcessHeap(), 0,
+    wchar_t *temporary = (wchar_t *)ide_heap_alloc(0,
                                                (path_length + 32u) * sizeof(wchar_t));
     if (!temporary) return 0;
     _snwprintf_s(temporary, path_length + 32u, _TRUNCATE, L"%ls.tmp.%lu", path,
@@ -714,7 +722,7 @@ static wchar_t *document_text(AppState *app) {
     if (!app || !app->document) return NULL;
     int length = GetWindowTextLengthW(app->document);
     if (length < 0 || (size_t)length > IDE_MAX_FILE_BYTES) return NULL;
-    wchar_t *text = (wchar_t *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+    wchar_t *text = (wchar_t *)ide_heap_alloc(HEAP_ZERO_MEMORY,
                                          ((size_t)length + 1u) * sizeof(wchar_t));
     if (!text) return NULL;
     if (GetWindowTextW(app->document, text, length + 1) != length) {
@@ -757,7 +765,7 @@ static int write_layout_atomic(AppState *app) {
     capture_main_layout(app);
     size_t path_length = wcslen(app->result_path);
     if (path_length > 30000) return 0;
-    wchar_t *temporary = (wchar_t *)HeapAlloc(GetProcessHeap(), 0,
+    wchar_t *temporary = (wchar_t *)ide_heap_alloc(0,
                                                (path_length + 16) * sizeof(wchar_t));
     if (!temporary) return 0;
     wcscpy_s(temporary, path_length + 16, app->result_path);
@@ -1086,10 +1094,28 @@ static int verify_shell(AppState *app) {
     HRESULT access_result = AccessibleObjectFromWindow(app->document, OBJID_CLIENT,
                                                         &IID_IAccessible, (void **)&accessible);
     if (FAILED(access_result) || !accessible) return 37;
+    VARIANT self;
+    ZeroMemory(&self, sizeof(self));
+    self.vt = VT_I4;
+    self.lVal = CHILDID_SELF;
+    VARIANT role;
+    ZeroMemory(&role, sizeof(role));
+    HRESULT role_result = accessible->lpVtbl->get_accRole(accessible, self, &role);
+    int exposed = SUCCEEDED(role_result) && role.vt == VT_I4 && role.lVal != 0 &&
+        GetWindowTextLengthW(app->document) > 0;
     accessible->lpVtbl->Release(accessible);
+    if (!exposed) return 45;
     HWND focus_target = focus_window_after(app, app->document);
     if (focus_target != app->layout.project.content ||
         !(GetWindowLongPtrW(focus_target, GWL_STYLE) & WS_TABSTOP)) return 38;
+    SetFocus(app->document);
+    MSG accelerator_message;
+    ZeroMemory(&accelerator_message, sizeof(accelerator_message));
+    accelerator_message.hwnd = app->main_window;
+    accelerator_message.message = WM_KEYDOWN;
+    accelerator_message.wParam = VK_F6;
+    if (!TranslateAcceleratorW(app->main_window, app->accelerators, &accelerator_message) ||
+        GetFocus() != app->layout.project.content) return 46;
     route_command(app, CMD_FLOAT_PROPERTIES);
     route_command(app, CMD_FLOAT_OUTPUT);
     if (app->layout.properties.mode != IDE_FLOATING || app->layout.output.mode != IDE_FLOATING)
@@ -1098,13 +1124,19 @@ static int verify_shell(AppState *app) {
     if (app->layout.project.mode != IDE_DOCKED || app->layout.properties.mode != IDE_DOCKED ||
         app->layout.output.mode != IDE_DOCKED) return 40;
     if (rect_width(&main_before) < 640 || rect_height(&main_before) < 480) return 41;
-    RECT dpi_bounds = {100, 100, 1000, 700};
-    SendMessageW(app->main_window, WM_DPICHANGED, MAKEWPARAM(144, 144), (LPARAM)&dpi_bounds);
-    RECT changed_bounds;
-    GetWindowRect(app->main_window, &changed_bounds);
-    if (changed_bounds.left != dpi_bounds.left || changed_bounds.top != dpi_bounds.top ||
-        rect_width(&changed_bounds) != rect_width(&dpi_bounds) ||
-        rect_height(&changed_bounds) != rect_height(&dpi_bounds)) return 44;
+    const UINT test_dpi[] = {120u, 144u, 192u, 96u};
+    for (int dpi_index = 0; dpi_index < 4; ++dpi_index) {
+        int offset = dpi_index * 10;
+        RECT dpi_bounds = {100 + offset, 100 + offset, 1000 + offset, 700 + offset};
+        SendMessageW(app->main_window, WM_DPICHANGED,
+                     MAKEWPARAM(test_dpi[dpi_index], test_dpi[dpi_index]),
+                     (LPARAM)&dpi_bounds);
+        RECT changed_bounds;
+        GetWindowRect(app->main_window, &changed_bounds);
+        if (changed_bounds.left != dpi_bounds.left || changed_bounds.top != dpi_bounds.top ||
+            rect_width(&changed_bounds) != rect_width(&dpi_bounds) ||
+            rect_height(&changed_bounds) != rect_height(&dpi_bounds)) return 44;
+    }
     SetWindowPos(app->main_window, NULL, main_before.left, main_before.top,
                  rect_width(&main_before), rect_height(&main_before),
                  SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1138,6 +1170,7 @@ int wmain(int argc, wchar_t **argv) {
     const wchar_t *document_output_path = NULL;
     const wchar_t *document_action_path = NULL;
     int verify = 0;
+    int verify_allocation_failure = 0;
     for (int i = 1; i < argc; ++i) {
         if (wcscmp(argv[i], L"--config") == 0 && i + 1 < argc) config_path = argv[++i];
         else if (wcscmp(argv[i], L"--result") == 0 && i + 1 < argc) result_path = argv[++i];
@@ -1148,12 +1181,15 @@ int wmain(int argc, wchar_t **argv) {
         else if (wcscmp(argv[i], L"--document-action") == 0 && i + 1 < argc)
             document_action_path = argv[++i];
         else if (wcscmp(argv[i], L"--verify") == 0) verify = 1;
+        else if (wcscmp(argv[i], L"--verify-allocation-failure") == 0)
+            verify_allocation_failure = 1;
         else return controlled_failure(L"invalid command line", 2);
     }
     if (!config_path || !result_path) return controlled_failure(L"missing configuration", 2);
     enable_per_monitor_dpi();
     HRESULT ole_status = OleInitialize(NULL);
     if (FAILED(ole_status)) return controlled_failure(L"accessibility initialization failed", 3);
+    if (verify_allocation_failure) InterlockedExchange(&ide_fail_next_allocation, 1);
     wchar_t *configuration_text = NULL;
     if (!read_utf8_file(config_path, &configuration_text)) {
         OleUninitialize();

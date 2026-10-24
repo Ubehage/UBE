@@ -80,6 +80,10 @@ void validate_intrinsic(const ast::Procedure& procedure) {
                                     {ValueType::String, ValueType::String});
     } else if (name == "compilerdeletefile") {
         require_intrinsic_signature(procedure, ValueType::Long, {ValueType::String});
+    } else if (name == "compilermonotonicmilliseconds" ||
+               name == "compilerprocesscpumilliseconds" ||
+               name == "compilerpeakworkingsetkilobytes") {
+        require_intrinsic_signature(procedure, ValueType::Long, {});
     } else if (name == "compilervalidateresource") {
         require_intrinsic_signature(procedure, ValueType::Long, {ValueType::String});
     } else if (name == "compilerresourcellvmescape") {

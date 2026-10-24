@@ -65,12 +65,25 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 - [x] Verify stale, malformed, cancelled, and failed results do not disturb
   editing.
 
+## Step 6: architectural risk gates
+
+- [x] Add an IDE-owned bounded service supervisor with request deadlines,
+  cancellation, generation changes, restart backoff, and retry exhaustion.
+- [x] Isolate real child-process crash and hang fixtures while preserving the
+  editing-state fixture and keeping recovery bounded.
+- [x] Strengthen native keyboard traversal, MSAA exposure, removed-monitor
+  repair, and 125%, 150%, 200%, and restored 100% DPI checks.
+- [x] Inject native allocation failure and prove controlled failure preserves
+  the last good published result.
+- [x] Enforce the cold-shell and supervisor responsiveness budgets and verify
+  deterministic RP8 emission.
+
 ## Handoff
 
-- **Current checkpoint:** Steps 1 through 5 complete and verified on 2026-10-24.
+- **Current checkpoint:** Steps 1 through 6 complete and verified on 2026-10-24.
 - **Generated output:** `out/` only.
 - **Verification commands:** `tests/run-step1.ps1` through
-  `tests/run-step5.ps1`.
+  `tests/run-step6.ps1`.
 - **Verified Step 3 behavior:** 45 UBE model assertions pass; a real UBE source
   opens in the editable native center view; native edit, undo, redo, and view
   recreation preserve its contents; UBE validates the returned version and
@@ -103,6 +116,12 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   stale result, cancellation, service failure, and malformed protocol data.
   Repeated language-service LLVM emission is byte-identical at SHA-256
   `8E29462216FF69D2E12B5D71ACF03C37FD309B9189BC867786C82335D290E105`.
-- **Next action:** begin Step 6 by exercising the architectural risk matrix,
-  starting with language-service crash/hang recovery and keyboard/accessibility
-  checks across the now-complete vertical slice.
+- **Verified Step 6 behavior:** 34 UBE assertions cover bounded deadlines,
+  current/stale results, cancellation, crash/hang restart, retry exhaustion,
+  malformed messages, and uninterrupted editing. A real hung child was
+  contained in 779 ms, the native accessibility/keyboard/DPI/monitor gates
+  completed in 88 ms, and injected allocation failure preserved the last good
+  result. Repeated RP8 LLVM emission is byte-identical at SHA-256
+  `07E001289B70D6606075F84C3629E87FF2009D3FA232B21BC08A54880262D555`.
+- **Next action:** complete Step 7's shared visual tokens and reproducible icon
+  assets, then validate the Code, Design, and Debug reference screens.
