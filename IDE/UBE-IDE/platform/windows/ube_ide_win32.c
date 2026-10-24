@@ -16,12 +16,13 @@
 #define IDE_MAX_FILE_BYTES (16u * 1024u * 1024u)
 #define IDE_MAX_ENTRIES 128
 #define IDE_MAX_KEY 96
-#define IDE_MAX_VALUE 768
+#define IDE_MAX_VALUE 2048
 
 enum {
     IDE_DOCKED = 0,
     IDE_FLOATING = 1,
-    IDE_HIDDEN = 2
+    IDE_HIDDEN = 2,
+    IDE_AUTO_HIDDEN = 3
 };
 
 enum {
@@ -63,6 +64,8 @@ typedef struct ToolState {
     int mode;
     RECT floating;
     int kind;
+    int group;
+    int order;
 } ToolState;
 
 typedef struct LayoutState {
@@ -246,7 +249,7 @@ static int load_tool_layout(const Config *config, const wchar_t *prefix, ToolSta
         if (!config_long(config, key, low, high, destination)) return 0;                   \
     } while (0)
     long mode = 0;
-    READ_TOOL_LONG("Mode", 0, 2, &mode);
+    READ_TOOL_LONG("Mode", 0, 3, &mode);
     tool->mode = (int)mode;
     READ_TOOL_LONG("Left", -100000, 100000, &tool->floating.left);
     READ_TOOL_LONG("Top", -100000, 100000, &tool->floating.top);
@@ -255,6 +258,11 @@ static int load_tool_layout(const Config *config, const wchar_t *prefix, ToolSta
     READ_TOOL_LONG("Height", 120, 8192, &height);
     tool->floating.right = tool->floating.left + width;
     tool->floating.bottom = tool->floating.top + height;
+    long group = 0, order = 0;
+    READ_TOOL_LONG("Group", 0, 15, &group);
+    READ_TOOL_LONG("Order", 0, 15, &order);
+    tool->group = (int)group;
+    tool->order = (int)order;
 #undef READ_TOOL_LONG
     return 1;
 }
@@ -418,6 +426,11 @@ static const wchar_t *tool_title(const AppState *app, const ToolState *tool) {
 }
 
 static const wchar_t *tool_placeholder(const AppState *app, const ToolState *tool) {
+    const wchar_t *workspace = NULL;
+    if (tool->kind == 0) workspace = config_get(&app->config, L"Workspace.ProjectExplorer");
+    else if (tool->kind == 1) workspace = config_get(&app->config, L"Workspace.Properties");
+    else workspace = config_get(&app->config, L"Workspace.Output");
+    if (workspace) return workspace;
     if (tool->kind == 0) return config_get(&app->config, L"Text.Shell.Placeholder.Project");
     if (tool->kind == 1) return config_get(&app->config, L"Text.Shell.Placeholder.Properties");
     return config_get(&app->config, L"Text.Shell.Placeholder.Output");
@@ -553,9 +566,9 @@ static ToolState *tool_for_view_command(AppState *app, int command) {
 
 static int focus_candidate_available(AppState *app, HWND candidate) {
     if (candidate == app->document) return 1;
-    if (candidate == app->layout.project.content) return app->layout.project.mode != IDE_HIDDEN;
-    if (candidate == app->layout.properties.content) return app->layout.properties.mode != IDE_HIDDEN;
-    if (candidate == app->layout.output.content) return app->layout.output.mode != IDE_HIDDEN;
+    if (candidate == app->layout.project.content) return app->layout.project.mode < IDE_HIDDEN;
+    if (candidate == app->layout.properties.content) return app->layout.properties.mode < IDE_HIDDEN;
+    if (candidate == app->layout.output.content) return app->layout.output.mode < IDE_HIDDEN;
     return 0;
 }
 
@@ -586,6 +599,12 @@ static void reset_layout(AppState *app) {
     app->layout.project.floating = (RECT){880, 100, 1200, 460};
     app->layout.properties.floating = (RECT){900, 470, 1200, 770};
     app->layout.output.floating = (RECT){180, 560, 980, 780};
+    app->layout.project.group = 1;
+    app->layout.project.order = 0;
+    app->layout.properties.group = 1;
+    app->layout.properties.order = 1;
+    app->layout.output.group = 2;
+    app->layout.output.order = 0;
     set_tool_mode(app, &app->layout.project, IDE_DOCKED);
     set_tool_mode(app, &app->layout.properties, IDE_DOCKED);
     set_tool_mode(app, &app->layout.output, IDE_DOCKED);
@@ -755,7 +774,10 @@ static int write_layout_atomic(AppState *app) {
         L"Main.Left = \"%ld\"\nMain.Top = \"%ld\"\nMain.Width = \"%ld\"\nMain.Height = \"%ld\"\nMain.Maximized = \"%d\"\n"
         L"ProjectExplorer.Mode = \"%d\"\nProjectExplorer.Left = \"%ld\"\nProjectExplorer.Top = \"%ld\"\nProjectExplorer.Width = \"%ld\"\nProjectExplorer.Height = \"%ld\"\n"
         L"Properties.Mode = \"%d\"\nProperties.Left = \"%ld\"\nProperties.Top = \"%ld\"\nProperties.Width = \"%ld\"\nProperties.Height = \"%ld\"\n"
-        L"Output.Mode = \"%d\"\nOutput.Left = \"%ld\"\nOutput.Top = \"%ld\"\nOutput.Width = \"%ld\"\nOutput.Height = \"%ld\"\n",
+        L"Output.Mode = \"%d\"\nOutput.Left = \"%ld\"\nOutput.Top = \"%ld\"\nOutput.Width = \"%ld\"\nOutput.Height = \"%ld\"\n"
+        L"ProjectExplorer.Group = \"%d\"\nProjectExplorer.Order = \"%d\"\n"
+        L"Properties.Group = \"%d\"\nProperties.Order = \"%d\"\n"
+        L"Output.Group = \"%d\"\nOutput.Order = \"%d\"\n",
         app->layout.main_bounds.left, app->layout.main_bounds.top,
         (long)rect_width(&app->layout.main_bounds), (long)rect_height(&app->layout.main_bounds),
         app->layout.maximized,
@@ -764,7 +786,10 @@ static int write_layout_atomic(AppState *app) {
         app->layout.properties.mode, app->layout.properties.floating.left, app->layout.properties.floating.top,
         (long)rect_width(&app->layout.properties.floating), (long)rect_height(&app->layout.properties.floating),
         app->layout.output.mode, app->layout.output.floating.left, app->layout.output.floating.top,
-        (long)rect_width(&app->layout.output.floating), (long)rect_height(&app->layout.output.floating));
+        (long)rect_width(&app->layout.output.floating), (long)rect_height(&app->layout.output.floating),
+        app->layout.project.group, app->layout.project.order,
+        app->layout.properties.group, app->layout.properties.order,
+        app->layout.output.group, app->layout.output.order);
     int ok = append_utf8(file, output) && FlushFileBuffers(file);
     CloseHandle(file);
     if (ok) ok = MoveFileExW(temporary, app->result_path,
@@ -980,7 +1005,58 @@ static int verify_document_view(AppState *app) {
     return 0;
 }
 
+static int verify_workspace(AppState *app) {
+    const wchar_t *project_text = config_get(&app->config, L"Workspace.ProjectExplorer");
+    const wchar_t *properties_text = config_get(&app->config, L"Workspace.Properties");
+    const wchar_t *output_text = config_get(&app->config, L"Workspace.Output");
+    if (!project_text || !properties_text || !output_text || !app->initial_document_text)
+        return 60;
+    wchar_t actual[IDE_MAX_VALUE];
+    if (!GetWindowTextW(app->layout.project.content, actual, IDE_MAX_VALUE) ||
+        wcscmp(actual, project_text) != 0) return 61;
+    if (!GetWindowTextW(app->layout.properties.content, actual, IDE_MAX_VALUE) ||
+        wcscmp(actual, properties_text) != 0) return 62;
+    if (!GetWindowTextW(app->layout.output.content, actual, IDE_MAX_VALUE) ||
+        wcscmp(actual, output_text) != 0) return 63;
+    wchar_t *source_before = document_text(app);
+    if (!source_before || wcscmp(source_before, app->initial_document_text) != 0) {
+        if (source_before) HeapFree(GetProcessHeap(), 0, source_before);
+        return 64;
+    }
+    HeapFree(GetProcessHeap(), 0, source_before);
+
+    int restored_custom = app->layout.project.mode == IDE_FLOATING &&
+        app->layout.properties.mode == IDE_HIDDEN &&
+        app->layout.output.mode == IDE_AUTO_HIDDEN &&
+        app->layout.output.group == app->layout.project.group;
+    if (!restored_custom) {
+        app->layout.project.floating = (RECT){220, 140, 650, 500};
+        set_tool_mode(app, &app->layout.project, IDE_FLOATING);
+        set_tool_mode(app, &app->layout.properties, IDE_HIDDEN);
+        set_tool_mode(app, &app->layout.output, IDE_AUTO_HIDDEN);
+        app->layout.output.group = app->layout.project.group;
+        app->layout.output.order = 2;
+        if (focus_window_after(app, app->layout.project.content) != app->document) return 65;
+    } else {
+        reset_layout(app);
+        if (app->layout.project.mode != IDE_DOCKED ||
+            app->layout.properties.mode != IDE_DOCKED ||
+            app->layout.output.mode != IDE_DOCKED ||
+            app->layout.output.group == app->layout.project.group) return 66;
+    }
+    wchar_t *source_after = document_text(app);
+    int unchanged = source_after && wcscmp(source_after, app->initial_document_text) == 0;
+    if (source_after) HeapFree(GetProcessHeap(), 0, source_after);
+    if (!unchanged) return 67;
+    if (!write_document_result(app, L"Close")) return 68;
+    if (!write_layout_atomic(app)) return 69;
+    app->exit_code = 0;
+    DestroyWindow(app->main_window);
+    return 0;
+}
+
 static int verify_shell(AppState *app) {
+    if (config_get(&app->config, L"Workspace.Enabled")) return verify_workspace(app);
     RECT main_before = app->layout.main_bounds;
     if (!app->main_window || !app->document || !app->layout.project.window ||
         !app->layout.properties.window || !app->layout.output.window) return 30;
@@ -1094,6 +1170,13 @@ int wmain(int argc, wchar_t **argv) {
     app.document_enabled = document_input_path || document_output_path || document_action_path;
     int valid = parse_config(configuration_text, &app.config) && required_text_present(&app.config) &&
                 load_layout(&app.config, &app.layout);
+    if (valid && config_get(&app.config, L"Workspace.Enabled")) {
+        long workspace_enabled = 0;
+        valid = config_long(&app.config, L"Workspace.Enabled", 1, 1, &workspace_enabled) &&
+                config_get(&app.config, L"Workspace.ProjectExplorer") &&
+                config_get(&app.config, L"Workspace.Properties") &&
+                config_get(&app.config, L"Workspace.Output");
+    }
     HeapFree(GetProcessHeap(), 0, configuration_text);
     if (valid && app.document_enabled) {
         long stable_id = 0, base_version = 0;

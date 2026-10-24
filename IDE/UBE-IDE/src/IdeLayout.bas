@@ -23,6 +23,12 @@ OutputLeft As Long
 OutputTop As Long
 OutputWidth As Long
 OutputHeight As Long
+ProjectExplorerGroup As Long
+ProjectExplorerOrder As Long
+PropertiesGroup As Long
+PropertiesOrder As Long
+OutputGroup As Long
+OutputOrder As Long
 End Type
 
 Function IdeLayoutDocked() As Long
@@ -35,6 +41,10 @@ End Function
 
 Function IdeLayoutHidden() As Long
 IdeLayoutHidden = 2
+End Function
+
+Function IdeLayoutAutoHidden() As Long
+IdeLayoutAutoHidden = 3
 End Function
 
 Sub IdeDefaultLayout(ByRef Layout As IdeLayoutState)
@@ -59,6 +69,12 @@ Layout.OutputLeft = 180
 Layout.OutputTop = 560
 Layout.OutputWidth = 800
 Layout.OutputHeight = 220
+Layout.ProjectExplorerGroup = 1
+Layout.ProjectExplorerOrder = 0
+Layout.PropertiesGroup = 1
+Layout.PropertiesOrder = 1
+Layout.OutputGroup = 2
+Layout.OutputOrder = 0
 End Sub
 
 Function IdeParseSignedLong(ByVal Value As String, ByRef Result As Long) As Long
@@ -98,7 +114,7 @@ End If
 End Function
 
 Function IdeValidateToolLayout(ByVal Mode As Long, ByVal LeftValue As Long, ByVal TopValue As Long, ByVal WidthValue As Long, ByVal HeightValue As Long) As Long
-If Mode < IdeLayoutDocked() Or Mode > IdeLayoutHidden() Then
+If Mode < IdeLayoutDocked() Or Mode > IdeLayoutAutoHidden() Then
 IdeValidateToolLayout = 0
 Exit Function
 End If
@@ -139,6 +155,14 @@ IdeValidateLayout = 0
 Exit Function
 End If
 If IdeValidateToolLayout(Layout.OutputMode, Layout.OutputLeft, Layout.OutputTop, Layout.OutputWidth, Layout.OutputHeight) = 0 Then
+IdeValidateLayout = 0
+Exit Function
+End If
+If IdeLayoutValueInRange(Layout.ProjectExplorerGroup, 0, 15) = 0 Or IdeLayoutValueInRange(Layout.PropertiesGroup, 0, 15) = 0 Or IdeLayoutValueInRange(Layout.OutputGroup, 0, 15) = 0 Then
+IdeValidateLayout = 0
+Exit Function
+End If
+If IdeLayoutValueInRange(Layout.ProjectExplorerOrder, 0, 15) = 0 Or IdeLayoutValueInRange(Layout.PropertiesOrder, 0, 15) = 0 Or IdeLayoutValueInRange(Layout.OutputOrder, 0, 15) = 0 Then
 IdeValidateLayout = 0
 Exit Function
 End If
@@ -191,6 +215,18 @@ ElseIf IdeEqualsFolded(Key, "Output.Width") <> 0 Then
 Layout.OutputWidth = Parsed
 ElseIf IdeEqualsFolded(Key, "Output.Height") <> 0 Then
 Layout.OutputHeight = Parsed
+ElseIf IdeEqualsFolded(Key, "ProjectExplorer.Group") <> 0 Then
+Layout.ProjectExplorerGroup = Parsed
+ElseIf IdeEqualsFolded(Key, "ProjectExplorer.Order") <> 0 Then
+Layout.ProjectExplorerOrder = Parsed
+ElseIf IdeEqualsFolded(Key, "Properties.Group") <> 0 Then
+Layout.PropertiesGroup = Parsed
+ElseIf IdeEqualsFolded(Key, "Properties.Order") <> 0 Then
+Layout.PropertiesOrder = Parsed
+ElseIf IdeEqualsFolded(Key, "Output.Group") <> 0 Then
+Layout.OutputGroup = Parsed
+ElseIf IdeEqualsFolded(Key, "Output.Order") <> 0 Then
+Layout.OutputOrder = Parsed
 Else
 IdeAssignLayoutValue = 0
 Exit Function
@@ -279,6 +315,12 @@ Call IdeAppendLayoutValue(Result, "Output.Left", Layout.OutputLeft)
 Call IdeAppendLayoutValue(Result, "Output.Top", Layout.OutputTop)
 Call IdeAppendLayoutValue(Result, "Output.Width", Layout.OutputWidth)
 Call IdeAppendLayoutValue(Result, "Output.Height", Layout.OutputHeight)
+Call IdeAppendLayoutValue(Result, "ProjectExplorer.Group", Layout.ProjectExplorerGroup)
+Call IdeAppendLayoutValue(Result, "ProjectExplorer.Order", Layout.ProjectExplorerOrder)
+Call IdeAppendLayoutValue(Result, "Properties.Group", Layout.PropertiesGroup)
+Call IdeAppendLayoutValue(Result, "Properties.Order", Layout.PropertiesOrder)
+Call IdeAppendLayoutValue(Result, "Output.Group", Layout.OutputGroup)
+Call IdeAppendLayoutValue(Result, "Output.Order", Layout.OutputOrder)
 IdeSerializeLayout = 1
 End Function
 
@@ -297,6 +339,13 @@ ElseIf IdeEqualsFolded(CommandId, "Window.FloatOutput") <> 0 Then
 Layout.OutputMode = IdeLayoutFloating()
 ElseIf IdeEqualsFolded(CommandId, "Window.DockOutput") <> 0 Then
 Layout.OutputMode = IdeLayoutDocked()
+ElseIf IdeEqualsFolded(CommandId, "Window.AutoHideOutput") <> 0 Then
+Layout.OutputMode = IdeLayoutAutoHidden()
+ElseIf IdeEqualsFolded(CommandId, "Window.HideProperties") <> 0 Then
+Layout.PropertiesMode = IdeLayoutHidden()
+ElseIf IdeEqualsFolded(CommandId, "Window.GroupOutputRight") <> 0 Then
+Layout.OutputGroup = Layout.ProjectExplorerGroup
+Layout.OutputOrder = Layout.PropertiesOrder + 1
 Else
 IdeApplyLayoutCommand = 0
 Exit Function

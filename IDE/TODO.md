@@ -8,9 +8,9 @@ typography, iconography, accessibility, and packaging decision points, is in
 [`Workplan.md`](Workplan.md).
 
 The application is now active in [`UBE-IDE/`](UBE-IDE/). Its headless
-foundation, plain native Windows shell, and first real editable UBE document
-are complete through Step 3. The next vertical slice replaces the Project
-Explorer placeholder with the real ordered project model and connects minimal
-Properties and bounded Output views. Detailed resume state and verification
-commands are recorded in both workplans.
+foundation, plain native Windows shell, first real editable UBE document, and
+real workspace tools are complete through Step 4. The next vertical slice
+connects an out-of-process compiler or language service to version-matched
+diagnostics and semantic View Definition. Detailed resume state and
+verification commands are recorded in both workplans.
 

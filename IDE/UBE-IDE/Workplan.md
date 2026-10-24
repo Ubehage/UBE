@@ -42,12 +42,23 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   every recovery-first save boundary, external conflicts, malformed input,
   native edit/undo/redo/recreation, and deterministic emission.
 
+## Step 4: accepted workspace with real state
+
+- [x] Render the manifest's exact ordered source list through the real UBE
+  project model in Project Explorer.
+- [x] Connect selection-driven project/source Properties and a UTF-8-validated,
+  bounded Output buffer with explicit drop accounting.
+- [x] Persist docked, floating, hidden, and auto-hidden tool modes plus group,
+  order, bounds, and repaired focus through the UBE-owned layout model.
+- [x] Verify a two-launch customize/restore/reset cycle without changing the
+  active source document.
+
 ## Handoff
 
-- **Current checkpoint:** Steps 1 through 3 complete and verified on 2026-10-24.
+- **Current checkpoint:** Steps 1 through 4 complete and verified on 2026-10-24.
 - **Generated output:** `out/` only.
-- **Verification commands:** `tests/run-step1.ps1`, `tests/run-step2.ps1`, and
-  `tests/run-step3.ps1`.
+- **Verification commands:** `tests/run-step1.ps1` through
+  `tests/run-step4.ps1`.
 - **Verified Step 3 behavior:** 45 UBE model assertions pass; a real UBE source
   opens in the editable native center view; native edit, undo, redo, and view
   recreation preserve its contents; UBE validates the returned version and
@@ -67,6 +78,13 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
   controlled `cannot open for writing` line to standard error. Steps 2 and 3
   finish with an intentional malformed-configuration probe that emits one
   controlled native-shell error with code 5.
-- **Next action:** begin Step 4 by replacing the Project Explorer placeholder
-  with the real ordered project model, then connect minimal Properties and
-  bounded Output views without moving ownership into the native adapter.
+- **Verified Step 4 behavior:** 31 UBE assertions pass for ordered project
+  rendering, selection-driven properties, bounded output, layout commands,
+  serialization, restore, and reset. Two native launches persist floating,
+  hidden, auto-hidden, grouped, and moved tool state, then restore and reset it
+  while the active source remains byte-identical. Repeated RP8 LLVM emission
+  is byte-identical at SHA-256
+  `35AA1D67844DA1F46F4DB4A84F863D13BE704F7E88739441FFFF37890F8632ED`.
+- **Next action:** begin Step 5 with a bounded out-of-process language-service
+  request, then connect version-matched diagnostics and semantic View
+  Definition without moving compiler policy into the native adapter.

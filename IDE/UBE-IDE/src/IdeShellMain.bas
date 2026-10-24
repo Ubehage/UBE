@@ -4,15 +4,23 @@ Attribute UBE_Name = "Main"
 Function Main() As Long
     Dim ArgumentCount As Long = CommandArgumentCount()
     Dim HasDocument As Long = 0
+    Dim HasWorkspace As Long = 0
     Dim VerifyMode As Long = 0
     If ArgumentCount = 5 Or ArgumentCount = 6 Then
         If ArgumentCount = 6 Then
             VerifyMode = 1
         End If
     Else
-        If ArgumentCount = 9 Or ArgumentCount = 10 Then
+        If ArgumentCount = 9 Or ArgumentCount = 10 Or ArgumentCount = 11 Then
             HasDocument = 1
             If ArgumentCount = 10 Then
+                If CommandArgument(9) = "--verify" Then
+                    VerifyMode = 1
+                Else
+                    HasWorkspace = 1
+                End If
+            ElseIf ArgumentCount = 11 Then
+                HasWorkspace = 1
                 VerifyMode = 1
             End If
         Else
@@ -58,6 +66,15 @@ Function Main() As Long
     Dim UndoCount As Long = 0
     Dim UndoCapacity As Long = 0
     Dim UndoCursor As Long = 0
+    Dim WorkspaceProject As IdeProjectState
+    Dim WorkspaceSources() As String
+    Dim WorkspaceSourceCapacity As Long = 0
+    Dim WorkspaceUnknownKeys() As String
+    Dim WorkspaceUnknownValues() As String
+    Dim WorkspaceUnknownCapacity As Long = 0
+    Dim WorkspaceProjectText As String = ""
+    Dim WorkspacePropertiesText As String = ""
+    Dim WorkspaceOutputText As String = ""
     If HasDocument <> 0 Then
         DocumentPath = CommandArgument(5)
         DocumentInputPath = CommandArgument(6)
@@ -84,6 +101,73 @@ Function Main() As Long
         End If
     End If
 
+    If HasWorkspace <> 0 Then
+        Dim WorkspacePath As String = CommandArgument(9)
+        If IdeLoadProjectText(WorkspacePath, ReadAllText(WorkspacePath), WorkspaceProject, WorkspaceSources, WorkspaceSourceCapacity, WorkspaceUnknownKeys, WorkspaceUnknownValues, WorkspaceUnknownCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+            Print IdeEmergencyText(3)
+            Main = 14
+            Exit Function
+        End If
+        Dim SourceLabel As String = ""
+        Dim NameLabel As String = ""
+        Dim KindLabel As String = ""
+        Dim StartupLabel As String = ""
+        Dim PathLabel As String = ""
+        Dim LoadedTemplate As String = ""
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Tool.ProjectExplorer.Source", SourceLabel) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Property.Name", NameLabel) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Property.Kind", KindLabel) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Property.Startup", StartupLabel) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Property.Path", PathLabel) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeShellText(LocaleKeys, LocaleValues, Locale.EntryCount, "Output.ProjectLoaded", LoadedTemplate) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+        If IdeBuildProjectExplorerText(WorkspaceProject, WorkspaceSources, SourceLabel, WorkspaceProjectText) = 0 Then
+            Print IdeEmergencyText(3)
+            Main = 15
+            Exit Function
+        End If
+        Dim WorkspaceSelection As IdeWorkspaceSelection
+        Call IdeSelectWorkspaceItem(WorkspaceProject, WorkspaceSelection, 0)
+        If IdeBuildWorkspacePropertiesText(WorkspaceProject, WorkspaceSources, WorkspaceSelection, NameLabel, KindLabel, StartupLabel, PathLabel, WorkspacePropertiesText) = 0 Then
+            Print IdeEmergencyText(3)
+            Main = 15
+            Exit Function
+        End If
+        Dim FormatArguments() As IdeFormatArgument
+        ReDim FormatArguments(0)
+        FormatArguments(0).ArgumentName = "name"
+        FormatArguments(0).ArgumentKind = 1
+        FormatArguments(0).TextValue = WorkspaceProject.ProjectName
+        If IdeFormatMessage(LoadedTemplate, FormatArguments, 1, WorkspaceOutputText) = 0 Then
+            Print IdeEmergencyText(1)
+            Main = 15
+            Exit Function
+        End If
+    End If
+
     Dim ConfigurationText As String = ""
     Dim ConfigurationBuilt As Long = 0
     If HasDocument <> 0 Then
@@ -95,6 +179,13 @@ Function Main() As Long
         Print IdeEmergencyText(1)
         Main = 4
         Exit Function
+    End If
+    If HasWorkspace <> 0 Then
+        If IdeAppendWorkspaceConfiguration(ConfigurationText, WorkspaceProjectText, WorkspacePropertiesText, WorkspaceOutputText) = 0 Then
+            Print IdeEmergencyText(3)
+            Main = 15
+            Exit Function
+        End If
     End If
     If WriteAllText(ConfigurationPath, ConfigurationText) <> 0 Then
         Print IdeEmergencyText(3)
@@ -204,7 +295,11 @@ Function Main() As Long
         Call CompilerDeleteFile(DocumentOutputPath)
         Call CompilerDeleteFile(DocumentActionPath)
         If VerifyMode <> 0 Then
-            Print "STEP3 DOCUMENT PASS"
+            If HasWorkspace <> 0 Then
+                Print "STEP4 WORKSPACE PASS"
+            Else
+                Print "STEP3 DOCUMENT PASS"
+            End If
         End If
     Else
         If VerifyMode <> 0 Then

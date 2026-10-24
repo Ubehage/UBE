@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Steps 1 through 3 verified foundations
+**Status:** Steps 1 through 4 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -71,3 +71,16 @@ detects external changes, writes recovery first, and uses RP8's durable atomic
 text publication for an accepted save. Save, Discard, Cancel, clean close,
 stale results, malformed results, host failure, and every save boundary are
 ordinary controlled outcomes.
+
+## Step 4 real workspace state
+
+The Project Explorer now renders the manifest's authoritative source order
+from the UBE project model. Selection drives a minimal UBE-owned Properties
+projection, and Output uses a UTF-8-validated 64 KiB buffer with bounded
+entries and explicit drop accounting. Only display snapshots cross the native
+boundary.
+
+Layout state now distinguishes docked, floating, hidden, and auto-hidden
+tools and preserves group and order identities. A two-launch native check
+customizes and restores the three real tools, repairs focus, resets the layout,
+and proves the active source remains byte-for-byte unchanged.

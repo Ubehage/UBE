@@ -98,10 +98,10 @@ the last good file or a usable recovery copy.
 
 ### Step 4: prove the accepted workspace with real state
 
-- [ ] Replace the placeholder Project Explorer with the real ordered project
+- [x] Replace the placeholder Project Explorer with the real ordered project
   model.
-- [ ] Connect a minimal real Properties view and bounded Output stream.
-- [ ] Verify moving, grouping, hiding, auto-hiding, floating, restoring, and
+- [x] Connect a minimal real Properties view and bounded Output stream.
+- [x] Verify moving, grouping, hiding, auto-hiding, floating, restoring, and
   resetting these tools while the document remains active and unchanged.
 
 Checkpoint: one real project survives a complete layout-customization and
@@ -158,26 +158,26 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Steps 1 through 3 complete; Step 4 not started.
+- **Current sequence step:** Steps 1 through 4 complete; Step 5 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step3.ps1` built the UBE document model and launcher
+  `IDE/UBE-IDE/tests/run-step4.ps1` built the real workspace model and launcher
   with Compiler v3 RP8 and Clang 23, built the narrow Win32 adapter with the
-  existing MinGW GCC toolchain, passed 45 UBE assertions plus a real native
-  source edit/undo/redo/view-recreation/save check, and produced byte-identical
-  LLVM in two emissions at SHA-256
-  `E1B69293B0446DF343AC77C7EA41462AE2C3AE657C987B7E0979343670BCA06B`.
+  existing MinGW GCC toolchain, passed 31 UBE assertions and a two-launch
+  native customize/restore/reset cycle, retained the active source
+  byte-for-byte, and produced byte-identical LLVM at SHA-256
+  `35AA1D67844DA1F46F4DB4A84F863D13BE704F7E88739441FFFF37890F8632ED`.
 - **Active files:** None.
-- **Validation performed:** all Step 1 and Step 2 checks plus real source open,
-  dirty/version transitions, undo/redo across view recreation, versioned
-  document-session validation, Save/Discard/Cancel policy, external-change
-  refusal, four synthetic interruption boundaries, recovery-first atomic save,
-  native edit checkpoints, and cleanup after a successful save.
-- **Known failures or blockers:** none for Step 3. The C process transport is a
+- **Validation performed:** ordered project rendering, project/source
+  selection and properties, bounded output and overflow refusal, tool mode,
+  grouping and order persistence, focus repair, restart restoration, Reset
+  Layout, deterministic emission, and source-integrity comparison.
+- **Known failures or blockers:** none for Step 4. The C process transport is a
   documented temporary boundary because RP8 still diagnoses arbitrary foreign
   imports and callbacks rather than lowering them; state and safety policy
   remain in UBE.
-- **Next concrete action:** Start Step 4 with the real ordered project model in
-  Project Explorer, then connect minimal Properties and bounded Output views.
+- **Next concrete action:** Start Step 5 with one bounded out-of-process
+  language-service request and apply only current diagnostic and definition
+  results.
 
 ## Phase 0: requirements and UX contracts
 
@@ -336,7 +336,7 @@ years in advance.
   production UI code where practical.
 - [x] Implement versioned settings with validation, migration, safe defaults,
   atomic writes, and corrupt-settings recovery.
-- [ ] Implement docking, floating, tab groups, splits, auto-hide, keyboard
+- [~] Implement docking, floating, tab groups, splits, auto-hide, keyboard
   control, placement previews, and Reset Layout.
 - [ ] Implement named Code, Design, Debug, and Custom layout handling without
   unrequested automatic rearrangement.
@@ -366,7 +366,7 @@ available recovery copy, and unedited files round-trip byte-for-byte.
 
 ## Phase 7: project explorer and code editor
 
-- [ ] Implement the Project Explorer using manifest order and explicit project
+- [~] Implement the Project Explorer using manifest order and explicit project
   and project-group structure.
 - [ ] Implement project/file creation, inclusion, exclusion, rename, reorder,
   and deletion workflows with previews of affected files.

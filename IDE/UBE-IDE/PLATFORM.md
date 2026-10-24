@@ -35,6 +35,12 @@ recovery first, and alone decides whether to publish the source. A native crash
 can therefore leave a complete checkpoint but cannot directly overwrite the
 project file.
 
+Step 4 adds validated display snapshots for the ordered Project Explorer,
+selection-driven Properties view, and bounded Output stream. The adapter may
+render these strings and preserve tool mode, group, order, and bounds, but it
+cannot parse or mutate the project model. Auto-hidden tools are removed from
+the focus cycle until reopened; floating bounds remain monitor-repaired.
+
 ## Proven native behavior
 
 - One native top-level main window contains the central document workspace.
