@@ -40,6 +40,17 @@ End Function
 Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long
 End Function
 
+' Returns zero only after a complete bounded UBE-Resource 1 container has
+' passed structural, canonical-directory, and SHA-256 payload validation.
+Intrinsic Function CompilerValidateResource(ByVal Path As String) As Long
+End Function
+
+Intrinsic Function CompilerResourceLlvmEscape(ByVal Path As String) As String
+End Function
+
+Intrinsic Function CompilerValidateLibraryBundle(ByVal Path As String, ByVal TargetTriple As String, ByVal RequiredVersion As String, ByVal RequiredInterface As String) As Long
+End Function
+
 Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long
 End Function
 

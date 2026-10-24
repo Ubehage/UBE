@@ -466,18 +466,18 @@ if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP5' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP7: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP8: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to analyze its own project'
 }
 
 $v3Rp1Tests = Join-Path $v3Project 'tests'
 $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP7: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP8: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed its inherited multi-module project fixture'
 }
 $ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP7: project UBECore (Library), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP8: project UBECore (Library), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to validate the UBECore project boundary'
 }
 
@@ -519,9 +519,9 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp7 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
+    -ExpectedDiagnostic 'usage: ube-v3-rp8 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
-    -ExpectedDiagnostic 'error UBE3200: unsupported RP7 target: unknown-target'
+    -ExpectedDiagnostic 'error UBE3200: unsupported RP8 target: unknown-target'
 $v3Rp5MissingOutputDirectory = Join-Path $out 'missing-output-directory'
 $v3Rp5UnwritableOutput = Join-Path $v3Rp5MissingOutputDirectory 'output.ll'
 Test-V3Rp1Failure -Name 'atomic-output-write-failure' `
@@ -543,6 +543,61 @@ Test-V3Rp1Failure -Name 'unknown-key' `
 Test-V3Rp1Failure -Name 'library-startup' `
     -Arguments @((Join-Path $v3Rp1Tests 'library-startup.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3022: library projects cannot declare Startup or StartupForm'
+$v3Rp8Tests = Join-Path $v3Project 'tests/rp8'
+Test-V3Rp1Failure -Name 'rp8-address-of-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-address-of.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4050: AddressOf native callback thunks are reserved'
+Test-V3Rp1Failure -Name 'rp8-force-inline-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-force-inline.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4052: ForceInline is reserved'
+Test-V3Rp1Failure -Name 'rp8-legacy-file-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-file.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4054: legacy file statements are reserved'
+Test-V3Rp1Failure -Name 'rp8-host-clock-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-host-clock.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4055: legacy host-clock assignment is not portable'
+Test-V3Rp1Failure -Name 'rp8-variable-hook-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-variable-hook.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4051: variable Get/Set hooks are reserved'
+Test-V3Rp1Failure -Name 'rp8-foreign-declare-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-declare.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4053: foreign Declare imports are reserved'
+Test-V3Rp1Failure -Name 'rp8-assembly-unsafe' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-asm.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4030: unsafe source requires an explicitly enabled unsafe build context'
+Test-V3Rp1Failure -Name 'rp8-bytecode-unsafe' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-bytecode.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4030: unsafe source requires an explicitly enabled unsafe build context'
+Test-V3Rp1Failure -Name 'rp8-classic-graphics-unsupported' `
+    -Arguments @((Join-Path $v3Rp8Tests 'unsupported-graphics.UBE'), $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE4056: classic graphics statements are reserved'
+& (Join-Path $PSScriptRoot 'tests/rp8_package_tests.ps1') `
+    -CompilerPath $v3Rp1Executable -OutputDirectory $out -Target $v3Rp1Target
+$v3Rp8ResourceLlvm = Join-Path $out 'rp8-package-resource.ll'
+$v3Rp8ResourceObject = Join-Path $out 'rp8-package-resource.o'
+& $clangPath '--target=x86_64-w64-windows-gnu' '-c' $v3Rp8ResourceLlvm '-o' $v3Rp8ResourceObject
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp8ResourceObject)) {
+    throw 'LLVM rejected the RP8 embedded-resource globals'
+}
+$resourceProbe = Join-Path $out 'resource-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/resource_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $resourceProbe
+if ($LASTEXITCODE -ne 0) { throw 'RP8 resource probe build failed' }
+$resourceProbeOutput = & $resourceProbe (Join-Path $out 'rp8-package.UBR') (Join-Path $out 'rp8-corrupt.UBR')
+if ($LASTEXITCODE -ne 0 -or $resourceProbeOutput -ne 'resource probe passed') {
+    throw 'RP8 resource probe failed'
+}
+$libraryBundleProbe = Join-Path $out 'library-bundle-probe.exe'
+& gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
+    (Join-Path $PSScriptRoot 'tests/library_bundle_probe.c') (Join-Path $out 'bootstrap_runtime.o') `
+    '-o' $libraryBundleProbe
+if ($LASTEXITCODE -ne 0) { throw 'RP8 library-bundle probe build failed' }
+$rp8InterfaceHash = (Get-FileHash -LiteralPath (Join-Path $v3Rp8Tests 'group-library.bas') -Algorithm SHA256).Hash
+$libraryBundleProbeOutput = & $libraryBundleProbe (Join-Path $out 'rp8-package.UBL') $rp8InterfaceHash
+if ($LASTEXITCODE -ne 0 -or $libraryBundleProbeOutput -ne 'library bundle probe passed') {
+    throw 'RP8 library-bundle probe failed'
+}
 Test-V3Rp1Failure -Name 'missing-source' -ExpectedExitCode 66 `
     -Arguments @((Join-Path $v3Rp1Tests 'missing-source.UBE'), $v3Rp1Target) `
     -ExpectedDiagnostic 'UBE runtime: cannot open for reading:'
@@ -607,7 +662,7 @@ $v3Rp2BomText = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Bom`"`r`nDim fina
 $v3Rp2BomBytes = [System.Text.UTF8Encoding]::new($true).GetBytes($v3Rp2BomText)
 [System.IO.File]::WriteAllBytes($v3Rp2FuzzSource, $v3Rp2BomBytes)
 $bomOutput = & $v3Rp1Executable $v3Rp2FuzzProject $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP7:*') {
+if ($LASTEXITCODE -ne 0 -or $bomOutput -notlike 'UBE Compiler v3 RP8:*') {
     throw 'UBE Compiler v3 RP5 failed BOM, CRLF, or final synthetic newline coverage'
 }
 
@@ -661,7 +716,7 @@ Test-V3Rp1Failure -Name 'syntax-depth-limit' -Arguments @($v3Rp3DepthProject, $v
 
 $v3Rp4Tests = Join-Path $v3Project 'tests/rp4'
 $v3Rp4Output = & $v3Rp1Executable (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
-if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP7: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
+if ($LASTEXITCODE -ne 0 -or $v3Rp4Output -notlike 'UBE Compiler v3 RP8: project RP4Valid (Exe), 2 source(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed its inherited typed multi-module semantic fixture'
 }
 $firstSemanticDump = & $v3Rp1Executable '--dump-semantics' (Join-Path $v3Rp4Tests 'valid.UBE') $v3Rp1Target
@@ -707,6 +762,67 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SecondLlvm)) {
 if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
     (Get-FileHash -LiteralPath $v3Rp5SecondLlvm -Algorithm SHA256).Hash) {
     throw 'UBE Compiler v3 RP5 LLVM emission is not deterministic'
+}
+$v3Rp8LinuxLlvm = Join-Path $out 'v3-rp8-linux-x86_64.ll'
+$v3Rp8LinuxObject = Join-Path $out 'v3-rp8-linux-x86_64.o'
+& $v3Rp1Executable '--emit-llvm' $v3Rp5StraightLineProject `
+    'x86_64-unknown-linux-gnu' $v3Rp8LinuxLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp8LinuxLlvm)) {
+    throw 'UBE Compiler v3 RP8 failed to emit Linux x86-64 LLVM'
+}
+& $clangPath '--target=x86_64-unknown-linux-gnu' '-c' $v3Rp8LinuxLlvm `
+    '-o' $v3Rp8LinuxObject
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp8LinuxObject)) {
+    throw 'LLVM failed to produce the RP8 Linux x86-64 ELF object'
+}
+$v3Rp8DebugHashes = [ordered]@{}
+foreach ($debugMode in @('none', 'line', 'full')) {
+    $debugProject = Join-Path $v3Rp8Tests "debug-$debugMode.UBE"
+    $debugLlvm = Join-Path $out "v3-rp8-debug-$debugMode.ll"
+    $debugObject = Join-Path $out "v3-rp8-debug-$debugMode.o"
+    & $v3Rp1Executable '--emit-llvm' $debugProject $v3Rp1Target $debugLlvm
+    if ($LASTEXITCODE -ne 0) { throw "RP8 $debugMode debugger-metadata emission failed" }
+    $debugText = Get-Content -LiteralPath $debugLlvm -Raw
+    if ($debugMode -eq 'none' -and $debugText -match '!DICompileUnit|!DILocation|!DILocalVariable|llvm\.dbg\.declare') {
+        throw 'RP8 DebugInformation=None retained debugger metadata'
+    }
+    if ($debugMode -eq 'line' -and
+        ($debugText -notmatch '!DICompileUnit' -or $debugText -notmatch '!DILocation' -or
+         $debugText -notmatch 'emissionKind: LineTablesOnly' -or
+         $debugText -match '!DILocalVariable|llvm\.dbg\.declare')) {
+        throw 'RP8 DebugInformation=Line metadata is incomplete or contains variable records'
+    }
+    if ($debugMode -eq 'full' -and
+        ($debugText -notmatch '!DICompileUnit' -or $debugText -notmatch '!DISubprogram' -or
+         $debugText -notmatch '!DILocation' -or $debugText -notmatch '!DILocalVariable' -or
+         $debugText -notmatch 'llvm\.dbg\.declare')) {
+        throw 'RP8 DebugInformation=Full metadata is incomplete'
+    }
+    & $clangPath '--target=x86_64-w64-windows-gnu' '-c' $debugLlvm '-o' $debugObject
+    if ($LASTEXITCODE -ne 0) { throw "LLVM rejected RP8 $debugMode debugger metadata" }
+    $v3Rp8DebugHashes[$debugMode] = [ordered]@{
+        llvm = (Get-FileHash -LiteralPath $debugLlvm -Algorithm SHA256).Hash
+        object = (Get-FileHash -LiteralPath $debugObject -Algorithm SHA256).Hash
+    }
+}
+$v3Rp8OptimizationHashes = [ordered]@{}
+foreach ($optimizationMode in @('zero', 'size', 'three')) {
+    $optimizationProject = Join-Path $v3Rp8Tests "optimization-$optimizationMode.UBE"
+    $optimizationExecutable = Join-Path $out "v3-rp8-optimization-$optimizationMode.exe"
+    $optimizationIntermediate = Join-Path $out "v3-rp8-optimization-$optimizationMode.ll"
+    & $v3Rp1Executable '--build-native' $optimizationProject $v3Rp1Target $clangPath `
+        (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
+        $optimizationExecutable $optimizationIntermediate
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $optimizationExecutable) -or
+        (Test-Path -LiteralPath $optimizationIntermediate)) {
+        throw "RP8 Optimization=$optimizationMode native build failed or retained its intermediate"
+    }
+    & $optimizationExecutable
+    if ($LASTEXITCODE -ne 0) {
+        throw "RP8 Optimization=$optimizationMode changed observable program behavior"
+    }
+    $v3Rp8OptimizationHashes[$optimizationMode] =
+        (Get-FileHash -LiteralPath $optimizationExecutable -Algorithm SHA256).Hash
 }
 $v3Rp5StraightLineExecutable = Join-Path $out 'v3-rp5-straight-line.exe'
 & $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp5FirstLlvm `
@@ -1066,6 +1182,11 @@ $v3Rp7NativeFixtureResults = @(
     Test-V3Rp5NativeFixture -Name 'rp7-object-identity' -Project (Join-Path $v3Rp7Tests 'object-identity.UBE') -ExpectedOutput "-1`n-1" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-ubecore-coordination' -Project (Join-Path $root 'source-library/AtomicTest.UBE') -ExpectedOutput "1`n5`n5`n8`n1`n4000000009`n1`n-1`n1`n1`n2008`n0`n1`n1`n0`n1`n0`n1`n1`n1`n1`n1`n1`n42`n0" -ExpectedExitCode 0
 )
+$v3Rp8NativeFixtureResults = @(
+    Test-V3Rp5NativeFixture -Name 'rp8-ubecore-public-api' `
+        -Project (Join-Path $root 'source-library/CoreApiTest.UBE') `
+        -ExpectedOutput "-1`n-1`n1`n1`n1`n42`n3`n1`n-123`n456`n1`n1" -ExpectedExitCode 0
+)
 Test-V3Rp6Failure -Name 'rp7-event-handler-signature' `
     -Project (Join-Path $v3Rp7Tests 'events-invalid-handler.UBE') `
     -ExpectedDiagnostic 'error UBE4047: WithEvents handler must be a Private Sub with the exact Event signature: Source_Progress'
@@ -1122,7 +1243,7 @@ if ($LASTEXITCODE -ne 0 -or $v3Rp6ForeignProbeOutput -ne 'foreign ABI probe pass
     throw 'RP6 foreign ABI probe failed'
 }
 
-$v3Rp7ReleaseCandidate = Join-Path $out 'ube-v3-rp7-windows-x86_64-x86_64-w64-windows-gnu.exe'
+$v3Rp8ReleaseCandidate = Join-Path $out 'ube-v3-rp8-windows-x86_64-x86_64-w64-windows-gnu.exe'
 
 $v3Rp1ManySources = Join-Path $out 'v3-rp1-too-many-sources.UBE'
 $manySourcesText = [System.Text.StringBuilder]::new()
@@ -1159,17 +1280,17 @@ Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourcePr
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
 $v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrTypeRelations.bas', 'IrRp7Lowering.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'ManagedModel.bas', 'ManagedAnalysis.bas', 'ManagedOutput.bas', 'TargetAbi.bas', 'ForeignAbiOutput.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
+foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'Rp8Closure.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrTypeRelations.bas', 'IrRp7Lowering.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'ManagedModel.bas', 'ManagedAnalysis.bas', 'ManagedOutput.bas', 'TargetAbi.bas', 'ForeignAbiOutput.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'ProjectGroup.bas', 'TargetConfig.bas', 'Driver.bas', 'Main.bas')) {
     $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
 }
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp7-build-manifest-1'
-    preview = 'RP7'
+    schema = 'ube-v3-rp8-build-manifest-1'
+    preview = 'RP8'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
     core_package = 'UBECore'
-    core_library_version = '0.1.0-rp7'
+    core_library_version = '0.1.0-rp8'
     intrinsic_abi = 'ube-intrinsic-abi-1'
     source_library_slice = @(
         'src/portable/CoreIdentity.bas',
@@ -1211,8 +1332,8 @@ $v3Rp1BuildManifest = [ordered]@{
         stage3_object_sha256 = $v3Rp5SelfStageThreeObjectHash
         stage2_normalized_object_sha256 = $v3Rp5SelfStageTwoNormalizedObjectHash
         stage3_normalized_object_sha256 = $v3Rp5SelfStageThreeNormalizedObjectHash
-        corpus_policy = 'identical exit code and ordinal output text for the recorded inherited, RP6, and RP7 parity corpora'
-        corpus_case_count = $v3Rp5ParityCases.Count + $v3Rp6NativeFixtureResults.Count + $v3Rp7NativeFixtureResults.Count + 5
+        corpus_policy = 'identical exit code and ordinal output text for the recorded inherited, RP6, and RP7 parity corpora plus RP8 project/package closure gates'
+        corpus_case_count = $v3Rp5ParityCases.Count + $v3Rp6NativeFixtureResults.Count + $v3Rp7NativeFixtureResults.Count + $v3Rp8NativeFixtureResults.Count + 5
     }
     source_library_comparison = [ordered]@{
         project = 'source-library/UBECore.UBE'
@@ -1223,10 +1344,18 @@ $v3Rp1BuildManifest = [ordered]@{
         v2_built_normalized_object_sha256 = $v3Rp5CoreV2NormalizedObjectHash
         self_built_normalized_object_sha256 = $v3Rp5CoreSelfNormalizedObjectHash
     }
-    native_profile_fixtures = @($v3Rp5NativeFixtureResults + $v3Rp6NativeFixtureResults + $v3Rp7NativeFixtureResults)
+    native_profile_fixtures = @($v3Rp5NativeFixtureResults + $v3Rp6NativeFixtureResults + $v3Rp7NativeFixtureResults + $v3Rp8NativeFixtureResults)
     managed_metadata_sha256 = $v3Rp6ManagedDumpHash
     foreign_library_ir = (Get-FileHash -LiteralPath $v3Rp6ForeignBootstrapIr -Algorithm SHA256).Hash
     foreign_library = (Get-FileHash -LiteralPath $v3Rp6ForeignDll -Algorithm SHA256).Hash
+    resource_container = (Get-FileHash -LiteralPath (Join-Path $out 'rp8-package.UBR') -Algorithm SHA256).Hash
+    resource_llvm = (Get-FileHash -LiteralPath $v3Rp8ResourceLlvm -Algorithm SHA256).Hash
+    resource_object = (Get-FileHash -LiteralPath $v3Rp8ResourceObject -Algorithm SHA256).Hash
+    library_bundle = (Get-FileHash -LiteralPath (Join-Path $out 'rp8-package.UBL') -Algorithm SHA256).Hash
+    linux_x86_64_llvm = (Get-FileHash -LiteralPath $v3Rp8LinuxLlvm -Algorithm SHA256).Hash
+    linux_x86_64_object = (Get-FileHash -LiteralPath $v3Rp8LinuxObject -Algorithm SHA256).Hash
+    debugger_metadata = $v3Rp8DebugHashes
+    optimization_artifacts = $v3Rp8OptimizationHashes
     clang_compile_flags = $v3Rp5ClangCompileFlags
     clang_link_flags = $v3Rp5ClangLinkFlags
     straight_line_ir = (Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash
@@ -1237,7 +1366,7 @@ $v3Rp1BuildManifest = [ordered]@{
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 5 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp7-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-rp8-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(
@@ -1439,7 +1568,8 @@ $v2BootstrapManifest = [ordered]@{
 }
 $v2BootstrapManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $v2BootstrapManifestPath -Encoding UTF8
 
-# Materialize the named RP7 release candidate only after every inherited and
+# Materialize the named RP8 release candidate only after every inherited and
 # preview-specific gate above has passed.  The completion workflow can then
 # copy this exact file and hash into compiler/release-previews.
-Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp7ReleaseCandidate
+Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp8ReleaseCandidate
+$global:LASTEXITCODE = 0

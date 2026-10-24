@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedAddressOf"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-address-of.bas"

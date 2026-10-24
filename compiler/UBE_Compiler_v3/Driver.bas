@@ -40,7 +40,7 @@ Function FindReferenceSourcePath(ByVal SourcePath As String, ByRef SourcePaths()
     FindReferenceSourcePath = -1
 End Function
 
-Function LoadReferenceTree(ByVal ManifestPath As String, ByVal Depth As Long, ByRef SourcePaths() As String, ByRef SourceDepths() As Long, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef SeenPaths() As String, ByRef SeenStates() As Long, ByRef SeenCount As Long, ByRef SeenCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function LoadReferenceTree(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal Depth As Long, ByRef SourcePaths() As String, ByRef SourceDepths() As Long, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef SeenPaths() As String, ByRef SeenStates() As Long, ByRef SeenCount As Long, ByRef SeenCapacity As Long, ByRef ResourceData As String, ByRef ResourceLengths As String, ByRef ResourceCount As Long, ByRef ResourceBytes As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     If Depth > LimitProjectReferences() Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3023", ManifestPath, 1, 1, "project reference depth exceeds the configured limit")
         LoadReferenceTree = 0
@@ -74,7 +74,7 @@ Function LoadReferenceTree(ByVal ManifestPath As String, ByVal Depth As Long, By
     Dim ChildReferences() As String
     Dim ChildReferenceCount As Long = 0
     Dim ChildReferenceCapacity As Long = 0
-    If LoadProjectManifest(ManifestPath, ReferencedProject, ReferencedSources, ReferencedSourceCount, ReferencedSourceCapacity, ChildReferences, ChildReferenceCount, ChildReferenceCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+    If LoadProjectManifest(ManifestPath, TargetTriple, ReferencedProject, ReferencedSources, ReferencedSourceCount, ReferencedSourceCapacity, ChildReferences, ChildReferenceCount, ChildReferenceCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         LoadReferenceTree = 0
         Exit Function
     End If
@@ -82,6 +82,20 @@ Function LoadReferenceTree(ByVal ManifestPath As String, ByVal Depth As Long, By
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3026", ManifestPath, 1, 1, "Reference target must be a Library project")
         LoadReferenceTree = 0
         Exit Function
+    End If
+    If ResourceBytes > LimitCombinedResourceBytes() - ReferencedProject.ResourceBytes Then
+        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3049", ManifestPath, 1, 1, "combined reference-graph resources exceed the 67108864-byte limit")
+        LoadReferenceTree = 0
+        Exit Function
+    End If
+    If ReferencedProject.ResourceCount > 0 Then
+        If StringLength(ResourceLengths) > 0 Then
+            ResourceLengths = ResourceLengths & ", "
+        End If
+        ResourceLengths = ResourceLengths & ReferencedProject.ResourceLengths
+        ResourceData = ResourceData & ReferencedProject.ResourceData
+        ResourceCount = ResourceCount + ReferencedProject.ResourceCount
+        ResourceBytes = ResourceBytes + ReferencedProject.ResourceBytes
     End If
     Dim SourceIndex As Long = 0
     While SourceIndex < ReferencedSourceCount
@@ -103,7 +117,7 @@ Function LoadReferenceTree(ByVal ManifestPath As String, ByVal Depth As Long, By
     Wend
     Dim ReferenceIndex As Long = 0
     While ReferenceIndex < ChildReferenceCount
-        If LoadReferenceTree(ChildReferences(ReferenceIndex), Depth + 1, SourcePaths, SourceDepths, SourceCount, SourceCapacity, SeenPaths, SeenStates, SeenCount, SeenCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        If LoadReferenceTree(ChildReferences(ReferenceIndex), TargetTriple, Depth + 1, SourcePaths, SourceDepths, SourceCount, SourceCapacity, SeenPaths, SeenStates, SeenCount, SeenCapacity, ResourceData, ResourceLengths, ResourceCount, ResourceBytes, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             LoadReferenceTree = 0
             Exit Function
         End If
@@ -113,7 +127,7 @@ Function LoadReferenceTree(ByVal ManifestPath As String, ByVal Depth As Long, By
     LoadReferenceTree = 1
 End Function
 
-Function ExpandProjectReferences(ByVal RootManifest As String, ByRef ReferencePaths() As String, ByVal ReferenceCount As Long, ByRef SourcePaths() As String, ByRef SourceDepths() As Long, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function ExpandProjectReferences(ByVal RootManifest As String, ByVal TargetTriple As String, ByRef ReferencePaths() As String, ByVal ReferenceCount As Long, ByRef SourcePaths() As String, ByRef SourceDepths() As Long, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ResourceData As String, ByRef ResourceLengths As String, ByRef ResourceCount As Long, ByRef ResourceBytes As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim SeenPaths() As String
     Dim SeenStates() As Long
     Dim SeenCount As Long = 0
@@ -126,7 +140,7 @@ Function ExpandProjectReferences(ByVal RootManifest As String, ByRef ReferencePa
     SeenStates(0) = 1
     Dim Index As Long = 0
     While Index < ReferenceCount
-        If LoadReferenceTree(ReferencePaths(Index), 1, SourcePaths, SourceDepths, SourceCount, SourceCapacity, SeenPaths, SeenStates, SeenCount, SeenCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        If LoadReferenceTree(ReferencePaths(Index), TargetTriple, 1, SourcePaths, SourceDepths, SourceCount, SourceCapacity, SeenPaths, SeenStates, SeenCount, SeenCapacity, ResourceData, ResourceLengths, ResourceCount, ResourceBytes, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             ExpandProjectReferences = 0
             Exit Function
         End If
@@ -169,34 +183,50 @@ Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTripl
     Dim NativeDiagnostics() As CompilerDiagnostic
     Dim NativeDiagnosticCount As Long = 0
     Dim NativeDiagnosticCapacity As Long = 0
-    If LoadProjectManifest(ManifestPath, NativeProject, NativeSources, NativeSourceCount, NativeSourceCapacity, NativeReferences, NativeReferenceCount, NativeReferenceCapacity, NativeDiagnostics, NativeDiagnosticCount, NativeDiagnosticCapacity) = 0 Then
+    If LoadProjectManifest(ManifestPath, TargetTriple, NativeProject, NativeSources, NativeSourceCount, NativeSourceCapacity, NativeReferences, NativeReferenceCount, NativeReferenceCapacity, NativeDiagnostics, NativeDiagnosticCount, NativeDiagnosticCapacity) = 0 Then
         CleanupStatus = CompilerDeleteFile(IntermediateIrPath)
         Call ReportDriverFailure("native project manifest", NativeDiagnostics, NativeDiagnosticCount, NativeDiagnosticCapacity)
         RunNativeCompilerDriver = 1
         Exit Function
     End If
     Dim ToolArguments() As String
-    Dim ToolArgumentCount As Long = 7
+    Dim ToolArgumentCount As Long = 8
+    Dim OptimizationFlag As String = "-O2"
+    If EqualsFolded(NativeProject.Optimization, "Size") <> 0 Then
+        OptimizationFlag = "-Os"
+    Else
+        OptimizationFlag = "-O" & NativeProject.Optimization
+    End If
+    Dim DebugFlag As String = "-g"
+    If EqualsFolded(NativeProject.DebugInformation, "None") <> 0 Then
+        DebugFlag = "-g0"
+    Else
+        If EqualsFolded(NativeProject.DebugInformation, "Line") <> 0 Then
+            DebugFlag = "-gline-tables-only"
+        End If
+    End If
     If EqualsFolded(NativeProject.Kind, "Library") <> 0 Then
+        ReDim ToolArguments(8)
+        ToolArguments(0) = "--target=" & TargetTriple
+        ToolArguments(1) = OptimizationFlag
+        ToolArguments(2) = DebugFlag
+        ToolArguments(3) = "-shared"
+        ToolArguments(4) = IntermediateIrPath
+        ToolArguments(5) = RuntimeObjectPath
+        ToolArguments(6) = UnicodeRuntimeObjectPath
+        ToolArguments(7) = "-o"
+        ToolArguments(8) = OutputPath
+        ToolArgumentCount = 9
+    Else
         ReDim ToolArguments(7)
         ToolArguments(0) = "--target=" & TargetTriple
-        ToolArguments(1) = "-O2"
-        ToolArguments(2) = "-shared"
+        ToolArguments(1) = OptimizationFlag
+        ToolArguments(2) = DebugFlag
         ToolArguments(3) = IntermediateIrPath
         ToolArguments(4) = RuntimeObjectPath
         ToolArguments(5) = UnicodeRuntimeObjectPath
         ToolArguments(6) = "-o"
         ToolArguments(7) = OutputPath
-        ToolArgumentCount = 8
-    Else
-        ReDim ToolArguments(6)
-        ToolArguments(0) = "--target=" & TargetTriple
-        ToolArguments(1) = "-O2"
-        ToolArguments(2) = IntermediateIrPath
-        ToolArguments(3) = RuntimeObjectPath
-        ToolArguments(4) = UnicodeRuntimeObjectPath
-        ToolArguments(5) = "-o"
-        ToolArguments(6) = OutputPath
     End If
     Dim ToolStatus As Long = CompilerRunTool(ClangPath, ToolArguments, ToolArgumentCount)
     If ToolStatus <> 0 Then
@@ -247,14 +277,18 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
     Dim ReferencePaths() As String
     Dim ReferenceCount As Long = 0
     Dim ReferenceCapacity As Long = 0
-    If LoadProjectManifest(ManifestPath, Project, SourcePaths, SourceCount, SourceCapacity, ReferencePaths, ReferenceCount, ReferenceCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+    If LoadProjectManifest(ManifestPath, TargetTriple, Project, SourcePaths, SourceCount, SourceCapacity, ReferencePaths, ReferenceCount, ReferenceCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         Call ReportDriverFailure("project manifest", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
         Exit Function
     End If
     Dim SourceDepths() As Long
     ReDim SourceDepths(SourceCapacity - 1)
-    If ExpandProjectReferences(ManifestPath, ReferencePaths, ReferenceCount, SourcePaths, SourceDepths, SourceCount, SourceCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+    Dim ResourceData As String = Project.ResourceData
+    Dim ResourceLengths As String = Project.ResourceLengths
+    Dim ResourceCount As Long = Project.ResourceCount
+    Dim ResourceBytes As Long = Project.ResourceBytes
+    If ExpandProjectReferences(ManifestPath, TargetTriple, ReferencePaths, ReferenceCount, SourcePaths, SourceDepths, SourceCount, SourceCapacity, ResourceData, ResourceLengths, ResourceCount, ResourceBytes, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         Call ReportDriverFailure("project references", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
         Exit Function
@@ -290,6 +324,17 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         End If
         SourceIndex = SourceIndex + 1
     Wend
+    If DiagnosticCount <> 0 Then
+        Call ReportDriverFailure("preprocessing or lexing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        RunCompilerDriver = 1
+        Exit Function
+    End If
+    ' Token and syntax dumps are structural inspection modes. They must still
+    ' expose reserved productions for grammar coverage; release diagnostics
+    ' apply once a caller requests semantic analysis or a build.
+    If OutputMode <> 1 And OutputMode <> 2 Then
+        Call ValidateRp8TokenSurface(Sources, Tokens, TokenCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    End If
     If DiagnosticCount <> 0 Then
         Call ReportDriverFailure("preprocessing or lexing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
@@ -365,6 +410,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
     Dim SemanticBindingCount As Long = 0
     Dim SemanticBindingCapacity As Long = 0
     Call AnalyzeSemantics(Project, Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, GrammarRules, SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticTypeCapacity, SemanticScopes, SemanticScopeCount, SemanticScopeCapacity, SemanticSymbols, SemanticSymbolCount, SemanticSymbolCapacity, SemanticLinks, SemanticLinkCount, SemanticLinkCapacity, SemanticExpressions, SemanticExpressionCount, SemanticExpressionCapacity, SemanticBindings, SemanticBindingCount, SemanticBindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    Call ValidateRp8Closure(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, GrammarRules, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     If DiagnosticCount <> 0 Then
         Call ReportDriverFailure("semantic analysis", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
@@ -456,7 +502,14 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
                 RunCompilerDriver = 1
                 Exit Function
             End If
+            If AppendLlvmResources(ResourceCount, ResourceLengths, ResourceData, ResourceBytes, LlvmChunks, LlvmChunkCount, LlvmChunkCapacity) = 0 Then
+                Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5114", OutputPath, 1, 1, "resource LLVM emission exceeded a configured bound")
+                Call ReportDriverFailure("resource LLVM emission", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                RunCompilerDriver = 1
+                Exit Function
+            End If
                 Dim LlvmText As String = StringArrayJoin(LlvmChunks, LlvmChunkCount)
+                LlvmText = FilterLlvmDebugInformation(LlvmText, Project.DebugInformation)
                 If StringLength(LlvmText) > LimitGeneratedBytes() Then
                 Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5102", OutputPath, 1, 1, "generated LLVM exceeds the configured output limit")
                 Call ReportDriverFailure("LLVM output size", Diagnostics, DiagnosticCount, DiagnosticCapacity)
@@ -485,6 +538,6 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
-    Print "UBE Compiler v3 RP7: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), " & LongToString(SemanticSymbolCount) & " symbol(s), host " & Host.Id & ", target " & Target.Triple
+    Print "UBE Compiler v3 RP8: project " & Project.ProjectName & " (" & Project.Kind & "), " & LongToString(Project.SourceCount) & " source(s), " & LongToString(TokenCount) & " token(s), " & LongToString(SyntaxNodeCount) & " syntax node(s), " & LongToString(SemanticSymbolCount) & " symbol(s), host " & Host.Id & ", target " & Target.Triple
     RunCompilerDriver = 0
 End Function

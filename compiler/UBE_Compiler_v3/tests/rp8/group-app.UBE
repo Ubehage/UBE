@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP8GroupApp"
+Kind = "Exe"
+Startup = "Main"
+Optimization = "3"
+DebugInformation = "Line"
+Source = "group-app.bas"

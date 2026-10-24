@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP8GroupLibrary"
+Kind = "Library"
+Optimization = "Size"
+DebugInformation = "Full"
+Source = "group-library.bas"

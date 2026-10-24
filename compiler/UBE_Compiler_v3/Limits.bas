@@ -36,12 +36,18 @@ Function LimitCombinedSourceBytes() As Long
     LimitCombinedSourceBytes = 67108864
 End Function
 
+Function LimitCombinedResourceBytes() As Long
+    LimitCombinedResourceBytes = 67108864
+End Function
+
 Function LimitSyntaxDepth() As Long
     LimitSyntaxDepth = 2048
 End Function
 
 Function LimitGeneratedBytes() As Long
-    LimitGeneratedBytes = 67108864
+    ' A maximum-size embedded resource expands to three textual LLVM bytes per
+    ' payload byte before Clang materializes the target's read-only section.
+    LimitGeneratedBytes = 268435456
 End Function
 
 Function LimitTokenCount() As Long

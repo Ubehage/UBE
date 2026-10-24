@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "RP8DebugNone"
+Kind = "Exe"
+Startup = "Main"
+DebugInformation = "None"
+Source = "group-app.bas"

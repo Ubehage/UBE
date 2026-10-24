@@ -6,19 +6,30 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v3 Release Preview 8 — complete UBE 1.0 surface
-  and portability boundary**
-- Active item: begin RP8.1 project, resource, and compiled-library bundle work
-  from the preserved RP7 fixed point.
-- Status: RP7 is complete and verified. The v2-built and self-built compilers
+- Active milestone: **Beta 1 — public-release hardening**
+- Active item: execute the deterministic compiler parallelization plan from the
+  completed RP8 fixed point.
+- Status: RP8 is complete and verified. The v2-built and self-built compilers
   reproduce byte-identical LLVM, equivalent normalized objects, the exact
-  16-module `UBECore` slice, and identical results across 49 recorded inherited,
-  RP6, and RP7 corpus cases. Thread-local errors, `CallNew`, coordination,
-  events, forms/controls, and component lifetime are now stable preview
-  behavior.
-- Blockers: none recorded.
+  16-module `UBECore` slice, and identical results across 50 recorded corpus
+  cases. Project groups, bounded resources and library bundles, build settings,
+  debugger metadata, compatibility closure, and Linux ELF emission are stable
+  preview behavior.
+- Blockers: none recorded. Linux runtime execution is not claimed; RP8 verifies
+  the non-Windows target through LLVM and a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-24: completed Compiler v3 Release Preview 8. A clean
+  `bootstrap/build.ps1` run passed with LLVM/Clang 23 targeting Windows x86-64
+  and the Linux x86-64 ELF object boundary. Stage-two and stage-three compiler
+  LLVM are byte-identical; normalized COFF and the 16-module `UBECore` outputs
+  match; 50 cross-stage corpus cases pass. The build also verifies `.UBG`,
+  `.UBR`, `.UBL` compatibility, all debugger and optimization modes, RP8
+  compatibility diagnostics, Windows native execution, and the public core API.
+  The manifest is `bootstrap/out/v3-rp8-build-manifest.json`; the preserved
+  executable SHA-256 is
+  `D9F854F914D99F90B92CB69F8146E6C318F61D437B0792DB19DCE80B69C8C00D`.
 
 - 2026-10-23: completed Compiler v3 Release Preview 7. A clean
   `bootstrap/build.ps1` run passed with LLVM/Clang 23.1.3 targeting
@@ -198,11 +209,13 @@ roadmap.
 
 ## Next actions
 
-1. Begin RP8.1 project/dependency orchestration from the preserved RP7 fixed
-   point.
-2. Freeze the bounded `.UBR` resource container and portable compiled-library
-   bundle contracts before implementing their readers or writers.
-3. Preserve the complete RP7 self-build, exact `UBECore`, concurrency,
+1. Execute `UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md` from the preserved
+   RP8 fixed point, retaining the v2-built sequential seed and `--jobs 1` as the
+   permanent reference path.
+2. Establish Beta 1 hostile-input, environmental-failure, performance, memory,
+   and reproducibility thresholds.
+3. Preserve the complete RP8 self-build, exact `UBECore`, package, debugger,
+   optimization, platform, concurrency,
    callback, component-lifetime, managed-memory, and foreign-ABI gates.
 
 ## Decisions in force

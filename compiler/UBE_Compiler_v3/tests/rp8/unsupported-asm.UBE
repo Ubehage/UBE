@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedAsm"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-asm.bas"

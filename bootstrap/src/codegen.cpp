@@ -189,6 +189,9 @@ public:
               << "declare ptr @ube_string_array_join(ptr, i32)\n"
               << "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)\n"
               << "declare i32 @ube_compiler_delete_file(ptr)\n"
+              << "declare i32 @ube_compiler_validate_resource(ptr)\n"
+              << "declare ptr @ube_compiler_resource_llvm_escape(ptr)\n"
+              << "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)\n"
               << "declare i32 @ube_unicode_is_letter(i32)\n"
               << "declare i32 @ube_unicode_simple_fold_code_point(i32)\n\n";
         body_ << "declare ptr @ube_array_redim(ptr, i32, i32, i64, i1)\n"
@@ -912,6 +915,9 @@ private:
         if (name == "stringarrayjoin") return "@ube_string_array_join";
         if (name == "compilerruntool") return "@ube_compiler_run_tool";
         if (name == "compilerdeletefile") return "@ube_compiler_delete_file";
+        if (name == "compilervalidateresource") return "@ube_compiler_validate_resource";
+        if (name == "compilerresourcellvmescape") return "@ube_compiler_resource_llvm_escape";
+        if (name == "compilervalidatelibrarybundle") return "@ube_compiler_validate_library_bundle";
         if (name == "unicodeisletter") return "@ube_unicode_is_letter";
         if (name == "unicodesimplefoldcodepoint") return "@ube_unicode_simple_fold_code_point";
         throw CodegenError(procedure.location, "intrinsic has no backend implementation: " + procedure.name);

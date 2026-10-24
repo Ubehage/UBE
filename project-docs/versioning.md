@@ -1,6 +1,6 @@
 # UBE version and compatibility identities
 
-**Status:** Compiler v3 RP1 compatibility baseline
+**Status:** Compiler v3 RP8 compatibility contract
 
 UBE versions several independent contracts. A compiler generation, language
 version, project format, intrinsic ABI, and source-library release are not the
@@ -37,10 +37,14 @@ UBE uses both semantic versions and exact public-interface hashes:
   used to compile the consumer, its intrinsic ABI major is exact, and its
   target/ABI metadata is compatible.
 
-The canonical interface serialization and compiled-library container remain
-future implementation work. Until they are frozen, UBE 1.0 consumes library
-references from source `.UBE` manifests and must not invent or trust a native
-binary package format.
+The RP8 compiled-library container is `UBE-LibraryBundle 1` (`.UBL`), defined
+in `../lang-doc/project-files.md`. It carries the canonical public interface,
+target artifact, and hashed compatibility manifest. RP8 uses paired source
+`.UBE` plus compiled `.UBL` references: source remains authoritative for name
+resolution and source linking, while the paired bundle is accepted only after
+its language, intrinsic ABI, target, and payload identities have been verified.
+RP8 verifies the cached target artifact but does not extract it into the native
+linker invocation.
 
 ## Change rules
 

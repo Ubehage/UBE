@@ -80,6 +80,14 @@ void validate_intrinsic(const ast::Procedure& procedure) {
                                     {ValueType::String, ValueType::String});
     } else if (name == "compilerdeletefile") {
         require_intrinsic_signature(procedure, ValueType::Long, {ValueType::String});
+    } else if (name == "compilervalidateresource") {
+        require_intrinsic_signature(procedure, ValueType::Long, {ValueType::String});
+    } else if (name == "compilerresourcellvmescape") {
+        require_intrinsic_signature(procedure, ValueType::String, {ValueType::String});
+    } else if (name == "compilervalidatelibrarybundle") {
+        require_intrinsic_signature(procedure, ValueType::Long,
+                                    {ValueType::String, ValueType::String,
+                                     ValueType::String, ValueType::String});
     } else if (name == "stringarrayjoin") {
         if (procedure.kind != ast::ProcedureKind::Function ||
             declared_type(procedure.return_type, procedure.location) != ValueType::String ||

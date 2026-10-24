@@ -31,6 +31,15 @@ Function ResolveTarget(ByVal Triple As String, ByRef Target As TargetDescription
         ResolveTarget = 1
         Exit Function
     End If
-    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP7 target: " & Triple)
+    If EqualsFolded(Triple, "x86_64-unknown-linux-gnu") <> 0 Then
+        Target.Triple = "x86_64-unknown-linux-gnu"
+        Target.PlatformName = "Linux"
+        Target.ArchitectureName = "x86-64"
+        Target.ObjectFormat = "ELF"
+        Target.PointerBits = 64
+        ResolveTarget = 1
+        Exit Function
+    End If
+    Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3200", "<target>", 1, 1, "unsupported RP8 target: " & Triple)
     ResolveTarget = 0
 End Function

@@ -8,13 +8,16 @@ model. Ordinary VB-compatible behavior does not require owner confirmation.
 
 ## Portable library architecture
 
-- Define the portable compiled-library bundle/container and its manifest.
-- Decide whether legacy `Date = ...` and `Time = ...` host-clock assignment is
-  rejected or exposed through an explicit platform capability. Silent host
-  mutation conflicts with portable, permission-aware library design.
-- Decide whether classic graphics statements such as `Circle`, `Line`,
-  `PSet`, and `PaintPicture` remain reserved compatibility syntax or become
-  ordinary calls in a separately linked graphics library.
+RP8 freezes `UBE-LibraryBundle 1` (`.UBL`) in `project-files.md`, using the
+semantic-version plus exact public-interface-hash compatibility model in
+`project-docs/versioning.md`.
+
+RP8 also resolves the other two portability choices. Legacy `Date = ...` and
+`Time = ...` host-clock assignment is rejected in portable UBE 1.0 code;
+clock mutation requires a future explicit, permission-aware platform API.
+Classic `Circle`, `Line`, `PSet`, and `PaintPicture` forms remain reserved
+compatibility syntax; portable graphics operations are ordinary calls in a
+separately linked graphics library.
 
 These deferred decisions do not change parsing of source-library
 `Reference = "path/Library.UBE"` entries or any other currently frozen core

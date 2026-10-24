@@ -21,6 +21,15 @@ End Function
 
 Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long
 End Function
+
+Intrinsic Function CompilerValidateResource(ByVal Path As String) As Long
+End Function
+
+Intrinsic Function CompilerResourceLlvmEscape(ByVal Path As String) As String
+End Function
+
+Intrinsic Function CompilerValidateLibraryBundle(ByVal Path As String, ByVal TargetTriple As String, ByVal RequiredVersion As String, ByVal RequiredInterface As String) As Long
+End Function
 Intrinsic Function StringArrayJoin(ByRef Values() As String, ByVal Count As Long) As String
 End Function
 Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long
@@ -332,6 +341,18 @@ Sub IntrinsicLlvmSymbol(ByVal IntrinsicName As String, ByRef Result As String)
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerDeleteFile") <> 0 Then
         Result = "@ube_compiler_delete_file"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerValidateResource") <> 0 Then
+        Result = "@ube_compiler_validate_resource"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerResourceLlvmEscape") <> 0 Then
+        Result = "@ube_compiler_resource_llvm_escape"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerValidateLibraryBundle") <> 0 Then
+        Result = "@ube_compiler_validate_library_bundle"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "UnicodeIsLetter") <> 0 Then
@@ -3105,6 +3126,9 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join(ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_delete_file(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_resource(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_compiler_resource_llvm_escape(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_is_letter(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_simple_fold_code_point(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_redim(ptr, i32, i32, i64, i1)" & NewLine)

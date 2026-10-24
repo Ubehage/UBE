@@ -132,6 +132,9 @@ int main() {
         "Intrinsic Function StringArrayJoin(ByRef Values() As String, ByVal Count As Long) As String\nEnd Function\n"
         "Intrinsic Function CompilerRunTool(ByVal ExecutablePath As String, ByRef Arguments() As String, ByVal ArgumentCount As Long) As Long\nEnd Function\n"
         "Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long\nEnd Function\n"
+        "Intrinsic Function CompilerValidateResource(ByVal Path As String) As Long\nEnd Function\n"
+        "Intrinsic Function CompilerResourceLlvmEscape(ByVal Path As String) As String\nEnd Function\n"
+        "Intrinsic Function CompilerValidateLibraryBundle(ByVal Path As String, ByVal TargetTriple As String, ByVal RequiredVersion As String, ByVal RequiredInterface As String) As Long\nEnd Function\n"
         "Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Intrinsic Function UnicodeSimpleFoldCodePoint(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Sub Join(ByRef Values() As String)\nPrint StringArrayJoin(Values, 1)\nEnd Sub\n"
@@ -142,6 +145,9 @@ int main() {
     require_fragment(intrinsic_ir, "call ptr @ube_string_array_join");
     require_fragment(intrinsic_ir, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)");
     require_fragment(intrinsic_ir, "declare i32 @ube_compiler_delete_file(ptr)");
+    require_fragment(intrinsic_ir, "declare i32 @ube_compiler_validate_resource(ptr)");
+    require_fragment(intrinsic_ir, "declare ptr @ube_compiler_resource_llvm_escape(ptr)");
+    require_fragment(intrinsic_ir, "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)");
     require_fragment(intrinsic_ir, "call i32 @ube_unicode_is_letter");
     require_fragment(intrinsic_ir, "call i32 @ube_unicode_simple_fold_code_point");
     require_fragment(intrinsic_ir, "call void @ube_runtime_set_args(i32 %argc, ptr %argv)");

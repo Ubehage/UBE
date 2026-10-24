@@ -3959,6 +3959,324 @@ char* ube_read_all_text_managed(const char* path) {
     return ube_read_all_text_impl(path, 1);
 }
 
+/* RP8 resource validation is kept in the compiler substrate because source
+   strings are text values and must never be used as an unbounded binary-file
+   transport. The UBE-Resource 1 format is little-endian and canonical:
+   8-byte magic, entry count, directory byte count, then sorted directory
+   records followed by contiguous payloads. */
+struct ube_sha256_state {
+    uint32_t words[8];
+    uint64_t bit_count;
+    unsigned char block[64];
+    size_t used;
+};
+
+static uint32_t ube_sha256_rotr(uint32_t value, unsigned count) {
+    return (value >> count) | (value << (32u - count));
+}
+
+static void ube_sha256_transform(struct ube_sha256_state* state,
+                                 const unsigned char block[64]) {
+    static const uint32_t constants[64] = {
+        0x428a2f98u,0x71374491u,0xb5c0fbcfu,0xe9b5dba5u,0x3956c25bu,0x59f111f1u,0x923f82a4u,0xab1c5ed5u,
+        0xd807aa98u,0x12835b01u,0x243185beu,0x550c7dc3u,0x72be5d74u,0x80deb1feu,0x9bdc06a7u,0xc19bf174u,
+        0xe49b69c1u,0xefbe4786u,0x0fc19dc6u,0x240ca1ccu,0x2de92c6fu,0x4a7484aau,0x5cb0a9dcu,0x76f988dau,
+        0x983e5152u,0xa831c66du,0xb00327c8u,0xbf597fc7u,0xc6e00bf3u,0xd5a79147u,0x06ca6351u,0x14292967u,
+        0x27b70a85u,0x2e1b2138u,0x4d2c6dfcu,0x53380d13u,0x650a7354u,0x766a0abbu,0x81c2c92eu,0x92722c85u,
+        0xa2bfe8a1u,0xa81a664bu,0xc24b8b70u,0xc76c51a3u,0xd192e819u,0xd6990624u,0xf40e3585u,0x106aa070u,
+        0x19a4c116u,0x1e376c08u,0x2748774cu,0x34b0bcb5u,0x391c0cb3u,0x4ed8aa4au,0x5b9cca4fu,0x682e6ff3u,
+        0x748f82eeu,0x78a5636fu,0x84c87814u,0x8cc70208u,0x90befffau,0xa4506cebu,0xbef9a3f7u,0xc67178f2u
+    };
+    uint32_t schedule[64];
+    for (size_t index = 0; index < 16; ++index) {
+        schedule[index] = ((uint32_t)block[index * 4] << 24) |
+            ((uint32_t)block[index * 4 + 1] << 16) |
+            ((uint32_t)block[index * 4 + 2] << 8) | block[index * 4 + 3];
+    }
+    for (size_t index = 16; index < 64; ++index) {
+        const uint32_t s0 = ube_sha256_rotr(schedule[index - 15], 7) ^
+            ube_sha256_rotr(schedule[index - 15], 18) ^ (schedule[index - 15] >> 3);
+        const uint32_t s1 = ube_sha256_rotr(schedule[index - 2], 17) ^
+            ube_sha256_rotr(schedule[index - 2], 19) ^ (schedule[index - 2] >> 10);
+        schedule[index] = schedule[index - 16] + s0 + schedule[index - 7] + s1;
+    }
+    uint32_t a=state->words[0], b=state->words[1], c=state->words[2], d=state->words[3];
+    uint32_t e=state->words[4], f=state->words[5], g=state->words[6], h=state->words[7];
+    for (size_t index = 0; index < 64; ++index) {
+        const uint32_t s1 = ube_sha256_rotr(e, 6) ^ ube_sha256_rotr(e, 11) ^ ube_sha256_rotr(e, 25);
+        const uint32_t choose = (e & f) ^ ((~e) & g);
+        const uint32_t temporary1 = h + s1 + choose + constants[index] + schedule[index];
+        const uint32_t s0 = ube_sha256_rotr(a, 2) ^ ube_sha256_rotr(a, 13) ^ ube_sha256_rotr(a, 22);
+        const uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
+        const uint32_t temporary2 = s0 + majority;
+        h=g; g=f; f=e; e=d+temporary1; d=c; c=b; b=a; a=temporary1+temporary2;
+    }
+    state->words[0]+=a; state->words[1]+=b; state->words[2]+=c; state->words[3]+=d;
+    state->words[4]+=e; state->words[5]+=f; state->words[6]+=g; state->words[7]+=h;
+}
+
+static void ube_sha256_update(struct ube_sha256_state* state,
+                              const unsigned char* data, size_t length) {
+    while (length != 0) {
+        size_t take = 64u - state->used;
+        if (take > length) take = length;
+        memcpy(state->block + state->used, data, take);
+        state->used += take;
+        state->bit_count += (uint64_t)take * 8u;
+        data += take;
+        length -= take;
+        if (state->used == 64u) {
+            ube_sha256_transform(state, state->block);
+            state->used = 0;
+        }
+    }
+}
+
+static void ube_sha256(const unsigned char* data, size_t length,
+                       unsigned char digest[32]) {
+    struct ube_sha256_state state = {
+        {0x6a09e667u,0xbb67ae85u,0x3c6ef372u,0xa54ff53au,
+         0x510e527fu,0x9b05688cu,0x1f83d9abu,0x5be0cd19u}, 0, {0}, 0
+    };
+    ube_sha256_update(&state, data, length);
+    const uint64_t bits = state.bit_count;
+    state.block[state.used++] = 0x80u;
+    if (state.used > 56u) {
+        while (state.used < 64u) state.block[state.used++] = 0;
+        ube_sha256_transform(&state, state.block);
+        state.used = 0;
+    }
+    while (state.used < 56u) state.block[state.used++] = 0;
+    for (size_t index = 0; index < 8; ++index)
+        state.block[56u + index] = (unsigned char)(bits >> (56u - index * 8u));
+    ube_sha256_transform(&state, state.block);
+    for (size_t index = 0; index < 8; ++index) {
+        digest[index * 4] = (unsigned char)(state.words[index] >> 24);
+        digest[index * 4 + 1] = (unsigned char)(state.words[index] >> 16);
+        digest[index * 4 + 2] = (unsigned char)(state.words[index] >> 8);
+        digest[index * 4 + 3] = (unsigned char)state.words[index];
+    }
+}
+
+static uint16_t ube_read_u16_le(const unsigned char* value) {
+    return (uint16_t)((uint16_t)value[0] | ((uint16_t)value[1] << 8));
+}
+
+static uint32_t ube_read_u32_le(const unsigned char* value) {
+    return (uint32_t)value[0] | ((uint32_t)value[1] << 8) |
+        ((uint32_t)value[2] << 16) | ((uint32_t)value[3] << 24);
+}
+
+static uint64_t ube_read_u64_le(const unsigned char* value) {
+    uint64_t result = 0;
+    for (size_t index = 0; index < 8; ++index)
+        result |= (uint64_t)value[index] << (index * 8u);
+    return result;
+}
+
+static int32_t ube_compiler_validate_container(const char* path,
+                                                const unsigned char magic[8]) {
+    enum { UBE_RESOURCE_LIMIT = 67108864, UBE_RESOURCE_ENTRY_LIMIT = 1024 };
+    if (path == NULL) return 1;
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) return 2;
+    int status = 3;
+    unsigned char* bytes = NULL;
+    if (fseek(file, 0, SEEK_END) != 0) goto done;
+    const long measured = ftell(file);
+    if (measured < 16 || measured > UBE_RESOURCE_LIMIT || fseek(file, 0, SEEK_SET) != 0) goto done;
+    const size_t size = (size_t)measured;
+    bytes = malloc(size);
+    if (bytes == NULL) { status = 4; goto done; }
+    if (fread(bytes, 1, size, file) != size) goto done;
+    if (memcmp(bytes, magic, 8) != 0) goto done;
+    const uint32_t count = ube_read_u32_le(bytes + 8);
+    const uint32_t directory_size = ube_read_u32_le(bytes + 12);
+    if (count == 0 || count > UBE_RESOURCE_ENTRY_LIMIT ||
+        directory_size > size - 16u) goto done;
+    size_t cursor = 16u;
+    const size_t directory_end = cursor + directory_size;
+    size_t payload_cursor = directory_end;
+    const unsigned char* previous_name = NULL;
+    uint16_t previous_name_length = 0;
+    for (uint32_t entry = 0; entry < count; ++entry) {
+        if (directory_end - cursor < 84u) goto done;
+        const uint16_t name_length = ube_read_u16_le(bytes + cursor);
+        const uint16_t flags = ube_read_u16_le(bytes + cursor + 2u);
+        const uint64_t offset = ube_read_u64_le(bytes + cursor + 4u);
+        const uint64_t length = ube_read_u64_le(bytes + cursor + 12u);
+        const unsigned char* expected_hash = bytes + cursor + 20u;
+        const unsigned char* name = bytes + cursor + 84u;
+        if (name_length == 0 || name_length > 255 || flags != 0 ||
+            (size_t)name_length > directory_end - cursor - 84u) goto done;
+        for (uint16_t index = 0; index < name_length; ++index) {
+            const unsigned char value = name[index];
+            const int valid = (value >= 'A' && value <= 'Z') ||
+                (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9') ||
+                value == '_' || value == '-' || value == '.';
+            if (!valid) goto done;
+        }
+        if (previous_name != NULL) {
+            const size_t common = previous_name_length < name_length ? previous_name_length : name_length;
+            const int order = memcmp(previous_name, name, common);
+            if (order > 0 || (order == 0 && previous_name_length >= name_length)) goto done;
+        }
+        if (offset != payload_cursor || length > size - payload_cursor) goto done;
+        unsigned char digest[32];
+        char digest_text[64];
+        static const char hex[] = "0123456789ABCDEF";
+        ube_sha256(bytes + payload_cursor, (size_t)length, digest);
+        for (size_t index = 0; index < 32; ++index) {
+            digest_text[index * 2] = hex[digest[index] >> 4];
+            digest_text[index * 2 + 1] = hex[digest[index] & 15u];
+        }
+        if (memcmp(expected_hash, digest_text, sizeof(digest_text)) != 0) goto done;
+        previous_name = name;
+        previous_name_length = name_length;
+        cursor += 84u + name_length;
+        payload_cursor += (size_t)length;
+    }
+    if (cursor != directory_end || payload_cursor != size) goto done;
+    status = 0;
+done:
+    free(bytes);
+    if (fclose(file) != 0 && status == 0) status = 5;
+    return status;
+}
+
+int32_t ube_compiler_validate_resource(const char* path) {
+    static const unsigned char magic[8] = {'U','B','E','U','B','R','1','\n'};
+    return ube_compiler_validate_container(path, magic);
+}
+
+char* ube_compiler_resource_llvm_escape(const char* path) {
+    enum { UBE_RESOURCE_LIMIT = 67108864 };
+    char* empty = NULL;
+    if (path == NULL) goto failed;
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) goto failed;
+    if (fseek(file, 0, SEEK_END) != 0) { fclose(file); goto failed; }
+    const long measured = ftell(file);
+    if (measured <= 0 || measured > UBE_RESOURCE_LIMIT ||
+        fseek(file, 0, SEEK_SET) != 0) { fclose(file); goto failed; }
+    const size_t length = (size_t)measured;
+    unsigned char* bytes = malloc(length);
+    if (bytes == NULL) { fclose(file); goto failed; }
+    if (fread(bytes, 1, length, file) != length || fclose(file) != 0) {
+        free(bytes);
+        goto failed;
+    }
+    if (length > (SIZE_MAX - 1u) / 3u) { free(bytes); goto failed; }
+    char* result = ube_allocate_string(length * 3u);
+    if (result == NULL) { free(bytes); goto failed; }
+    static const char hex[] = "0123456789ABCDEF";
+    for (size_t index = 0; index < length; ++index) {
+        result[index * 3u] = '\\';
+        result[index * 3u + 1u] = hex[bytes[index] >> 4];
+        result[index * 3u + 2u] = hex[bytes[index] & 15u];
+    }
+    result[length * 3u] = '\0';
+    free(bytes);
+    return result;
+failed:
+    empty = ube_allocate_string(0);
+    if (empty != NULL) empty[0] = '\0';
+    return empty;
+}
+
+static int ube_bytes_equal(const unsigned char* value, uint16_t length,
+                           const char* expected) {
+    const size_t expected_length = strlen(expected);
+    return length == expected_length && memcmp(value, expected, expected_length) == 0;
+}
+
+static int ube_metadata_has_line(const unsigned char* metadata, size_t length,
+                                 const char* key, const char* value) {
+    const size_t key_length = strlen(key);
+    const size_t value_length = strlen(value);
+    if (key_length > SIZE_MAX - value_length - 2u) return 0;
+    const size_t wanted = key_length + value_length + 1u;
+    for (size_t start = 0; start + wanted <= length; ++start) {
+        if (start != 0 && metadata[start - 1] != '\n') continue;
+        if (memcmp(metadata + start, key, key_length) != 0 ||
+            metadata[start + key_length] != '=' ||
+            memcmp(metadata + start + key_length + 1u, value, value_length) != 0) continue;
+        const size_t end = start + wanted;
+        if (end == length || metadata[end] == '\n') return 1;
+    }
+    return 0;
+}
+
+int32_t ube_compiler_validate_library_bundle(const char* path,
+                                              const char* target,
+                                              const char* required_version,
+                                              const char* required_interface) {
+    static const unsigned char magic[8] = {'U','B','E','U','B','L','1','\n'};
+    const int32_t structural = ube_compiler_validate_container(path, magic);
+    if (structural != 0) return structural;
+    if (target == NULL || target[0] == '\0' ||
+        required_version == NULL || required_version[0] == '\0' ||
+        required_interface == NULL || strlen(required_interface) != 64u) return 6;
+
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) return 2;
+    int status = 7;
+    unsigned char* bytes = NULL;
+    if (fseek(file, 0, SEEK_END) != 0) goto done;
+    const long measured = ftell(file);
+    if (measured < 16 || fseek(file, 0, SEEK_SET) != 0) goto done;
+    const size_t size = (size_t)measured;
+    bytes = malloc(size);
+    if (bytes == NULL) { status = 4; goto done; }
+    if (fread(bytes, 1, size, file) != size) goto done;
+    const uint32_t count = ube_read_u32_le(bytes + 8);
+    const size_t directory_end = 16u + ube_read_u32_le(bytes + 12);
+    if (count != 3 || directory_end > size) goto done;
+    size_t cursor = 16u;
+    const unsigned char* metadata = NULL;
+    size_t metadata_length = 0;
+    int saw_artifact = 0, saw_interface = 0, saw_manifest = 0;
+    int interface_hash_matches = 0;
+    for (uint32_t entry = 0; entry < count; ++entry) {
+        if (directory_end - cursor < 84u) goto done;
+        const uint16_t name_length = ube_read_u16_le(bytes + cursor);
+        const uint64_t offset = ube_read_u64_le(bytes + cursor + 4u);
+        const uint64_t length = ube_read_u64_le(bytes + cursor + 12u);
+        if (name_length > directory_end - cursor - 84u ||
+            offset > size || length > size - (size_t)offset) goto done;
+        const unsigned char* name = bytes + cursor + 84u;
+        if (ube_bytes_equal(name, name_length, "Artifact")) saw_artifact = 1;
+        else if (ube_bytes_equal(name, name_length, "Interface")) {
+            saw_interface = 1;
+            interface_hash_matches =
+                memcmp(bytes + cursor + 20u, required_interface, 64u) == 0;
+        }
+        else if (ube_bytes_equal(name, name_length, "Manifest")) {
+            saw_manifest = 1;
+            metadata = bytes + (size_t)offset;
+            metadata_length = (size_t)length;
+        } else goto done;
+        cursor += 84u + name_length;
+    }
+    if (!saw_artifact || !saw_interface || !interface_hash_matches ||
+        !saw_manifest || metadata == NULL) goto done;
+    if (!ube_metadata_has_line(metadata, metadata_length,
+                               "Format", "UBE-LibraryBundle-Metadata-1") ||
+        !ube_metadata_has_line(metadata, metadata_length,
+                               "Language", "1.0") ||
+        !ube_metadata_has_line(metadata, metadata_length,
+                               "IntrinsicABI", "ube-intrinsic-abi-1") ||
+        !ube_metadata_has_line(metadata, metadata_length, "Target", target) ||
+        !ube_metadata_has_line(metadata, metadata_length, "Version", required_version) ||
+        !ube_metadata_has_line(metadata, metadata_length,
+                               "InterfaceSHA256", required_interface)) goto done;
+    status = 0;
+done:
+    free(bytes);
+    if (fclose(file) != 0 && status == 0) status = 5;
+    return status;
+}
+
 int32_t ube_write_all_text(const char* path, const char* contents) {
     static LONG temporary_sequence;
     if (path == NULL || path[0] == '\0') {

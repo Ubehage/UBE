@@ -153,6 +153,18 @@ Function LlvmBootstrapIntrinsicName(ByVal FunctionName As String) As String
         LlvmBootstrapIntrinsicName = "ube_compiler_delete_file"
         Exit Function
     End If
+    If EqualsFolded(FunctionName, "CompilerValidateResource") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_validate_resource"
+        Exit Function
+    End If
+    If EqualsFolded(FunctionName, "CompilerResourceLlvmEscape") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_resource_llvm_escape"
+        Exit Function
+    End If
+    If EqualsFolded(FunctionName, "CompilerValidateLibraryBundle") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_validate_library_bundle"
+        Exit Function
+    End If
     If EqualsFolded(FunctionName, "UnicodeIsLetter") <> 0 Then
         LlvmBootstrapIntrinsicName = "ube_unicode_is_letter"
         Exit Function
@@ -622,6 +634,18 @@ Function LlvmDebugFunctionLocationNode(ByVal FunctionIndex As Long, ByVal Locati
     LlvmDebugFunctionLocationNode = 5 + LlvmDebugFileCount(LocationCount) + FunctionCount + InstructionCount + InstructionCount + FunctionIndex
 End Function
 
+Function LlvmDebugVariableNode(ByVal StorageIndex As Long, ByVal LocationCount As Long, ByVal FunctionCount As Long, ByVal InstructionCount As Long) As Long
+    LlvmDebugVariableNode = 5 + LlvmDebugFileCount(LocationCount) + FunctionCount + InstructionCount + InstructionCount + FunctionCount + StorageIndex
+End Function
+
+Function LlvmDebugVariableTypeNode(ByVal StorageCount As Long, ByVal LocationCount As Long, ByVal FunctionCount As Long, ByVal InstructionCount As Long) As Long
+    LlvmDebugVariableTypeNode = 5 + LlvmDebugFileCount(LocationCount) + FunctionCount + InstructionCount + InstructionCount + FunctionCount + StorageCount
+End Function
+
+Function LlvmDebugExpressionNode(ByVal StorageCount As Long, ByVal LocationCount As Long, ByVal FunctionCount As Long, ByVal InstructionCount As Long) As Long
+    LlvmDebugExpressionNode = LlvmDebugVariableTypeNode(StorageCount, LocationCount, FunctionCount, InstructionCount) + 1
+End Function
+
 Function AttachLlvmDebugLocation(ByVal TextValue As String, ByVal DebugNode As Long) As String
     Dim Result As String = ""
     Dim StartByte As Long = 0
@@ -799,6 +823,113 @@ Function LlvmOpcodeIsCurrentlyEmittable(ByVal Opcode As Long) As Long
             LlvmOpcodeIsCurrentlyEmittable = 0
         End If
     End If
+End Function
+
+Function AppendLlvmResources(ByVal ResourceCount As Long, ByVal ResourceLengths As String, ByVal ResourceData As String, ByVal ResourceBytes As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long) As Long
+    If ResourceCount = 0 Then
+        AppendLlvmResources = 1
+        Exit Function
+    End If
+    Dim NewLine As String = StringFromByte(10)
+    If AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "@ube.resource.count = constant i32 " & LongToString(ResourceCount) & NewLine) = 0 Then
+        AppendLlvmResources = 0
+        Exit Function
+    End If
+    If AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "@ube.resource.lengths = constant [" & LongToString(ResourceCount) & " x i64] [" & ResourceLengths & "]" & NewLine) = 0 Then
+        AppendLlvmResources = 0
+        Exit Function
+    End If
+    If AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "@ube.resource.data = constant [" & LongToString(ResourceBytes) & " x i8] c" & StringFromByte(34)) = 0 Then
+        AppendLlvmResources = 0
+        Exit Function
+    End If
+    Dim ByteIndex As Long = 0
+    While ByteIndex < StringLength(ResourceData)
+        Dim ChunkLength As Long = StringLength(ResourceData) - ByteIndex
+        If ChunkLength > 4095 Then
+            ChunkLength = 4095
+        End If
+        If AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, StringSlice(ResourceData, ByteIndex, ChunkLength)) = 0 Then
+            AppendLlvmResources = 0
+            Exit Function
+        End If
+        ByteIndex = ByteIndex + ChunkLength
+    Wend
+    If AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, StringFromByte(34) & ", align 1" & NewLine & NewLine) = 0 Then
+        AppendLlvmResources = 0
+        Exit Function
+    End If
+    AppendLlvmResources = 1
+End Function
+
+Function ReplaceFirstLlvmText(ByVal Value As String, ByVal Sought As String, ByVal Replacement As String) As String
+    Dim Found As Long = StringIndexOf(Value, Sought, 0)
+    If Found < 0 Then
+        ReplaceFirstLlvmText = Value
+        Exit Function
+    End If
+    ReplaceFirstLlvmText = StringSlice(Value, 0, Found) & Replacement & StringSlice(Value, Found + StringLength(Sought), StringLength(Value) - Found - StringLength(Sought))
+End Function
+
+' Project debug modes are applied to the final deterministic LLVM text so the
+' target-independent IR remains one implementation. None removes all debug
+' records and attachments; Line retains source locations but omits variable
+' records; Full preserves the complete metadata graph.
+Function FilterLlvmDebugInformation(ByVal LlvmText As String, ByVal DebugMode As String) As String
+    If EqualsFolded(DebugMode, "Full") <> 0 Then
+        FilterLlvmDebugInformation = LlvmText
+        Exit Function
+    End If
+    Dim Result As String = ""
+    Dim Cursor As Long = 0
+    While Cursor < StringLength(LlvmText)
+        Dim LineEnd As Long = StringIndexOf(LlvmText, StringFromByte(10), Cursor)
+        If LineEnd < 0 Then
+            LineEnd = StringLength(LlvmText)
+        End If
+        Dim LineText As String = StringSlice(LlvmText, Cursor, LineEnd - Cursor)
+        Dim KeepLine As Long = 1
+        If StringIndexOf(LineText, "@llvm.dbg.declare", 0) >= 0 Then
+            KeepLine = 0
+        End If
+        If EqualsFolded(DebugMode, "Line") <> 0 Then
+            If StringIndexOf(LineText, "!DILocalVariable", 0) >= 0 Or StringIndexOf(LineText, "!DIBasicType", 0) >= 0 Or StringIndexOf(LineText, "!DIExpression()", 0) >= 0 Then
+                KeepLine = 0
+            End If
+            If StringIndexOf(LineText, "emissionKind: FullDebug", 0) >= 0 Then
+                LineText = ReplaceFirstLlvmText(LineText, "emissionKind: FullDebug", "emissionKind: LineTablesOnly")
+            End If
+        Else
+            If StringLength(LineText) > 0 Then
+                If StringByteAt(LineText, 0) = 33 Then
+                    KeepLine = 0
+                End If
+            End If
+            Dim DebugMarker As Long = StringIndexOf(LineText, " !dbg !", 0)
+            If DebugMarker >= 0 Then
+                Dim PrefixEnd As Long = DebugMarker
+                If PrefixEnd > 0 Then
+                    If StringByteAt(LineText, PrefixEnd - 1) = 44 Then
+                        PrefixEnd = PrefixEnd - 1
+                    End If
+                End If
+                Dim Brace As Long = StringIndexOf(LineText, "{", DebugMarker)
+                If Brace >= 0 Then
+                    LineText = StringSlice(LineText, 0, PrefixEnd) & " " & StringSlice(LineText, Brace, StringLength(LineText) - Brace)
+                Else
+                    LineText = StringSlice(LineText, 0, PrefixEnd)
+                End If
+            End If
+        End If
+        If KeepLine <> 0 Then
+            Result = Result & LineText
+            If LineEnd < StringLength(LlvmText) Then
+                Result = Result & StringFromByte(10)
+            End If
+        End If
+        Cursor = LineEnd + 1
+    Wend
+    FilterLlvmDebugInformation = Result
 End Function
 
 Function ValidateLlvmFunctionAbi(ByVal FunctionIndex As Long, ByRef Abi As TargetAbiDescription, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Functions() As IrFunction, ByRef Parameters() As IrParameter, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
@@ -3436,6 +3567,9 @@ Function EmitLlvmFunctions(ByRef Abi As TargetAbiDescription, ByRef Types() As S
                                         Exit Function
                                     End If
                                     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, AttachLlvmDebugLocation("  " & LlvmStorageName(StorageIndex) & " = alloca " & StorageType & NewLine, FunctionLocationNode))
+                                    Dim VariableDebugNode As Long = LlvmDebugVariableNode(StorageIndex, LocationCount, FunctionCount, InstructionCount)
+                                    Dim VariableExpressionNode As Long = LlvmDebugExpressionNode(StorageCount, LocationCount, FunctionCount, InstructionCount)
+                                    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, AttachLlvmDebugLocation("  call void @llvm.dbg.declare(metadata ptr " & LlvmStorageName(StorageIndex) & ", metadata !" & LongToString(VariableDebugNode) & ", metadata !" & LongToString(VariableExpressionNode) & ")" & NewLine, FunctionLocationNode))
                                     If (Storages(StorageIndex).Flags And 4096) <> 0 Then
                                         Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, AttachLlvmDebugLocation("  store ptr null, ptr " & LlvmStorageName(StorageIndex) & NewLine, FunctionLocationNode))
                                     End If
@@ -3733,7 +3867,7 @@ End Function
 Function EmitLlvmRuntimeDeclarations(ByRef Abi As TargetAbiDescription, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long) As Long
     Dim NewLine As String = StringFromByte(10)
     Dim Quote As String = StringFromByte(34)
-    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "; generated by UBE Compiler v3 RP7" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "; generated by UBE Compiler v3 RP8" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "target datalayout = " & Quote & Abi.DataLayout & Quote & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "target triple = " & Quote & Abi.Triple & Quote & NewLine & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "@ube.current.object = internal thread_local global ptr null" & NewLine & NewLine)
@@ -3762,8 +3896,12 @@ Function EmitLlvmRuntimeDeclarations(ByRef Abi As TargetAbiDescription, ByRef Ch
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join_managed(ptr, i32)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_delete_file(ptr)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_resource(ptr)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_compiler_resource_llvm_escape(ptr)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_is_letter(i32)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_simple_fold_code_point(i32)" & NewLine & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare void @llvm.dbg.declare(metadata, metadata, metadata)" & NewLine & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_collect()" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_safe_point()" & NewLine & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_root_enter(ptr, ptr)" & NewLine)
@@ -4036,7 +4174,7 @@ Function EmitVerifiedIrToLlvm(ByRef Target As TargetDescription, ByRef Abi As Ta
     End If
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, NewLine & "!llvm.dbg.cu = !{!0}" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!llvm.module.flags = !{!1, !2}" & NewLine)
-    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!0 = distinct !DICompileUnit(language: DW_LANG_C, file: !5, producer: " & Quote & "UBE Compiler v3 RP7" & Quote & ", isOptimized: false, runtimeVersion: 0, emissionKind: LineTablesOnly)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!0 = distinct !DICompileUnit(language: DW_LANG_C, file: !5, producer: " & Quote & "UBE Compiler v3 RP8" & Quote & ", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!1 = !{i32 2, !" & Quote & "Dwarf Version" & Quote & ", i32 4}" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!2 = !{i32 2, !" & Quote & "Debug Info Version" & Quote & ", i32 3}" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!3 = !DISubroutineType(types: !4)" & NewLine)
@@ -4108,5 +4246,30 @@ Function EmitVerifiedIrToLlvm(ByRef Target As TargetDescription, ByRef Abi As Ta
         Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!" & LongToString(LlvmDebugFunctionLocationNode(DebugOffset, LocationCount, FunctionCount, InstructionCount)) & " = !DILocation(line: " & LongToString(DebugFunctionLine) & ", column: " & LongToString(DebugFunctionColumn) & ", scope: !" & LongToString(LlvmDebugFunctionNode(DebugOffset, LocationCount)) & ")" & NewLine)
         DebugOffset = DebugOffset + 1
     Wend
+    Dim DebugStorageIndex As Long = 0
+    While DebugStorageIndex < StorageCount
+        Dim DebugStorageFunction As Long = Storages(DebugStorageIndex).FunctionIndex
+        If DebugStorageFunction >= 0 And DebugStorageFunction < FunctionCount Then
+            Dim DebugStorageName As String = "storage" & LongToString(DebugStorageIndex)
+            Dim DebugStorageSymbol As Long = Storages(DebugStorageIndex).SymbolIndex
+            If DebugStorageSymbol >= 0 And DebugStorageSymbol < SymbolCount Then
+                DebugStorageName = Symbols(DebugStorageSymbol).SymbolName
+            End If
+            Dim DebugStorageLine As Long = 1
+            Dim DebugStorageFileNode As Long = 5
+            Dim DebugStorageLocation As Long = Storages(DebugStorageIndex).LocationIndex
+            If DebugStorageLocation >= 0 And DebugStorageLocation < LocationCount Then
+                DebugStorageLine = Locations(DebugStorageLocation).LineNumber
+                DebugStorageFileNode = 5 + DebugStorageLocation
+                If DebugStorageLine < 1 Then
+                    DebugStorageLine = 1
+                End If
+            End If
+            Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!" & LongToString(LlvmDebugVariableNode(DebugStorageIndex, LocationCount, FunctionCount, InstructionCount)) & " = !DILocalVariable(name: " & Quote & DebugStorageName & Quote & ", scope: !" & LongToString(LlvmDebugFunctionNode(DebugStorageFunction, LocationCount)) & ", file: !" & LongToString(DebugStorageFileNode) & ", line: " & LongToString(DebugStorageLine) & ", type: !" & LongToString(LlvmDebugVariableTypeNode(StorageCount, LocationCount, FunctionCount, InstructionCount)) & ")" & NewLine)
+        End If
+        DebugStorageIndex = DebugStorageIndex + 1
+    Wend
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!" & LongToString(LlvmDebugVariableTypeNode(StorageCount, LocationCount, FunctionCount, InstructionCount)) & " = !DIBasicType(name: " & Quote & "UBE value" & Quote & ", size: 64, encoding: DW_ATE_unsigned)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "!" & LongToString(LlvmDebugExpressionNode(StorageCount, LocationCount, FunctionCount, InstructionCount)) & " = !DIExpression()" & NewLine)
     EmitVerifiedIrToLlvm = 1
 End Function

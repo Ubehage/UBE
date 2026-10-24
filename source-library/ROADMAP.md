@@ -69,7 +69,7 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 
 ## Handoff
 
-- Active compiler preview: RP7, built by preserved v2 and repeated by
+- Active compiler preview: RP8, built by preserved v2 and repeated by
   self-built v3.
 - Selected callable modules: `Conversions`, `Strings`, `Memory`, `Variants`,
   `Errors`, `Threads`, the four atomic wrappers, `ThreadEvent`, `Semaphore`,
@@ -77,9 +77,9 @@ Status markers: `[ ]` pending, `[~]` active, `[x]` verified, `[!]` blocked.
 - Boundary and intrinsic modules: `CoreIdentity` and `RuntimeIntrinsics`.
 - Intrinsic dependencies: none from `UBECore`; RP1 compiler bootstrap
   intrinsics are recorded separately as `ube-intrinsic-abi-1`.
-- Verification: `bootstrap/build.ps1`; RP7 compiles `UBECore.UBE` through typed
+- Verification: `bootstrap/build.ps1`; RP8 compiles `UBECore.UBE` through typed
   IR to LLVM and COFF with both compiler stages, compares the outputs, and
-  records all identities in `bootstrap/out/v3-rp7-build-manifest.json`.
+  records all identities in `bootstrap/out/v3-rp8-build-manifest.json`.
 - Known failures: none.
-- Exact next action: extend the callable slice only as RP8 requires complete
-  project, resource, compiled-library, or remaining language support.
+- Exact next action: preserve the RP8 slice during Beta 1 hardening and add
+  APIs only with complete contracts and cross-stage conformance fixtures.

@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedBytecode"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-bytecode.bas"

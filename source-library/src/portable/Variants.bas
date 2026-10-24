@@ -39,6 +39,28 @@ Public Function VariantIsNull(ByVal Value As Variant) As Long
     End If
 End Function
 
+' Public UBE 1.0 spelling. Returns True only for the Empty Variant state and
+' never converts or mutates the payload. This operation is thread-safe for an
+' independently owned value; concurrent mutation of the same variable still
+' requires synchronization.
+Public Function IsEmpty(ByVal Value As Variant) As Boolean
+    If VariantIsEmpty(Value) <> 0 Then
+        IsEmpty = True
+    Else
+        IsEmpty = False
+    End If
+End Function
+
+' Public UBE 1.0 spelling. Returns True only for the Null Variant state and
+' never converts or mutates the payload. It acquires no external resource.
+Public Function IsNull(ByVal Value As Variant) As Boolean
+    If VariantIsNull(Value) <> 0 Then
+        IsNull = True
+    Else
+        IsNull = False
+    End If
+End Function
+
 ' Copies a contained Long into Result and returns 1. It returns 0 for an
 ' incompatible tag and leaves Result unchanged.
 Public Function TryGetVariantLong(ByVal Value As Variant, ByRef Result As Long) As Long

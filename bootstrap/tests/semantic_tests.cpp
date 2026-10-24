@@ -69,6 +69,11 @@ int main() {
         "Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long\n"
         "End Function\nSub Main()\nEnd Sub\n", module));
     static_cast<void>(analyze(
+        "Intrinsic Function CompilerValidateResource(ByVal Path As String) As Long\nEnd Function\n"
+        "Intrinsic Function CompilerResourceLlvmEscape(ByVal Path As String) As String\nEnd Function\n"
+        "Intrinsic Function CompilerValidateLibraryBundle(ByVal Path As String, ByVal TargetTriple As String, ByVal RequiredVersion As String, ByVal RequiredInterface As String) As Long\nEnd Function\n"
+        "Sub Main()\nEnd Sub\n", module));
+    static_cast<void>(analyze(
         "Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long\nEnd Function\n"
         "Sub Main()\nPrint UnicodeIsLetter(65)\nEnd Sub\n", module));
     static_cast<void>(analyze(
@@ -127,6 +132,10 @@ int main() {
         "Intrinsic Function CompilerDeleteFile(ByRef Path As String) As Long\n"
         "End Function\nSub Main()\nEnd Sub\n",
         "intrinsic declaration has the wrong signature: CompilerDeleteFile");
+    expect_semantic_error(
+        "Intrinsic Function CompilerValidateLibraryBundle(ByVal Path As String) As Long\n"
+        "End Function\nSub Main()\nEnd Sub\n",
+        "intrinsic declaration has the wrong signature: CompilerValidateLibraryBundle");
     expect_semantic_error(
         "Sub Change(ByRef value As Long)\nEnd Sub\nSub Main()\nCall Change(1)\nEnd Sub\n",
         "ByRef argument must be an addressable variable");

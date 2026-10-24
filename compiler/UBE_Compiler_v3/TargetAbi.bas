@@ -67,22 +67,37 @@ Function ResolveTargetAbi(ByRef Target As TargetDescription, ByRef Abi As Target
     Abi.PointerBits = 0
     Abi.PointerBytes = 0
     Abi.StackAlignmentBits = 0
-    If EqualsFolded(Target.Triple, "x86_64-w64-windows-gnu") = 0 Then
-        ResolveTargetAbi = 0
+    If EqualsFolded(Target.Triple, "x86_64-w64-windows-gnu") <> 0 Then
+        If Target.PointerBits <> 64 Or EqualsFolded(Target.ObjectFormat, "COFF") = 0 Then
+            ResolveTargetAbi = 0
+            Exit Function
+        End If
+        Abi.Triple = "x86_64-w64-windows-gnu"
+        Abi.DataLayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+        Abi.CallingConvention = "win64-gnu-c"
+        Abi.ObjectFormat = "COFF"
+        Abi.PointerBits = 64
+        Abi.PointerBytes = 8
+        Abi.StackAlignmentBits = 128
+        ResolveTargetAbi = 1
         Exit Function
     End If
-    If Target.PointerBits <> 64 Or EqualsFolded(Target.ObjectFormat, "COFF") = 0 Then
-        ResolveTargetAbi = 0
+    If EqualsFolded(Target.Triple, "x86_64-unknown-linux-gnu") <> 0 Then
+        If Target.PointerBits <> 64 Or EqualsFolded(Target.ObjectFormat, "ELF") = 0 Then
+            ResolveTargetAbi = 0
+            Exit Function
+        End If
+        Abi.Triple = "x86_64-unknown-linux-gnu"
+        Abi.DataLayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+        Abi.CallingConvention = "sysv-amd64-c"
+        Abi.ObjectFormat = "ELF"
+        Abi.PointerBits = 64
+        Abi.PointerBytes = 8
+        Abi.StackAlignmentBits = 128
+        ResolveTargetAbi = 1
         Exit Function
     End If
-    Abi.Triple = "x86_64-w64-windows-gnu"
-    Abi.DataLayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
-    Abi.CallingConvention = "win64-gnu-c"
-    Abi.ObjectFormat = "COFF"
-    Abi.PointerBits = 64
-    Abi.PointerBytes = 8
-    Abi.StackAlignmentBits = 128
-    ResolveTargetAbi = 1
+    ResolveTargetAbi = 0
 End Function
 
 Sub ClearAbiTypeClassification(ByRef Result As AbiTypeClassification)

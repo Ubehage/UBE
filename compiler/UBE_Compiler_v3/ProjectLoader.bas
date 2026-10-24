@@ -6,11 +6,17 @@ Type ProjectDescription
     Kind As String
     Startup As String
     StartupForm As String
+    Optimization As String
+    DebugInformation As String
     ManifestPath As String
     ProjectDirectory As String
     SourceCount As Long
     ResourceCount As Long
     ReferenceCount As Long
+    LibraryReferenceCount As Long
+    ResourceData As String
+    ResourceLengths As String
+    ResourceBytes As Long
 End Type
 
 Function HasSuffix(ByVal Value As String, ByVal Suffix As String) As Long
@@ -153,6 +159,55 @@ Function IsProjectIdentifier(ByVal Value As String) As Long
     IsProjectIdentifier = 1
 End Function
 
+Function IsBundleVersion(ByVal Value As String) As Long
+    Dim Length As Long = StringLength(Value)
+    If Length = 0 Or Length > 128 Then
+        IsBundleVersion = 0
+        Exit Function
+    End If
+    Dim Index As Long = 0
+    While Index < Length
+        Dim CurrentByte As Long = StringByteAt(Value, Index)
+        If (CurrentByte < 48 Or CurrentByte > 57) And (CurrentByte < 65 Or CurrentByte > 90) And (CurrentByte < 97 Or CurrentByte > 122) And CurrentByte <> 45 And CurrentByte <> 46 And CurrentByte <> 43 Then
+            IsBundleVersion = 0
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    IsBundleVersion = 1
+End Function
+
+Function IsSha256Text(ByVal Value As String) As Long
+    If StringLength(Value) <> 64 Then
+        IsSha256Text = 0
+        Exit Function
+    End If
+    Dim Index As Long = 0
+    While Index < 64
+        Dim CurrentByte As Long = StringByteAt(Value, Index)
+        If (CurrentByte < 48 Or CurrentByte > 57) And (CurrentByte < 65 Or CurrentByte > 70) Then
+            IsSha256Text = 0
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    IsSha256Text = 1
+End Function
+
+Function ResourceEscapeByteCount(ByVal Value As String) As Long
+    Dim Remaining As Long = StringLength(Value)
+    Dim Count As Long = 0
+    While Remaining >= 3
+        Remaining = Remaining - 3
+        Count = Count + 1
+    Wend
+    If Remaining <> 0 Then
+        ResourceEscapeByteCount = 0
+    Else
+        ResourceEscapeByteCount = Count
+    End If
+End Function
+
 Function PathAlreadyListed(ByRef Paths() As String, ByVal Count As Long, ByVal Candidate As String) As Long
     Dim Index As Long = 0
     While Index < Count
@@ -178,7 +233,7 @@ Sub FindProjectDirectory(ByVal ManifestPath As String, ByRef Directory As String
     Wend
 End Sub
 
-Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As ProjectDescription, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ReferencePaths() As String, ByRef ReferenceCount As Long, ByRef ReferenceCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function LoadProjectManifest(ByVal ManifestPath As String, ByVal TargetTriple As String, ByRef Project As ProjectDescription, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ReferencePaths() As String, ByRef ReferenceCount As Long, ByRef ReferenceCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     If HasSuffix(ManifestPath, ".UBE") = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3000", ManifestPath, 1, 1, "normal builds require a .UBE project manifest")
         LoadProjectManifest = 0
@@ -208,11 +263,27 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
     Dim ResourceCount As Long = 0
     Dim ResourceCapacity As Long = 0
     ReferenceCount = 0
+    Dim LibraryReferencePaths() As String
+    Dim LibraryReferenceCount As Long = 0
+    Dim LibraryReferenceCapacity As Long = 0
+    Dim LibraryReferenceVersions() As String
+    Dim LibraryReferenceVersionCount As Long = 0
+    Dim LibraryReferenceVersionCapacity As Long = 0
+    Dim LibraryReferenceInterfaces() As String
+    Dim LibraryReferenceInterfaceCount As Long = 0
+    Dim LibraryReferenceInterfaceCapacity As Long = 0
     Dim SawHeader As Long = 0
     Dim SawName As Long = 0
     Dim SawKind As Long = 0
     Dim SawStartup As Long = 0
     Dim SawStartupForm As Long = 0
+    Dim SawOptimization As Long = 0
+    Dim SawDebugInformation As Long = 0
+    Project.Optimization = "2"
+    Project.DebugInformation = "Full"
+    Project.ResourceData = ""
+    Project.ResourceLengths = ""
+    Project.ResourceBytes = 0
     Dim Cursor As Long = 0
     Dim LineNumber As Long = 0
     While Cursor <= ContentsLength
@@ -337,9 +408,70 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
                                                     Exit Function
                                                 End If
                                             Else
-                                                Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3019", ManifestPath, LineNumber, 1, "unsupported project key: " & Key)
-                                                LoadProjectManifest = 0
-                                                Exit Function
+                                                If EqualsFolded(Key, "LibraryReference") <> 0 Then
+                                                    Dim FirstSeparator As Long = StringIndexOf(EntryValue, "|", 0)
+                                                    Dim SecondSeparator As Long = -1
+                                                    If FirstSeparator > 0 Then
+                                                        SecondSeparator = StringIndexOf(EntryValue, "|", FirstSeparator + 1)
+                                                    End If
+                                                    Dim BundlePath As String = ""
+                                                    Dim BundleVersion As String = ""
+                                                    Dim BundleInterface As String = ""
+                                                    If FirstSeparator > 0 And SecondSeparator > FirstSeparator + 1 Then
+                                                        Call NormalizeRelativePath(StringSlice(EntryValue, 0, FirstSeparator), BundlePath)
+                                                        BundleVersion = StringSlice(EntryValue, FirstSeparator + 1, SecondSeparator - FirstSeparator - 1)
+                                                        BundleInterface = StringSlice(EntryValue, SecondSeparator + 1, StringLength(EntryValue) - SecondSeparator - 1)
+                                                    End If
+                                                    If HasSuffix(BundlePath, ".UBL") = 0 Or IsBundleVersion(BundleVersion) = 0 Or IsSha256Text(BundleInterface) = 0 Then
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3046", ManifestPath, LineNumber, 1, "LibraryReference must be path.UBL|version|interface-sha256 with a safe relative path")
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                    If PathAlreadyListed(LibraryReferencePaths, LibraryReferenceCount, BundlePath) <> 0 Or AppendString(LibraryReferencePaths, LibraryReferenceCount, LibraryReferenceCapacity, BundlePath, LimitProjectReferences()) = 0 Then
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3047", ManifestPath, LineNumber, 1, "duplicate LibraryReference or library-reference limit exceeded")
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                    If AppendString(LibraryReferenceVersions, LibraryReferenceVersionCount, LibraryReferenceVersionCapacity, BundleVersion, LimitProjectReferences()) = 0 Or AppendString(LibraryReferenceInterfaces, LibraryReferenceInterfaceCount, LibraryReferenceInterfaceCapacity, BundleInterface, LimitProjectReferences()) = 0 Then
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3047", ManifestPath, LineNumber, 1, "library-reference limit exceeded")
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                Else
+                                                If EqualsFolded(Key, "Optimization") <> 0 Then
+                                                    If SawOptimization <> 0 Then
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3028", ManifestPath, LineNumber, 1, "duplicate project Optimization")
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                    If EntryValue <> "0" And EntryValue <> "1" And EntryValue <> "2" And EntryValue <> "3" And EqualsFolded(EntryValue, "Size") = 0 Then
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3029", ManifestPath, LineNumber, 1, "Optimization must be 0, 1, 2, 3, or Size")
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                    Project.Optimization = EntryValue
+                                                    SawOptimization = 1
+                                                Else
+                                                    If EqualsFolded(Key, "DebugInformation") <> 0 Then
+                                                        If SawDebugInformation <> 0 Then
+                                                            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3030", ManifestPath, LineNumber, 1, "duplicate project DebugInformation")
+                                                            LoadProjectManifest = 0
+                                                            Exit Function
+                                                        End If
+                                                        If EqualsFolded(EntryValue, "None") = 0 And EqualsFolded(EntryValue, "Line") = 0 And EqualsFolded(EntryValue, "Full") = 0 Then
+                                                            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3031", ManifestPath, LineNumber, 1, "DebugInformation must be None, Line, or Full")
+                                                            LoadProjectManifest = 0
+                                                            Exit Function
+                                                        End If
+                                                        Project.DebugInformation = EntryValue
+                                                        SawDebugInformation = 1
+                                                    Else
+                                                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3019", ManifestPath, LineNumber, 1, "unsupported project key: " & Key)
+                                                        LoadProjectManifest = 0
+                                                        Exit Function
+                                                    End If
+                                                End If
+                                                End If
                                             End If
                                         End If
                                     End If
@@ -378,6 +510,7 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
     Project.SourceCount = SourceCount
     Project.ResourceCount = ResourceCount
     Project.ReferenceCount = ReferenceCount
+    Project.LibraryReferenceCount = LibraryReferenceCount
     Dim SourceIndex As Long = 0
     While SourceIndex < SourceCount
         SourcePaths(SourceIndex) = Project.ProjectDirectory & SourcePaths(SourceIndex)
@@ -387,6 +520,44 @@ Function LoadProjectManifest(ByVal ManifestPath As String, ByRef Project As Proj
     While ReferenceIndex < ReferenceCount
         ReferencePaths(ReferenceIndex) = Project.ProjectDirectory & ReferencePaths(ReferenceIndex)
         ReferenceIndex = ReferenceIndex + 1
+    Wend
+    Dim ResourceIndex As Long = 0
+    While ResourceIndex < ResourceCount
+        Dim ResourcePath As String = Project.ProjectDirectory & ResourcePaths(ResourceIndex)
+        If CompilerValidateResource(ResourcePath) <> 0 Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3045", ResourcePath, 1, 1, "resource container is missing, corrupt, non-canonical, unsupported, or exceeds an RP8 bound")
+            LoadProjectManifest = 0
+            Exit Function
+        End If
+        Dim ResourceData As String = CompilerResourceLlvmEscape(ResourcePath)
+        Dim ResourceBytes As Long = ResourceEscapeByteCount(ResourceData)
+        If ResourceBytes = 0 Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3050", ResourcePath, 1, 1, "validated resource could not be read for deterministic LLVM emission")
+            LoadProjectManifest = 0
+            Exit Function
+        End If
+        If Project.ResourceBytes > LimitCombinedResourceBytes() - ResourceBytes Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3049", ResourcePath, 1, 1, "combined project resources exceed the 67108864-byte limit")
+            LoadProjectManifest = 0
+            Exit Function
+        End If
+        If StringLength(Project.ResourceLengths) > 0 Then
+            Project.ResourceLengths = Project.ResourceLengths & ", "
+        End If
+        Project.ResourceLengths = Project.ResourceLengths & "i64 " & LongToString(ResourceBytes)
+        Project.ResourceData = Project.ResourceData & ResourceData
+        Project.ResourceBytes = Project.ResourceBytes + ResourceBytes
+        ResourceIndex = ResourceIndex + 1
+    Wend
+    Dim LibraryReferenceIndex As Long = 0
+    While LibraryReferenceIndex < LibraryReferenceCount
+        Dim LibraryPath As String = Project.ProjectDirectory & LibraryReferencePaths(LibraryReferenceIndex)
+        If CompilerValidateLibraryBundle(LibraryPath, TargetTriple, LibraryReferenceVersions(LibraryReferenceIndex), LibraryReferenceInterfaces(LibraryReferenceIndex)) <> 0 Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE3048", LibraryPath, 1, 1, "compiled-library bundle is missing, corrupt, incompatible, unsupported, or exceeds an RP8 bound")
+            LoadProjectManifest = 0
+            Exit Function
+        End If
+        LibraryReferenceIndex = LibraryReferenceIndex + 1
     Wend
     LoadProjectManifest = 1
 End Function

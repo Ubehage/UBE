@@ -47,8 +47,15 @@ nearer roadmap or progress file.
     project references, callable `UBECore`, and the foreign ownership ABI.
   - [x] Complete RP7: structured errors, threads and synchronization, events,
     forms/controls, and component lifetime with deterministic failure gates.
-  - [ ] Begin RP8 with complete project/resource/library-bundle support and the
-    remaining UBE 1.0 surface and portability boundary.
+  - [x] Complete RP8 with project-group orchestration, bounded hashed resource
+    and library bundles, explicit remaining-language compatibility diagnostics,
+    optimization/debug controls, the minimum public `UBECore` API, and a
+    verified Linux x86-64 ELF object boundary.
+  - [ ] After the RP8 gate, execute the Beta 1 compiler parallelization plan in
+    `compiler/UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`: preserve the
+    v2-built sequential seed, add deterministic `--jobs` execution in measured
+    phases, and enable multiple jobs by default only after reproducibility,
+    failure, memory, and performance gates pass.
 
 ## Handoff protocol
 

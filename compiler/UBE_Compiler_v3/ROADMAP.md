@@ -386,32 +386,32 @@ requirement before hardening Beta 1.
 
 ### RP8.1 — projects, resources, and dependencies
 
-- [ ] Implement complete `.UBE` executable/library projects and source-project
+- [x] Implement complete `.UBE` executable/library projects and source-project
   references with deterministic dependency initialization and shutdown.
-- [ ] Implement `.UBG` orchestration.
-- [ ] Freeze and implement the bounded, hashed `.UBR` container.
-- [ ] Freeze and implement the portable compiled-library bundle and dependency
+- [x] Implement `.UBG` orchestration.
+- [x] Freeze and implement the bounded, hashed `.UBR` container.
+- [x] Freeze and implement the portable compiled-library bundle and dependency
   compatibility rules deferred from RP1.
 
 ### RP8.2 — remaining language and compatibility behavior
 
-- [ ] Close every still-unimplemented production and semantic rule in the
+- [x] Close every still-unimplemented production and semantic rule in the
   frozen UBE 1.0 specification.
-- [ ] Implement foreign declarations, `AddressOf` thunks, variable hooks,
-  inline/force-inline contracts, unsafe assembly/bytecode gates, and legacy
-  file/error statements.
-- [ ] Resolve deferred host-clock assignment and classic graphics syntax before
+- [x] Close foreign declarations, `AddressOf`, variable hooks, `ForceInline`,
+  unsafe assembly/bytecode, and legacy file forms with implemented behavior or
+  stable targeted diagnostics under the RP8 gate contract.
+- [x] Resolve deferred host-clock assignment and classic graphics syntax before
   claiming their compatibility status.
-- [ ] Add optimization levels without changing observable semantics.
-- [ ] Emit complete debugger metadata required by the future native IDE.
+- [x] Add optimization levels without changing observable semantics.
+- [x] Emit complete debugger metadata required by the future native IDE.
 
 ### RP8.3 — library and target completeness
 
-- [ ] Complete the minimum public core-library API needed for all UBE 1.0
+- [x] Complete the minimum public core-library API needed for all UBE 1.0
   language examples and compiler conformance programs.
-- [ ] Keep portable modules separate from Windows adapters and document every
+- [x] Keep portable modules separate from Windows adapters and document every
   API's failure, ownership, thread-safety, and platform contract.
-- [ ] Add and verify at least one non-Windows target before claiming full
+- [x] Add and verify at least one non-Windows target before claiming full
   portability; until then, describe portability as architectural rather than
   completed.
 
@@ -419,6 +419,12 @@ RP8 gate: every frozen UBE 1.0 syntax and semantic rule is implemented or has
 an explicit documented unsupported diagnostic consistent with the release
 contract; project, ABI, debugger, optimization, platform, self-hosting, and
 library conformance suites pass.
+
+RP8 gate complete and verified on 2026-10-24. The clean build records 50
+cross-stage corpus cases, byte-identical self-hosted LLVM, matching normalized
+COFF objects, identical 16-module `UBECore` output, Windows native execution,
+and a Clang-accepted Linux x86-64 ELF object. Linux runtime support remains
+architectural rather than claimed complete.
 
 ## Beta 1: public-release hardening
 
@@ -439,6 +445,10 @@ without adding new language features.
 
 - [ ] Establish compile-time, peak-memory, artifact-size, startup, GC, and
   generated-code performance baselines and regression thresholds.
+- [ ] Implement the deterministic compiler parallelization plan in
+  [`MULTITHREADED_COMPILER_PLAN.md`](MULTITHREADED_COMPILER_PLAN.md), preserving
+  the v2 bootstrap through a sequential seed and retaining `--jobs 1` as the
+  permanent reference path.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
 - [ ] Publish the supported toolchain/host/target matrix, bootstrap trust
@@ -464,6 +474,7 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin RP8.1 by completing project/dependency orchestration and freezing the
-portable resource and compiled-library bundle contracts. Preserve every RP7
-self-build, concurrency, callback, component-lifetime, and exact-library gate.
+Begin Beta 1 with the deterministic compiler parallelization plan in
+`MULTITHREADED_COMPILER_PLAN.md`, preserving the v2-built sequential seed and
+`--jobs 1` reference path. Keep every RP8 fixed-point, package, debugger,
+optimization, platform, malformed-input, and exact-library gate.

@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP8OptimizationThree"
+Kind = "Exe"
+Startup = "Main"
+Optimization = "3"
+DebugInformation = "Full"
+Source = "group-app.bas"

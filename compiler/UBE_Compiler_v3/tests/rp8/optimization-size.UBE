@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "RP8OptimizationSize"
+Kind = "Exe"
+Startup = "Main"
+Optimization = "Size"
+DebugInformation = "Line"
+Source = "group-app.bas"

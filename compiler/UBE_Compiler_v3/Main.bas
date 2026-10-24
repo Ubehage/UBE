@@ -3,7 +3,11 @@ Attribute UBE_Name = "Main"
 
 Function Main() As Long
     If CommandArgumentCount() = 2 Then
-        Main = RunCompilerDriver(CommandArgument(0), CommandArgument(1), 0, "")
+        If HasSuffix(CommandArgument(0), ".UBG") <> 0 Then
+            Main = RunProjectGroupDriver(CommandArgument(0), CommandArgument(1))
+        Else
+            Main = RunCompilerDriver(CommandArgument(0), CommandArgument(1), 0, "")
+        End If
         Exit Function
     End If
     If CommandArgumentCount() = 3 Then
@@ -41,8 +45,8 @@ Function Main() As Long
         End If
     End If
     If CommandArgumentCount() <> 2 Then
-        Print "usage: ube-v3-rp7 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
-        Print "       ube-v3-rp7 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>"
+        Print "usage: ube-v3-rp8 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
+        Print "       ube-v3-rp8 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output> <intermediate.ll>"
         Main = 2
         Exit Function
     End If

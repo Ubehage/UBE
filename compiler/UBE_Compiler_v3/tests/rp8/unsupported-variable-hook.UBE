@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedVariableHook"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-variable-hook.bas"

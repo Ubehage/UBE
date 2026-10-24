@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedFile"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-file.bas"

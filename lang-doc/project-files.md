@@ -15,6 +15,7 @@ files use the canonical spelling shown here.
 | `.UBE` | One project manifest | UTF-8 text |
 | `.UBG` | One project-group manifest | UTF-8 text |
 | `.UBR` | Binary resource sidecar | Binary |
+| `.UBL` | Portable compiled-library bundle | Binary |
 
 The `.UBE` extension is reserved for project manifests; it is not a source-file
 extension. A compiler invocation may accept an individual source file for
@@ -56,7 +57,10 @@ Source = "src/Main.bas"
 Source = "src/PaintWindow.frm"
 Resource = "src/PaintWindow.UBR"
 Reference = "vendor/PaintCore/PaintCore.UBE"
+LibraryReference = "vendor/PaintCore/PaintCore.UBL|1.4.0|0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
 StartupForm = "PaintWindow"
+Optimization = "2"
+DebugInformation = "Full"
 ```
 
 The header and format version are mandatory. Values are quoted UTF-8 strings;
@@ -110,10 +114,23 @@ reverses successful package initialization, and partial failure unwinds only
 successfully initialized packages and modules in reverse order. Listing two
 projects in a `.UBG` does not create a reference between them.
 
-Compiled-library reference containers, dependency-version compatibility, and
-the canonical implicit core-library package name remain intentionally
-unfrozen. `UBE-Project 1 Reference` therefore accepts source `.UBE` manifests
-only; it does not infer metadata from a platform library filename.
+`Optimization` accepts `0`, `1`, `2`, `3`, or `Size`; omitted means `2`.
+`DebugInformation` accepts `None`, `Line`, or `Full`; omitted means `Full`.
+These settings affect generated code and debugger information but never UBE
+observable semantics.
+
+`LibraryReference` has the exact form `path.UBL|version|interface-sha256` and
+names a compiled-library bundle plus the version and canonical uppercase
+64-digit SHA-256 interface
+identity required by the consumer. The compiler rejects a bundle unless all
+three values and the selected target match its frozen manifest. During RP8, source
+declarations still come from an explicit `Reference` to the matching `.UBE`
+project; the bundle supplies the verified target artifact and frozen
+compatibility record. This paired form keeps source lookup and linking
+deterministic: RP8 compiles and links the declared source reference while
+verifying that the paired target artifact is compatible. Direct extraction of
+the cached artifact is not part of the RP8 linker handoff. The compiler never
+infers metadata from a platform library filename.
 
 ## Project-group manifests (`.UBG`)
 
@@ -142,10 +159,16 @@ stem of the source that owns them (for example, `PaintWindow.frm` and
 Textual designer metadata refers to a named entry in that sidecar, rather than
 embedding bytes or relying on an unvalidated offset.
 
-The versioned `.UBR` container will have a magic signature, a bounded directory
-of named entries, payload lengths, and integrity hashes. Its exact byte layout
-will be frozen before implementation. Readers must validate all lengths,
-offsets, names, duplicates, and hashes before exposing data. Truncation,
+`UBE-Resource 1` has the following frozen little-endian layout. The 16-byte
+header is the eight bytes `UBEUBR1\n`, a `UInt32` entry count, and a `UInt32`
+directory length. Each directory record is a `UInt16` ASCII name length, a
+zero `UInt16` flags field, `UInt64` payload offset and length, 64 uppercase
+ASCII hexadecimal SHA-256 characters, and the name bytes. Names use only
+`A-Z`, `a-z`, `0-9`, `_`, `-`, and `.`, are 1–255 bytes, and records are in
+strict ordinal name order. Payloads immediately follow the directory in record
+order without gaps or trailing data. Containers are limited to 64 MiB and
+1024 entries. Readers validate every length, offset, name, order, and hash
+before exposing data. Truncation,
 corruption, unsupported versions, excessive sizes, or a missing reference must
 produce a useful diagnostic and must never panic or read outside the file.
 
@@ -153,6 +176,22 @@ During compilation, referenced entries are treated as build inputs and emitted
 into the program's target-appropriate read-only resource representation. The
 compiler records them for dependency tracking and deterministic builds; an
 unreferenced sidecar is not implicitly scanned or embedded.
+
+## Compiled-library bundles (`.UBL`)
+
+`UBE-LibraryBundle 1` uses the same directory and payload framing as `.UBR`,
+with the distinct eight-byte magic `UBEUBL1\n`. It contains exactly three
+entries in canonical order: `Artifact`, `Interface`, and `Manifest`.
+
+`Manifest` is UTF-8 line metadata and records at least the bundle format,
+package name, semantic version, UBE language version, intrinsic ABI, target
+triple, object format, pointer width, public-interface SHA-256, and artifact
+SHA-256. RP8 requires language `1.0`, intrinsic ABI
+`ube-intrinsic-abi-1`, a matching target triple, and valid hashes before a
+bundle is accepted. `Interface` is the canonical public declaration record;
+`Artifact` is the target-specific native library. Unknown format versions,
+missing entries, wrong targets, incompatible identities, and corrupt payloads
+are controlled diagnostics.
 
 ## Compatibility
 

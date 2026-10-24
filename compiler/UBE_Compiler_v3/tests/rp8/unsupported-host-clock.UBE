@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UnsupportedHostClock"
+Kind = "Exe"
+Startup = "Main"
+Source = "unsupported-host-clock.bas"

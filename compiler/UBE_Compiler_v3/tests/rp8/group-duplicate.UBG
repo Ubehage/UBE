@@ -1,0 +1,4 @@
+UBE-ProjectGroup 1
+Name = "Duplicate"
+Project = "group-app.UBE"
+Project = ".\group-app.UBE"
