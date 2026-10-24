@@ -1,6 +1,6 @@
 # UBE IDE application design
 
-**Status:** Step 1 headless foundation
+**Status:** Steps 1 and 2 verified foundations
 
 The application core is divided into deterministic UBE modules. It owns state
 and policy but reaches files, processes, compiler services, debugger services,
@@ -35,3 +35,27 @@ Service envelopes are bounded data records with protocol version, request ID,
 document version, method, status, and payload. Step 1 verifies framing and
 stale-result detection with synthetic messages; no compiler internal record is
 part of the contract.
+
+## Step 2 native shell
+
+The shell keeps state and policy in UBE and reaches native windows through the
+narrow boundary documented in `PLATFORM.md`:
+
+```text
+UBE application
+  -> locale, commands, validated layout, atomic persistence
+  -> versioned bounded shell configuration/result
+  -> Win32 adapter: HWNDs, messages, monitors, DPI and accessibility
+```
+
+The temporary process transport exists because the preserved Compiler v3 RP7
+does not lower arbitrary foreign imports and callbacks. It is not an
+alternative application architecture: the adapter cannot own documents, undo,
+settings, compiler state, or user-work safety decisions.
+
+Step 2 uses standard Unicode Win32 windows and EDIT controls with neutral
+system presentation. Project Explorer and Properties begin on the right,
+Output begins at the bottom, and each placeholder can be hidden, reopened,
+floated, moved by the operating system, docked again, or restored through
+Reset Layout. Final colors, type, metrics, and icons remain intentionally
+undecided.

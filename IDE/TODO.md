@@ -7,8 +7,8 @@ The ordered implementation plan, including the visual-identity, palette,
 typography, iconography, accessibility, and packaging decision points, is in
 [`Workplan.md`](Workplan.md).
 
-The IDE application will live in `UBE-IDE/` when implementation begins. An
-accepted independently deliverable subsystem may receive its own subfolder,
-`DESIGN.md`, `Workplan.md`, tests, and local `AGENTS.md`. Ideas that have not
-yet been accepted remain proposals rather than empty subsystem folders.
+The application is now active in [`UBE-IDE/`](UBE-IDE/). Its headless
+foundation and plain native Windows shell are complete through Step 2. The
+next vertical slice connects one real source document end to end. Detailed
+resume state and verification commands are recorded in both workplans.
 

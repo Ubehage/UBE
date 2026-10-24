@@ -39,7 +39,10 @@ criteria and safety tests pass.
   headless project, document, undo, command, settings, locale, diagnostic,
   service-envelope, atomic-save, and recovery foundations pass their native
   verification suite with byte-identical repeated LLVM emission.
-- [ ] Begin Phase 0 by turning the accepted design into testable UX contracts.
+- [x] Complete Phase 0 by turning the accepted design into testable UX
+  contracts in `UX-CONTRACTS.md`.
+- [x] Complete and verify canonical implementation Step 2: the plain native
+  shell, UBE-owned layout/localization policy, and narrow Win32 adapter.
 
 ## Canonical implementation and handoff sequence
 
@@ -71,12 +74,12 @@ errors without starting a graphical window.
 
 ### Step 2: create a plain native application shell early
 
-- [ ] Open one native main window with the central document workspace.
-- [ ] Add the accepted default docking regions and placeholder Project
+- [x] Open one native main window with the central document workspace.
+- [x] Add the accepted default docking regions and placeholder Project
   Explorer, Properties, and Output tool windows.
-- [ ] Prove menus, command routing, focus, keyboard navigation, accessibility,
+- [x] Prove menus, command routing, focus, keyboard navigation, accessibility,
   DPI scaling, floating windows, and multi-monitor recovery.
-- [ ] Use neutral temporary styling and text labels where finished assets do
+- [x] Use neutral temporary styling and text labels where finished assets do
   not yet exist; temporary text still comes from the source locale catalog.
 
 Checkpoint: the shell reliably starts, docks and floats placeholder tools,
@@ -155,51 +158,54 @@ safety guarantees.
 
 ## Active implementation handoff
 
-- **Current sequence step:** Step 1 complete; Step 2 not started.
+- **Current sequence step:** Steps 1 and 2 complete; Step 3 not started.
 - **Last verified checkpoint:** On 2026-10-24,
-  `IDE/UBE-IDE/tests/run-step1.ps1` built the UBE-written foundation with the
-  preserved Compiler v3 RP7 and Clang 23, passed 53 headless assertions, and
-  produced byte-identical LLVM in two independent emissions.
+  `IDE/UBE-IDE/tests/run-step2.ps1` built the UBE shell model and launcher with
+  the preserved Compiler v3 RP7 and Clang 23, built the narrow Win32 adapter
+  with the existing MinGW GCC toolchain, passed 29 UBE assertions plus normal,
+  corrupt-layout, off-screen, accessibility, docking/floating, DPI, keyboard,
+  and malformed-input native checks, and produced byte-identical LLVM in two
+  independent emissions at SHA-256
+  `72909EBE320D8AFB20013B3091B69BC3646E982BB84476B9BE5FB15938FF2FFF`.
 - **Active files:** None.
-- **Validation performed:** native compile and execution, real and injected
-  publication failures, UTF-8 and malformed-input rejection, Unicode-folded
-  project identity, normalized-path duplicate detection, disk workspace open,
-  edit/undo/redo/save/recovery, settings round trip, external locale coverage,
-  typed localization, protocol compatibility, stale-result rejection, and
-  deterministic LLVM comparison.
-- **Known failures or blockers:** none for Step 1. The environmental-failure
-  regression intentionally emits one controlled runtime error line. The
-  remaining Phase 0 UX contracts and Phase 2 native UI strategy are not yet
-  complete.
-- **Next concrete action:** Complete the remaining Phase 0 workflows and
-  command inventory, then begin Step 2 with the plain native shell.
+- **Validation performed:** all Step 1 checks plus versioned layout parsing and
+  fallback, command inventory/routing, source-locale shell coverage, native
+  window/control creation, accepted docking geometry, hide/show/float/dock/
+  reset transitions, F6 focus targets, accelerators, MSAA access, per-monitor
+  DPI setup, nearest-monitor repair, atomic layout return, and bounded invalid
+  native configuration.
+- **Known failures or blockers:** none for Step 2. The C process transport is a
+  documented temporary boundary required by RP7's lack of general foreign-call
+  and callback lowering; state and policy remain in UBE.
+- **Next concrete action:** Start Step 3 by binding one real UBE document view
+  to the existing document/undo/save/recovery model.
 
 ## Phase 0: requirements and UX contracts
 
 Purpose: define what users must be able to accomplish before selecting UI
 implementation details.
 
-- [ ] Write representative workflows for creating, opening, editing, saving,
+- [x] Write representative workflows for creating, opening, editing, saving,
   building, running, debugging, designing, importing, and recovering projects.
-- [ ] Define beginner, experienced VB6 user, keyboard-only user, screen-reader
+- [x] Define beginner, experienced VB6 user, keyboard-only user, screen-reader
   user, large-project user, and multi-monitor user scenarios.
-- [ ] Inventory all initial documents, tool windows, commands, menus, and
+- [x] Inventory all initial documents, tool windows, commands, menus, and
   context menus.
-- [ ] Include View Definition, View Original Library Definition, project-local
+- [x] Include View Definition, View Original Library Definition, project-local
   customization, and Registers workflows in the command and context-menu
   inventory.
-- [ ] Define command names, enablement rules, default shortcuts, cancellation,
+- [x] Define command names, enablement rules, default shortcuts, cancellation,
   progress, and error behavior.
-- [ ] Inventory every initial user-facing string category and define stable
+- [x] Inventory every initial user-facing string category and define stable
   semantic localization-key naming rules.
-- [ ] Select and document the dependency-free UTF-8 locale file grammar,
+- [x] Select and document the dependency-free UTF-8 locale file grammar,
   versioning, fallback, placeholders, plural/selection, accelerator, escaping,
   limits, and validation behavior.
-- [ ] Define document dirty-state, external-change, close, reload, recovery,
+- [x] Define document dirty-state, external-change, close, reload, recovery,
   and conflicting-save state machines.
-- [ ] Define measurable startup, typing, docking, build-feedback, and memory
+- [x] Define measurable startup, typing, docking, build-feedback, and memory
   budgets for representative hardware.
-- [ ] Derive malformed-input and service-failure scenarios from the
+- [x] Derive malformed-input and service-failure scenarios from the
   repository-wide never-crash rule.
 
 Exit criteria: every initial workflow has a short written scenario, expected
@@ -233,18 +239,22 @@ approved default hierarchy.
 Purpose: prove the native implementation boundary before building the full
 interface.
 
-- [ ] Establish the supported initial Windows versions, DPI modes, input
+- [x] Establish the supported initial Windows versions, DPI modes, input
   methods, accessibility interfaces, and native window behavior.
-- [ ] Decide which UI facilities are UBE-owned and which use narrow operating-
+- [x] Decide which UI facilities are UBE-owned and which use narrow operating-
   system adapters.
-- [ ] Prototype one main native window, one central document, two docked tool
+- [x] Prototype one main native window, one central document, two docked tool
   windows, and one floating tool window.
-- [ ] Prove docking and floating across mixed-DPI monitors without lost or
-  off-screen windows.
-- [ ] Prove keyboard focus, screen-reader exposure, resize behavior, and native
+- [~] Prove docking and floating across mixed-DPI monitors without lost or
+  off-screen windows. Per-monitor-v2 setup, `WM_DPICHANGED`, floating repair,
+  and monitor removal are automated; a physical mixed-DPI hardware pass remains
+  part of release qualification.
+- [x] Prove keyboard focus, screen-reader exposure, resize behavior, and native
   menu integration.
-- [ ] Measure startup, resize, redraw, docking, and idle resource use.
-- [ ] Document the platform boundary and controlled behavior when an OS call
+- [~] Measure startup, resize, redraw, docking, and idle resource use. The
+  automated shell startup-and-check budget is enforced now; detailed tracing
+  and idle working-set baselines remain for the release-like prototype.
+- [x] Document the platform boundary and controlled behavior when an OS call
   or resource allocation fails.
 
 Exit criteria: a disposable native prototype demonstrates that the accepted
@@ -315,17 +325,17 @@ years in advance.
 
 ## Phase 5: application, command, settings, and layout foundations
 
-- [ ] Create `IDE/UBE-IDE/` with local agent guidance, design, workplan,
+- [x] Create `IDE/UBE-IDE/` with local agent guidance, design, workplan,
   source, tests, and a documented build entry point.
-- [ ] Implement the native application lifecycle without panic paths.
-- [ ] Implement the central command registry used by menus, toolbars,
+- [x] Implement the native application lifecycle without panic paths.
+- [x] Implement the central command registry used by menus, toolbars,
   shortcuts, context menus, and automation-safe tests.
-- [ ] Implement versioned external locale catalogs, deterministic fallback,
+- [x] Implement versioned external locale catalogs, deterministic fallback,
   named typed placeholders, translation diagnostics, safe live development
   reload if practical, and the minimal built-in emergency catalog.
 - [ ] Add checks that reject newly hard-coded normal user-facing strings in
   production UI code where practical.
-- [ ] Implement versioned settings with validation, migration, safe defaults,
+- [x] Implement versioned settings with validation, migration, safe defaults,
   atomic writes, and corrupt-settings recovery.
 - [ ] Implement docking, floating, tab groups, splits, auto-hide, keyboard
   control, placement previews, and Reset Layout.
