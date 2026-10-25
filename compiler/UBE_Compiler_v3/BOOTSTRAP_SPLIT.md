@@ -23,9 +23,11 @@ normalized objects must satisfy the existing fixed-point policy.
 The stable seed identity is `ube-v3-sequential-seed-1`. Its reproducible
 identity record consists of that name, the seed-manifest SHA-256, its ordered
 source hashes, the byte-identical v2-produced seed LLVM SHA-256, and the linked
-seed executable SHA-256. The initial executor identity is
-`ube-v3-sequential-executor-1`; it always records requested and effective job
-counts of one.
+seed executable SHA-256. The Phase 1 executor identity was
+`ube-v3-sequential-executor-1`. Phase 2 replaces it with
+`ube-v3-bounded-sequential-executor-1`, which records requested and effective
+job counts of one while providing the permanent task, result, cancellation,
+drain, and deterministic-merge contract.
 
 ## Dependency boundary
 
@@ -33,13 +35,13 @@ The seed manifest contains only source accepted by the preserved Compiler v2.
 It identifies the sequential compiler used to emit production LLVM, is a
 permanent clean-build input, and must remain v2-buildable.
 
-During Phase 1 the seed and production manifests intentionally share the
-existing sequential modules. Later parallel-only executor, worker, and
-production-entry modules belong only to `UBE_Compiler_v3.UBE`. Shared modules
-must remain valid Bootstrap Profile source and cannot depend on a
-production-only module. If the production driver needs a worker-aware entry
-point, it receives a separate production module; the seed's sequential entry
-point is not replaced or taught threading syntax.
+During Phase 1 the seed and production manifests intentionally shared the
+existing sequential modules. Phase 2 adds the same v2-compatible bounded
+coordinator to both manifests, keeping the startup path and executor contract
+under the permanent seed gate without adding threading syntax. Later
+parallel-only worker-pump modules belong only to `UBE_Compiler_v3.UBE`.
+Shared modules must remain valid Bootstrap Profile source and cannot depend on
+a production-only module.
 
 The seed may compile production-only modules because it implements the frozen
 UBE 1.0 language. The seed itself does not use those facilities. This boundary

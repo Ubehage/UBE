@@ -7,19 +7,34 @@ roadmap.
 ## Current position
 
 - Active milestone: **Beta 1 — public-release hardening**
-- Active item: **multithreading Phase 2 — bounded executor with sequential
-  behavior**.
-- Status: multithreading Phases 0 and 1 are complete. The preserved Compiler v2
-  reproducibly builds `UBE_Compiler_v3_seed.UBE`; that seed builds the
-  production manifest without a pre-existing production binary; and production
-  stages one, two, and three emit byte-identical LLVM. The Beta 1 manifest
-  records seed/executor identities, requested/effective jobs, phase timings,
-  source hashes, and compared artifacts. RP8 remains complete and verified,
-  including the exact 16-module `UBECore` slice and 50 recorded corpus cases.
+- Active item: **multithreading Phase 3 — parallel source front end**.
+- Status: multithreading Phases 0, 1, and 2 are complete. Every compiler command
+  now passes through the bounded executor with default and explicit `--jobs 1`
+  behavior. Deterministic worker-registration, publication, result-allocation,
+  cancellation, drain, and merge failures release executor-owned state and
+  remove produced failure artifacts. The preserved Compiler v2 still builds
+  the seed, the seed builds production, and production remains at its exact
+  fixed point. RP8 and the exact 16-module `UBECore` slice remain verified.
 - Blockers: none recorded. Linux runtime execution is not claimed; RP8 verifies
   the non-Windows target through LLVM and a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-25: completed Beta 1 multithreading Phase 2. Added the v2-compatible
+  bounded task/executor coordinator, logical worker registration, worker-owned
+  result arena, cancellation/drain contract, deterministic merge, default and
+  explicit `--jobs 1`, controlled rejection of larger counts, and injected
+  `UBE5301` through `UBE5305` failure gates. The clean `bootstrap/build.ps1`
+  gate passed in 3,484 seconds. Both Compiler v2 stages emitted seed LLVM
+  `062F8BE9AADC68A23E44A4510A7F89A4A1AC37F6103D9C27E9D0CB9CABA49E99`;
+  production stages two and three emitted identical LLVM
+  `C0BDD103E39E227346B64578AEFD4A53225ABC96C6FC9DF14728151F0E4F2979`;
+  their normalized objects both hash to
+  `3EDAF4E414F5954092D35BF9943DA2B0F8EA5D6B45D812414C644C9B9FAADCFD`.
+  Explicit `--jobs 1` matched default LLVM byte for byte, all five injected
+  failures returned controlled diagnostics, merge failure removed its produced
+  output, all owned worker/capture/arena state drained, and the complete
+  50-case corpus and inherited RP8 gates passed.
 
 - 2026-10-25: completed Beta 1 multithreading Phase 1. Added the permanent
   `UBE_Compiler_v3_seed.UBE` manifest and documented its production-only
@@ -247,10 +262,9 @@ roadmap.
 
 ## Next actions
 
-1. Execute Phase 2 of `UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`: add the
-   bounded executor API with one-job behavior, deterministic fault injection,
-   cancellation, drain, worker-owned result arenas, and cleanup proofs while
-   retaining `--jobs 1` as the permanent reference path.
+1. Execute Phase 3 of `UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`:
+   parallelize preprocessing, lexing, and parsing per source behind a phase
+   barrier, then merge indices and diagnostics in canonical manifest order.
 2. Establish Beta 1 hostile-input, environmental-failure, performance, memory,
    and reproducibility thresholds.
 3. Preserve the complete RP8 self-build, exact `UBECore`, package, debugger,

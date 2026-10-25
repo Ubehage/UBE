@@ -453,7 +453,7 @@ without adding new language features.
     self/UBECore/source/procedure baselines, and repair measured superlinear
     semantic and IR lookup paths.
   - [x] Phase 1: freeze and prove the sequential seed/production trust chain.
-  - [ ] Phase 2: add the bounded executor with sequential one-job behavior and
+  - [x] Phase 2: add the bounded executor with sequential one-job behavior and
     deterministic failure/cleanup gates.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
@@ -480,9 +480,10 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Continue Beta 1 with multithreading Phase 2 in
-`MULTITHREADED_COMPILER_PLAN.md`: add the bounded executor API while it still
-runs one job, including deterministic failure injection, cancellation, drain,
-worker-owned result arenas, and cleanup proofs. Keep the sequential seed,
-`--jobs 1`, and every RP8 fixed-point, package, debugger, optimization,
-platform, malformed-input, and exact-library gate.
+Continue Beta 1 with multithreading Phase 3 in
+`MULTITHREADED_COMPILER_PLAN.md`: parallelize the independent per-source front
+end behind the proven bounded executor and a deterministic phase barrier.
+Translate worker-local token, syntax, and diagnostic indices into canonical
+manifest order. Keep the sequential seed, `--jobs 1`, and every RP8
+fixed-point, package, debugger, optimization, platform, malformed-input, and
+exact-library gate.

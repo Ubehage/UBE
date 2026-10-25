@@ -125,12 +125,22 @@ controlled `UBE3701` while preserving the internal grammar capacity.
 
 ### Phase 2: bounded executor with sequential behavior
 
-- [ ] Implement the task/executor API, cancellation, drain, worker registration,
+- [x] Implement the task/executor API, cancellation, drain, worker registration,
   and worker-owned result arenas while the executor still runs one job.
-- [ ] Add deterministic fault injection for worker creation, task publication,
+- [x] Add deterministic fault injection for worker creation, task publication,
   result allocation, cancellation, and merge failure.
-- [ ] Prove every failure drains workers, releases captures/arenas/handles, and
+- [x] Prove every failure drains workers, releases captures/arenas/handles, and
   removes temporary output.
+
+Phase 2 completed on 2026-10-25. Every compiler command now enters the bounded
+executor, with one registered logical worker, one published immutable task, a
+worker-owned result arena, explicit cancellation/drain, and coordinator-owned
+merge. `--jobs 1` is accepted explicitly and remains the default; larger counts
+remain controlled `UBE5300` failures until Phase 3 supplies a parallel worker
+pump. Hidden deterministic fault sites cover worker creation, publication,
+result allocation, cancellation, and merge. The clean gate proves every path
+releases workers, captures, and arenas; merge failure removes produced output;
+and explicit `--jobs 1` emits byte-identical LLVM.
 
 ### Phase 3: parallel source front end
 
@@ -187,7 +197,7 @@ controlled `UBE3701` while preserving the internal grammar capacity.
 
 ## Next action
 
-Execute Phase 2: add the bounded task/executor API while execution remains
-sequential, then prove deterministic cancellation, drain, allocation-failure,
-worker-registration, result-arena, merge-failure, and artifact-cleanup behavior
-before creating more than one worker.
+Execute Phase 3: parallelize per-source preprocessing, lexing, and parsing
+behind a phase barrier, translate worker-local indices into canonical
+manifest-order indices, and preserve deterministic diagnostics and artifacts
+across `--jobs 1` and the first supported parallel job counts.

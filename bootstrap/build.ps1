@@ -533,7 +533,7 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp8 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
+    -ExpectedDiagnostic 'usage: ube-v3-rp8 [--jobs 1] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
     -ExpectedDiagnostic 'error UBE3200: unsupported RP8 target: unknown-target'
 $v3Rp5MissingOutputDirectory = Join-Path $out 'missing-output-directory'
@@ -786,6 +786,36 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SecondLlvm)) {
 if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
     (Get-FileHash -LiteralPath $v3Rp5SecondLlvm -Algorithm SHA256).Hash) {
     throw 'UBE Compiler v3 RP5 LLVM emission is not deterministic'
+}
+$v3Phase2JobsOneLlvm = Join-Path $out 'v3-phase2-jobs-one.ll'
+& $v3Rp1Executable '--jobs' '1' '--emit-llvm' $v3Rp5StraightLineProject `
+    $v3Rp1Target $v3Phase2JobsOneLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase2JobsOneLlvm)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 2 failed explicit --jobs 1 emission'
+}
+if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
+    (Get-FileHash -LiteralPath $v3Phase2JobsOneLlvm -Algorithm SHA256).Hash) {
+    throw 'Explicit --jobs 1 changed emitted LLVM'
+}
+Test-V3Rp1Failure -Name 'phase2-unsupported-job-count' -ExpectedExitCode 2 `
+    -Arguments @('--jobs', '2', $v3Rp5StraightLineProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE5300: Phase 2 supports only --jobs 1'
+$v3Phase2Faults = [ordered]@{
+    'worker-creation' = 'error UBE5301: compiler worker registration failed'
+    'task-publication' = 'error UBE5302: compiler task publication failed'
+    'result-allocation' = 'error UBE5303: compiler worker result allocation failed'
+    'cancellation' = 'error UBE5304: compiler task cancelled'
+    'merge' = 'error UBE5305: compiler result merge failed'
+}
+foreach ($faultSite in $v3Phase2Faults.Keys) {
+    $faultOutput = Join-Path $out "v3-phase2-fault-$faultSite.ll"
+    Test-V3Rp1Failure -Name "phase2-$faultSite" `
+        -Arguments @('--executor-fault', $faultSite, '--jobs', '1', '--emit-llvm', `
+            $v3Rp5StraightLineProject, $v3Rp1Target, $faultOutput) `
+        -ExpectedDiagnostic $v3Phase2Faults[$faultSite]
+    if (Test-Path -LiteralPath $faultOutput) {
+        throw "Compiler executor fault $faultSite left a false-success output"
+    }
 }
 $v3Phase0ProfileLlvm = Join-Path $out 'v3-phase0-profile.ll'
 $v3Phase0ProfilePath = Join-Path $out 'v3-phase0-profile.txt'
@@ -1393,7 +1423,7 @@ $v3SeedSourceHashes = Get-V3ManifestSourceHashes -ManifestPath $v3SeedManifest
 $v3Rp1BuildManifest = [ordered]@{
     schema = 'ube-v3-beta1-build-manifest-1'
     preview = 'RP8'
-    development_milestone = 'Beta 1 multithreading Phase 1'
+    development_milestone = 'Beta 1 multithreading Phase 2'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
@@ -1448,7 +1478,7 @@ $v3Rp1BuildManifest = [ordered]@{
         seed_built_production_stage1_executable_sha256 = (Get-FileHash -LiteralPath $v3Rp1Executable -Algorithm SHA256).Hash
     }
     execution = [ordered]@{
-        executor_identity = 'ube-v3-sequential-executor-1'
+        executor_identity = 'ube-v3-bounded-sequential-executor-1'
         execution = $v3Phase0ProfileValues['execution']
         requested_jobs = [int]$v3Phase0ProfileValues['requested_jobs']
         effective_jobs = [int]$v3Phase0ProfileValues['effective_jobs']

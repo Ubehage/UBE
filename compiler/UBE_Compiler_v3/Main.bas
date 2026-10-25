@@ -1,60 +1,155 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Main"
 
-Function Main() As Long
-    If CommandArgumentCount() = 2 Then
-        If HasSuffix(CommandArgument(0), ".UBG") <> 0 Then
-            Main = RunProjectGroupDriver(CommandArgument(0), CommandArgument(1))
+Function IsCompilerExecutorFault(ByVal FaultSite As String) As Long
+    If EqualsFolded(FaultSite, "worker-creation") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "task-publication") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "result-allocation") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "cancellation") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "merge") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    IsCompilerExecutorFault = 0
+End Function
+
+Sub PrintCompilerUsage()
+    Print "usage: ube-v3-rp8 [--jobs 1] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
+    Print "       ube-v3-rp8 [--jobs 1] --profile <project.UBE> <target-triple> <output.ll> <profile.txt>"
+    Print "       ube-v3-rp8 [--jobs 1] --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output> <intermediate.ll>"
+End Sub
+
+Function DispatchCompilerCommand(ByVal ArgumentBase As Long, ByVal ArgumentCount As Long, ByVal RequestedJobs As Long, ByVal FaultSite As String) As Long
+    Dim Task As CompilerTask
+    If ArgumentCount = 2 Then
+        Task.Argument1 = CommandArgument(ArgumentBase)
+        Task.Argument2 = CommandArgument(ArgumentBase + 1)
+        If HasSuffix(Task.Argument1, ".UBG") <> 0 Then
+            Task.TaskKind = 2
         Else
-            Main = RunCompilerDriver(CommandArgument(0), CommandArgument(1), 0, "", "")
+            Task.TaskKind = 1
+            Task.OutputMode = 0
         End If
+        DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
         Exit Function
     End If
-    If CommandArgumentCount() = 3 Then
-        If CommandArgument(0) = "--dump-tokens" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 1, "", "")
+    If ArgumentCount = 3 Then
+        Task.TaskKind = 1
+        Task.Argument1 = CommandArgument(ArgumentBase + 1)
+        Task.Argument2 = CommandArgument(ArgumentBase + 2)
+        If CommandArgument(ArgumentBase) = "--dump-tokens" Then
+            Task.OutputMode = 1
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
-        If CommandArgument(0) = "--dump-syntax" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 2, "", "")
+        If CommandArgument(ArgumentBase) = "--dump-syntax" Then
+            Task.OutputMode = 2
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
-        If CommandArgument(0) = "--dump-semantics" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 3, "", "")
+        If CommandArgument(ArgumentBase) = "--dump-semantics" Then
+            Task.OutputMode = 3
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
-        If CommandArgument(0) = "--dump-ir" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 4, "", "")
+        If CommandArgument(ArgumentBase) = "--dump-ir" Then
+            Task.OutputMode = 4
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
-        If CommandArgument(0) = "--dump-managed" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 6, "", "")
-            Exit Function
-        End If
-    End If
-    If CommandArgumentCount() = 4 Then
-        If CommandArgument(0) = "--emit-llvm" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 5, CommandArgument(3), "")
-            Exit Function
-        End If
-    End If
-    If CommandArgumentCount() = 5 Then
-        If CommandArgument(0) = "--profile" Then
-            Main = RunCompilerDriver(CommandArgument(1), CommandArgument(2), 5, CommandArgument(3), CommandArgument(4))
+        If CommandArgument(ArgumentBase) = "--dump-managed" Then
+            Task.OutputMode = 6
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
     End If
-    If CommandArgumentCount() = 8 Then
-        If CommandArgument(0) = "--build-native" Then
-            Main = RunNativeCompilerDriver(CommandArgument(1), CommandArgument(2), CommandArgument(3), CommandArgument(4), CommandArgument(5), CommandArgument(6), CommandArgument(7))
+    If ArgumentCount = 4 Then
+        If CommandArgument(ArgumentBase) = "--emit-llvm" Then
+            Task.TaskKind = 1
+            Task.OutputMode = 5
+            Task.Argument1 = CommandArgument(ArgumentBase + 1)
+            Task.Argument2 = CommandArgument(ArgumentBase + 2)
+            Task.Argument3 = CommandArgument(ArgumentBase + 3)
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
             Exit Function
         End If
     End If
-    If CommandArgumentCount() <> 2 Then
-        Print "usage: ube-v3-rp8 [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
-        Print "       ube-v3-rp8 --profile <project.UBE> <target-triple> <output.ll> <profile.txt>"
-        Print "       ube-v3-rp8 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output> <intermediate.ll>"
-        Main = 2
-        Exit Function
+    If ArgumentCount = 5 Then
+        If CommandArgument(ArgumentBase) = "--profile" Then
+            Task.TaskKind = 1
+            Task.OutputMode = 5
+            Task.Argument1 = CommandArgument(ArgumentBase + 1)
+            Task.Argument2 = CommandArgument(ArgumentBase + 2)
+            Task.Argument3 = CommandArgument(ArgumentBase + 3)
+            Task.Argument4 = CommandArgument(ArgumentBase + 4)
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
+            Exit Function
+        End If
     End If
+    If ArgumentCount = 8 Then
+        If CommandArgument(ArgumentBase) = "--build-native" Then
+            Task.TaskKind = 3
+            Task.Argument1 = CommandArgument(ArgumentBase + 1)
+            Task.Argument2 = CommandArgument(ArgumentBase + 2)
+            Task.Argument3 = CommandArgument(ArgumentBase + 3)
+            Task.Argument4 = CommandArgument(ArgumentBase + 4)
+            Task.Argument5 = CommandArgument(ArgumentBase + 5)
+            Task.Argument6 = CommandArgument(ArgumentBase + 6)
+            Task.Argument7 = CommandArgument(ArgumentBase + 7)
+            DispatchCompilerCommand = RunCompilerExecutorTask(Task, RequestedJobs, FaultSite)
+            Exit Function
+        End If
+    End If
+    Call PrintCompilerUsage()
+    DispatchCompilerCommand = 2
+End Function
+
+Function Main() As Long
+    Dim ArgumentBase As Long = 0
+    Dim Remaining As Long = CommandArgumentCount()
+    Dim RequestedJobs As Long = 1
+    Dim FaultSite As String = ""
+    Dim ParsingOptions As Long = 1
+    While ParsingOptions <> 0
+        ParsingOptions = 0
+        If Remaining >= 2 Then
+            If CommandArgument(ArgumentBase) = "--jobs" Then
+                If CommandArgument(ArgumentBase + 1) <> "1" Then
+                    Call ReportExecutorFailure("UBE5300", "Phase 2 supports only --jobs 1")
+                    Main = 2
+                    Exit Function
+                End If
+                RequestedJobs = 1
+                ArgumentBase = ArgumentBase + 2
+                Remaining = Remaining - 2
+                ParsingOptions = 1
+            End If
+        End If
+        If ParsingOptions = 0 And Remaining >= 2 Then
+            If CommandArgument(ArgumentBase) = "--executor-fault" Then
+                FaultSite = CommandArgument(ArgumentBase + 1)
+                If IsCompilerExecutorFault(FaultSite) = 0 Then
+                    Call ReportExecutorFailure("UBE5300", "unknown compiler executor fault site: " & FaultSite)
+                    Main = 2
+                    Exit Function
+                End If
+                ArgumentBase = ArgumentBase + 2
+                Remaining = Remaining - 2
+                ParsingOptions = 1
+            End If
+        End If
+    Wend
+    Main = DispatchCompilerCommand(ArgumentBase, Remaining, RequestedJobs, FaultSite)
 End Function
