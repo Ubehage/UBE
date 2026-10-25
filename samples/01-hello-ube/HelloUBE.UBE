@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "HelloUBE"
+Kind = "Exe"
+Startup = "Main"
+Source = "src/Main.bas"
+Optimization = "2"
+DebugInformation = "Full"
