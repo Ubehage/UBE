@@ -40,6 +40,17 @@ End Function
 Intrinsic Function CompilerDeleteFile(ByVal Path As String) As Long
 End Function
 
+' Compiler-private measurements used only by the opt-in Beta 1 profiler.
+' Millisecond values are relative to the current process and remain bounded.
+Intrinsic Function CompilerMonotonicMilliseconds() As Long
+End Function
+
+Intrinsic Function CompilerProcessCpuMilliseconds() As Long
+End Function
+
+Intrinsic Function CompilerPeakWorkingSetKilobytes() As Long
+End Function
+
 ' Returns zero only after a complete bounded UBE-Resource 1 container has
 ' passed structural, canonical-directory, and SHA-256 payload validation.
 Intrinsic Function CompilerValidateResource(ByVal Path As String) As Long

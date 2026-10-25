@@ -54,8 +54,14 @@ nearer roadmap or progress file.
   - [ ] After the RP8 gate, execute the Beta 1 compiler parallelization plan in
     `compiler/UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`: preserve the
     v2-built sequential seed, add deterministic `--jobs` execution in measured
-    phases, and enable multiple jobs by default only after reproducibility,
-    failure, memory, and performance gates pass.
+    phases, keep one job as the default, and require explicit caller-selected
+    parallelism after reproducibility, failure, memory, and performance gates
+    pass.
+    - [x] Phase 0: add opt-in sequential compiler profiling, publish repeatable
+      self/UBECore/source/procedure baselines, and remove the measured
+      superlinear semantic and IR lookup paths.
+    - [ ] Phase 1: freeze and prove the sequential seed/production bootstrap
+      split and record seed/executor identities.
 
 ## Handoff protocol
 

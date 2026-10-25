@@ -47,8 +47,10 @@ be copied into the transitional compiler merely for build speed.
 ## Parallel execution model
 
 Add a compiler-owned bounded executor with an explicit `--jobs N` option.
-`--jobs 1` is always supported. The default job count is chosen only after the
-performance and memory gates below pass; until then it remains one.
+`--jobs 1` is always supported and remains the default. Parallel compilation
+is caller-selected; the compiler does not silently consume every detected
+processor. The effective count is bounded by the number of runnable tasks and
+both requested and effective counts are recorded.
 
 The coordinator owns the build phase and publishes numbered immutable tasks.
 Workers return results in worker-owned arenas. The coordinator merges results
@@ -84,12 +86,21 @@ until profiling proves otherwise.
 
 ### Phase 0: measure and remove algorithmic bottlenecks
 
-- [ ] Add repeatable wall-time, CPU-time, peak-memory, phase-time, token,
+- [x] Add repeatable wall-time, CPU-time, peak-memory, phase-time, token,
   syntax-node, symbol, expression, and IR-size measurements.
-- [ ] Record baselines for v3 self-compilation, `UBECore`, a many-source
+- [x] Record baselines for v3 self-compilation, `UBECore`, a many-source
   project, and a many-procedure project on the supported hosts.
-- [ ] Profile the slowest phases and repair avoidable quadratic lookup or
+- [x] Profile the slowest phases and repair avoidable quadratic lookup or
   repeated traversal before deciding which phase receives workers.
+
+Phase 0 completed on 2026-10-25. The checked-in baseline is
+[`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md). The
+32/64/128-source and 128/256/512-procedure series are approximately linear
+after adding deterministic scope/name and IR owner/default-form indexes. The
+512-procedure fixture fell from 34,840 ms to 14,935 ms; IR lowering fell from
+18,741 ms to 1,871 ms. Source front-end plus parsing remains the first parallel
+slice because it is the earliest safe independent boundary; function-local
+LLVM, semantics, lowering, and verification remain later high-value slices.
 
 ### Phase 1: preserve the bootstrap trust chain
 
@@ -137,15 +148,14 @@ until profiling proves otherwise.
 
 - [ ] Run every inherited compiler, language, malformed-input, low-memory,
   runtime, library, and self-host gate with `--jobs 1`, `--jobs 2`, and the
-  supported automatic job count.
+  largest explicitly supported representative job count.
 - [ ] Add randomized scheduling/delay hooks and require repeated byte-identical
   outputs, exit codes, and diagnostic text across job counts.
 - [ ] Stress cancellation, worker failure, full diagnostic buffers, collection,
   and shutdown while tasks are active; save every crash, hang, race, or mismatch
   as a synthetic regression.
-- [ ] Enable multiple jobs by default only when representative 4-core hardware
-  shows a material wall-time improvement without violating the agreed peak-
-  memory threshold. Otherwise ship the executor and keep the default at one.
+- [ ] Keep the default at one, document explicit job-count selection, and show
+  representative scaling without violating the agreed peak-memory threshold.
 
 ## Permanent release gates
 
@@ -163,8 +173,8 @@ until profiling proves otherwise.
 - Performance results, hardware, job count, peak memory, toolchain, and input
   hashes are recorded so the claimed speedup is reproducible.
 
-## First action when this work starts
+## Next action
 
-Instrument the sequential RP8 compiler and publish a phase profile for its own
-self-build. Do not design task granularity from intuition alone: choose the
-first parallel phase from measured wall time and dependency boundaries.
+Execute Phase 1: freeze the sequential seed/production manifest split, prove
+the v2-to-seed-to-production trust chain, and extend the reproducibility record
+with seed and execution identities before introducing worker behavior.

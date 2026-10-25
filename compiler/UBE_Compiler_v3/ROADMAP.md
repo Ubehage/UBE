@@ -449,6 +449,10 @@ without adding new language features.
   [`MULTITHREADED_COMPILER_PLAN.md`](MULTITHREADED_COMPILER_PLAN.md), preserving
   the v2 bootstrap through a sequential seed and retaining `--jobs 1` as the
   permanent reference path.
+  - [x] Phase 0: instrument sequential compilation, publish reproducible
+    self/UBECore/source/procedure baselines, and repair measured superlinear
+    semantic and IR lookup paths.
+  - [ ] Phase 1: freeze and prove the sequential seed/production trust chain.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
 - [ ] Publish the supported toolchain/host/target matrix, bootstrap trust
@@ -474,7 +478,8 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Begin Beta 1 with the deterministic compiler parallelization plan in
-`MULTITHREADED_COMPILER_PLAN.md`, preserving the v2-built sequential seed and
-`--jobs 1` reference path. Keep every RP8 fixed-point, package, debugger,
-optimization, platform, malformed-input, and exact-library gate.
+Continue Beta 1 with multithreading Phase 1 in
+`MULTITHREADED_COMPILER_PLAN.md`: freeze and prove the v2-built sequential
+seed/production trust chain before adding workers. Keep `--jobs 1` and every
+RP8 fixed-point, package, debugger, optimization, platform, malformed-input,
+and exact-library gate.

@@ -194,14 +194,52 @@ Function DeclarationNameNode(ByVal NodeIndex As Long, ByRef SyntaxNodes() As Syn
     DeclarationNameNode = FirstDescendantSyntaxNode(NodeIndex, "identifier", SyntaxNodes, SyntaxLinks, Rules, 0)
 End Function
 
-Function AddCheckedSemanticSymbol(ByVal Kind As Long, ByVal SymbolName As String, ByVal ScopeIndex As Long, ByVal ParentSymbol As Long, ByVal NodeIndex As Long, ByVal AllowPropertyPeer As Long, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Scopes() As SemanticScope, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
-    Dim Existing As Long = FindSymbolInScope(ScopeIndex, SymbolName, Scopes, Symbols, Links)
+Function SemanticDeclarationBucket(ByVal ScopeIndex As Long, ByVal SymbolName As String, ByVal BucketCount As Long) As Long
+    Dim HashValue As Long = (ScopeIndex + 1) Mod BucketCount
+    Dim ByteIndex As Long = 0
+    While ByteIndex < StringLength(SymbolName)
+        Dim CodePoint As Long = 0
+        Dim CodePointBytes As Long = 0
+        If DecodeUtf8CodePoint(SymbolName, ByteIndex, CodePoint, CodePointBytes) = 0 Then
+            CodePoint = StringByteAt(SymbolName, ByteIndex)
+            CodePointBytes = 1
+        End If
+        CodePoint = UnicodeSimpleFoldCodePoint(CodePoint)
+        HashValue = ((HashValue Mod 65075262) * 33 + CodePoint) Mod 2147483647
+        ByteIndex = ByteIndex + CodePointBytes
+    Wend
+    SemanticDeclarationBucket = HashValue Mod BucketCount
+End Function
+
+Function FindIndexedSemanticSymbol(ByVal ScopeIndex As Long, ByVal SymbolName As String, ByRef BucketHeads() As Long, ByVal BucketCount As Long, ByRef Symbols() As SemanticSymbol) As Long
+    Dim SymbolIndex As Long = BucketHeads(SemanticDeclarationBucket(ScopeIndex, SymbolName, BucketCount))
+    While SymbolIndex >= 0
+        If Symbols(SymbolIndex).ScopeIndex = ScopeIndex Then
+            If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
+                FindIndexedSemanticSymbol = SymbolIndex
+                Exit Function
+            End If
+        End If
+        SymbolIndex = Symbols(SymbolIndex).SemanticNameNext
+    Wend
+    FindIndexedSemanticSymbol = -1
+End Function
+
+Sub IndexSemanticSymbol(ByVal SymbolIndex As Long, ByRef BucketHeads() As Long, ByVal BucketCount As Long, ByRef Symbols() As SemanticSymbol)
+    Dim Bucket As Long = SemanticDeclarationBucket(Symbols(SymbolIndex).ScopeIndex, Symbols(SymbolIndex).SymbolName, BucketCount)
+    Symbols(SymbolIndex).SemanticNameNext = BucketHeads(Bucket)
+    BucketHeads(Bucket) = SymbolIndex
+End Sub
+
+Function AddCheckedSemanticSymbol(ByVal Kind As Long, ByVal SymbolName As String, ByVal ScopeIndex As Long, ByVal ParentSymbol As Long, ByVal NodeIndex As Long, ByVal AllowPropertyPeer As Long, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Scopes() As SemanticScope, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef DeclarationBucketHeads() As Long, ByVal DeclarationBucketCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    Dim Existing As Long = FindIndexedSemanticSymbol(ScopeIndex, SymbolName, DeclarationBucketHeads, DeclarationBucketCount, Symbols)
     If Existing >= 0 Then
         If AllowPropertyPeer <> 0 And Symbols(Existing).SymbolKind = SemanticSymbolProperty() Then
             Dim PeerName As String = SymbolName & "#property" & LongToString(SymbolCount)
             Dim PeerSymbol As Long = AppendSemanticSymbol(Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Kind, PeerName, ScopeIndex, ParentSymbol, SyntaxNodes(NodeIndex).SourceId, NodeIndex, SyntaxNodes(NodeIndex).FirstToken, SyntaxNodes(NodeIndex).LastToken)
             If PeerSymbol >= 0 Then
                 Symbols(PeerSymbol).ConstantText = SymbolName
+                Call IndexSemanticSymbol(PeerSymbol, DeclarationBucketHeads, DeclarationBucketCount, Symbols)
             End If
             AddCheckedSemanticSymbol = PeerSymbol
             Exit Function
@@ -211,6 +249,9 @@ Function AddCheckedSemanticSymbol(ByVal Kind As Long, ByVal SymbolName As String
         Exit Function
     End If
     AddCheckedSemanticSymbol = AppendSemanticSymbol(Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Kind, SymbolName, ScopeIndex, ParentSymbol, SyntaxNodes(NodeIndex).SourceId, NodeIndex, SyntaxNodes(NodeIndex).FirstToken, SyntaxNodes(NodeIndex).LastToken)
+    If AddCheckedSemanticSymbol >= 0 Then
+        Call IndexSemanticSymbol(AddCheckedSemanticSymbol, DeclarationBucketHeads, DeclarationBucketCount, Symbols)
+    End If
 End Function
 
 Sub MarkScopeTree(ByVal NodeIndex As Long, ByVal ScopeIndex As Long, ByVal OwnerSymbol As Long, ByRef NodeScopes() As Long, ByRef NodeOwners() As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxLinks() As SyntaxChildLink)
@@ -219,6 +260,14 @@ Sub MarkScopeTree(ByVal NodeIndex As Long, ByVal ScopeIndex As Long, ByVal Owner
 End Sub
 
 Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    Dim DeclarationBucketCount As Long = 65536
+    Dim DeclarationBucketHeads() As Long
+    ReDim DeclarationBucketHeads(DeclarationBucketCount - 1)
+    Dim DeclarationBucketIndex As Long = 0
+    While DeclarationBucketIndex < DeclarationBucketCount
+        DeclarationBucketHeads(DeclarationBucketIndex) = -1
+        DeclarationBucketIndex = DeclarationBucketIndex + 1
+    Wend
     If InitializeSemanticTypes(Types, TypeCount, TypeCapacity) = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4099", "<semantic>", 1, 1, "semantic type limit exceeded")
         AnalyzeSemantics = 0
@@ -250,7 +299,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             NodeIndex = NodeIndex + 1
         Wend
         If RootNode >= 0 Then
-            Dim ModuleSymbol As Long = AddCheckedSemanticSymbol(SemanticSymbolModule(), Envelopes(SourceIndex).SourceName, State.PackageScope, -1, RootNode, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            Dim ModuleSymbol As Long = AddCheckedSemanticSymbol(SemanticSymbolModule(), Envelopes(SourceIndex).SourceName, State.PackageScope, -1, RootNode, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, DeclarationBucketHeads, DeclarationBucketCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             If ModuleSymbol >= 0 Then
                 Symbols(ModuleSymbol).Flags = Envelopes(SourceIndex).SourceKind
                 If Envelopes(SourceIndex).SourceKind >= 2 Then
@@ -346,7 +395,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             Dim ParentScope As Long = NearestSemanticScope(SyntaxNodes(NodeIndex).ParentNode, NodeScopes, SyntaxNodes)
             Dim ParentOwner As Long = NearestProcedureSymbol(SyntaxNodes(NodeIndex).ParentNode, NodeOwners, SyntaxNodes)
             If StringLength(DeclaredName) > 0 And ParentScope >= 0 Then
-                Dim AddedSymbol As Long = AddCheckedSemanticSymbol(SymbolKind, DeclaredName, ParentScope, ParentOwner, NodeIndex, AllowPropertyPeer, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Dim AddedSymbol As Long = AddCheckedSemanticSymbol(SymbolKind, DeclaredName, ParentScope, ParentOwner, NodeIndex, AllowPropertyPeer, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, DeclarationBucketHeads, DeclarationBucketCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 If AddedSymbol >= 0 Then
                     If SymbolKind = SemanticSymbolProperty() And StringLength(Symbols(AddedSymbol).ConstantText) = 0 Then
                         Symbols(AddedSymbol).ConstantText = DeclaredName
@@ -405,7 +454,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
             Dim ParameterScope As Long = NearestSemanticScope(NodeIndex, NodeScopes, SyntaxNodes)
             Dim ParameterOwner As Long = NearestProcedureSymbol(NodeIndex, NodeOwners, SyntaxNodes)
             If StringLength(ParameterName) > 0 And ParameterScope >= 0 Then
-                Dim AddedParameter As Long = AddCheckedSemanticSymbol(SemanticSymbolParameter(), ParameterName, ParameterScope, ParameterOwner, NodeIndex, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Dim AddedParameter As Long = AddCheckedSemanticSymbol(SemanticSymbolParameter(), ParameterName, ParameterScope, ParameterOwner, NodeIndex, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, DeclarationBucketHeads, DeclarationBucketCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 If AddedParameter >= 0 Then
                     Dim ParameterNumber As Long = 0
                     Dim EarlierSymbol As Long = 0
@@ -439,7 +488,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
                 LabelParent = Symbols(LabelOwner).SecondaryScope
             End If
             If StringLength(LabelName) > 0 And LabelParent >= 0 Then
-                Call AddCheckedSemanticSymbol(SemanticSymbolLabel(), LabelName, LabelParent, LabelOwner, NodeIndex, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                Call AddCheckedSemanticSymbol(SemanticSymbolLabel(), LabelName, LabelParent, LabelOwner, NodeIndex, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, DeclarationBucketHeads, DeclarationBucketCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
         End If
         If EqualsFolded(CurrentRule, "legacy-def-type-statement") <> 0 Then

@@ -44,6 +44,11 @@ Type SemanticSymbol
     ConstantText As String
     IrNameBucketHead As Long
     IrNameNext As Long
+    IrOwnedHead As Long
+    IrOwnedNext As Long
+    IrDefaultFormBucketHead As Long
+    IrDefaultFormNext As Long
+    SemanticNameNext As Long
 End Type
 
 Type SemanticSymbolLink

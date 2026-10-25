@@ -140,7 +140,7 @@ Function RunProjectGroupDriver(ByVal GroupPath As String, ByVal TargetTriple As 
 
     Dim ProjectIndex As Long = 0
     While ProjectIndex < ProjectCount
-        If RunCompilerDriver(GroupDirectory & ProjectPaths(ProjectIndex), TargetTriple, 0, "") <> 0 Then
+        If RunCompilerDriver(GroupDirectory & ProjectPaths(ProjectIndex), TargetTriple, 0, "", "") <> 0 Then
             RunProjectGroupDriver = 1
             Exit Function
         End If

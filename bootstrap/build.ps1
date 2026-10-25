@@ -763,6 +763,47 @@ if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
     (Get-FileHash -LiteralPath $v3Rp5SecondLlvm -Algorithm SHA256).Hash) {
     throw 'UBE Compiler v3 RP5 LLVM emission is not deterministic'
 }
+$v3Phase0ProfileLlvm = Join-Path $out 'v3-phase0-profile.ll'
+$v3Phase0ProfilePath = Join-Path $out 'v3-phase0-profile.txt'
+& $v3Rp1Executable '--profile' $v3Rp5StraightLineProject $v3Rp1Target `
+    $v3Phase0ProfileLlvm $v3Phase0ProfilePath
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase0ProfileLlvm) -or `
+        -not (Test-Path -LiteralPath $v3Phase0ProfilePath)) {
+    throw 'UBE Compiler v3 Beta 1 failed to produce its sequential performance profile'
+}
+if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
+    (Get-FileHash -LiteralPath $v3Phase0ProfileLlvm -Algorithm SHA256).Hash) {
+    throw 'Compiler profiling changed emitted LLVM'
+}
+$v3Phase0ProfileText = Get-Content -LiteralPath $v3Phase0ProfilePath
+foreach ($requiredProfileLine in @(
+        'UBE-COMPILER-PROFILE 1',
+        'execution=sequential',
+        'requested_jobs=1',
+        'effective_jobs=1')) {
+    if ($v3Phase0ProfileText -notcontains $requiredProfileLine) {
+        throw "Compiler performance profile omitted $requiredProfileLine"
+    }
+}
+foreach ($requiredProfileField in @(
+        'total_wall_ms=', 'total_cpu_ms=', 'peak_working_set_kib=',
+        'phase_front_end_ms=', 'phase_parse_ms=', 'phase_semantics_ms=',
+        'phase_ir_lower_ms=', 'phase_ir_verify_ms=', 'phase_llvm_ms=',
+        'token_count=', 'syntax_node_count=', 'semantic_symbol_count=',
+        'semantic_expression_count=', 'ir_instruction_count=', 'generated_bytes=')) {
+    if (-not ($v3Phase0ProfileText | Where-Object { $_.StartsWith($requiredProfileField, [StringComparison]::Ordinal) })) {
+        throw "Compiler performance profile omitted $requiredProfileField"
+    }
+}
+$v3Phase0MissingProfileDirectory = Join-Path $out 'missing-profile-directory'
+$v3Phase0FailedLlvm = Join-Path $out 'v3-phase0-failed-profile.ll'
+Test-V3Rp1Failure -Name 'performance-profile-write-failure' `
+    -Arguments @('--profile', $v3Rp5StraightLineProject, $v3Rp1Target, $v3Phase0FailedLlvm, (Join-Path $v3Phase0MissingProfileDirectory 'profile.txt')) `
+    -ExpectedDiagnostic 'error UBE5115: cannot atomically write compiler performance profile'
+if ((Test-Path -LiteralPath $v3Phase0FailedLlvm) -or `
+        (Test-Path -LiteralPath $v3Phase0MissingProfileDirectory)) {
+    throw 'Performance-profile write failure left a false-success artifact'
+}
 $v3Rp8LinuxLlvm = Join-Path $out 'v3-rp8-linux-x86_64.ll'
 $v3Rp8LinuxObject = Join-Path $out 'v3-rp8-linux-x86_64.o'
 & $v3Rp1Executable '--emit-llvm' $v3Rp5StraightLineProject `

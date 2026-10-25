@@ -167,7 +167,7 @@ Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTripl
         RunNativeCompilerDriver = 1
         Exit Function
     End If
-    If RunCompilerDriver(ManifestPath, TargetTriple, 5, IntermediateIrPath) <> 0 Then
+    If RunCompilerDriver(ManifestPath, TargetTriple, 5, IntermediateIrPath, "") <> 0 Then
         CleanupStatus = CompilerDeleteFile(IntermediateIrPath)
         RunNativeCompilerDriver = 1
         Exit Function
@@ -257,10 +257,31 @@ Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTripl
     RunNativeCompilerDriver = 0
 End Function
 
-Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal OutputMode As Long, ByVal OutputPath As String) As Long
+Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal OutputMode As Long, ByVal OutputPath As String, ByVal ProfilePath As String) As Long
+    Dim Performance As CompilerPerformanceProfile
+    Dim ProfileEnabled As Long = 0
+    If StringLength(ProfilePath) > 0 Then
+        ProfileEnabled = 1
+    End If
+    Call BeginPerformanceProfile(Performance, ProfileEnabled)
+    Dim ProfilePhaseStart As Long = BeginProfilePhase(Performance)
     Dim Diagnostics() As CompilerDiagnostic
     Dim DiagnosticCount As Long = 0
     Dim DiagnosticCapacity As Long = 0
+    If ProfileEnabled <> 0 Then
+        If EqualsFolded(ProfilePath, OutputPath) <> 0 Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5115", ProfilePath, 1, 1, "performance profile path must differ from the LLVM output path")
+            Call ReportDriverFailure("performance profile path", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            RunCompilerDriver = 1
+            Exit Function
+        End If
+        If CompilerDeleteFile(ProfilePath) <> 0 Then
+            Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5115", ProfilePath, 1, 1, "cannot remove the previous compiler performance profile")
+            Call ReportDriverFailure("performance profile cleanup", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            RunCompilerDriver = 1
+            Exit Function
+        End If
+    End If
     Dim Target As TargetDescription
     Dim Host As HostDescription
     Call ResolveBootstrapHost(Host)
@@ -293,26 +314,34 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.ProjectMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim Sources() As SourceDocument
     If LoadProjectSources(SourcePaths, SourceCount, Sources, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         Call ReportDriverFailure("source loading", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.SourceLoadMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+    Performance.SourceCount = SourceCount
     Dim SourceIndex As Long = 0
     While SourceIndex < SourceCount
         Sources(SourceIndex).ReferenceDepth = SourceDepths(SourceIndex)
+        Performance.SourceBytes = Performance.SourceBytes + Sources(SourceIndex).ByteLength
         SourceIndex = SourceIndex + 1
     Wend
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim Envelopes() As SourceEnvelopeInfo
     If ValidateSourceEnvelopes(Sources, SourceCount, Envelopes, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         Call ReportDriverFailure("source envelopes", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.EnvelopeMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim Tokens() As LexicalToken
     Dim TokenCount As Long = 0
     Dim TokenCapacity As Long = 0
@@ -329,6 +358,8 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.FrontEndMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+    Performance.TokenCount = TokenCount
     ' Token and syntax dumps are structural inspection modes. They must still
     ' expose reserved productions for grammar coverage; release diagnostics
     ' apply once a caller requests semantic analysis or a build.
@@ -341,6 +372,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim GrammarRules() As GrammarRule
     Dim GrammarRuleCount As Long = 0
     Dim GrammarNodes() As GrammarExpression
@@ -352,6 +384,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.GrammarMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
 
     If OutputMode = 1 Then
         Call WriteTokenDump(Tokens, TokenCount)
@@ -359,6 +392,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim SyntaxNodes() As SyntaxNode
     Dim SyntaxNodeCount As Long = 0
     Dim SyntaxNodeCapacity As Long = 0
@@ -383,6 +417,8 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.ParseMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+    Performance.SyntaxNodeCount = SyntaxNodeCount
 
     If OutputMode = 2 Then
         Call WriteSyntaxDump(SyntaxNodes, SyntaxNodeCount, GrammarRules, Tokens, GrammarRuleCount)
@@ -390,6 +426,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Exit Function
     End If
 
+    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim SemanticStateValue As SemanticState
     Dim SemanticTypes() As SemanticType
     Dim SemanticTypeCount As Long = 0
@@ -416,6 +453,11 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         RunCompilerDriver = 1
         Exit Function
     End If
+    Performance.SemanticsMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+    Performance.SemanticTypeCount = SemanticTypeCount
+    Performance.SemanticScopeCount = SemanticScopeCount
+    Performance.SemanticSymbolCount = SemanticSymbolCount
+    Performance.SemanticExpressionCount = SemanticExpressionCount
 
     If OutputMode = 3 Then
         Call WriteSemanticDump(SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticScopes, SemanticScopeCount, SemanticSymbols, SemanticSymbolCount)
@@ -437,7 +479,8 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Dim IrCleanups() As IrCleanup
         Dim IrLocations() As IrLocation
         Dim IrBuild As IrBuildState
-        If LowerSemanticProgramToIr(SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticSymbols, SemanticSymbolCount, SemanticExpressions, SemanticExpressionCount, SemanticBindings, SemanticBindingCount, SyntaxNodes, GrammarRules, Tokens, IrProgramValue, IrGlobals, IrFunctions, IrParameters, IrStorages, IrBlocks, IrInstructions, IrOperands, IrValues, IrEdges, IrCleanups, IrLocations, IrBuild, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        ProfilePhaseStart = BeginProfilePhase(Performance)
+        If LowerSemanticProgramToIr(SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticSymbols, SemanticSymbolCount, SemanticExpressions, SemanticExpressionCount, SemanticBindings, SemanticBindingCount, SyntaxNodes, GrammarRules, Tokens, IrProgramValue, IrGlobals, IrFunctions, IrParameters, IrStorages, IrBlocks, IrInstructions, IrOperands, IrValues, IrEdges, IrCleanups, IrLocations, IrBuild, Performance.Enabled, Performance.IrLowerSetupMilliseconds, Performance.IrLowerBodyMilliseconds, Performance.IrLowerFinalizeMilliseconds, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             Call ReportDriverFailure("IR lowering", Diagnostics, DiagnosticCount, DiagnosticCapacity)
             RunCompilerDriver = 1
             Exit Function
@@ -457,11 +500,24 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
                 Exit Function
             End If
         End If
+        Performance.IrLowerMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+        Performance.IrGlobalCount = IrBuild.GlobalCount
+        Performance.IrFunctionCount = IrBuild.FunctionCount
+        Performance.IrBlockCount = IrBuild.BlockCount
+        Performance.IrInstructionCount = IrBuild.InstructionCount
+        Performance.IrOperandCount = IrBuild.OperandCount
+        Performance.IrValueCount = IrBuild.ValueCount
+        Performance.IrEdgeCount = IrBuild.EdgeCount
+        Performance.IrCleanupCount = IrBuild.CleanupCount
+        Performance.IrLocationCount = IrBuild.LocationCount
+        ProfilePhaseStart = BeginProfilePhase(Performance)
         If VerifyProgramIr(IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrBuild.BlockCount, IrInstructions, IrBuild.InstructionCount, IrOperands, IrBuild.OperandCount, IrValues, IrBuild.ValueCount, IrEdges, IrBuild.EdgeCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, SemanticTypes, SemanticTypeCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             Call ReportDriverFailure("IR verification", Diagnostics, DiagnosticCount, DiagnosticCapacity)
             RunCompilerDriver = 1
             Exit Function
         End If
+        Performance.IrVerifyMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+        ProfilePhaseStart = BeginProfilePhase(Performance)
         Dim ManagedMetadataValue As ManagedMetadata
         Dim ManagedLayouts() As ManagedLayout
         Dim ManagedSlots() As ManagedSlot
@@ -481,12 +537,14 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
             RunCompilerDriver = 1
             Exit Function
         End If
+        Performance.ManagedMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
         If OutputMode = 4 Then
             Call WriteIrDump(IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrBuild.BlockCount, IrInstructions, IrBuild.InstructionCount, IrOperands, IrBuild.OperandCount, IrValues, IrBuild.ValueCount, IrEdges, IrBuild.EdgeCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount)
         Else
             If OutputMode = 6 Then
                 Call WriteManagedDump(ManagedMetadataValue, ManagedLayouts, ManagedSlots, ManagedRoots, ManagedSafePoints, ManagedBarriers, ManagedPins, ManagedFinalizers)
             Else
+                ProfilePhaseStart = BeginProfilePhase(Performance)
                 Dim TargetAbi As TargetAbiDescription
             If ResolveTargetAbi(Target, TargetAbi) = 0 Then
                 Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5101", "<target>", 1, 1, "target has no frozen RP5 ABI description")
@@ -516,6 +574,9 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
                 RunCompilerDriver = 1
                 Exit Function
                 End If
+                Performance.GeneratedBytes = StringLength(LlvmText)
+                Performance.LlvmMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+                ProfilePhaseStart = BeginProfilePhase(Performance)
                 Dim WriteStatus As Long = WriteAllText(OutputPath, LlvmText)
                 If WriteStatus <> 0 Then
                 Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5109", OutputPath, 1, 1, "cannot atomically write generated LLVM output")
@@ -528,6 +589,18 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
                         Dim HeaderCleanup As Long = CompilerDeleteFile(OutputPath)
                         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5113", OutputPath & ".h", 1, 1, "cannot atomically write generated foreign ABI declarations")
                         Call ReportDriverFailure("foreign ABI header write", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        RunCompilerDriver = 1
+                        Exit Function
+                    End If
+                End If
+                Performance.OutputWriteMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+                If Performance.Enabled <> 0 Then
+                    Call CompletePerformanceProfile(Performance)
+                    If WritePerformanceProfile(ProfilePath, Performance) <> 0 Then
+                        Dim ProfileOutputCleanup As Long = CompilerDeleteFile(OutputPath)
+                        ProfileOutputCleanup = CompilerDeleteFile(OutputPath & ".h")
+                        Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE5115", ProfilePath, 1, 1, "cannot atomically write compiler performance profile")
+                        Call ReportDriverFailure("performance profile write", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         RunCompilerDriver = 1
                         Exit Function
                     End If

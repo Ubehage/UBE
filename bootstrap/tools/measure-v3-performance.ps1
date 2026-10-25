@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)][string]$CompilerPath,
     [string]$OutputPath = (Join-Path $PSScriptRoot '..\out\v3-phase0-baseline.json'),
     [ValidateRange(1, 20)][int]$Repetitions = 3,
-    [string]$TargetTriple = 'x86_64-w64-windows-gnu'
+    [string]$TargetTriple = 'x86_64-w64-windows-gnu',
+    [switch]$Resume
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,6 +24,10 @@ $utf8 = [System.Text.UTF8Encoding]::new($false)
 
 function Write-Utf8File {
     param([string]$Path, [string]$Text)
+    if ((Test-Path -LiteralPath $Path -PathType Leaf) -and
+        [System.IO.File]::ReadAllText($Path) -ceq $Text) {
+        return
+    }
     [System.IO.File]::WriteAllText($Path, $Text, $utf8)
 }
 
@@ -34,6 +39,41 @@ function Get-RepoRelativePath {
         return $full.Substring($prefix.Length).Replace('\', '/')
     }
     return $full.Replace('\', '/')
+}
+
+function Get-ProjectInputFiles {
+    param([string]$Project)
+    $projectFull = [System.IO.Path]::GetFullPath($Project)
+    $directory = Split-Path -Parent $projectFull
+    $files = [System.Collections.Generic.List[string]]::new()
+    $files.Add($projectFull)
+    foreach ($line in [System.IO.File]::ReadAllLines($projectFull)) {
+        if ($line -match '^\s*Source\s*=\s*"([^"]+)"\s*$') {
+            $files.Add([System.IO.Path]::GetFullPath((Join-Path $directory $matches[1])))
+        }
+    }
+    return $files.ToArray()
+}
+
+function Get-InputHashes {
+    param([string[]]$Paths)
+    $hashes = [ordered]@{}
+    foreach ($path in $Paths) {
+        $hashes[(Get-RepoRelativePath -Path $path)] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    }
+    return $hashes
+}
+
+function Get-InputSetHash {
+    param([System.Collections.IDictionary]$Hashes)
+    $lines = foreach ($key in $Hashes.Keys | Sort-Object) { "$key=$($Hashes[$key])" }
+    $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+    } finally {
+        $sha.Dispose()
+    }
 }
 
 function New-ManySourceBenchmark {
@@ -130,20 +170,34 @@ function Measure-Benchmark {
     param([string]$Name, [string]$Project)
     $runs = [System.Collections.Generic.List[object]]::new()
     $artifactHashes = [System.Collections.Generic.List[string]]::new()
+    $inputFiles = @(Get-ProjectInputFiles -Project $Project)
+    $latestInputWrite = ($inputFiles | ForEach-Object { (Get-Item -LiteralPath $_).LastWriteTimeUtc } |
+        Sort-Object -Descending | Select-Object -First 1)
     for ($run = 1; $run -le $Repetitions; $run++) {
         $llvmPath = Join-Path $benchmarkRoot "$Name-$run.ll"
         $profilePath = Join-Path $benchmarkRoot "$Name-$run.profile"
-        & $compiler '--profile' $Project $TargetTriple $llvmPath $profilePath
-        if ($LASTEXITCODE -ne 0) { throw "$Name profile run $run failed with exit code $LASTEXITCODE" }
+        $canResume = $Resume -and (Test-Path -LiteralPath $llvmPath -PathType Leaf) -and
+            (Test-Path -LiteralPath $profilePath -PathType Leaf) -and
+            (Get-Item -LiteralPath $llvmPath).LastWriteTimeUtc -ge (Get-Item -LiteralPath $compiler).LastWriteTimeUtc -and
+            (Get-Item -LiteralPath $profilePath).LastWriteTimeUtc -ge (Get-Item -LiteralPath $compiler).LastWriteTimeUtc -and
+            (Get-Item -LiteralPath $llvmPath).LastWriteTimeUtc -ge $latestInputWrite -and
+            (Get-Item -LiteralPath $profilePath).LastWriteTimeUtc -ge $latestInputWrite
+        if (-not $canResume) {
+            & $compiler '--profile' $Project $TargetTriple $llvmPath $profilePath
+            if ($LASTEXITCODE -ne 0) { throw "$Name profile run $run failed with exit code $LASTEXITCODE" }
+        }
         $runs.Add((Read-Profile -Path $profilePath))
         $artifactHashes.Add((Get-FileHash -LiteralPath $llvmPath -Algorithm SHA256).Hash)
     }
     if (($artifactHashes | Select-Object -Unique).Count -ne 1) {
         throw "$Name emitted different LLVM across repeated measurements"
     }
+    $inputHashes = Get-InputHashes -Paths $inputFiles
     return [ordered]@{
         project = Get-RepoRelativePath -Path $Project
         project_sha256 = (Get-FileHash -LiteralPath $Project -Algorithm SHA256).Hash
+        input_set_sha256 = Get-InputSetHash -Hashes $inputHashes
+        inputs_sha256 = $inputHashes
         llvm_sha256 = $artifactHashes[0]
         repetitions = $Repetitions
         median = Get-MedianProfile -Runs $runs.ToArray()
@@ -151,7 +205,11 @@ function Measure-Benchmark {
     }
 }
 
+$manySource32Project = New-ManySourceBenchmark -Directory (Join-Path $benchmarkRoot 'many-source-32') -Count 32
+$manySource64Project = New-ManySourceBenchmark -Directory (Join-Path $benchmarkRoot 'many-source-64') -Count 64
 $manySourceProject = New-ManySourceBenchmark -Directory (Join-Path $benchmarkRoot 'many-source') -Count 128
+$manyProcedure128Project = New-ManyProcedureBenchmark -Directory (Join-Path $benchmarkRoot 'many-procedure-128') -Count 128
+$manyProcedure256Project = New-ManyProcedureBenchmark -Directory (Join-Path $benchmarkRoot 'many-procedure-256') -Count 256
 $manyProcedureProject = New-ManyProcedureBenchmark -Directory (Join-Path $benchmarkRoot 'many-procedure') -Count 512
 $cpu = Get-ItemProperty -LiteralPath 'HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0'
 if (-not ('UbePhase0NativeMemory' -as [type])) {
@@ -185,6 +243,16 @@ public static class UbePhase0NativeMemory {
 '@
 }
 $physicalMemoryBytes = [UbePhase0NativeMemory]::TotalPhysicalBytes()
+$clangPath = 'C:\Program Files\LLVM\bin\clang.exe'
+$clangVersion = 'unavailable'
+if (Test-Path -LiteralPath $clangPath -PathType Leaf) {
+    $clangVersion = (& $clangPath '--version' | Select-Object -First 1)
+}
+$gccCommand = Get-Command 'g++.exe' -ErrorAction SilentlyContinue
+$gccVersion = 'unavailable'
+if ($gccCommand) {
+    $gccVersion = (& $gccCommand.Source '--version' | Select-Object -First 1)
+}
 $record = [ordered]@{
     schema = 'ube-v3-phase0-performance-1'
     measured_utc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -203,15 +271,23 @@ $record = [ordered]@{
         requested_jobs = 1
         effective_jobs = 1
     }
+    toolchain = [ordered]@{
+        clang = $clangVersion
+        gcc = $gccVersion
+    }
     benchmark_parameters = [ordered]@{
         repetitions = $Repetitions
-        many_source_modules = 128
-        many_procedure_functions = 512
+        many_source_modules = @(32, 64, 128)
+        many_procedure_functions = @(128, 256, 512)
     }
     benchmarks = [ordered]@{
         self_compile = Measure-Benchmark -Name 'self' -Project (Join-Path $root 'compiler\UBE_Compiler_v3\UBE_Compiler_v3.UBE')
         ubecore = Measure-Benchmark -Name 'ubecore' -Project (Join-Path $root 'source-library\UBECore.UBE')
+        many_source_32 = Measure-Benchmark -Name 'many-source-32' -Project $manySource32Project
+        many_source_64 = Measure-Benchmark -Name 'many-source-64' -Project $manySource64Project
         many_source = Measure-Benchmark -Name 'many-source' -Project $manySourceProject
+        many_procedure_128 = Measure-Benchmark -Name 'many-procedure-128' -Project $manyProcedure128Project
+        many_procedure_256 = Measure-Benchmark -Name 'many-procedure-256' -Project $manyProcedure256Project
         many_procedure = Measure-Benchmark -Name 'many-procedure' -Project $manyProcedureProject
     }
 }

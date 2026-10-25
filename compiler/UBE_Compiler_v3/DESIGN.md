@@ -4,9 +4,12 @@
 
 This is the architectural boundary for the v3 generation. V3 is UBE's first
 public-release compiler target. The checked-in program is the verified,
-v2-buildable RP5 compiler with complete lexical, preprocessing, owned syntax,
+v2-buildable RP8 compiler with complete lexical, preprocessing, owned syntax,
 symbol, scope, type, semantic-validation, bounded typed-IR, IR-verification,
-LLVM, debug-line, target-ABI, and native-tool handoff phases.
+LLVM, debug-line, target-ABI, native-tool handoff, and deterministic project
+group phases. Beta 1 multithreading Phase 0 adds opt-in sequential performance
+instrumentation and repaired declaration and IR ownership indexes; worker
+execution is not implemented yet.
 
 ## Bootstrap boundary
 
@@ -51,11 +54,11 @@ every file, pipe, process handle, lock, temporary artifact, and target-tool
 resource it acquires on success and on every failure path. The compiler must
 not rely on collection or process exit for externally visible cleanup.
 
-The initial compiler-tool process adapter is the private, versioned
-`CompilerRunTool` intrinsic documented in
+The initial compiler-tool process adapter and compiler performance measurements
+use the private, versioned intrinsic ABI documented in
 [`../../lang-doc/bootstrap-intrinsics.md`](../../lang-doc/bootstrap-intrinsics.md).
-It accepts an executable path and separate bounded arguments; compiler code
-must not construct a shell command line.
+`CompilerRunTool` accepts an executable path and separate bounded arguments;
+compiler code must not construct a shell command line.
 
 ## Linked program support and platform boundary
 

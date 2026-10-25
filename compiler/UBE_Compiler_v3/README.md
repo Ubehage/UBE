@@ -35,8 +35,12 @@ target `x86_64-w64-windows-gnu`; `x86_64-unknown-linux-gnu` is verified through
 LLVM and ELF object production, not yet as a complete runtime. The
 compiler-owned `--build-native` path
 passes arguments directly to Clang, removes its intermediate file, and leaves
-no false-success output after a controlled tool failure. Beta 1 hardening and
-the deterministic multithreaded-compiler plan are next.
+no false-success output after a controlled tool failure. Beta 1
+multithreading Phase 0 is complete: `--profile` supplies sequential phase and
+resource measurements, the fixed workloads are reproducible, and measured
+superlinear name lookups are repaired. Phase 1 now freezes the sequential
+seed/production bootstrap split before worker execution begins. See
+[`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md).
 
 Authoritative inputs:
 

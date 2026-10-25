@@ -84,9 +84,10 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 8 is complete. Development
-> is moving into Beta 1 hardening, beginning with deterministic compiler
-> parallelization, hostile-input testing, and release qualification.
+> **Current milestone:** Compiler v3 Release Preview 8 is complete. Beta 1
+> multithreading Phase 0 is complete: sequential performance is instrumented,
+> repeatable baselines are published, and measured superlinear compiler lookups
+> are repaired. Work now moves to the seed/production bootstrap split.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
@@ -94,6 +95,7 @@ ownership and design authority remain with Ube.
   <li><strong>Compiler v3 RP8</strong><br><sub>The self-hosting compiler adds bounded project groups, hashed resources and compiled-library bundles, optimization/debug controls, complete debugger metadata modes, explicit compatibility diagnostics, and Linux x86-64 ELF emission.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
+  <li><strong>Beta 1 performance</strong><br><sub>An opt-in sequential profiler records phase time, CPU, peak memory, structural counts, IR size, and output size. Three-run self, UBECore, many-source, and many-procedure baselines now guide deterministic parallelization.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 

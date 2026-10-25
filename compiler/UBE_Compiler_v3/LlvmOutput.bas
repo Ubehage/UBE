@@ -153,6 +153,18 @@ Function LlvmBootstrapIntrinsicName(ByVal FunctionName As String) As String
         LlvmBootstrapIntrinsicName = "ube_compiler_delete_file"
         Exit Function
     End If
+    If EqualsFolded(FunctionName, "CompilerMonotonicMilliseconds") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_monotonic_milliseconds"
+        Exit Function
+    End If
+    If EqualsFolded(FunctionName, "CompilerProcessCpuMilliseconds") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_process_cpu_milliseconds"
+        Exit Function
+    End If
+    If EqualsFolded(FunctionName, "CompilerPeakWorkingSetKilobytes") <> 0 Then
+        LlvmBootstrapIntrinsicName = "ube_compiler_peak_working_set_kilobytes"
+        Exit Function
+    End If
     If EqualsFolded(FunctionName, "CompilerValidateResource") <> 0 Then
         LlvmBootstrapIntrinsicName = "ube_compiler_validate_resource"
         Exit Function
@@ -3896,6 +3908,9 @@ Function EmitLlvmRuntimeDeclarations(ByRef Abi As TargetAbiDescription, ByRef Ch
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join_managed(ptr, i32)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_delete_file(ptr)" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_monotonic_milliseconds()" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_process_cpu_milliseconds()" & NewLine)
+    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_peak_working_set_kilobytes()" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_resource(ptr)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_compiler_resource_llvm_escape(ptr)" & NewLine)
     Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)" & NewLine)

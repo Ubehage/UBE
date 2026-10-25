@@ -39,6 +39,31 @@ The current implementation uses the Windows host process adapter. Other hosts
 must implement the same declaration and observable contract behind their own
 platform substrate; host behavior must not leak into target-independent IR.
 
+## Compiler performance measurements
+
+```vb
+Intrinsic Function CompilerMonotonicMilliseconds() As Long
+Intrinsic Function CompilerProcessCpuMilliseconds() As Long
+Intrinsic Function CompilerPeakWorkingSetKilobytes() As Long
+```
+
+These compiler-private measurements support repeatable bootstrap performance
+profiles. `CompilerMonotonicMilliseconds` returns elapsed host time from a
+monotonic clock. `CompilerProcessCpuMilliseconds` returns the compiler
+process's accumulated kernel and user CPU time. `CompilerPeakWorkingSetKilobytes`
+returns the peak physical memory charged to the compiler process.
+
+Each result is expressed as a nonnegative, whole-number count in the unit named
+by the declaration and is bounded by the positive range of `Long`. A function
+returns `-1` when its measurement is unavailable. The values are diagnostic
+metadata only: they must not affect compiled program semantics or generated
+target IR.
+
+The initial implementations use Windows host timing and process-information
+APIs. Other bootstrap hosts may provide equivalent monotonic and process-local
+measurements behind the same declarations. These functions are not public UBE
+language or runtime APIs.
+
 ## Compiler artifact cleanup
 
 ```vb

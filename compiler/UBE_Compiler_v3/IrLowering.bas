@@ -28,6 +28,10 @@ Sub BuildIrSymbolNameIndex(ByRef Symbols() As SemanticSymbol, ByVal SymbolCount 
     While SymbolIndex < SymbolCount
         Symbols(SymbolIndex).IrNameBucketHead = -1
         Symbols(SymbolIndex).IrNameNext = -1
+        Symbols(SymbolIndex).IrOwnedHead = -1
+        Symbols(SymbolIndex).IrOwnedNext = -1
+        Symbols(SymbolIndex).IrDefaultFormBucketHead = -1
+        Symbols(SymbolIndex).IrDefaultFormNext = -1
         SymbolIndex = SymbolIndex + 1
     Wend
     Dim RemainingSymbols As Long = SymbolCount
@@ -36,6 +40,15 @@ Sub BuildIrSymbolNameIndex(ByRef Symbols() As SemanticSymbol, ByVal SymbolCount 
         Dim Bucket As Long = IrFoldedNameBucket(Symbols(SymbolIndex).SymbolName, SymbolCount)
         Symbols(SymbolIndex).IrNameNext = Symbols(Bucket).IrNameBucketHead
         Symbols(Bucket).IrNameBucketHead = SymbolIndex
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolModule() And Symbols(SymbolIndex).Flags = 3 Then
+            Symbols(SymbolIndex).IrDefaultFormNext = Symbols(Bucket).IrDefaultFormBucketHead
+            Symbols(Bucket).IrDefaultFormBucketHead = SymbolIndex
+        End If
+        Dim OwnerSymbol As Long = Symbols(SymbolIndex).ParentSymbol
+        If OwnerSymbol >= 0 And OwnerSymbol < SymbolCount Then
+            Symbols(SymbolIndex).IrOwnedNext = Symbols(OwnerSymbol).IrOwnedHead
+            Symbols(OwnerSymbol).IrOwnedHead = SymbolIndex
+        End If
         RemainingSymbols = RemainingSymbols - 1
     Wend
 End Sub
@@ -325,15 +338,19 @@ Function FindExpressionBindingOwner(ByVal SyntaxNodeIndex As Long, ByRef Binding
 End Function
 
 Function FindIrStorageForSymbol(ByVal SymbolIndex As Long, ByVal FunctionIndex As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long) As Long
-    Dim Index As Long = 0
-    While Index < StorageCount
+    ' Function-local storage is appended immediately before its body is
+    ' lowered. Search newest-to-oldest so a local lookup does not rescan every
+    ' earlier procedure's storage. Global storage remains a deterministic
+    ' fallback at the beginning of the table.
+    Dim Index As Long = StorageCount - 1
+    While Index >= 0
         If Storages(Index).SymbolIndex = SymbolIndex Then
             If Storages(Index).FunctionIndex = FunctionIndex Or Storages(Index).FunctionIndex = -1 Then
                 FindIrStorageForSymbol = Index
                 Exit Function
             End If
         End If
-        Index = Index + 1
+        Index = Index - 1
     Wend
     FindIrStorageForSymbol = -1
 End Function
@@ -352,7 +369,7 @@ Function FindVisibleIrSymbolByName(ByVal SymbolName As String, ByVal OwnerSymbol
         End If
     End If
     Dim SymbolBucket As Long = IrFoldedNameBucket(SymbolName, SymbolCount)
-    Dim SymbolIndex As Long = Symbols(SymbolBucket).IrNameBucketHead
+    Dim SymbolIndex As Long = Symbols(SymbolBucket).IrDefaultFormBucketHead
     While SymbolIndex >= 0
         If SymbolIndex < 0 Then
             Exit While
@@ -363,43 +380,39 @@ Function FindVisibleIrSymbolByName(ByVal SymbolName As String, ByVal OwnerSymbol
                 Exit Function
             End If
         End If
-        SymbolIndex = Symbols(SymbolIndex).IrNameNext
+        SymbolIndex = Symbols(SymbolIndex).IrDefaultFormNext
     Wend
-    SymbolIndex = Symbols(SymbolBucket).IrNameBucketHead
+    SymbolIndex = -1
+    If OwnerSymbol >= 0 And OwnerSymbol < SymbolCount Then
+        SymbolIndex = Symbols(OwnerSymbol).IrOwnedHead
+    End If
     While SymbolIndex >= 0
-        If SymbolIndex < 0 Then
-            Exit While
-        End If
         If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
             If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
-                If Symbols(SymbolIndex).ParentSymbol = OwnerSymbol Then
+                If FindIrStorageForSymbol(SymbolIndex, FunctionIndex, Storages, StorageCount) >= 0 Then
+                    FindVisibleIrSymbolByName = SymbolIndex
+                    Exit Function
+                End If
+            End If
+        End If
+        SymbolIndex = Symbols(SymbolIndex).IrOwnedNext
+    Wend
+    If OwnerSymbol >= 0 And OwnerSymbol < SymbolCount Then
+        Dim OwnerContainer As Long = Symbols(OwnerSymbol).ParentSymbol
+        SymbolIndex = -1
+        If OwnerContainer >= 0 And OwnerContainer < SymbolCount Then
+            SymbolIndex = Symbols(OwnerContainer).IrOwnedHead
+        End If
+        While SymbolIndex >= 0
+            If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Then
                     If FindIrStorageForSymbol(SymbolIndex, FunctionIndex, Storages, StorageCount) >= 0 Then
                         FindVisibleIrSymbolByName = SymbolIndex
                         Exit Function
                     End If
                 End If
             End If
-        End If
-        SymbolIndex = Symbols(SymbolIndex).IrNameNext
-    Wend
-    If OwnerSymbol >= 0 And OwnerSymbol < SymbolCount Then
-        Dim OwnerContainer As Long = Symbols(OwnerSymbol).ParentSymbol
-        SymbolIndex = Symbols(SymbolBucket).IrNameBucketHead
-        While SymbolIndex >= 0
-            If SymbolIndex < 0 Then
-                Exit While
-            End If
-            If Symbols(SymbolIndex).SymbolName = SymbolName Or EqualsFolded(Symbols(SymbolIndex).SymbolName, SymbolName) <> 0 Then
-                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Then
-                    If Symbols(SymbolIndex).ParentSymbol = OwnerContainer Then
-                        If FindIrStorageForSymbol(SymbolIndex, FunctionIndex, Storages, StorageCount) >= 0 Then
-                            FindVisibleIrSymbolByName = SymbolIndex
-                            Exit Function
-                        End If
-                    End If
-                End If
-            End If
-            SymbolIndex = Symbols(SymbolIndex).IrNameNext
+            SymbolIndex = Symbols(SymbolIndex).IrOwnedNext
         Wend
     End If
     SymbolIndex = Symbols(SymbolBucket).IrNameBucketHead
@@ -3154,7 +3167,7 @@ Function LowerIrBlockIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal
     LowerIrBlockIf = 1
 End Function
 
-Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByRef Functions() As IrFunction, ByRef Parameters() As IrParameter, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Cleanups() As IrCleanup, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByRef Functions() As IrFunction, ByRef Parameters() As IrParameter, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Cleanups() As IrCleanup, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByVal ProfileEnabled As Long, ByRef ProfileSetupMilliseconds As Long, ByRef ProfileBodyMilliseconds As Long, ByRef ProfileFinalizeMilliseconds As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Call BuildIrSymbolNameIndex(Symbols, SymbolCount)
     Program.FormatVersion = 1
     Program.EntryFunction = -1
@@ -3221,6 +3234,10 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
 
     Dim FunctionIndex As Long = 0
     While FunctionIndex < Build.FunctionCount
+        Dim FunctionSetupStart As Long = -1
+        If ProfileEnabled <> 0 Then
+            FunctionSetupStart = CompilerMonotonicMilliseconds()
+        End If
         Dim OwnerSymbol As Long = Functions(FunctionIndex).SymbolIndex
         Functions(FunctionIndex).FirstParameter = Build.ParameterCount
         Functions(FunctionIndex).FirstStorage = Build.StorageCount
@@ -3243,33 +3260,31 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
             LowerSemanticProgramToIr = 0
             Exit Function
         End If
-        SymbolIndex = 0
-        While SymbolIndex < SymbolCount
-            If Symbols(SymbolIndex).ParentSymbol = OwnerSymbol Then
-                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
-                    Dim ParameterLocation As Long = IrLocationForSyntax(Symbols(SymbolIndex).SyntaxNode, SyntaxNodes, Tokens, Locations, Build)
-                    Dim PassingMode As Long = IrPassingByRef()
-                    If Symbols(SymbolIndex).Flags And 2 Then
-                        PassingMode = IrPassingByVal()
-                    End If
-                    Dim ParameterStorage As Long = AppendIrStorage(Storages, Build.StorageCount, Build.StorageCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, IrStorageParameter(), Symbols(SymbolIndex).Flags, ParameterLocation)
-                    If AppendIrParameter(Parameters, Build.ParameterCount, Build.ParameterCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, ParameterStorage, Symbols(SymbolIndex).ParameterOrdinal, PassingMode, Symbols(SymbolIndex).Flags, ParameterLocation) < 0 Then
-                        Call AddIrDiagnostic("UBE5000", "IR parameter limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        SymbolIndex = Symbols(OwnerSymbol).IrOwnedHead
+        While SymbolIndex >= 0
+            If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
+                Dim ParameterLocation As Long = IrLocationForSyntax(Symbols(SymbolIndex).SyntaxNode, SyntaxNodes, Tokens, Locations, Build)
+                Dim PassingMode As Long = IrPassingByRef()
+                If Symbols(SymbolIndex).Flags And 2 Then
+                    PassingMode = IrPassingByVal()
+                End If
+                Dim ParameterStorage As Long = AppendIrStorage(Storages, Build.StorageCount, Build.StorageCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, IrStorageParameter(), Symbols(SymbolIndex).Flags, ParameterLocation)
+                If AppendIrParameter(Parameters, Build.ParameterCount, Build.ParameterCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, ParameterStorage, Symbols(SymbolIndex).ParameterOrdinal, PassingMode, Symbols(SymbolIndex).Flags, ParameterLocation) < 0 Then
+                    Call AddIrDiagnostic("UBE5000", "IR parameter limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                    LowerSemanticProgramToIr = 0
+                    Exit Function
+                End If
+            Else
+                If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant() Then
+                    Dim LocalLocation As Long = IrLocationForSyntax(Symbols(SymbolIndex).SyntaxNode, SyntaxNodes, Tokens, Locations, Build)
+                    If AppendIrStorage(Storages, Build.StorageCount, Build.StorageCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, IrStorageLocal(), Symbols(SymbolIndex).Flags, LocalLocation) < 0 Then
+                        Call AddIrDiagnostic("UBE5000", "IR local storage limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         LowerSemanticProgramToIr = 0
                         Exit Function
                     End If
-                Else
-                    If Symbols(SymbolIndex).SymbolKind = SemanticSymbolVariable() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant() Then
-                        Dim LocalLocation As Long = IrLocationForSyntax(Symbols(SymbolIndex).SyntaxNode, SyntaxNodes, Tokens, Locations, Build)
-                        If AppendIrStorage(Storages, Build.StorageCount, Build.StorageCapacity, FunctionIndex, SymbolIndex, Symbols(SymbolIndex).DeclaredType, IrStorageLocal(), Symbols(SymbolIndex).Flags, LocalLocation) < 0 Then
-                            Call AddIrDiagnostic("UBE5000", "IR local storage limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-                            LowerSemanticProgramToIr = 0
-                            Exit Function
-                        End If
-                    End If
                 End If
             End If
-            SymbolIndex = SymbolIndex + 1
+            SymbolIndex = Symbols(SymbolIndex).IrOwnedNext
         Wend
         Functions(FunctionIndex).ParameterCount = Build.ParameterCount - Functions(FunctionIndex).FirstParameter
         Functions(FunctionIndex).StorageCount = Build.StorageCount - Functions(FunctionIndex).FirstStorage
@@ -3337,6 +3352,12 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
             End If
             InitializeStorage = InitializeStorage + 1
         Wend
+        Dim FunctionBodyStart As Long = -1
+        If ProfileEnabled <> 0 Then
+            Dim FunctionSetupEnd As Long = CompilerMonotonicMilliseconds()
+            ProfileSetupMilliseconds = ProfileSetupMilliseconds + FunctionSetupEnd - FunctionSetupStart
+            FunctionBodyStart = FunctionSetupEnd
+        End If
         If LowerIrStructuredRegion(Symbols(OwnerSymbol).SyntaxNode, Symbols(OwnerSymbol).SyntaxNode, FunctionIndex, CurrentBlock, FailureBlock, -1, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
             Dim FailureLine As Long = 0
             If Build.FailureSyntaxNode >= 0 Then
@@ -3345,6 +3366,11 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
             Call AddIrDiagnostic("UBE5010", "procedure body could not be represented in typed control-flow IR: " & Symbols(OwnerSymbol).SymbolName & " at line " & LongToString(FailureLine) & " stage " & LongToString(Build.FailureStage) & " " & Build.FailureDetail, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             LowerSemanticProgramToIr = 0
             Exit Function
+        End If
+        Dim FunctionFinalizeStart As Long = -1
+        If ProfileEnabled <> 0 Then
+            FunctionFinalizeStart = CompilerMonotonicMilliseconds()
+            ProfileBodyMilliseconds = ProfileBodyMilliseconds + FunctionFinalizeStart - FunctionBodyStart
         End If
         If FinishIrBranchBlock(FunctionIndex, CurrentBlock, ReturnBlock, IrEdgeFallthrough(), -1, FunctionLocation, Blocks, Instructions, Edges, Build) = 0 Then
             Call AddIrDiagnostic("UBE5000", "IR final branch limit exceeded", Diagnostics, DiagnosticCount, DiagnosticCapacity)
@@ -3372,6 +3398,9 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
         Blocks(FailureBlock).FirstInstruction = Build.InstructionCount
         Call AppendIrInstruction(Instructions, Build.InstructionCount, Build.InstructionCapacity, FunctionIndex, FailureBlock, IrOpReturn(), -1, Functions(FunctionIndex).ResultType, -1, -1, -1, 0, -1, 1, "", FunctionLocation)
         Blocks(FailureBlock).InstructionCount = Build.InstructionCount - Blocks(FailureBlock).FirstInstruction
+        If ProfileEnabled <> 0 Then
+            ProfileFinalizeMilliseconds = ProfileFinalizeMilliseconds + CompilerMonotonicMilliseconds() - FunctionFinalizeStart
+        End If
         FunctionIndex = FunctionIndex + 1
     Wend
 

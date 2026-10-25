@@ -343,6 +343,18 @@ Sub IntrinsicLlvmSymbol(ByVal IntrinsicName As String, ByRef Result As String)
         Result = "@ube_compiler_delete_file"
         Exit Sub
     End If
+    If EqualsIdentifier(IntrinsicName, "CompilerMonotonicMilliseconds") <> 0 Then
+        Result = "@ube_compiler_monotonic_milliseconds"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerProcessCpuMilliseconds") <> 0 Then
+        Result = "@ube_compiler_process_cpu_milliseconds"
+        Exit Sub
+    End If
+    If EqualsIdentifier(IntrinsicName, "CompilerPeakWorkingSetKilobytes") <> 0 Then
+        Result = "@ube_compiler_peak_working_set_kilobytes"
+        Exit Sub
+    End If
     If EqualsIdentifier(IntrinsicName, "CompilerValidateResource") <> 0 Then
         Result = "@ube_compiler_validate_resource"
         Exit Sub
@@ -3126,6 +3138,9 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join(ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_run_tool(ptr, ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_delete_file(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_monotonic_milliseconds()" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_process_cpu_milliseconds()" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_peak_working_set_kilobytes()" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_resource(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_compiler_resource_llvm_escape(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_compiler_validate_library_bundle(ptr, ptr, ptr, ptr)" & NewLine)
