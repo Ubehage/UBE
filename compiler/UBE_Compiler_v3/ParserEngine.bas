@@ -477,12 +477,44 @@ Sub RecoverParseDiagnostics(ByRef Source As SourceDocument, ByRef Rules() As Gra
     Wend
 End Sub
 
+Function ValidateParserNesting(ByRef Tokens() As LexicalToken, ByVal FirstToken As Long, ByVal TokenLimit As Long, ByRef Progress As ParseProgress) As Long
+    Dim ParenthesisDepth As Long = 0
+    Dim TokenIndex As Long = FirstToken
+    While TokenIndex < TokenLimit
+        If Tokens(TokenIndex).TokenKind = 8 Then
+            If Tokens(TokenIndex).Spelling = "(" Then
+                ParenthesisDepth = ParenthesisDepth + 1
+                If ParenthesisDepth > LimitParenthesisDepth() Then
+                    Progress.FurthestToken = TokenIndex
+                    Progress.Expected = "bounded parenthesis nesting"
+                    Progress.LimitExceeded = 1
+                    ValidateParserNesting = 0
+                    Exit Function
+                End If
+            Else
+                If Tokens(TokenIndex).Spelling = ")" Then
+                    If ParenthesisDepth > 0 Then
+                        ParenthesisDepth = ParenthesisDepth - 1
+                    End If
+                End If
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    ValidateParserNesting = 1
+End Function
+
 Function ParseOneSource(ByRef Source As SourceDocument, ByRef Rules() As GrammarRule, ByVal RuleCount As Long, ByRef GrammarNodes() As GrammarExpression, ByRef GrammarLinks() As GrammarChildLink, ByRef Tokens() As LexicalToken, ByVal FirstToken As Long, ByVal TokenLimit As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxNodeCount As Long, ByRef SyntaxNodeCapacity As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef SyntaxLinkCount As Long, ByRef SyntaxLinkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim ProgramRule As Long = FindGrammarRule(Rules, RuleCount, "program")
     Dim Progress As ParseProgress
     Progress.FurthestToken = FirstToken
     Progress.Expected = "program"
     Progress.LimitExceeded = 0
+    If ValidateParserNesting(Tokens, FirstToken, TokenLimit, Progress) = 0 Then
+        Call AddParseDiagnostic(Source, Tokens, TokenLimit, Progress, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        ParseOneSource = 0
+        Exit Function
+    End If
     Dim ResultPosition As Long = FirstToken
     Dim SavedNodeCount As Long = SyntaxNodeCount
     Dim SavedLinkCount As Long = SyntaxLinkCount

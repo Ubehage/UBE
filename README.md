@@ -85,17 +85,19 @@ ownership and design authority remain with Ube.
 ## Project status
 
 > **Current milestone:** Compiler v3 Release Preview 8 is complete. Beta 1
-> multithreading Phase 0 is complete: sequential performance is instrumented,
-> repeatable baselines are published, and measured superlinear compiler lookups
-> are repaired. Work now moves to the seed/production bootstrap split.
+> multithreading Phases 0 and 1 are complete: sequential performance is
+> measured, and the preserved Compiler v2 now reproducibly builds a dedicated
+> sequential seed that builds the production compiler without a pre-existing
+> production binary. Work now moves to the bounded one-job executor.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
-  <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and builds Compiler v3.</sub></li>
+  <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and reproducibly builds the Compiler v3 sequential seed.</sub></li>
   <li><strong>Compiler v3 RP8</strong><br><sub>The self-hosting compiler adds bounded project groups, hashed resources and compiled-library bundles, optimization/debug controls, complete debugger metadata modes, explicit compatibility diagnostics, and Linux x86-64 ELF emission.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
   <li><strong>Beta 1 performance</strong><br><sub>An opt-in sequential profiler records phase time, CPU, peak memory, structural counts, IR size, and output size. Three-run self, UBECore, many-source, and many-procedure baselines now guide deterministic parallelization.</sub></li>
+  <li><strong>Bootstrap trust</strong><br><sub>A separately identified v2-buildable seed produces the production compiler, whose three stages emit identical LLVM. The build records seed, executor, job-count, timing, and normalized-object identities.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 

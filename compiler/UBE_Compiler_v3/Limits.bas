@@ -41,7 +41,16 @@ Function LimitCombinedResourceBytes() As Long
 End Function
 
 Function LimitSyntaxDepth() As Long
+    ' This is the internal grammar-walk backstop.  Source parentheses have a
+    ' smaller token-level limit that is checked before recursive matching.
     LimitSyntaxDepth = 2048
+End Function
+
+Function LimitParenthesisDepth() As Long
+    ' The production parser's native stack was measured to fail on hostile
+    ' input before the internal grammar-walk backstop.  Reject delimiter
+    ' nesting first, with room above the compiler's verified source maximum.
+    LimitParenthesisDepth = 10
 End Function
 
 Function LimitGeneratedBytes() As Long

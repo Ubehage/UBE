@@ -10,12 +10,13 @@ resources, target/version/interface-pinned `.UBL` library bundles, project
 optimization and debugger controls, explicit remaining-language compatibility
 diagnostics, and Linux x86-64 ELF object emission.
 
-The preserved v2 compiler builds RP8. That compiler rebuilds its own project
-and the exact 16-module `UBECore` slice, and the self-built compiler repeats
-both builds. Compiler LLVM is byte-identical, COFF objects match after
-normalizing only the producer timestamp, library outputs match, and both stages
-agree on 50 recorded inherited and preview corpus cases. The exact result is
-recorded in `bootstrap/out/v3-rp8-build-manifest.json`.
+The preserved v2 compiler reproducibly builds the dedicated sequential seed
+manifest. That seed builds the production manifest without a pre-existing
+production binary, and production stages one, two, and three emit identical
+LLVM. Production builds repeat the exact 16-module `UBECore` slice, COFF
+objects match after normalizing only the producer timestamp, and both compared
+stages agree on 50 recorded inherited and preview corpus cases. The exact
+result is recorded in `bootstrap/out/v3-beta1-build-manifest.json`.
 
 The current RP8 commands are:
 
@@ -36,11 +37,12 @@ LLVM and ELF object production, not yet as a complete runtime. The
 compiler-owned `--build-native` path
 passes arguments directly to Clang, removes its intermediate file, and leaves
 no false-success output after a controlled tool failure. Beta 1
-multithreading Phase 0 is complete: `--profile` supplies sequential phase and
-resource measurements, the fixed workloads are reproducible, and measured
-superlinear name lookups are repaired. Phase 1 now freezes the sequential
-seed/production bootstrap split before worker execution begins. See
-[`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md).
+multithreading Phases 0 and 1 are complete: `--profile` supplies sequential
+phase and resource measurements, measured superlinear name lookups are
+repaired, and the v2→seed→production trust chain is now a permanent clean-build
+gate. Phase 2 adds the bounded executor while it still runs one job. See
+[`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md) and
+[`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
 
 Authoritative inputs:
 

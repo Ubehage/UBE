@@ -24,11 +24,18 @@ every invalid build input. See
 Bootstrapping proceeds in reproducible stages:
 
 1. A small stage-zero compiler, written in an existing implementation language,
-   compiles the Bootstrap Profile to LLVM.
-2. Stage zero compiles the UBE compiler source to produce stage one.
-3. Stage one compiles the same source to produce stage two.
-4. Normalized stage-one and stage-two output is compared. A release is
-   self-hosting only when the comparison policy passes.
+   builds the preserved Compiler v2.
+2. Independently verified Compiler v2 stages compile the dedicated sequential
+   Compiler v3 seed manifest and must emit byte-identical LLVM.
+3. The linked seed compiles the production Compiler v3 manifest without using
+   a pre-existing production binary.
+4. The resulting production compiler rebuilds itself twice. Production stages
+   one, two, and three must emit byte-identical LLVM, and normalized stage-two
+   and stage-three objects must satisfy the documented comparison policy.
+
+The seed stays inside the Compiler v2 Bootstrap Profile. Parallel-only modules
+belong to the production manifest, keeping thread-aware implementation growth
+out of the preserved transitional compiler.
 
 Stage zero remains archived and buildable after self-hosting so the project can
 always be rebuilt without trusting a pre-existing UBE binary.

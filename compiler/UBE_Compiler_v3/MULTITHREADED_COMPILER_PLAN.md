@@ -104,12 +104,24 @@ LLVM, semantics, lowering, and verification remain later high-value slices.
 
 ### Phase 1: preserve the bootstrap trust chain
 
-- [ ] Freeze and document the seed/production manifest split and its allowed
+- [x] Freeze and document the seed/production manifest split and its allowed
   dependency boundary.
-- [ ] Prove v2 builds the sequential seed reproducibly and the seed builds the
+- [x] Prove v2 builds the sequential seed reproducibly and the seed builds the
   production compiler without a pre-existing production binary.
-- [ ] Extend the build manifest with seed identity, requested/effective job
+- [x] Extend the build manifest with seed identity, requested/effective job
   counts, executor identity, and per-phase timing fields.
+
+Phase 1 completed on 2026-10-25. The decision and allowed dependency boundary
+are recorded in [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md). Both verified
+Compiler v2 stages emit byte-identical seed LLVM; the linked seed builds
+production stage one without a pre-existing production binary; and production
+stages one, two, and three emit byte-identical LLVM. The generated
+`v3-beta1-build-manifest.json` records `ube-v3-sequential-seed-1`,
+`ube-v3-sequential-executor-1`, one requested/effective job, measured phase
+timings, and all compared artifact hashes. Moving inherited tests onto the
+seed-built production compiler also exposed a parser stack overflow; a
+token-level parenthesis precheck now turns the synthetic deep-nesting case into
+controlled `UBE3701` while preserving the internal grammar capacity.
 
 ### Phase 2: bounded executor with sequential behavior
 
@@ -175,6 +187,7 @@ LLVM, semantics, lowering, and verification remain later high-value slices.
 
 ## Next action
 
-Execute Phase 1: freeze the sequential seed/production manifest split, prove
-the v2-to-seed-to-production trust chain, and extend the reproducibility record
-with seed and execution identities before introducing worker behavior.
+Execute Phase 2: add the bounded task/executor API while execution remains
+sequential, then prove deterministic cancellation, drain, allocation-failure,
+worker-registration, result-arena, merge-failure, and artifact-cleanup behavior
+before creating more than one worker.

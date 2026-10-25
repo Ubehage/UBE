@@ -448,23 +448,37 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
 
 $v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
-$v3Rp1StageOneIr = Join-Path $out 'v3-rp5-stage1.ll'
-$v3Rp1StageTwoIr = Join-Path $out 'v3-rp5-stage2.ll'
-$v3Rp1Executable = Join-Path $out 'v3-rp5.exe'
-& $v2StageOne $v3Manifest $v3Rp1StageOneIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile v3 RP5' }
-& $v2StageTwo $v3Manifest $v3Rp1StageTwoIr
-if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile v3 RP5' }
-$v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
-$v3Rp1StageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp1StageTwoIr -Algorithm SHA256).Hash
-if ($v3Rp1StageOneIrHash -ne $v3Rp1StageTwoIrHash) {
-    throw 'UBE Compiler v2 stages one and two emitted different v3 RP5 LLVM IR'
+$v3SeedManifest = Join-Path $v3Project 'UBE_Compiler_v3_seed.UBE'
+$v3SeedStageOneIr = Join-Path $out 'v3-seed-v2-stage1.ll'
+$v3SeedStageTwoIr = Join-Path $out 'v3-seed-v2-stage2.ll'
+$v3SeedExecutable = Join-Path $out 'ube-v3-seed.exe'
+& $v2StageOne $v3SeedManifest $v3SeedStageOneIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage one failed to compile the v3 sequential seed' }
+& $v2StageTwo $v3SeedManifest $v3SeedStageTwoIr
+if ($LASTEXITCODE -ne 0) { throw 'UBE Compiler v2 stage two failed to compile the v3 sequential seed' }
+$v3SeedStageOneIrHash = (Get-FileHash -LiteralPath $v3SeedStageOneIr -Algorithm SHA256).Hash
+$v3SeedStageTwoIrHash = (Get-FileHash -LiteralPath $v3SeedStageTwoIr -Algorithm SHA256).Hash
+if ((Get-Item -LiteralPath $v3SeedStageOneIr).Length -ne `
+        (Get-Item -LiteralPath $v3SeedStageTwoIr).Length -or `
+        $v3SeedStageOneIrHash -ne $v3SeedStageTwoIrHash) {
+    throw 'UBE Compiler v2 stages one and two emitted different v3 seed LLVM IR'
 }
-& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
-    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 RP5' }
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3SeedStageOneIr `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3SeedExecutable
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link the UBE Compiler v3 sequential seed' }
 
 $v3Rp1Target = 'x86_64-w64-windows-gnu'
+$v3Rp1StageOneIr = Join-Path $out 'v3-production-stage1.ll'
+$v3Rp1Executable = Join-Path $out 'ube-v3-production-stage1.exe'
+& $v3SeedExecutable '--emit-llvm' $v3Manifest $v3Rp1Target $v3Rp1StageOneIr
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp1StageOneIr)) {
+    throw 'The sequential seed failed to compile the UBE Compiler v3 production manifest'
+}
+$v3Rp1StageOneIrHash = (Get-FileHash -LiteralPath $v3Rp1StageOneIr -Algorithm SHA256).Hash
+& $clangPath '--target=x86_64-w64-windows-gnu' '-O2' $v3Rp1StageOneIr `
+    (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') '-o' $v3Rp1Executable
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to link UBE Compiler v3 production stage one' }
+
 $v3Rp1Output = & $v3Rp1Executable $v3Manifest $v3Rp1Target
 if ($LASTEXITCODE -ne 0 -or $v3Rp1Output -notlike 'UBE Compiler v3 RP8: project UBE_Compiler_v3 (Exe), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to analyze its own project'
@@ -707,6 +721,16 @@ if ($recoveryFailure.ExitCode -ne 1 -or $recoveryDiagnosticCount -lt 2 -or $reco
 
 $v3Rp3DepthSource = Join-Path $out 'v3-rp3-depth.bas'
 $v3Rp3DepthProject = Join-Path $out 'v3-rp3-depth.UBE'
+$v3Rp3ValidDepthSource = Join-Path $out 'v3-rp3-valid-depth.bas'
+$v3Rp3ValidDepthProject = Join-Path $out 'v3-rp3-valid-depth.UBE'
+$validDepthText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"ValidDepth`"`nDim Value As Long = " + ('(' * 10) + '0' + (')' * 10) + "`n"
+[System.IO.File]::WriteAllText($v3Rp3ValidDepthSource, $validDepthText, [System.Text.UTF8Encoding]::new($false))
+$validDepthProjectText = "UBE-Project 1`nName = `"ValidDepth`"`nKind = `"Library`"`nSource = `"v3-rp3-valid-depth.bas`"`n"
+[System.IO.File]::WriteAllText($v3Rp3ValidDepthProject, $validDepthProjectText, [System.Text.UTF8Encoding]::new($false))
+$validDepthOutput = & $v3Rp1Executable $v3Rp3ValidDepthProject $v3Rp1Target
+if ($LASTEXITCODE -ne 0 -or $validDepthOutput -notlike 'UBE Compiler v3 RP8: project ValidDepth (Library), 1 source(s), *') {
+    throw 'UBE Compiler v3 rejected the valid parser-depth boundary fixture'
+}
 $depthText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Depth`"`nDim Value As Long = " + ('(' * 800) + '0' + (')' * 800) + "`n"
 [System.IO.File]::WriteAllText($v3Rp3DepthSource, $depthText, [System.Text.UTF8Encoding]::new($false))
 $depthProjectText = "UBE-Project 1`nName = `"Depth`"`nKind = `"Library`"`nSource = `"v3-rp3-depth.bas`"`n"
@@ -794,6 +818,23 @@ foreach ($requiredProfileField in @(
     if (-not ($v3Phase0ProfileText | Where-Object { $_.StartsWith($requiredProfileField, [StringComparison]::Ordinal) })) {
         throw "Compiler performance profile omitted $requiredProfileField"
     }
+}
+$v3Phase0ProfileValues = [ordered]@{}
+foreach ($profileLine in $v3Phase0ProfileText) {
+    $profileSeparator = $profileLine.IndexOf('=')
+    if ($profileSeparator -gt 0) {
+        $profileName = $profileLine.Substring(0, $profileSeparator)
+        $profileValue = $profileLine.Substring($profileSeparator + 1)
+        $v3Phase0ProfileValues[$profileName] = $profileValue
+    }
+}
+$v3Phase0PhaseTimings = [ordered]@{
+    front_end_ms = [long]$v3Phase0ProfileValues['phase_front_end_ms']
+    parse_ms = [long]$v3Phase0ProfileValues['phase_parse_ms']
+    semantics_ms = [long]$v3Phase0ProfileValues['phase_semantics_ms']
+    ir_lower_ms = [long]$v3Phase0ProfileValues['phase_ir_lower_ms']
+    ir_verify_ms = [long]$v3Phase0ProfileValues['phase_ir_verify_ms']
+    llvm_ms = [long]$v3Phase0ProfileValues['phase_llvm_ms']
 }
 $v3Phase0MissingProfileDirectory = Join-Path $out 'missing-profile-directory'
 $v3Phase0FailedLlvm = Join-Path $out 'v3-phase0-failed-profile.ll'
@@ -889,7 +930,7 @@ $v3Rp5CanonicalObjectInput = Join-Path $out 'v3-rp5-self-canonical.ll'
 
 & $v3Rp1Executable '--emit-llvm' $v3Manifest $v3Rp1Target $v3Rp5SelfStageTwoIr
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SelfStageTwoIr)) {
-    throw 'The v2-built UBE Compiler v3 RP5 failed to emit its own stage-two LLVM IR'
+    throw 'The seed-built UBE Compiler v3 production stage one failed to emit stage-two LLVM IR'
 }
 Copy-Item -LiteralPath $v3Rp5SelfStageTwoIr -Destination $v3Rp5CanonicalObjectInput -Force
 & $clangPath '--target=x86_64-w64-windows-gnu' '-O2' '-c' $v3Rp5CanonicalObjectInput `
@@ -911,6 +952,11 @@ if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile v3 RP5 self-build stage
 
 $v3Rp5SelfStageTwoIrHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageTwoIr -Algorithm SHA256).Hash
 $v3Rp5SelfStageThreeIrHash = (Get-FileHash -LiteralPath $v3Rp5SelfStageThreeIr -Algorithm SHA256).Hash
+if ((Get-Item -LiteralPath $v3Rp1StageOneIr).Length -ne `
+        (Get-Item -LiteralPath $v3Rp5SelfStageTwoIr).Length -or `
+        $v3Rp1StageOneIrHash -ne $v3Rp5SelfStageTwoIrHash) {
+    throw 'Seed-built production stage-one LLVM differs from production stage two'
+}
 if ((Get-Item -LiteralPath $v3Rp5SelfStageTwoIr).Length -ne `
         (Get-Item -LiteralPath $v3Rp5SelfStageThreeIr).Length -or `
         $v3Rp5SelfStageTwoIrHash -ne $v3Rp5SelfStageThreeIrHash) {
@@ -953,14 +999,14 @@ function Test-V3Rp5NativeFixture {
         [Parameter(Mandatory = $true)][int]$ExpectedExitCode
     )
 
-    $v2BuiltIr = Join-Path $out "v3-rp5-fixture-$Name-v2-built.ll"
+    $v2BuiltIr = Join-Path $out "v3-rp5-fixture-$Name-seed-built.ll"
     $selfBuiltIr = Join-Path $out "v3-rp5-fixture-$Name-self-built.ll"
-    $v2BuiltExecutable = Join-Path $out "v3-rp5-fixture-$Name-v2-built.exe"
+    $v2BuiltExecutable = Join-Path $out "v3-rp5-fixture-$Name-seed-built.exe"
     $selfBuiltExecutable = Join-Path $out "v3-rp5-fixture-$Name-self-built.exe"
 
     & $v3Rp1Executable '--emit-llvm' $Project $v3Rp1Target $v2BuiltIr
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v2BuiltIr)) {
-        throw "The v2-built UBE Compiler v3 RP5 failed to emit LLVM for fixture $Name"
+        throw "The seed-built UBE Compiler v3 failed to emit LLVM for fixture $Name"
     }
     & $v3Rp5SelfStageTwoExecutable '--emit-llvm' $Project $v3Rp1Target $selfBuiltIr
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $selfBuiltIr)) {
@@ -971,14 +1017,14 @@ function Test-V3Rp5NativeFixture {
     $selfBuiltIrHash = (Get-FileHash -LiteralPath $selfBuiltIr -Algorithm SHA256).Hash
     if ((Get-Item -LiteralPath $v2BuiltIr).Length -ne (Get-Item -LiteralPath $selfBuiltIr).Length -or `
             $v2BuiltIrHash -ne $selfBuiltIrHash) {
-        throw "UBE Compiler v3 RP5 fixture LLVM differs between v2-built and self-built compilers: $Name"
+        throw "UBE Compiler v3 fixture LLVM differs between seed-built and self-built production compilers: $Name"
     }
 
     & $clangPath @v3Rp5ClangLinkFlags $v2BuiltIr `
         (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
         '-o' $v2BuiltExecutable
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v2BuiltExecutable)) {
-        throw "LLVM failed to link the v2-built RP5 fixture: $Name"
+        throw "LLVM failed to link the seed-built Compiler v3 fixture: $Name"
     }
     & $clangPath @v3Rp5ClangLinkFlags $selfBuiltIr `
         (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
@@ -1021,18 +1067,18 @@ $v3Rp5NativeFixtureResults = @(
 # Exercise the compiler-owned, bounded toolchain handoff in addition to the
 # harness-owned Clang invocations above. Both compiler stages must build and
 # run the same fixture, while a missing tool must leave no false-success file.
-$v3Rp5NativeModeV2Executable = Join-Path $out 'v3-rp5-build-native-v2-built.exe'
-$v3Rp5NativeModeV2Ir = Join-Path $out 'v3-rp5-build-native-v2-built.ll'
+$v3Rp5NativeModeV2Executable = Join-Path $out 'v3-rp5-build-native-seed-built.exe'
+$v3Rp5NativeModeV2Ir = Join-Path $out 'v3-rp5-build-native-seed-built.ll'
 & $v3Rp1Executable '--build-native' $v3Rp5StraightLineProject $v3Rp1Target $clangPath `
     (Join-Path $out 'bootstrap_runtime.o') (Join-Path $out 'bootstrap_unicode_runtime.o') `
     $v3Rp5NativeModeV2Executable $v3Rp5NativeModeV2Ir
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5NativeModeV2Executable) -or `
         (Test-Path -LiteralPath $v3Rp5NativeModeV2Ir)) {
-    throw 'The v2-built RP5 compiler failed its bounded native-build toolchain handoff'
+    throw 'The seed-built Compiler v3 failed its bounded native-build toolchain handoff'
 }
 $v3Rp5NativeModeV2Run = Invoke-ExpectedNativeFailure -FilePath $v3Rp5NativeModeV2Executable
 if ($v3Rp5NativeModeV2Run.ExitCode -ne 0 -or $v3Rp5NativeModeV2Run.Output -cne '41') {
-    throw 'The v2-built RP5 compiler native-build result behaved unexpectedly'
+    throw 'The seed-built Compiler v3 native-build result behaved unexpectedly'
 }
 
 $v3Rp5NativeModeSelfExecutable = Join-Path $out 'v3-rp5-build-native-self-built.exe'
@@ -1064,14 +1110,14 @@ if ($v3Rp5MissingToolFailure.ExitCode -eq 0 -or `
 
 # UBECore is the exact RP5 source-library project slice. Reproduce it with
 # both v3 stages, compare IR, and compile each result through the frozen ABI.
-$v3Rp5CoreV2Ir = Join-Path $out 'v3-rp5-ubecore-v2-built.ll'
+$v3Rp5CoreV2Ir = Join-Path $out 'v3-rp5-ubecore-seed-built.ll'
 $v3Rp5CoreSelfIr = Join-Path $out 'v3-rp5-ubecore-self-built.ll'
 $v3Rp5CoreCanonicalIr = Join-Path $out 'v3-rp5-ubecore-canonical.ll'
-$v3Rp5CoreV2Object = Join-Path $out 'v3-rp5-ubecore-v2-built.o'
+$v3Rp5CoreV2Object = Join-Path $out 'v3-rp5-ubecore-seed-built.o'
 $v3Rp5CoreSelfObject = Join-Path $out 'v3-rp5-ubecore-self-built.o'
 & $v3Rp1Executable '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Rp5CoreV2Ir
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5CoreV2Ir)) {
-    throw 'The v2-built RP5 compiler failed to emit the exact UBECore slice'
+    throw 'The seed-built Compiler v3 failed to emit the exact UBECore slice'
 }
 & $v3Rp5SelfStageTwoExecutable '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Rp5CoreSelfIr
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5CoreSelfIr)) {
@@ -1081,11 +1127,11 @@ $v3Rp5CoreV2IrHash = (Get-FileHash -LiteralPath $v3Rp5CoreV2Ir -Algorithm SHA256
 $v3Rp5CoreSelfIrHash = (Get-FileHash -LiteralPath $v3Rp5CoreSelfIr -Algorithm SHA256).Hash
 if ((Get-Item -LiteralPath $v3Rp5CoreV2Ir).Length -ne (Get-Item -LiteralPath $v3Rp5CoreSelfIr).Length -or `
         $v3Rp5CoreV2IrHash -ne $v3Rp5CoreSelfIrHash) {
-    throw 'UBECore LLVM differs between the v2-built and self-built RP5 compilers'
+    throw 'UBECore LLVM differs between seed-built and self-built production compilers'
 }
 Copy-Item -LiteralPath $v3Rp5CoreV2Ir -Destination $v3Rp5CoreCanonicalIr -Force
 & $clangPath @v3Rp5ClangCompileFlags $v3Rp5CoreCanonicalIr '-o' $v3Rp5CoreV2Object
-if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile the v2-built UBECore IR' }
+if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile the seed-built UBECore IR' }
 Copy-Item -LiteralPath $v3Rp5CoreSelfIr -Destination $v3Rp5CoreCanonicalIr -Force
 & $clangPath @v3Rp5ClangCompileFlags $v3Rp5CoreCanonicalIr '-o' $v3Rp5CoreSelfObject
 if ($LASTEXITCODE -ne 0) { throw 'LLVM failed to compile the self-built UBECore IR' }
@@ -1108,7 +1154,7 @@ function Assert-V3Rp5CompilerParity {
     $selfBuiltResult = Invoke-ExpectedNativeFailure -FilePath $v3Rp5SelfStageTwoExecutable -Arguments $Arguments
     if ($v2BuiltResult.ExitCode -ne $selfBuiltResult.ExitCode -or `
             $v2BuiltResult.Output -cne $selfBuiltResult.Output) {
-        throw "UBE Compiler v3 RP5 v2-built and self-built compilers disagreed for $Name"
+        throw "Seed-built and self-built UBE Compiler v3 production compilers disagreed for $Name"
     }
 }
 
@@ -1143,7 +1189,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Rp5SelfStraightLineL
 }
 if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
         (Get-FileHash -LiteralPath $v3Rp5SelfStraightLineLlvm -Algorithm SHA256).Hash) {
-    throw 'UBE Compiler v3 RP5 v2-built and self-built native fixture IR differs'
+    throw 'Seed-built and self-built UBE Compiler v3 native fixture IR differs'
 }
 $v3Rp5ReleaseCandidate = Join-Path $out 'ube-v3-rp5-windows-x86_64-x86_64-w64-windows-gnu.exe'
 
@@ -1172,7 +1218,7 @@ function Test-V3Rp6Failure {
     $arguments = @('--emit-llvm', $Project, $v3Rp1Target, $outputPath)
     $bootstrapFailure = Invoke-ExpectedNativeFailure -FilePath $v3Rp1Executable -Arguments $arguments
     if (Test-Path -LiteralPath $outputPath) {
-        throw "The v2-built RP6 compiler left output for rejected fixture $Name"
+        throw "The seed-built Compiler v3 left output for rejected fixture $Name"
     }
     $selfFailure = Invoke-ExpectedNativeFailure -FilePath $v3Rp5SelfStageTwoExecutable -Arguments $arguments
     if (Test-Path -LiteralPath $outputPath) {
@@ -1199,7 +1245,7 @@ Test-V3Rp6Failure -Name 'reference-cycle' `
     -ExpectedDiagnostic 'cyclic project Reference'
 
 # RP7 error recovery, threads, synchronization, events, and component lifetime
-# must reproduce through both the v2-built and self-built compilers.
+# must reproduce through both the seed-built and self-built production compilers.
 $v3Rp7Tests = Join-Path $v3Project 'tests/rp7'
 $v3Rp7NativeFixtureResults = @(
     Test-V3Rp5NativeFixture -Name 'rp7-callnew-ignored' -Project (Join-Path $v3Rp7Tests 'callnew-ignored.UBE') -ExpectedOutput '77' -ExpectedExitCode 0
@@ -1251,10 +1297,10 @@ finally {
 }
 
 $v3Rp6ForeignProject = Join-Path $v3Rp6Tests 'foreign-library.UBE'
-$v3Rp6ForeignBootstrapIr = Join-Path $out 'v3-rp6-foreign-v2-built.ll'
+$v3Rp6ForeignBootstrapIr = Join-Path $out 'v3-rp6-foreign-seed-built.ll'
 $v3Rp6ForeignSelfIr = Join-Path $out 'v3-rp6-foreign-self-built.ll'
 & $v3Rp1Executable '--emit-llvm' $v3Rp6ForeignProject $v3Rp1Target $v3Rp6ForeignBootstrapIr
-if ($LASTEXITCODE -ne 0) { throw 'The v2-built RP6 compiler failed to emit the foreign library' }
+if ($LASTEXITCODE -ne 0) { throw 'The seed-built Compiler v3 failed to emit the foreign library' }
 & $v3Rp5SelfStageTwoExecutable '--emit-llvm' $v3Rp6ForeignProject $v3Rp1Target $v3Rp6ForeignSelfIr
 if ($LASTEXITCODE -ne 0) { throw 'The self-built RP6 compiler failed to emit the foreign library' }
 if ((Get-FileHash -LiteralPath $v3Rp6ForeignBootstrapIr -Algorithm SHA256).Hash -ne `
@@ -1320,13 +1366,34 @@ $oversizedSourceProjectText = "UBE-Project 1`nName = `"OversizedSource`"`nKind =
 Test-V3Rp1Failure -Name 'source-size-limit' -Arguments @($v3Rp1OversizedSourceProject, $v3Rp1Target) `
     -ExpectedDiagnostic 'error UBE3101: source exceeds the 16777216-byte limit'
 
-$v3SourceHashes = [ordered]@{}
-foreach ($v3SourceName in @('BootstrapIntrinsics.bas', 'Limits.bas', 'Text.bas', 'Diagnostics.bas', 'SourceManager.bas', 'SourceEnvelope.bas', 'Lexer.bas', 'Preprocessor.bas', 'GrammarDefinition.bas', 'GrammarEngine.bas', 'SyntaxModel.bas', 'ParserEngine.bas', 'TokenOutput.bas', 'SyntaxOutput.bas', 'SyntaxQuery.bas', 'SemanticModel.bas', 'SemanticAnalysis.bas', 'SemanticTypes.bas', 'SemanticExpressions.bas', 'SemanticValidation.bas', 'Rp8Closure.bas', 'SemanticOutput.bas', 'IrModel.bas', 'IrTypeRelations.bas', 'IrRp7Lowering.bas', 'IrLowering.bas', 'IrVerifier.bas', 'IrOutput.bas', 'ManagedModel.bas', 'ManagedAnalysis.bas', 'ManagedOutput.bas', 'TargetAbi.bas', 'ForeignAbiOutput.bas', 'LlvmOutput.bas', 'ProjectLoader.bas', 'ProjectGroup.bas', 'TargetConfig.bas', 'PerformanceProfile.bas', 'Driver.bas', 'Main.bas')) {
-    $v3SourceHashes[$v3SourceName] = (Get-FileHash -LiteralPath (Join-Path $v3Project $v3SourceName) -Algorithm SHA256).Hash
+function Get-V3ManifestSourceHashes {
+    param([Parameter(Mandatory = $true)][string]$ManifestPath)
+
+    $hashes = [ordered]@{}
+    foreach ($manifestLine in (Get-Content -LiteralPath $ManifestPath)) {
+        if ($manifestLine -match '^Source = "([^"]+)"$') {
+            $sourceName = $Matches[1]
+            if ($hashes.Contains($sourceName)) {
+                throw "Duplicate source in compiler manifest ${ManifestPath}: $sourceName"
+            }
+            $sourcePath = Join-Path $v3Project $sourceName
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+                throw "Compiler manifest source does not exist: $sourcePath"
+            }
+            $hashes[$sourceName] = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
+        }
+    }
+    if ($hashes.Count -eq 0) {
+        throw "Compiler manifest contains no sources: $ManifestPath"
+    }
+    Write-Output -NoEnumerate $hashes
 }
+$v3SourceHashes = Get-V3ManifestSourceHashes -ManifestPath $v3Manifest
+$v3SeedSourceHashes = Get-V3ManifestSourceHashes -ManifestPath $v3SeedManifest
 $v3Rp1BuildManifest = [ordered]@{
-    schema = 'ube-v3-rp8-build-manifest-1'
+    schema = 'ube-v3-beta1-build-manifest-1'
     preview = 'RP8'
+    development_milestone = 'Beta 1 multithreading Phase 1'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
@@ -1365,6 +1432,31 @@ $v3Rp1BuildManifest = [ordered]@{
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
     unicode_runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_unicode_runtime.o') -Algorithm SHA256).Hash
     llvm_ir = $v3Rp1StageOneIrHash
+    bootstrap_chain = [ordered]@{
+        policy = 'stage zero -> preserved v2 -> sequential seed -> production stage one -> production stages two and three'
+        seed_identity = 'ube-v3-sequential-seed-1'
+        seed_manifest = 'compiler/UBE_Compiler_v3/UBE_Compiler_v3_seed.UBE'
+        seed_manifest_sha256 = (Get-FileHash -LiteralPath $v3SeedManifest -Algorithm SHA256).Hash
+        seed_sources = $v3SeedSourceHashes
+        v2_stage1_seed_ir_sha256 = $v3SeedStageOneIrHash
+        v2_stage2_seed_ir_sha256 = $v3SeedStageTwoIrHash
+        seed_executable_sha256 = (Get-FileHash -LiteralPath $v3SeedExecutable -Algorithm SHA256).Hash
+        production_identity = 'ube-v3-production-rp8'
+        production_manifest = 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'
+        production_manifest_sha256 = (Get-FileHash -LiteralPath $v3Manifest -Algorithm SHA256).Hash
+        seed_built_production_stage1_ir_sha256 = $v3Rp1StageOneIrHash
+        seed_built_production_stage1_executable_sha256 = (Get-FileHash -LiteralPath $v3Rp1Executable -Algorithm SHA256).Hash
+    }
+    execution = [ordered]@{
+        executor_identity = 'ube-v3-sequential-executor-1'
+        execution = $v3Phase0ProfileValues['execution']
+        requested_jobs = [int]$v3Phase0ProfileValues['requested_jobs']
+        effective_jobs = [int]$v3Phase0ProfileValues['effective_jobs']
+        total_wall_ms = [long]$v3Phase0ProfileValues['total_wall_ms']
+        total_cpu_ms = [long]$v3Phase0ProfileValues['total_cpu_ms']
+        peak_working_set_kib = [long]$v3Phase0ProfileValues['peak_working_set_kib']
+        phase_timings = $v3Phase0PhaseTimings
+    }
     self_build_comparison = [ordered]@{
         policy = 'byte-identical LLVM IR; equal-length COFF objects with identical SHA-256 after zeroing only the 4-byte COFF producer timestamp'
         stage2_ir_sha256 = $v3Rp5SelfStageTwoIrHash
@@ -1378,11 +1470,11 @@ $v3Rp1BuildManifest = [ordered]@{
     }
     source_library_comparison = [ordered]@{
         project = 'source-library/UBECore.UBE'
-        v2_built_ir_sha256 = $v3Rp5CoreV2IrHash
+        seed_built_ir_sha256 = $v3Rp5CoreV2IrHash
         self_built_ir_sha256 = $v3Rp5CoreSelfIrHash
-        v2_built_object_sha256 = $v3Rp5CoreV2ObjectHash
+        seed_built_object_sha256 = $v3Rp5CoreV2ObjectHash
         self_built_object_sha256 = $v3Rp5CoreSelfObjectHash
-        v2_built_normalized_object_sha256 = $v3Rp5CoreV2NormalizedObjectHash
+        seed_built_normalized_object_sha256 = $v3Rp5CoreV2NormalizedObjectHash
         self_built_normalized_object_sha256 = $v3Rp5CoreSelfNormalizedObjectHash
     }
     native_profile_fixtures = @($v3Rp5NativeFixtureResults + $v3Rp6NativeFixtureResults + $v3Rp7NativeFixtureResults + $v3Rp8NativeFixtureResults)
@@ -1407,7 +1499,7 @@ $v3Rp1BuildManifest = [ordered]@{
     clang = ((& $clangPath '--version' | Select-Object -First 1).ToString())
 }
 $v3Rp1BuildManifest | ConvertTo-Json -Depth 5 | `
-    Set-Content -LiteralPath (Join-Path $out 'v3-rp8-build-manifest.json') -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $out 'v3-beta1-build-manifest.json') -Encoding UTF8
 
 function Test-V2Failure {
     param(

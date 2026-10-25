@@ -27,9 +27,14 @@ V2-built and self-built binaries must also return identical exit codes and
 ordinal output for the recorded positive and negative corpus. Both compilers
 also compile the exact 16-module `UBECore` slice and must produce identical
 LLVM and object files. Collector, low-memory, generated-header, shared-library,
-and external ownership probes are part of the RP8 gate. The script records
-`bootstrap/out/v3-rp8-build-manifest.json` and creates the named RP8 release
-candidate only after every test has passed.
+and external ownership probes are part of the RP8 gate. Beta 1 Phase 1 also
+requires both verified Compiler v2 stages to emit byte-identical LLVM for
+`UBE_Compiler_v3_seed.UBE`, links that sequential seed, and uses it to build
+the production manifest without a pre-existing production compiler. Production
+stages one, two, and three must then emit identical LLVM. The script records
+`bootstrap/out/v3-beta1-build-manifest.json`, including seed and executor
+identities, requested/effective job counts, phase timings, and artifact hashes,
+and creates the named RP8 release candidate only after every test has passed.
 Intermediate build output is intentionally not committed.
 
 To inspect the token stream for a source file:

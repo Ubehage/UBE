@@ -7,22 +7,28 @@ public-release compiler target. The checked-in program is the verified,
 v2-buildable RP8 compiler with complete lexical, preprocessing, owned syntax,
 symbol, scope, type, semantic-validation, bounded typed-IR, IR-verification,
 LLVM, debug-line, target-ABI, native-tool handoff, and deterministic project
-group phases. Beta 1 multithreading Phase 0 adds opt-in sequential performance
-instrumentation and repaired declaration and IR ownership indexes; worker
-execution is not implemented yet.
+group phases. Beta 1 multithreading Phases 0 and 1 add opt-in sequential
+performance instrumentation, repaired declaration and IR ownership indexes,
+and a verified sequential seed/production bootstrap split; worker execution is
+not implemented yet.
 
 ## Bootstrap boundary
 
-V2 is the sole bootstrap compiler for the initial v3 implementation. Initial
-v3 source stays within v2's frozen contract. V3 may accept and implement
-language facilities that its own initial source does not yet use. No
-pre-existing v3 binary is required.
+V2 is the sole bootstrap compiler for the v3 sequential seed. Seed source stays
+within v2's frozen contract. The seed accepts the frozen UBE 1.0 language and
+builds the production compiler, whose production-only modules may later use
+facilities the seed source itself does not use. No pre-existing production v3
+binary is required.
 
 The required chain is:
 
 ```text
-stage zero -> preserved v2 -> initial v3 -> self-built v3
+stage zero -> preserved v2 -> sequential v3 seed
+           -> production stage one -> production stages two and three
 ```
+
+The manifest boundary, allowed dependencies, and recorded identities are
+defined in [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
 
 V1 and v2 remain preserved and verified after v3 becomes authoritative.
 

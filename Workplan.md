@@ -60,8 +60,10 @@ nearer roadmap or progress file.
     - [x] Phase 0: add opt-in sequential compiler profiling, publish repeatable
       self/UBECore/source/procedure baselines, and remove the measured
       superlinear semantic and IR lookup paths.
-    - [ ] Phase 1: freeze and prove the sequential seed/production bootstrap
+    - [x] Phase 1: freeze and prove the sequential seed/production bootstrap
       split and record seed/executor identities.
+    - [ ] Phase 2: implement the bounded executor API with one-job behavior,
+      deterministic failure injection, cancellation, drain, and cleanup gates.
 
 ## Handoff protocol
 
