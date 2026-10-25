@@ -22,14 +22,55 @@ Function IsCompilerExecutorFault(ByVal FaultSite As String) As Long
         IsCompilerExecutorFault = 1
         Exit Function
     End If
+    If EqualsFolded(FaultSite, "frontend-worker-creation") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "frontend-worker-wait") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "frontend-merge") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
     IsCompilerExecutorFault = 0
 End Function
 
 Sub PrintCompilerUsage()
-    Print "usage: ube-v3-rp8 [--jobs 1] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
-    Print "       ube-v3-rp8 [--jobs 1] --profile <project.UBE> <target-triple> <output.ll> <profile.txt>"
-    Print "       ube-v3-rp8 [--jobs 1] --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output> <intermediate.ll>"
+    Print "usage: ube-v3-rp8 [--jobs N] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]"
+    Print "       ube-v3-rp8 [--jobs N] --profile <project.UBE> <target-triple> <output.ll> <profile.txt>"
+    Print "       ube-v3-rp8 [--jobs N] --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output> <intermediate.ll>"
 End Sub
+
+Function ParseCompilerJobCount(ByVal TextValue As String, ByRef Result As Long) As Long
+    Dim Length As Long = StringLength(TextValue)
+    If Length = 0 Then
+        ParseCompilerJobCount = 0
+        Exit Function
+    End If
+    Dim Index As Long = 0
+    Dim Value As Long = 0
+    While Index < Length
+        Dim Digit As Long = StringByteAt(TextValue, Index) - 48
+        If Digit < 0 Or Digit > 9 Then
+            ParseCompilerJobCount = 0
+            Exit Function
+        End If
+        If Value > 214748364 Or Value = 214748364 And Digit > 7 Then
+            ParseCompilerJobCount = 0
+            Exit Function
+        End If
+        Value = Value * 10 + Digit
+        Index = Index + 1
+    Wend
+    If Value < 1 Then
+        ParseCompilerJobCount = 0
+        Exit Function
+    End If
+    Result = Value
+    ParseCompilerJobCount = 1
+End Function
 
 Function DispatchCompilerCommand(ByVal ArgumentBase As Long, ByVal ArgumentCount As Long, ByVal RequestedJobs As Long, ByVal FaultSite As String) As Long
     Dim Task As CompilerTask
@@ -126,12 +167,11 @@ Function Main() As Long
         ParsingOptions = 0
         If Remaining >= 2 Then
             If CommandArgument(ArgumentBase) = "--jobs" Then
-                If CommandArgument(ArgumentBase + 1) <> "1" Then
-                    Call ReportExecutorFailure("UBE5300", "Phase 2 supports only --jobs 1")
+                If ParseCompilerJobCount(CommandArgument(ArgumentBase + 1), RequestedJobs) = 0 Then
+                    Call ReportExecutorFailure("UBE5300", "--jobs requires a positive decimal Long value")
                     Main = 2
                     Exit Function
                 End If
-                RequestedJobs = 1
                 ArgumentBase = ArgumentBase + 2
                 Remaining = Remaining - 2
                 ParsingOptions = 1

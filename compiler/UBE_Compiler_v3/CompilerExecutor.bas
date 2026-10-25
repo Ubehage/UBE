@@ -1,9 +1,9 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "CompilerExecutor"
 
-' Phase 2 deliberately has a capacity of one.  The state and ownership rules
-' are permanent; later phases may replace the worker pump without changing the
-' coordinator contract.
+' The outer executor owns command publication, cancellation, cleanup, and the
+' final artifact.  Phase 3 adds a bounded per-source frontend worker pump
+' without changing this coordinator contract.
 Type CompilerTask
     TaskKind As Long
     OutputMode As Long
@@ -43,8 +43,8 @@ End Type
 
 Sub InitializeCompilerExecutor(ByRef Executor As CompilerExecutor, ByVal RequestedJobs As Long, ByVal FaultSite As String)
     Executor.RequestedJobs = RequestedJobs
-    Executor.EffectiveJobs = 1
-    Executor.WorkerCapacity = 1
+    Executor.EffectiveJobs = RequestedJobs
+    Executor.WorkerCapacity = RequestedJobs
     Executor.RegisteredWorkers = 0
     Executor.LiveWorkers = 0
     Executor.PublishedTasks = 0
@@ -176,12 +176,12 @@ End Sub
 Function ExecuteCompilerTaskOnWorker(ByRef Executor As CompilerExecutor, ByRef Task As CompilerTask, ByRef Result As CompilerTaskResult) As Long
     Executor.RunningTasks = 1
     If Task.TaskKind = 1 Then
-        Result.ExitCode = RunCompilerDriver(Task.Argument1, Task.Argument2, Task.OutputMode, Task.Argument3, Task.Argument4)
+        Result.ExitCode = RunCompilerDriver(Task.Argument1, Task.Argument2, Task.OutputMode, Task.Argument3, Task.Argument4, Executor.RequestedJobs, Executor.FaultSite)
     Else
         If Task.TaskKind = 2 Then
-            Result.ExitCode = RunProjectGroupDriver(Task.Argument1, Task.Argument2)
+            Result.ExitCode = RunProjectGroupDriver(Task.Argument1, Task.Argument2, Executor.RequestedJobs, Executor.FaultSite)
         Else
-            Result.ExitCode = RunNativeCompilerDriver(Task.Argument1, Task.Argument2, Task.Argument3, Task.Argument4, Task.Argument5, Task.Argument6, Task.Argument7)
+            Result.ExitCode = RunNativeCompilerDriver(Task.Argument1, Task.Argument2, Task.Argument3, Task.Argument4, Task.Argument5, Task.Argument6, Task.Argument7, Executor.RequestedJobs, Executor.FaultSite)
         End If
     End If
     Executor.RunningTasks = 0

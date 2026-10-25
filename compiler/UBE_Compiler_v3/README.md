@@ -3,8 +3,9 @@
 UBE Compiler v3 is the first public-release compiler target. It is developed
 and compiled with the preserved, self-hosting UBE Compiler v2.
 
-Release Preview 8 is the verified baseline. It is a v2-buildable, 39-module
-self-hosting compiler. In addition to the RP7 managed, threading, event, and
+Release Preview 8 is the verified baseline. Its dedicated 42-source sequential
+seed is v2-buildable and produces the 43-source production compiler. In
+addition to the RP7 managed, threading, event, and
 component baseline, RP8 adds bounded `.UBG` project groups, hashed `.UBR`
 resources, target/version/interface-pinned `.UBL` library bundles, project
 optimization and debugger controls, explicit remaining-language compatibility
@@ -31,6 +32,12 @@ ube-v3-rp8 --emit-llvm <project.UBE> <target-triple> <output.ll>
 ube-v3-rp8 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <unicode-runtime.o> <output.exe> <intermediate.ll>
 ```
 
+Every command accepts `--jobs N`, where `N` is a positive decimal `Long`.
+The default is one. The production compiler runs independent source-file
+preprocessing, lexing, and parsing concurrently, bounded by the source count
+and 32 worker slots, then merges all worker results in manifest order. The
+sequential seed remains separate and contains no parallel-only frontend code.
+
 The frozen RP8 toolchain contract is LLVM/Clang 23.x. Windows native builds
 target `x86_64-w64-windows-gnu`; `x86_64-unknown-linux-gnu` is verified through
 LLVM and ELF object production, not yet as a complete runtime. The
@@ -40,7 +47,9 @@ no false-success output after a controlled tool failure. Beta 1
 multithreading Phases 0 and 1 are complete: `--profile` supplies sequential
 phase and resource measurements, measured superlinear name lookups are
 repaired, and the v2→seed→production trust chain is now a permanent clean-build
-gate. Phase 2 adds the bounded executor while it still runs one job. See
+gate. Phase 2 adds the bounded executor, and Phase 3 adds the deterministic
+parallel source frontend while retaining default and explicit `--jobs 1`
+artifact parity. See
 [`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md) and
 [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
 

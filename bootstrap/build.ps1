@@ -533,7 +533,7 @@ function Test-V3Rp1Failure {
 }
 
 Test-V3Rp1Failure -Name 'usage' -ExpectedExitCode 2 `
-    -ExpectedDiagnostic 'usage: ube-v3-rp8 [--jobs 1] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
+    -ExpectedDiagnostic 'usage: ube-v3-rp8 [--jobs N] [--dump-tokens|--dump-syntax|--dump-semantics|--dump-ir|--dump-managed] <project.UBE> <target-triple> [output.ll]'
 Test-V3Rp1Failure -Name 'unsupported-target' -Arguments @($v3Manifest, 'unknown-target') `
     -ExpectedDiagnostic 'error UBE3200: unsupported RP8 target: unknown-target'
 $v3Rp5MissingOutputDirectory = Join-Path $out 'missing-output-directory'
@@ -797,9 +797,9 @@ if ((Get-FileHash -LiteralPath $v3Rp5FirstLlvm -Algorithm SHA256).Hash -ne `
     (Get-FileHash -LiteralPath $v3Phase2JobsOneLlvm -Algorithm SHA256).Hash) {
     throw 'Explicit --jobs 1 changed emitted LLVM'
 }
-Test-V3Rp1Failure -Name 'phase2-unsupported-job-count' -ExpectedExitCode 2 `
-    -Arguments @('--jobs', '2', $v3Rp5StraightLineProject, $v3Rp1Target) `
-    -ExpectedDiagnostic 'error UBE5300: Phase 2 supports only --jobs 1'
+Test-V3Rp1Failure -Name 'phase3-invalid-job-count' -ExpectedExitCode 2 `
+    -Arguments @('--jobs', '0', $v3Rp5StraightLineProject, $v3Rp1Target) `
+    -ExpectedDiagnostic 'error UBE5300: --jobs requires a positive decimal Long value'
 $v3Phase2Faults = [ordered]@{
     'worker-creation' = 'error UBE5301: compiler worker registration failed'
     'task-publication' = 'error UBE5302: compiler task publication failed'
@@ -816,6 +816,64 @@ foreach ($faultSite in $v3Phase2Faults.Keys) {
     if (Test-Path -LiteralPath $faultOutput) {
         throw "Compiler executor fault $faultSite left a false-success output"
     }
+}
+$v3Phase3Project = Join-Path $v3Rp4Tests 'valid.UBE'
+$v3Phase3JobsOneLlvm = Join-Path $out 'v3-phase3-jobs-one.ll'
+$v3Phase3JobsTwoLlvm = Join-Path $out 'v3-phase3-jobs-two.ll'
+$v3Phase3JobsEightLlvm = Join-Path $out 'v3-phase3-jobs-eight.ll'
+foreach ($phase3Emission in @(
+        @{ Jobs = '1'; Path = $v3Phase3JobsOneLlvm },
+        @{ Jobs = '2'; Path = $v3Phase3JobsTwoLlvm },
+        @{ Jobs = '8'; Path = $v3Phase3JobsEightLlvm })) {
+    & $v3Rp1Executable '--jobs' $phase3Emission.Jobs '--emit-llvm' `
+        $v3Phase3Project $v3Rp1Target $phase3Emission.Path
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $phase3Emission.Path)) {
+        throw "UBE Compiler v3 Beta 1 Phase 3 failed --jobs $($phase3Emission.Jobs) emission"
+    }
+}
+$v3Phase3ReferenceHash = (Get-FileHash -LiteralPath $v3Phase3JobsOneLlvm -Algorithm SHA256).Hash
+foreach ($phase3ParallelPath in @($v3Phase3JobsTwoLlvm, $v3Phase3JobsEightLlvm)) {
+    if ((Get-FileHash -LiteralPath $phase3ParallelPath -Algorithm SHA256).Hash -ne $v3Phase3ReferenceHash) {
+        throw 'Parallel source frontend changed emitted LLVM'
+    }
+}
+$v3Phase3DiagnosticProject = Join-Path $v3Rp4Tests 'duplicate.UBE'
+$v3Phase3JobsOneDiagnostics = @(& $v3Rp1Executable '--jobs' '1' $v3Phase3DiagnosticProject $v3Rp1Target 2>&1 | ForEach-Object { $_.ToString() })
+$v3Phase3JobsOneExit = $LASTEXITCODE
+$v3Phase3JobsTwoDiagnostics = @(& $v3Rp1Executable '--jobs' '2' $v3Phase3DiagnosticProject $v3Rp1Target 2>&1 | ForEach-Object { $_.ToString() })
+$v3Phase3JobsTwoExit = $LASTEXITCODE
+if ($v3Phase3JobsOneExit -ne $v3Phase3JobsTwoExit -or
+        (Compare-Object $v3Phase3JobsOneDiagnostics $v3Phase3JobsTwoDiagnostics -SyncWindow 0)) {
+    throw 'Parallel source frontend changed diagnostic order or exit status'
+}
+$v3Phase3Faults = [ordered]@{
+    'frontend-worker-creation' = 'error UBE5310: parallel frontend worker creation failed'
+    'frontend-worker-wait' = 'error UBE5311: parallel frontend worker drain failed'
+    'frontend-merge' = 'error UBE5312: parallel frontend deterministic merge failed'
+}
+foreach ($faultSite in $v3Phase3Faults.Keys) {
+    $faultOutput = Join-Path $out "v3-phase3-fault-$faultSite.ll"
+    Test-V3Rp1Failure -Name "phase3-$faultSite" `
+        -Arguments @('--executor-fault', $faultSite, '--jobs', '2', '--emit-llvm', `
+            $v3Phase3Project, $v3Rp1Target, $faultOutput) `
+        -ExpectedDiagnostic $v3Phase3Faults[$faultSite]
+    if (Test-Path -LiteralPath $faultOutput) {
+        throw "Parallel frontend fault $faultSite left a false-success output"
+    }
+}
+$v3Phase3TransferSource = Join-Path $out 'v3-phase3-transfer.bas'
+$v3Phase3TransferProject = Join-Path $out 'v3-phase3-transfer.UBE'
+$v3Phase3TransferText = [System.Text.StringBuilder]::new()
+[void]$v3Phase3TransferText.Append("UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Phase3Transfer`"`n")
+for ($transferIndex = 0; $transferIndex -lt 15000; $transferIndex++) {
+    [void]$v3Phase3TransferText.Append("Dim Value$transferIndex As Long = $transferIndex`n")
+}
+[System.IO.File]::WriteAllText($v3Phase3TransferSource, $v3Phase3TransferText.ToString(), [System.Text.UTF8Encoding]::new($false))
+$v3Phase3TransferProjectText = "UBE-Project 1`nName = `"Phase3Transfer`"`nKind = `"Library`"`nSource = `"v3-phase3-transfer.bas`"`n"
+[System.IO.File]::WriteAllText($v3Phase3TransferProject, $v3Phase3TransferProjectText, [System.Text.UTF8Encoding]::new($false))
+& $v3Rp1Executable '--jobs' '1' '--dump-tokens' $v3Phase3TransferProject $v3Rp1Target | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw 'Parallel frontend managed-token transfer regression failed'
 }
 $v3Phase0ProfileLlvm = Join-Path $out 'v3-phase0-profile.ll'
 $v3Phase0ProfilePath = Join-Path $out 'v3-phase0-profile.txt'
@@ -865,6 +923,27 @@ $v3Phase0PhaseTimings = [ordered]@{
     ir_lower_ms = [long]$v3Phase0ProfileValues['phase_ir_lower_ms']
     ir_verify_ms = [long]$v3Phase0ProfileValues['phase_ir_verify_ms']
     llvm_ms = [long]$v3Phase0ProfileValues['phase_llvm_ms']
+}
+$v3Phase3ProfileLlvm = Join-Path $out 'v3-phase3-profile.ll'
+$v3Phase3ProfilePath = Join-Path $out 'v3-phase3-profile.txt'
+& $v3Rp1Executable '--jobs' '2' '--profile' $v3Phase3Project $v3Rp1Target `
+    $v3Phase3ProfileLlvm $v3Phase3ProfilePath
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase3ProfileLlvm) -or `
+        -not (Test-Path -LiteralPath $v3Phase3ProfilePath)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 3 failed to produce its parallel performance profile'
+}
+if ((Get-FileHash -LiteralPath $v3Phase3ProfileLlvm -Algorithm SHA256).Hash -ne $v3Phase3ReferenceHash) {
+    throw 'Parallel compiler profiling changed emitted LLVM'
+}
+$v3Phase3ProfileText = Get-Content -LiteralPath $v3Phase3ProfilePath
+foreach ($requiredProfileLine in @(
+        'UBE-COMPILER-PROFILE 1',
+        'execution=parallel',
+        'requested_jobs=2',
+        'effective_jobs=2')) {
+    if ($v3Phase3ProfileText -notcontains $requiredProfileLine) {
+        throw "Parallel compiler performance profile omitted $requiredProfileLine"
+    }
 }
 $v3Phase0MissingProfileDirectory = Join-Path $out 'missing-profile-directory'
 $v3Phase0FailedLlvm = Join-Path $out 'v3-phase0-failed-profile.ll'
@@ -1423,7 +1502,7 @@ $v3SeedSourceHashes = Get-V3ManifestSourceHashes -ManifestPath $v3SeedManifest
 $v3Rp1BuildManifest = [ordered]@{
     schema = 'ube-v3-beta1-build-manifest-1'
     preview = 'RP8'
-    development_milestone = 'Beta 1 multithreading Phase 2'
+    development_milestone = 'Beta 1 multithreading Phase 3'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'

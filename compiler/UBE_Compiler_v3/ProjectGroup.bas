@@ -3,7 +3,7 @@ Attribute UBE_Name = "ProjectGroup"
 
 ' UBE-ProjectGroup 1 is deliberately an orchestration format. Each listed
 ' project keeps its own compilation settings and is checked independently.
-Function RunProjectGroupDriver(ByVal GroupPath As String, ByVal TargetTriple As String) As Long
+Function RunProjectGroupDriver(ByVal GroupPath As String, ByVal TargetTriple As String, ByVal RequestedJobs As Long, ByVal FaultSite As String) As Long
     Dim Diagnostics() As CompilerDiagnostic
     Dim DiagnosticCount As Long = 0
     Dim DiagnosticCapacity As Long = 0
@@ -140,7 +140,7 @@ Function RunProjectGroupDriver(ByVal GroupPath As String, ByVal TargetTriple As 
 
     Dim ProjectIndex As Long = 0
     While ProjectIndex < ProjectCount
-        If RunCompilerDriver(GroupDirectory & ProjectPaths(ProjectIndex), TargetTriple, 0, "", "") <> 0 Then
+        If RunCompilerDriver(GroupDirectory & ProjectPaths(ProjectIndex), TargetTriple, 0, "", "", RequestedJobs, FaultSite) <> 0 Then
             RunProjectGroupDriver = 1
             Exit Function
         End If

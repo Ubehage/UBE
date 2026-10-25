@@ -455,6 +455,8 @@ without adding new language features.
   - [x] Phase 1: freeze and prove the sequential seed/production trust chain.
   - [x] Phase 2: add the bounded executor with sequential one-job behavior and
     deterministic failure/cleanup gates.
+  - [x] Phase 3: run independent source preprocessing, lexing, and parsing in a
+    bounded worker pump with manifest-order deterministic merge.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
 - [ ] Publish the supported toolchain/host/target matrix, bootstrap trust
@@ -480,10 +482,9 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Continue Beta 1 with multithreading Phase 3 in
-`MULTITHREADED_COMPILER_PLAN.md`: parallelize the independent per-source front
-end behind the proven bounded executor and a deterministic phase barrier.
-Translate worker-local token, syntax, and diagnostic indices into canonical
-manifest order. Keep the sequential seed, `--jobs 1`, and every RP8
-fixed-point, package, debugger, optimization, platform, malformed-input, and
-exact-library gate.
+Continue Beta 1 with multithreading Phase 4 in
+`MULTITHREADED_COMPILER_PLAN.md`: separate declaration/type freezing from
+independent procedure-body analysis, remove hidden shared semantic mutation,
+and merge worker-local bindings and expressions by stable procedure identity.
+Keep the sequential seed, `--jobs 1`, and every RP8 fixed-point, package,
+debugger, optimization, platform, malformed-input, and exact-library gate.

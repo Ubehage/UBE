@@ -144,11 +144,27 @@ and explicit `--jobs 1` emits byte-identical LLVM.
 
 ### Phase 3: parallel source front end
 
-- [ ] Parallelize source preprocessing, lexing, and parsing behind a phase
+- [x] Parallelize source preprocessing, lexing, and parsing behind a phase
   barrier.
-- [ ] Translate worker-local indices into canonical manifest-order indices.
-- [ ] Sort diagnostics by source identity, location, stable diagnostic code,
+- [x] Translate worker-local indices into canonical manifest-order indices.
+- [x] Sort diagnostics by source identity, location, stable diagnostic code,
   and deterministic tie-break fields before printing.
+
+Phase 3 completed on 2026-10-25. The production-only frontend uses up to 32
+stable worker slots and bounds the effective count by both `--jobs N` and the
+number of source files. Each worker owns preprocessing, token, grammar, parser,
+syntax, link, and diagnostic storage; a grammar-ready barrier prevents one
+worker from invalidating another worker's model, and result publication is
+serialized because current instance-method lowering uses an implicit receiver.
+The coordinator drains every batch and translates token, node, parent, child,
+and link indices while merging in manifest order. Clean gates require identical
+LLVM for jobs 1, 2, and 8 (with effective jobs capped by source count), identical
+failure diagnostics and exit status, accurate requested/effective profile
+metadata, deterministic frontend fault diagnostics, and no false-success
+artifact. A generated 15,000-declaration regression also proves that large
+managed token arenas cross the worker/coordinator boundary field by field
+without entering the unsafe recursive aggregate-copy path. The v2-buildable
+seed remains sequential and independently verified.
 
 ### Phase 4: parallel procedure analysis
 
@@ -197,7 +213,6 @@ and explicit `--jobs 1` emits byte-identical LLVM.
 
 ## Next action
 
-Execute Phase 3: parallelize per-source preprocessing, lexing, and parsing
-behind a phase barrier, translate worker-local indices into canonical
-manifest-order indices, and preserve deterministic diagnostics and artifacts
-across `--jobs 1` and the first supported parallel job counts.
+Execute Phase 4: freeze declarations and types before scheduling independent
+procedure-body analysis, give workers read-only or private semantic state, and
+merge bindings and expressions by stable procedure identity.

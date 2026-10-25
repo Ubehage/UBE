@@ -2327,7 +2327,7 @@ Function EmitIrInstructionToLlvm(ByVal InstructionIndex As Long, ByVal DebugNode
                         LineText = "  " & ResultName & " = select i1 true, ptr " & LlvmValueName(ConvertValue) & ", ptr " & LlvmValueName(ConvertValue) & NewLine
                     Else
                     If LlvmIntegerType(ConvertSourceType) = 0 Or LlvmIntegerType(ResultType) = 0 Then
-                        Call AddIrDiagnostic("UBE5108", "RP5 conversion instruction " & LongToString(InstructionIndex) & " from " & ConvertSourceType & " to " & ResultType & " currently requires integer types", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+                        Call AddIrDiagnostic("UBE5108", "RP5 conversion instruction " & LongToString(InstructionIndex) & " in " & Functions(Instructions(InstructionIndex).FunctionIndex).FunctionName & " from " & ConvertSourceType & " to " & ResultType & " currently requires integer types", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         EmitIrInstructionToLlvm = 0
                         Exit Function
                     End If

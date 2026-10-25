@@ -150,7 +150,7 @@ Function ExpandProjectReferences(ByVal RootManifest As String, ByVal TargetTripl
     ExpandProjectReferences = 1
 End Function
 
-Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal ClangPath As String, ByVal RuntimeObjectPath As String, ByVal UnicodeRuntimeObjectPath As String, ByVal OutputPath As String, ByVal IntermediateIrPath As String) As Long
+Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal ClangPath As String, ByVal RuntimeObjectPath As String, ByVal UnicodeRuntimeObjectPath As String, ByVal OutputPath As String, ByVal IntermediateIrPath As String, ByVal RequestedJobs As Long, ByVal FaultSite As String) As Long
     Dim CleanupStatus As Long = 0
     If CompilerDeleteFile(IntermediateIrPath) <> 0 Then
         Call ReportNativeBuildFailure("UBE5110", IntermediateIrPath, "cannot remove the previous intermediate LLVM artifact")
@@ -167,7 +167,7 @@ Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTripl
         RunNativeCompilerDriver = 1
         Exit Function
     End If
-    If RunCompilerDriver(ManifestPath, TargetTriple, 5, IntermediateIrPath, "") <> 0 Then
+    If RunCompilerDriver(ManifestPath, TargetTriple, 5, IntermediateIrPath, "", RequestedJobs, FaultSite) <> 0 Then
         CleanupStatus = CompilerDeleteFile(IntermediateIrPath)
         RunNativeCompilerDriver = 1
         Exit Function
@@ -257,13 +257,13 @@ Function RunNativeCompilerDriver(ByVal ManifestPath As String, ByVal TargetTripl
     RunNativeCompilerDriver = 0
 End Function
 
-Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal OutputMode As Long, ByVal OutputPath As String, ByVal ProfilePath As String) As Long
+Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As String, ByVal OutputMode As Long, ByVal OutputPath As String, ByVal ProfilePath As String, ByVal RequestedJobs As Long, ByVal FaultSite As String) As Long
     Dim Performance As CompilerPerformanceProfile
     Dim ProfileEnabled As Long = 0
     If StringLength(ProfilePath) > 0 Then
         ProfileEnabled = 1
     End If
-    Call BeginPerformanceProfile(Performance, ProfileEnabled)
+    Call BeginPerformanceProfile(Performance, ProfileEnabled, RequestedJobs)
     Dim ProfilePhaseStart As Long = BeginProfilePhase(Performance)
     Dim Diagnostics() As CompilerDiagnostic
     Dim DiagnosticCount As Long = 0
@@ -341,84 +341,43 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
     End If
     Performance.EnvelopeMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
 
-    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim Tokens() As LexicalToken
     Dim TokenCount As Long = 0
     Dim TokenCapacity As Long = 0
-    SourceIndex = 0
-    While SourceIndex < SourceCount
-        Dim PreprocessedText As String = ""
-        If PreprocessOneSource(Sources(SourceIndex), PreprocessedText, Diagnostics, DiagnosticCount, DiagnosticCapacity) <> 0 Then
-            Call LexOneSource(Sources(SourceIndex), PreprocessedText, Tokens, TokenCount, TokenCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-        End If
-        SourceIndex = SourceIndex + 1
-    Wend
-    If DiagnosticCount <> 0 Then
-        Call ReportDriverFailure("preprocessing or lexing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-        RunCompilerDriver = 1
-        Exit Function
-    End If
-    Performance.FrontEndMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
-    Performance.TokenCount = TokenCount
-    ' Token and syntax dumps are structural inspection modes. They must still
-    ' expose reserved productions for grammar coverage; release diagnostics
-    ' apply once a caller requests semantic analysis or a build.
-    If OutputMode <> 1 And OutputMode <> 2 Then
-        Call ValidateRp8TokenSurface(Sources, Tokens, TokenCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-    End If
-    If DiagnosticCount <> 0 Then
-        Call ReportDriverFailure("preprocessing or lexing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-        RunCompilerDriver = 1
-        Exit Function
-    End If
-
-    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim GrammarRules() As GrammarRule
     Dim GrammarRuleCount As Long = 0
     Dim GrammarNodes() As GrammarExpression
     Dim GrammarNodeCount As Long = 0
     Dim GrammarLinks() As GrammarChildLink
     Dim GrammarLinkCount As Long = 0
-    If LoadGrammarModel(GrammarRules, GrammarRuleCount, GrammarNodes, GrammarNodeCount, GrammarLinks, GrammarLinkCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
-        Call ReportDriverFailure("grammar model", Diagnostics, DiagnosticCount, DiagnosticCapacity)
-        RunCompilerDriver = 1
-        Exit Function
-    End If
-    Performance.GrammarMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
-
-    If OutputMode = 1 Then
-        Call WriteTokenDump(Tokens, TokenCount)
-        RunCompilerDriver = 0
-        Exit Function
-    End If
-
-    ProfilePhaseStart = BeginProfilePhase(Performance)
     Dim SyntaxNodes() As SyntaxNode
     Dim SyntaxNodeCount As Long = 0
     Dim SyntaxNodeCapacity As Long = 0
     Dim SyntaxLinks() As SyntaxChildLink
     Dim SyntaxLinkCount As Long = 0
     Dim SyntaxLinkCapacity As Long = 0
-    Dim TokenCursor As Long = 0
-    SourceIndex = 0
-    While SourceIndex < SourceCount
-        Dim SourceTokenStart As Long = TokenCursor
-        While TokenCursor < TokenCount
-            If Tokens(TokenCursor).SourceId <> Sources(SourceIndex).SourceId Then
-                Exit While
+    Dim FailedFrontendPhase As Long = 0
+    If RunCompilerFrontend(Sources, SourceCount, OutputMode, RequestedJobs, FaultSite, Tokens, TokenCount, TokenCapacity, GrammarRules, GrammarRuleCount, GrammarNodes, GrammarNodeCount, GrammarLinks, GrammarLinkCount, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity, Performance, FailedFrontendPhase) = 0 Then
+        If FailedFrontendPhase = 1 Then
+            Call ReportDriverFailure("preprocessing or lexing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        Else
+            If FailedFrontendPhase = 2 Then
+                Call ReportDriverFailure("grammar model", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            Else
+                Call ReportDriverFailure("syntax parsing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
-            TokenCursor = TokenCursor + 1
-        Wend
-        Call ParseOneSource(Sources(SourceIndex), GrammarRules, GrammarRuleCount, GrammarNodes, GrammarLinks, Tokens, SourceTokenStart, TokenCursor, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-        SourceIndex = SourceIndex + 1
-    Wend
-    If DiagnosticCount <> 0 Then
-        Call ReportDriverFailure("syntax parsing", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        End If
         RunCompilerDriver = 1
         Exit Function
     End If
-    Performance.ParseMilliseconds = EndProfilePhase(Performance, ProfilePhaseStart)
+    Performance.TokenCount = TokenCount
     Performance.SyntaxNodeCount = SyntaxNodeCount
+
+    If OutputMode = 1 Then
+        Call WriteTokenDump(Tokens, TokenCount)
+        RunCompilerDriver = 0
+        Exit Function
+    End If
 
     If OutputMode = 2 Then
         Call WriteSyntaxDump(SyntaxNodes, SyntaxNodeCount, GrammarRules, Tokens, GrammarRuleCount)

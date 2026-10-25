@@ -85,12 +85,13 @@ ownership and design authority remain with Ube.
 ## Project status
 
 > **Current milestone:** Compiler v3 Release Preview 8 is complete. Beta 1
-> multithreading Phases 0, 1, and 2 are complete. The compiler now routes every
-> command through a bounded, compiler-owned executor; `--jobs 1` is the default
-> and explicit reference path. Deterministic worker-registration, publication,
-> result-allocation, cancellation, drain, and merge failures are verified to
-> release owned state and leave no false-success artifact. Work now moves to
-> Phase 3: the parallel source front end.
+> multithreading Phases 0 through 3 are complete. The production compiler now
+> preprocesses, lexes, and parses independent source files concurrently with
+> caller-selected `--jobs N`; one job remains the default and reference path.
+> Worker-local tokens, syntax trees, links, and diagnostics are merged in
+> canonical manifest order, and deterministic worker, barrier, merge, cleanup,
+> parity, and reproducibility gates are permanent. Work now moves to Phase 4:
+> parallel procedure analysis.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
@@ -98,7 +99,7 @@ ownership and design authority remain with Ube.
   <li><strong>Compiler v3 RP8</strong><br><sub>The self-hosting compiler adds bounded project groups, hashed resources and compiled-library bundles, optimization/debug controls, complete debugger metadata modes, explicit compatibility diagnostics, and Linux x86-64 ELF emission.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
-  <li><strong>Beta 1 performance</strong><br><sub>An opt-in sequential profiler records phase time, CPU, peak memory, structural counts, IR size, and output size. A bounded one-job executor now owns task publication, cancellation, drain, result arenas, and deterministic merge while preserving byte-identical output.</sub></li>
+  <li><strong>Beta 1 performance</strong><br><sub>An opt-in profiler records phase time, CPU, peak memory, structural counts, IR size, output size, and requested/effective jobs. The bounded executor now runs per-source preprocessing, lexing, and parsing concurrently while preserving byte-identical output across tested job counts.</sub></li>
   <li><strong>Bootstrap trust</strong><br><sub>A separately identified v2-buildable seed produces the production compiler, whose three stages emit identical LLVM. The build records seed, executor, job-count, timing, and normalized-object identities.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>

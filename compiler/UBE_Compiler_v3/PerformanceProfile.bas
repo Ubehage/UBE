@@ -6,6 +6,9 @@ Attribute UBE_Name = "PerformanceProfile"
 ' artifact construction, so measuring a build cannot change its result.
 Type CompilerPerformanceProfile
     Enabled As Long
+    ExecutionParallel As Long
+    RequestedJobs As Long
+    EffectiveJobs As Long
     StartWallMilliseconds As Long
     StartCpuMilliseconds As Long
     TotalWallMilliseconds As Long
@@ -46,8 +49,10 @@ Type CompilerPerformanceProfile
     GeneratedBytes As Long
 End Type
 
-Sub BeginPerformanceProfile(ByRef Profile As CompilerPerformanceProfile, ByVal Enabled As Long)
+Sub BeginPerformanceProfile(ByRef Profile As CompilerPerformanceProfile, ByVal Enabled As Long, ByVal RequestedJobs As Long)
     Profile.Enabled = Enabled
+    Profile.RequestedJobs = RequestedJobs
+    Profile.EffectiveJobs = 1
     If Enabled <> 0 Then
         Profile.StartWallMilliseconds = CompilerMonotonicMilliseconds()
         Profile.StartCpuMilliseconds = CompilerProcessCpuMilliseconds()
@@ -99,9 +104,13 @@ End Function
 
 Function PerformanceProfileText(ByRef Profile As CompilerPerformanceProfile) As String
     Dim TextValue As String = "UBE-COMPILER-PROFILE 1" & StringFromByte(10)
-    TextValue = TextValue & "execution=sequential" & StringFromByte(10)
-    TextValue = TextValue & ProfileField("requested_jobs", 1)
-    TextValue = TextValue & ProfileField("effective_jobs", 1)
+    If Profile.ExecutionParallel <> 0 Then
+        TextValue = TextValue & "execution=parallel" & StringFromByte(10)
+    Else
+        TextValue = TextValue & "execution=sequential" & StringFromByte(10)
+    End If
+    TextValue = TextValue & ProfileField("requested_jobs", Profile.RequestedJobs)
+    TextValue = TextValue & ProfileField("effective_jobs", Profile.EffectiveJobs)
     TextValue = TextValue & ProfileField("total_wall_ms", Profile.TotalWallMilliseconds)
     TextValue = TextValue & ProfileField("total_cpu_ms", Profile.TotalCpuMilliseconds)
     TextValue = TextValue & ProfileField("peak_working_set_kib", Profile.PeakWorkingSetKilobytes)
