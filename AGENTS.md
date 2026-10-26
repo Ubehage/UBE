@@ -21,6 +21,12 @@ Coders spend hours and hours coding in UBE, and a crash loses their work. A malf
 - **Non-test code never panics.**
 - **Prove it.** Every crash fix comes with a small synthetic regression test that panicked before the fix.
 
+### Diagnose narrowly before changing broadly
+Reproduce a problem with the smallest focused sample that isolates what actually fails before changing production architecture or shared behavior. Prefer the narrowest fix justified by that evidence.
+
+- Do not begin with a fundamental, architectural, or system-wide change when a focused diagnostic or local correction could identify or solve the problem.
+- Ask the repository owner for explicit approval before making a fundamental, architectural, or system-wide change.
+**Fixes to the bootstrap- or v2-compiler that are necessary to complete the goal, does not require explicit approval.**
 
 ## 3. Git and GitHub
 Reference `/Github.md` for Github rules.

@@ -34,6 +34,22 @@ Function IsCompilerExecutorFault(ByVal FaultSite As String) As Long
         IsCompilerExecutorFault = 1
         Exit Function
     End If
+    If EqualsFolded(FaultSite, "semantic-worker-creation") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "semantic-worker-wait") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "semantic-merge") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
+    If EqualsFolded(FaultSite, "semantic-transfer") <> 0 Then
+        IsCompilerExecutorFault = 1
+        Exit Function
+    End If
     IsCompilerExecutorFault = 0
 End Function
 

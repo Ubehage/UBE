@@ -35,8 +35,10 @@ ube-v3-rp8 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <uni
 Every command accepts `--jobs N`, where `N` is a positive decimal `Long`.
 The default is one. The production compiler runs independent source-file
 preprocessing, lexing, and parsing concurrently, bounded by the source count
-and 32 worker slots, then merges all worker results in manifest order. The
-sequential seed remains separate and contains no parallel-only frontend code.
+and 32 worker slots. It then freezes declarations and types before distributing
+independent procedure-body semantic work across up to 32 worker slots. Tokens,
+syntax, bindings, expressions, and diagnostics are merged in canonical order.
+The sequential seed remains separate and contains no parallel-only worker code.
 
 The frozen RP8 toolchain contract is LLVM/Clang 23.x. Windows native builds
 target `x86_64-w64-windows-gnu`; `x86_64-unknown-linux-gnu` is verified through
@@ -44,12 +46,12 @@ LLVM and ELF object production, not yet as a complete runtime. The
 compiler-owned `--build-native` path
 passes arguments directly to Clang, removes its intermediate file, and leaves
 no false-success output after a controlled tool failure. Beta 1
-multithreading Phases 0 and 1 are complete: `--profile` supplies sequential
+multithreading Phases 0 through 4 are complete: `--profile` supplies
 phase and resource measurements, measured superlinear name lookups are
 repaired, and the v2→seed→production trust chain is now a permanent clean-build
-gate. Phase 2 adds the bounded executor, and Phase 3 adds the deterministic
-parallel source frontend while retaining default and explicit `--jobs 1`
-artifact parity. See
+gate. Phase 2 adds the bounded executor, Phase 3 adds the deterministic parallel
+source frontend, and Phase 4 adds deterministic parallel procedure semantics
+while retaining default and explicit `--jobs 1` artifact parity. See
 [`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md) and
 [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
 

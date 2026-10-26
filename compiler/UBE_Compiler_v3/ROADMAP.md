@@ -457,6 +457,9 @@ without adding new language features.
     deterministic failure/cleanup gates.
   - [x] Phase 3: run independent source preprocessing, lexing, and parsing in a
     bounded worker pump with manifest-order deterministic merge.
+  - [x] Phase 4: freeze declarations and types, analyze independent procedure
+    bodies with private worker state, and merge bindings and expressions by
+    stable syntax identity before whole-program validation.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
 - [ ] Publish the supported toolchain/host/target matrix, bootstrap trust
@@ -482,9 +485,9 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Continue Beta 1 with multithreading Phase 4 in
-`MULTITHREADED_COMPILER_PLAN.md`: separate declaration/type freezing from
-independent procedure-body analysis, remove hidden shared semantic mutation,
-and merge worker-local bindings and expressions by stable procedure identity.
+Continue Beta 1 with multithreading Phase 5 in
+`MULTITHREADED_COMPILER_PLAN.md`: construct and verify function-local IR in
+parallel, assign canonical global numbering during deterministic merge, and
+emit LLVM/debugger fragments in canonical function order.
 Keep the sequential seed, `--jobs 1`, and every RP8 fixed-point, package,
 debugger, optimization, platform, malformed-input, and exact-library gate.

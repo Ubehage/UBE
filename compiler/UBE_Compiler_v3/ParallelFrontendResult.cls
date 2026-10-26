@@ -22,6 +22,14 @@ Public DiagnosticCapacity As Long
 Public Completed As Long
 Public ParseRequested As Long
 Public PublishTokens As Long
+Public SemanticExpressions() As SemanticExpression
+Public SemanticExpressionCount As Long
+Public SemanticExpressionCapacity As Long
+Public SemanticBindings() As SemanticNodeBinding
+Public SemanticBindingCount As Long
+Public SemanticBindingCapacity As Long
+Public SemanticAnalyzedExpressionCount As Long
+Public SemanticTypedExpressionCount As Long
 
 Public Sub SetSource(ByVal Source As SourceDocument)
     SourceId = Source.SourceId
@@ -32,11 +40,103 @@ Public Sub SetSource(ByVal Source As SourceDocument)
     SourceReferenceDepth = Source.ReferenceDepth
 End Sub
 
+Public Sub PrepareSemantic(ByVal InputFrozenData As String, ByVal InputSourceCount As Long)
+    SourceContents = InputFrozenData
+    SourceFilePath = ""
+    SourceId = InputSourceCount
+    SemanticExpressionCount = 0
+    SemanticExpressionCapacity = 0
+    SemanticBindingCount = 0
+    SemanticBindingCapacity = 0
+    DiagnosticCount = 0
+    DiagnosticCapacity = 0
+    SemanticAnalyzedExpressionCount = 0
+    SemanticTypedExpressionCount = 0
+    Completed = 0
+End Sub
+
+Public Sub StoreSemanticWorkerResult(ByRef InputExpressions() As SemanticExpression, ByVal InputExpressionCount As Long, ByRef InputBindings() As SemanticNodeBinding, ByVal InputBindingCount As Long, ByRef InputDiagnostics() As CompilerDiagnostic, ByVal InputDiagnosticCount As Long, ByVal InputAnalyzedExpressionCount As Long, ByVal InputTypedExpressionCount As Long)
+    SemanticExpressionCount = InputExpressionCount
+    SemanticExpressionCapacity = SemanticExpressionCount
+    If SemanticExpressionCount > 0 Then
+        ReDim SemanticExpressions(SemanticExpressionCount - 1)
+    End If
+    Dim Index As Long = 0
+    While Index < SemanticExpressionCount
+        SemanticExpressions(Index).StableId = InputExpressions(Index).StableId
+        SemanticExpressions(Index).SyntaxNode = InputExpressions(Index).SyntaxNode
+        SemanticExpressions(Index).TypeIndex = InputExpressions(Index).TypeIndex
+        SemanticExpressions(Index).ResolvedSymbol = InputExpressions(Index).ResolvedSymbol
+        SemanticExpressions(Index).ConversionKind = InputExpressions(Index).ConversionKind
+        SemanticExpressions(Index).ValueCategory = InputExpressions(Index).ValueCategory
+        SemanticExpressions(Index).ConstantKind = InputExpressions(Index).ConstantKind
+        SemanticExpressions(Index).ConstantText = InputExpressions(Index).ConstantText
+        SemanticExpressions(Index).Flags = InputExpressions(Index).Flags
+        Index = Index + 1
+    Wend
+    SemanticBindingCount = InputBindingCount
+    SemanticBindingCapacity = SemanticBindingCount
+    If SemanticBindingCount > 0 Then
+        ReDim SemanticBindings(SemanticBindingCount - 1)
+    End If
+    Index = 0
+    While Index < SemanticBindingCount
+        SemanticBindings(Index).StableId = InputBindings(Index).StableId
+        SemanticBindings(Index).SyntaxNode = InputBindings(Index).SyntaxNode
+        SemanticBindings(Index).ScopeIndex = InputBindings(Index).ScopeIndex
+        SemanticBindings(Index).OwnerSymbol = InputBindings(Index).OwnerSymbol
+        SemanticBindings(Index).IrRegionOwnerEncoded = InputBindings(Index).IrRegionOwnerEncoded
+        SemanticBindings(Index).IrRegionKind = InputBindings(Index).IrRegionKind
+        Index = Index + 1
+    Wend
+    DiagnosticCount = InputDiagnosticCount
+    DiagnosticCapacity = DiagnosticCount
+    If DiagnosticCount > 0 Then
+        ReDim Diagnostics(DiagnosticCount - 1)
+    End If
+    Index = 0
+    While Index < DiagnosticCount
+        Diagnostics(Index).Code = InputDiagnostics(Index).Code
+        Diagnostics(Index).FilePath = InputDiagnostics(Index).FilePath
+        Diagnostics(Index).LineNumber = InputDiagnostics(Index).LineNumber
+        Diagnostics(Index).ColumnNumber = InputDiagnostics(Index).ColumnNumber
+        Diagnostics(Index).Message = InputDiagnostics(Index).Message
+        Index = Index + 1
+    Wend
+    SemanticAnalyzedExpressionCount = InputAnalyzedExpressionCount
+    SemanticTypedExpressionCount = InputTypedExpressionCount
+    Completed = 1
+End Sub
+
+Public Sub MergeSemanticResult(ByRef TargetExpressions() As SemanticExpression, ByRef TargetExpressionCount As Long, ByRef TargetExpressionCapacity As Long, ByRef TargetBindings() As SemanticNodeBinding, ByRef TargetBindingCount As Long, ByRef TargetBindingCapacity As Long, ByRef TargetDiagnostics() As CompilerDiagnostic, ByRef TargetDiagnosticCount As Long, ByRef TargetDiagnosticCapacity As Long)
+    Dim Index As Long = 0
+    While Index < SemanticExpressionCount
+        Call AppendSemanticExpression(TargetExpressions, TargetExpressionCount, TargetExpressionCapacity, SemanticExpressions(Index).SyntaxNode, SemanticExpressions(Index).TypeIndex, SemanticExpressions(Index).ResolvedSymbol, SemanticExpressions(Index).ConversionKind, SemanticExpressions(Index).ValueCategory, SemanticExpressions(Index).ConstantKind, SemanticExpressions(Index).ConstantText, SemanticExpressions(Index).Flags)
+        Index = Index + 1
+    Wend
+    Index = 0
+    While Index < SemanticBindingCount
+        Dim AddedBinding As Long = AppendSemanticNodeBinding(TargetBindings, TargetBindingCount, TargetBindingCapacity, SemanticBindings(Index).SyntaxNode, SemanticBindings(Index).ScopeIndex, SemanticBindings(Index).OwnerSymbol)
+        If AddedBinding >= 0 Then
+            TargetBindings(AddedBinding).IrRegionOwnerEncoded = SemanticBindings(Index).IrRegionOwnerEncoded
+            TargetBindings(AddedBinding).IrRegionKind = SemanticBindings(Index).IrRegionKind
+        End If
+        Index = Index + 1
+    Wend
+    Call MergeDiagnostics(TargetDiagnostics, TargetDiagnosticCount, TargetDiagnosticCapacity)
+End Sub
+
 Public Sub ResetResult()
     TokenCount = 0
     SyntaxNodeCount = 0
     SyntaxLinkCount = 0
     DiagnosticCount = 0
+    SemanticExpressionCount = 0
+    SemanticExpressionCapacity = 0
+    SemanticBindingCount = 0
+    SemanticBindingCapacity = 0
+    SemanticAnalyzedExpressionCount = 0
+    SemanticTypedExpressionCount = 0
     Completed = 0
 End Sub
 

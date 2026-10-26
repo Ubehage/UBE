@@ -345,9 +345,9 @@ Function ResolveExpressionSymbol(ByVal NodeIndex As Long, ByRef Sources() As Sou
     End If
 End Function
 
-Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
-    State.ExpressionCount = 0
-    State.TypedExpressionCount = 0
+Function AnalyzeExpressionWorker(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef WorkerBySymbol() As Long, ByVal WorkerIndex As Long, ByVal WorkerCount As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long, ByRef WorkerExpressionCount As Long, ByRef WorkerTypedExpressionCount As Long) As Long
+    WorkerExpressionCount = 0
+    WorkerTypedExpressionCount = 0
     Dim NodeTypes() As Long
     ReDim NodeTypes(SyntaxNodeCount - 1)
     Dim GlobalCacheNames() As String
@@ -373,8 +373,22 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
     Wend
     NodeIndex = 0
     While NodeIndex < SyntaxNodeCount
-        If SyntaxRuleIs(NodeIndex, "expression", SyntaxNodes, Rules) <> 0 Then
-            State.ExpressionCount = State.ExpressionCount + 1
+        Dim AnalyzeNode As Long = 1
+        If WorkerCount > 1 Then
+            AnalyzeNode = 0
+            Dim ExpressionOwner As Long = BindingOwnerForNode(NodeIndex, Bindings, BindingCount)
+            If ExpressionOwner >= 0 And ExpressionOwner < SymbolCount Then
+                If WorkerBySymbol(ExpressionOwner) = WorkerIndex Then
+                    AnalyzeNode = 1
+                End If
+            Else
+                If WorkerIndex = 0 Then
+                    AnalyzeNode = 1
+                End If
+            End If
+        End If
+        If AnalyzeNode <> 0 And SyntaxRuleIs(NodeIndex, "expression", SyntaxNodes, Rules) <> 0 Then
+            WorkerExpressionCount = WorkerExpressionCount + 1
             Dim ResolvedSymbol As Long = ResolveExpressionSymbol(NodeIndex, Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Scopes, SymbolLinks, Symbols, SymbolCount, Bindings, BindingCount, ScopedCacheScopes, ScopedCacheNames, ScopedCacheResults, ScopedCacheCount, GlobalCacheSourceIds, GlobalCacheNames, GlobalCacheResults, GlobalCacheCount)
             If ResolvedSymbol < 0 Then
                 Dim InaccessibleSymbol As Long = FindInaccessibleReferenceSymbol(NodeIndex, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount)
@@ -418,7 +432,7 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
             End If
             NodeTypes(NodeIndex) = ExpressionType
             If ExpressionType >= 0 Then
-                State.TypedExpressionCount = State.TypedExpressionCount + 1
+                WorkerTypedExpressionCount = WorkerTypedExpressionCount + 1
                 Dim ConstantKind As Long = 0
                 Dim ExpressionConstantText As String = ""
                 If SyntaxNodes(NodeIndex).FirstToken = SyntaxNodes(NodeIndex).LastToken Then
@@ -446,6 +460,10 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
         NodeIndex = NodeIndex + 1
     Wend
 
+    AnalyzeExpressionWorker = 1
+End Function
+
+Sub FinalizeSemanticConstants(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long)
     Dim SymbolIndex As Long = 0
     While SymbolIndex < SymbolCount
         If Symbols(SymbolIndex).SymbolKind = SemanticSymbolConstant() Or Symbols(SymbolIndex).SymbolKind = SemanticSymbolMember() Then
@@ -462,5 +480,15 @@ Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes
         End If
         SymbolIndex = SymbolIndex + 1
     Wend
+End Sub
+
+Function AnalyzeExpressions(ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Scopes() As SemanticScope, ByRef SymbolLinks() As SemanticSymbolLink, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    Dim WorkerBySymbol() As Long
+    Dim WorkerExpressionCount As Long = 0
+    Dim WorkerTypedExpressionCount As Long = 0
+    Call AnalyzeExpressionWorker(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, SymbolLinks, Symbols, SymbolCount, WorkerBySymbol, 0, 1, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity, WorkerExpressionCount, WorkerTypedExpressionCount)
+    State.ExpressionCount = WorkerExpressionCount
+    State.TypedExpressionCount = WorkerTypedExpressionCount
+    Call FinalizeSemanticConstants(Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Symbols, SymbolCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     AnalyzeExpressions = 1
 End Function

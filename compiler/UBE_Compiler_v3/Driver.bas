@@ -405,7 +405,14 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
     Dim SemanticBindings() As SemanticNodeBinding
     Dim SemanticBindingCount As Long = 0
     Dim SemanticBindingCapacity As Long = 0
-    Call AnalyzeSemantics(Project, Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, GrammarRules, SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticTypeCapacity, SemanticScopes, SemanticScopeCount, SemanticScopeCapacity, SemanticSymbols, SemanticSymbolCount, SemanticSymbolCapacity, SemanticLinks, SemanticLinkCount, SemanticLinkCapacity, SemanticExpressions, SemanticExpressionCount, SemanticExpressionCapacity, SemanticBindings, SemanticBindingCount, SemanticBindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    Dim SemanticEffectiveJobs As Long = 1
+    Call RunCompilerSemantics(Project, Sources, SourceCount, Envelopes, Tokens, TokenCount, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, SyntaxLinkCount, GrammarRules, GrammarRuleCount, SemanticStateValue, SemanticTypes, SemanticTypeCount, SemanticTypeCapacity, SemanticScopes, SemanticScopeCount, SemanticScopeCapacity, SemanticSymbols, SemanticSymbolCount, SemanticSymbolCapacity, SemanticLinks, SemanticLinkCount, SemanticLinkCapacity, SemanticExpressions, SemanticExpressionCount, SemanticExpressionCapacity, SemanticBindings, SemanticBindingCount, SemanticBindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity, RequestedJobs, FaultSite, SemanticEffectiveJobs)
+    If SemanticEffectiveJobs > Performance.EffectiveJobs Then
+        Performance.EffectiveJobs = SemanticEffectiveJobs
+    End If
+    If SemanticEffectiveJobs > 1 Then
+        Performance.ExecutionParallel = 1
+    End If
     Call ValidateRp8Closure(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, GrammarRules, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     If DiagnosticCount <> 0 Then
         Call ReportDriverFailure("semantic analysis", Diagnostics, DiagnosticCount, DiagnosticCapacity)

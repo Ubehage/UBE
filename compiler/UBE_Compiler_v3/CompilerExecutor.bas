@@ -2,8 +2,8 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "CompilerExecutor"
 
 ' The outer executor owns command publication, cancellation, cleanup, and the
-' final artifact.  Phase 3 adds a bounded per-source frontend worker pump
-' without changing this coordinator contract.
+' final artifact. Phase 3 adds a bounded per-source frontend worker pump and
+' Phase 4 adds procedure-semantic workers without changing this contract.
 Type CompilerTask
     TaskKind As Long
     OutputMode As Long

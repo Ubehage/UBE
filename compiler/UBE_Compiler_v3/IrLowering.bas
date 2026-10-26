@@ -68,7 +68,7 @@ Sub CacheIrStructuredRegionOwners(ByVal ProcedureNode As Long, ByVal ProcedureLa
             If ParentNode >= 0 Then
                 If Bindings(ParentNode).IrRegionKind = 0 Then
                     Bindings(ParentNode).IrRegionKind = 1
-                    If SyntaxRuleIs(ParentNode, "elseif-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "else-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "block-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "while-statement", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "sync-lock-statement", SyntaxNodes, Rules) <> 0 Then
+                    If SyntaxRuleIs(ParentNode, "elseif-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "else-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "block-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "single-line-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "while-statement", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(ParentNode, "sync-lock-statement", SyntaxNodes, Rules) <> 0 Then
                         Bindings(ParentNode).IrRegionKind = 2
                     End If
                 End If
@@ -109,7 +109,7 @@ Function IrStructuredRegionOwner(ByVal NodeIndex As Long, ByVal ProcedureNode As
     End If
     Dim CurrentNode As Long = SyntaxNodes(NodeIndex).ParentNode
     While CurrentNode >= 0 And CurrentNode <> ProcedureNode
-        If SyntaxRuleIs(CurrentNode, "elseif-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "else-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "block-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "while-statement", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "sync-lock-statement", SyntaxNodes, Rules) <> 0 Then
+        If SyntaxRuleIs(CurrentNode, "elseif-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "else-part", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "block-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "single-line-if", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "while-statement", SyntaxNodes, Rules) <> 0 Or SyntaxRuleIs(CurrentNode, "sync-lock-statement", SyntaxNodes, Rules) <> 0 Then
             IrStructuredRegionOwner = CurrentNode
             Exit Function
         End If
@@ -2465,14 +2465,14 @@ Function LowerReDimStatementToIr(ByVal StatementNode As Long, ByVal FunctionInde
 End Function
 
 
-Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode As Long, ByVal FunctionIndex As Long, ByRef CurrentBlock As Long, ByVal FailureBlock As Long, ByVal LoopExitBlock As Long, ByVal ResultStorage As Long, ByVal OwnerSymbol As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Rules() As GrammarRule, ByRef Functions() As IrFunction, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode As Long, ByVal FunctionIndex As Long, ByRef CurrentBlock As Long, ByVal FailureBlock As Long, ByVal LoopExitBlock As Long, ByVal ResultStorage As Long, ByVal OwnerSymbol As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Rules() As GrammarRule, ByRef Functions() As IrFunction, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByVal AllowedFirstToken As Long, ByVal AllowedLastToken As Long) As Long
     Dim LastToken As Long = -1
     Dim RegionFirstToken As Long = SyntaxNodes(RegionNode).FirstToken
     Dim RegionLastToken As Long = SyntaxNodes(RegionNode).LastToken
     Dim SearchNode As Long = RegionNode + 1
     Dim RegionLastNode As Long = SyntaxSubtreeLastNode(RegionNode, BindingCount, SyntaxNodes)
     While SearchNode <= RegionLastNode
-        If SyntaxNodes(SearchNode).FirstToken >= RegionFirstToken And SyntaxNodes(SearchNode).LastToken <= RegionLastToken And SyntaxNodes(SearchNode).FirstToken > LastToken Then
+        If SyntaxNodes(SearchNode).FirstToken >= RegionFirstToken And SyntaxNodes(SearchNode).LastToken <= RegionLastToken And SyntaxNodes(SearchNode).FirstToken > LastToken And (AllowedFirstToken < 0 Or (SyntaxNodes(SearchNode).FirstToken >= AllowedFirstToken And SyntaxNodes(SearchNode).LastToken <= AllowedLastToken)) Then
         If IrStructuredRegionOwner(SearchNode, ProcedureNode, Bindings, BindingCount, SyntaxNodes, Rules) = RegionNode Then
             Dim IsLabelDeclaration As Long = SyntaxRuleIs(SearchNode, "label-declaration", SyntaxNodes, Rules)
             If IsLabelDeclaration <> 0 Then
@@ -2613,6 +2613,7 @@ Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode A
             Else
             Dim IsAssignment As Long = SyntaxRuleIs(SearchNode, "assignment-statement", SyntaxNodes, Rules)
             Dim IsBlockIf As Long = SyntaxRuleIs(SearchNode, "block-if", SyntaxNodes, Rules)
+            Dim IsSingleLineIf As Long = SyntaxRuleIs(SearchNode, "single-line-if", SyntaxNodes, Rules)
             Dim IsWhile As Long = SyntaxRuleIs(SearchNode, "while-statement", SyntaxNodes, Rules)
             Dim IsSyncLock As Long = SyntaxRuleIs(SearchNode, "sync-lock-statement", SyntaxNodes, Rules)
             Dim IsCallStatement As Long = SyntaxRuleIs(SearchNode, "call-statement", SyntaxNodes, Rules)
@@ -2648,7 +2649,7 @@ Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode A
                     End If
                 End If
             End If
-            If IsAssignment <> 0 Or IsBlockIf <> 0 Or IsWhile <> 0 Or IsSyncLock <> 0 Or IsCallStatement <> 0 Or IsRaiseEvent <> 0 Or IsComponentStatement <> 0 Or IsReDimStatement <> 0 Or IsPrintStatement <> 0 Or IsExitStatement <> 0 Or IsGoToStatement <> 0 Or IsVariableItem <> 0 Then
+            If IsAssignment <> 0 Or IsBlockIf <> 0 Or IsSingleLineIf <> 0 Or IsWhile <> 0 Or IsSyncLock <> 0 Or IsCallStatement <> 0 Or IsRaiseEvent <> 0 Or IsComponentStatement <> 0 Or IsReDimStatement <> 0 Or IsPrintStatement <> 0 Or IsExitStatement <> 0 Or IsGoToStatement <> 0 Or IsVariableItem <> 0 Then
                 Dim StatementLocation As Long = IrLocationForSyntax(SearchNode, SyntaxNodes, Tokens, Locations, Build)
                 Dim StatementStartBlock As Long = AppendControlIrBlock(FunctionIndex, StatementLocation, Functions, Blocks, Build)
                 Dim StatementRouterBlock As Long = AppendControlIrBlock(FunctionIndex, StatementLocation, Functions, Blocks, Build)
@@ -2812,6 +2813,16 @@ Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode A
                             Exit Function
                         End If
                     Else
+                    If IsSingleLineIf <> 0 Then
+                        If LowerIrSingleLineIf(SearchNode, ProcedureNode, FunctionIndex, CurrentBlock, StatementFailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
+                            If Build.FailureSyntaxNode < 0 Then
+                                Build.FailureSyntaxNode = SearchNode
+                                Build.FailureStage = -250
+                            End If
+                            LowerIrStructuredRegion = 0
+                            Exit Function
+                        End If
+                    Else
                         If LowerIrWhile(SearchNode, ProcedureNode, FunctionIndex, CurrentBlock, StatementFailureBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
                             If Build.FailureSyntaxNode < 0 Then
                                 Build.FailureSyntaxNode = SearchNode
@@ -2820,6 +2831,7 @@ Function LowerIrStructuredRegion(ByVal RegionNode As Long, ByVal ProcedureNode A
                             LowerIrStructuredRegion = 0
                             Exit Function
                         End If
+                    End If
                     End If
                     End If
                     End If
@@ -2995,7 +3007,7 @@ Function LowerIrSyncLock(ByVal SyncNode As Long, ByVal ProcedureNode As Long, By
 
     CurrentBlock = BodyBlock
     Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
-    If LowerIrStructuredRegion(SyncNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
+    If LowerIrStructuredRegion(SyncNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Then
         LowerIrSyncLock = 0
         Exit Function
     End If
@@ -3055,7 +3067,7 @@ Function LowerIrWhile(ByVal WhileNode As Long, ByVal ProcedureNode As Long, ByVa
     End If
     CurrentBlock = BodyBlock
     Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
-    If LowerIrStructuredRegion(WhileNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, AfterBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
+    If LowerIrStructuredRegion(WhileNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, AfterBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Then
         LowerIrWhile = 0
         Exit Function
     End If
@@ -3066,6 +3078,89 @@ Function LowerIrWhile(ByVal WhileNode As Long, ByVal ProcedureNode As Long, ByVa
     CurrentBlock = AfterBlock
     Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
     LowerIrWhile = 1
+End Function
+
+Function LowerIrSingleLineIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal FunctionIndex As Long, ByRef CurrentBlock As Long, ByVal FailureBlock As Long, ByVal LoopExitBlock As Long, ByVal ResultStorage As Long, ByVal OwnerSymbol As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Rules() As GrammarRule, ByRef Functions() As IrFunction, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
+    Dim LocationIndex As Long = IrLocationForSyntax(IfNode, SyntaxNodes, Tokens, Locations, Build)
+    Dim ThenBlock As Long = AppendControlIrBlock(FunctionIndex, LocationIndex, Functions, Blocks, Build)
+    Dim FalseBlock As Long = AppendControlIrBlock(FunctionIndex, LocationIndex, Functions, Blocks, Build)
+    Dim MergeBlock As Long = AppendControlIrBlock(FunctionIndex, LocationIndex, Functions, Blocks, Build)
+    If ThenBlock < 0 Or FalseBlock < 0 Or MergeBlock < 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+
+    Dim ThenToken As Long = -1
+    Dim ElseToken As Long = -1
+    Dim TokenIndex As Long = SyntaxNodes(IfNode).FirstToken
+    While TokenIndex <= SyntaxNodes(IfNode).LastToken
+        If ThenToken < 0 Then
+            If EqualsFolded(Tokens(TokenIndex).Spelling, "Then") <> 0 Then
+                ThenToken = TokenIndex
+            End If
+        Else
+            If EqualsFolded(Tokens(TokenIndex).Spelling, "Else") <> 0 Then
+                ElseToken = TokenIndex
+                Exit While
+            End If
+        End If
+        TokenIndex = TokenIndex + 1
+    Wend
+    If ThenToken < 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+
+    Dim ConditionExpression As Long = FindControlConditionExpression(IfNode, "Then", Expressions, ExpressionCount, BindingCount, SyntaxNodes, Tokens)
+    If ConditionExpression < 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+    Dim ConditionValue As Long = LowerSemanticExpressionValue(ConditionExpression, FunctionIndex, CurrentBlock, FailureBlock, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Functions, Build.FunctionCount, Storages, Instructions, Operands, Values, Locations, Build, SyntaxNodes, Tokens)
+    Dim BooleanType As Long = FindSemanticType("Boolean", Types, TypeCount)
+    If ConditionValue < 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+    If Values(ConditionValue).TypeIndex <> BooleanType Then
+        Dim ConditionConvert As Long = AppendTypedIrValueInstruction(FunctionIndex, CurrentBlock, IrOpConvert(), BooleanType, FailureBlock, -1, 0, "", LocationIndex, Instructions, Values, Build)
+        If ConditionConvert < 0 Or AppendIrInstructionOperand(ConditionConvert, IrOperandValue(), ConditionValue, "", Instructions, Operands, Build) = 0 Then
+            LowerIrSingleLineIf = 0
+            Exit Function
+        End If
+        ConditionValue = Instructions(ConditionConvert).ResultValue
+    End If
+    If FinishIrConditionalBlock(FunctionIndex, CurrentBlock, ConditionValue, ThenBlock, FalseBlock, LocationIndex, Blocks, Instructions, Operands, Edges, Build) = 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+
+    Dim ThenLastToken As Long = SyntaxNodes(IfNode).LastToken
+    If ElseToken >= 0 Then
+        ThenLastToken = ElseToken - 1
+    End If
+    CurrentBlock = ThenBlock
+    Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
+    If LowerIrStructuredRegion(IfNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, ThenToken + 1, ThenLastToken) = 0 Or FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+
+    CurrentBlock = FalseBlock
+    Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
+    If ElseToken >= 0 Then
+        If LowerIrStructuredRegion(IfNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, ElseToken + 1, SyntaxNodes(IfNode).LastToken) = 0 Then
+            LowerIrSingleLineIf = 0
+            Exit Function
+        End If
+    End If
+    If FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
+        LowerIrSingleLineIf = 0
+        Exit Function
+    End If
+    CurrentBlock = MergeBlock
+    Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
+    LowerIrSingleLineIf = 1
 End Function
 
 Function LowerIrBlockIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal FunctionIndex As Long, ByRef CurrentBlock As Long, ByVal FailureBlock As Long, ByVal LoopExitBlock As Long, ByVal ResultStorage As Long, ByVal OwnerSymbol As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Expressions() As SemanticExpression, ByVal ExpressionCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Bindings() As SemanticNodeBinding, ByVal BindingCount As Long, ByRef Rules() As GrammarRule, ByRef Functions() As IrFunction, ByRef Storages() As IrStorage, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByRef Edges() As IrEdge, ByRef Locations() As IrLocation, ByRef Build As IrBuildState, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken) As Long
@@ -3102,7 +3197,7 @@ Function LowerIrBlockIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal
     End If
     CurrentBlock = ThenBlock
     Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
-    If LowerIrStructuredRegion(IfNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Or FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
+    If LowerIrStructuredRegion(IfNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Or FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
         LowerIrBlockIf = 0
         Exit Function
     End If
@@ -3138,7 +3233,7 @@ Function LowerIrBlockIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal
             End If
             CurrentBlock = ElseIfBody
             Blocks(CurrentBlock).FirstInstruction = Build.InstructionCount
-            If LowerIrStructuredRegion(PartNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Or FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
+            If LowerIrStructuredRegion(PartNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Or FinishIrBranchBlock(FunctionIndex, CurrentBlock, MergeBlock, IrEdgeFallthrough(), -1, LocationIndex, Blocks, Instructions, Edges, Build) = 0 Then
                 LowerIrBlockIf = 0
                 Exit Function
             End If
@@ -3150,7 +3245,7 @@ Function LowerIrBlockIf(ByVal IfNode As Long, ByVal ProcedureNode As Long, ByVal
     PartNode = IfNode + 1
     While PartNode <= IfLastNode
         If SyntaxRuleIs(PartNode, "else-part", SyntaxNodes, Rules) <> 0 And IrStructuredRegionOwner(PartNode, ProcedureNode, Bindings, BindingCount, SyntaxNodes, Rules) = IfNode Then
-            If LowerIrStructuredRegion(PartNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
+            If LowerIrStructuredRegion(PartNode, ProcedureNode, FunctionIndex, CurrentBlock, FailureBlock, LoopExitBlock, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Then
                 LowerIrBlockIf = 0
                 Exit Function
             End If
@@ -3358,7 +3453,7 @@ Function LowerSemanticProgramToIr(ByRef SemanticStateValue As SemanticState, ByR
             ProfileSetupMilliseconds = ProfileSetupMilliseconds + FunctionSetupEnd - FunctionSetupStart
             FunctionBodyStart = FunctionSetupEnd
         End If
-        If LowerIrStructuredRegion(Symbols(OwnerSymbol).SyntaxNode, Symbols(OwnerSymbol).SyntaxNode, FunctionIndex, CurrentBlock, FailureBlock, -1, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens) = 0 Then
+        If LowerIrStructuredRegion(Symbols(OwnerSymbol).SyntaxNode, Symbols(OwnerSymbol).SyntaxNode, FunctionIndex, CurrentBlock, FailureBlock, -1, ResultStorage, OwnerSymbol, Types, TypeCount, Expressions, ExpressionCount, Symbols, SymbolCount, Bindings, BindingCount, Rules, Functions, Storages, Blocks, Instructions, Operands, Values, Edges, Locations, Build, SyntaxNodes, Tokens, -1, -1) = 0 Then
             Dim FailureLine As Long = 0
             If Build.FailureSyntaxNode >= 0 Then
                 FailureLine = Tokens(SyntaxNodes(Build.FailureSyntaxNode).FirstToken).LineNumber

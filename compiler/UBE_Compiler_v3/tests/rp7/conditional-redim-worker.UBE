@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "RP7ConditionalRedimWorker"
+Kind = "Exe"
+Startup = "Main"
+Source = "conditional-redim-worker.bas"

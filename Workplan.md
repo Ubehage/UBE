@@ -62,8 +62,12 @@ nearer roadmap or progress file.
       superlinear semantic and IR lookup paths.
     - [x] Phase 1: freeze and prove the sequential seed/production bootstrap
       split and record seed/executor identities.
-    - [ ] Phase 2: implement the bounded executor API with one-job behavior,
+    - [x] Phase 2: implement the bounded executor API with one-job behavior,
       deterministic failure injection, cancellation, drain, and cleanup gates.
+    - [x] Phase 3: run independent source preprocessing, lexing, and parsing in
+      a bounded worker pump with manifest-order deterministic merge.
+    - [x] Phase 4: freeze declarations and types, analyze independent procedure
+      bodies with private worker state, and merge semantic results canonically.
 
 ## Handoff protocol
 

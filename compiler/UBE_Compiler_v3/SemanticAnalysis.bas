@@ -259,7 +259,7 @@ Sub MarkScopeTree(ByVal NodeIndex As Long, ByVal ScopeIndex As Long, ByVal Owner
     NodeOwners(NodeIndex) = OwnerSymbol
 End Sub
 
-Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim DeclarationBucketCount As Long = 65536
     Dim DeclarationBucketHeads() As Long
     ReDim DeclarationBucketHeads(DeclarationBucketCount - 1)
@@ -270,7 +270,7 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
     Wend
     If InitializeSemanticTypes(Types, TypeCount, TypeCapacity) = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4099", "<semantic>", 1, 1, "semantic type limit exceeded")
-        AnalyzeSemantics = 0
+        FreezeSemanticDeclarations = 0
         Exit Function
     End If
     State.PackageScope = AppendSemanticScope(Scopes, ScopeCount, ScopeCapacity, SemanticScopePackage(), -1, -1, 0, -1)
@@ -520,9 +520,11 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
     Wend
 
     Call ResolveSymbolTypes(Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Types, TypeCount, TypeCapacity, Symbols, SymbolCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
-    Call ValidateSemanticContracts(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    FreezeSemanticDeclarations = 1
+End Function
 
+Sub FinalizeSemanticAnalysis(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef Tokens() As LexicalToken, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef State As SemanticState, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long)
+    Call ValidateSemanticContracts(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     If EqualsFolded(Project.Kind, "Exe") <> 0 Then
         If State.EntryCount = 0 Then
             Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4002", Project.ManifestPath, 1, 1, "executable project requires exactly one module-level Main")
@@ -539,5 +541,14 @@ Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() A
     If DiagnosticCount <> 0 Then
         State.HasErrors = 1
     End If
+End Sub
+
+Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    If FreezeSemanticDeclarations(Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        AnalyzeSemantics = 0
+        Exit Function
+    End If
+    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     AnalyzeSemantics = 1
 End Function

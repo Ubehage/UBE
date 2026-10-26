@@ -168,12 +168,24 @@ seed remains sequential and independently verified.
 
 ### Phase 4: parallel procedure analysis
 
-- [ ] Separate deterministic declaration/type freezing from procedure-body
+- [x] Separate deterministic declaration/type freezing from procedure-body
   analysis.
-- [ ] Audit semantic caches and tables so workers receive read-only views or
+- [x] Audit semantic caches and tables so workers receive read-only views or
   private storage; remove hidden shared mutation.
-- [ ] Merge bindings and expressions by stable procedure ID and validate the
+- [x] Merge bindings and expressions by stable procedure ID and validate the
   merged model with the existing whole-program checks.
+
+Phase 4 completed on 2026-10-26. The production compiler freezes the canonical
+declaration, type, scope, link, symbol, and binding universe before launching
+procedure workers. Each worker reconstructs a private read-only snapshot, owns
+its lookup caches and result arenas, and publishes only after completion. The
+coordinator drains every worker, merges by stable syntax identity, reassigns
+canonical IDs, and runs the existing constant and whole-program validation.
+The sequential seed and `--jobs 1` continue through the original semantic path.
+Permanent gates compare semantic dumps and LLVM bytes for jobs 1, 2, and 8,
+repeat eight-worker builds, exercise a 16-procedure interleaving regression,
+verify actual effective-job profile metadata, and inject creation, wait, merge,
+and transfer failures with cleanup and false-success-output checks.
 
 ### Phase 5: parallel IR and LLVM fragments
 
@@ -213,6 +225,6 @@ seed remains sequential and independently verified.
 
 ## Next action
 
-Execute Phase 4: freeze declarations and types before scheduling independent
-procedure-body analysis, give workers read-only or private semantic state, and
-merge bindings and expressions by stable procedure identity.
+Execute Phase 5: build and verify function-local IR concurrently with local
+numbering, assign canonical global numbers during ordered merge, and emit LLVM
+and debugger fragments in canonical function order.

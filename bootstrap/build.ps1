@@ -875,6 +875,100 @@ $v3Phase3TransferProjectText = "UBE-Project 1`nName = `"Phase3Transfer`"`nKind =
 if ($LASTEXITCODE -ne 0) {
     throw 'Parallel frontend managed-token transfer regression failed'
 }
+
+$v3Phase4Project = Join-Path $v3Rp4Tests 'parallel-semantics.UBE'
+$v3Phase4DefaultLlvm = Join-Path $out 'v3-phase4-default.ll'
+$v3Phase4JobsOneLlvm = Join-Path $out 'v3-phase4-jobs-one.ll'
+$v3Phase4JobsTwoLlvm = Join-Path $out 'v3-phase4-jobs-two.ll'
+$v3Phase4JobsEightLlvm = Join-Path $out 'v3-phase4-jobs-eight.ll'
+& $v3Rp1Executable '--emit-llvm' $v3Phase4Project $v3Rp1Target $v3Phase4DefaultLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase4DefaultLlvm)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 4 failed its default sequential emission'
+}
+foreach ($phase4Emission in @(
+        @{ Jobs = '1'; Path = $v3Phase4JobsOneLlvm },
+        @{ Jobs = '2'; Path = $v3Phase4JobsTwoLlvm },
+        @{ Jobs = '8'; Path = $v3Phase4JobsEightLlvm })) {
+    & $v3Rp1Executable '--jobs' $phase4Emission.Jobs '--emit-llvm' `
+        $v3Phase4Project $v3Rp1Target $phase4Emission.Path
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $phase4Emission.Path)) {
+        throw "UBE Compiler v3 Beta 1 Phase 4 failed --jobs $($phase4Emission.Jobs) emission"
+    }
+}
+$v3Phase4ReferenceHash = (Get-FileHash -LiteralPath $v3Phase4DefaultLlvm -Algorithm SHA256).Hash
+foreach ($phase4Path in @($v3Phase4JobsOneLlvm, $v3Phase4JobsTwoLlvm, $v3Phase4JobsEightLlvm)) {
+    if ((Get-FileHash -LiteralPath $phase4Path -Algorithm SHA256).Hash -ne $v3Phase4ReferenceHash) {
+        throw 'Parallel procedure-body semantics changed emitted LLVM'
+    }
+}
+$v3Phase4ReferenceSemantics = @(& $v3Rp1Executable '--jobs' '1' '--dump-semantics' `
+    $v3Phase4Project $v3Rp1Target)
+if ($LASTEXITCODE -ne 0) {
+    throw 'UBE Compiler v3 Beta 1 Phase 4 failed sequential semantic serialization'
+}
+foreach ($phase4Jobs in @('2', '8')) {
+    $phase4Semantics = @(& $v3Rp1Executable '--jobs' $phase4Jobs '--dump-semantics' `
+        $v3Phase4Project $v3Rp1Target)
+    if ($LASTEXITCODE -ne 0 -or `
+            (Compare-Object $v3Phase4ReferenceSemantics $phase4Semantics -SyncWindow 0)) {
+        throw "Parallel procedure-body semantics changed semantic serialization for --jobs $phase4Jobs"
+    }
+}
+for ($phase4Repetition = 0; $phase4Repetition -lt 3; $phase4Repetition++) {
+    $phase4RepeatPath = Join-Path $out "v3-phase4-repeat-$phase4Repetition.ll"
+    & $v3Rp1Executable '--jobs' '8' '--emit-llvm' `
+        $v3Phase4Project $v3Rp1Target $phase4RepeatPath
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $phase4RepeatPath) -or `
+            (Get-FileHash -LiteralPath $phase4RepeatPath -Algorithm SHA256).Hash -ne $v3Phase4ReferenceHash) {
+        throw 'Parallel procedure-body semantics failed its reproducibility stress gate'
+    }
+}
+$v3Phase4Faults = [ordered]@{
+    'semantic-worker-creation' = 'error UBE5320: parallel semantic worker creation failed'
+    'semantic-worker-wait' = 'error UBE5321: parallel semantic worker drain failed'
+    'semantic-merge' = 'error UBE5322: parallel semantic deterministic merge failed'
+    'semantic-transfer' = 'error UBE5323: parallel semantic worker received an incomplete frozen snapshot'
+}
+foreach ($faultSite in $v3Phase4Faults.Keys) {
+    $faultOutput = Join-Path $out "v3-phase4-fault-$faultSite.ll"
+    Test-V3Rp1Failure -Name "phase4-$faultSite" `
+        -Arguments @('--executor-fault', $faultSite, '--jobs', '8', '--emit-llvm', `
+            $v3Phase4Project, $v3Rp1Target, $faultOutput) `
+        -ExpectedDiagnostic $v3Phase4Faults[$faultSite]
+    if (Test-Path -LiteralPath $faultOutput) {
+        throw "Parallel semantic fault $faultSite left a false-success output"
+    }
+    & $v3Rp1Executable '--jobs' '8' '--emit-llvm' `
+        $v3Phase4Project $v3Rp1Target $faultOutput
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $faultOutput) -or `
+            (Get-FileHash -LiteralPath $faultOutput -Algorithm SHA256).Hash -ne $v3Phase4ReferenceHash) {
+        throw "Parallel semantic cleanup failed after injected fault $faultSite"
+    }
+}
+$v3Phase4ProfileLlvm = Join-Path $out 'v3-phase4-profile.ll'
+$v3Phase4ProfilePath = Join-Path $out 'v3-phase4-profile.txt'
+& $v3Rp1Executable '--jobs' '8' '--profile' $v3Phase4Project $v3Rp1Target `
+    $v3Phase4ProfileLlvm $v3Phase4ProfilePath
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase4ProfileLlvm) -or `
+        -not (Test-Path -LiteralPath $v3Phase4ProfilePath)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 4 failed to produce its parallel performance profile'
+}
+$v3Phase4ProfileText = Get-Content -LiteralPath $v3Phase4ProfilePath
+foreach ($requiredProfileLine in @('execution=parallel', 'requested_jobs=8', 'effective_jobs=8')) {
+    if ($v3Phase4ProfileText -notcontains $requiredProfileLine) {
+        throw "Parallel semantic performance profile omitted $requiredProfileLine"
+    }
+}
+$v3Phase4ProfileValues = [ordered]@{}
+foreach ($profileLine in $v3Phase4ProfileText) {
+    $profileSeparator = $profileLine.IndexOf('=')
+    if ($profileSeparator -gt 0) {
+        $profileName = $profileLine.Substring(0, $profileSeparator)
+        $profileValue = $profileLine.Substring($profileSeparator + 1)
+        $v3Phase4ProfileValues[$profileName] = $profileValue
+    }
+}
+
 $v3Phase0ProfileLlvm = Join-Path $out 'v3-phase0-profile.ll'
 $v3Phase0ProfilePath = Join-Path $out 'v3-phase0-profile.txt'
 & $v3Rp1Executable '--profile' $v3Rp5StraightLineProject $v3Rp1Target `
@@ -1357,6 +1451,8 @@ Test-V3Rp6Failure -Name 'reference-cycle' `
 # must reproduce through both the seed-built and self-built production compilers.
 $v3Rp7Tests = Join-Path $v3Project 'tests/rp7'
 $v3Rp7NativeFixtureResults = @(
+    Test-V3Rp5NativeFixture -Name 'rp7-byref-worker' -Project (Join-Path $v3Rp7Tests 'byref-worker.UBE') -ExpectedOutput "1`n41`n6`n6" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-conditional-redim-worker' -Project (Join-Path $v3Rp7Tests 'conditional-redim-worker.UBE') -ExpectedOutput "1`n42" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-callnew-ignored' -Project (Join-Path $v3Rp7Tests 'callnew-ignored.UBE') -ExpectedOutput '77' -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-callnew' -Project (Join-Path $v3Rp7Tests 'callnew.UBE') -ExpectedOutput "-1`n1`n42" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-callnew-capture' -Project (Join-Path $v3Rp7Tests 'callnew-capture.UBE') -ExpectedOutput "12`n1`n30`n1`n31" -ExpectedExitCode 0
@@ -1502,7 +1598,7 @@ $v3SeedSourceHashes = Get-V3ManifestSourceHashes -ManifestPath $v3SeedManifest
 $v3Rp1BuildManifest = [ordered]@{
     schema = 'ube-v3-beta1-build-manifest-1'
     preview = 'RP8'
-    development_milestone = 'Beta 1 multithreading Phase 3'
+    development_milestone = 'Beta 1 multithreading Phase 4'
     compiler_generation = 3
     language = '1.0'
     project_format = 'UBE-Project 1'
@@ -1565,6 +1661,15 @@ $v3Rp1BuildManifest = [ordered]@{
         total_cpu_ms = [long]$v3Phase0ProfileValues['total_cpu_ms']
         peak_working_set_kib = [long]$v3Phase0ProfileValues['peak_working_set_kib']
         phase_timings = $v3Phase0PhaseTimings
+    }
+    parallel_semantics = [ordered]@{
+        policy = 'frozen declarations/types; private worker state; canonical semantic merge; byte-identical LLVM for jobs 1, 2, and 8'
+        tested_jobs = @(1, 2, 8)
+        llvm_sha256 = $v3Phase4ReferenceHash
+        requested_jobs = [int]$v3Phase4ProfileValues['requested_jobs']
+        effective_jobs = [int]$v3Phase4ProfileValues['effective_jobs']
+        execution = $v3Phase4ProfileValues['execution']
+        fault_codes = @('UBE5320', 'UBE5321', 'UBE5322', 'UBE5323')
     }
     self_build_comparison = [ordered]@{
         policy = 'byte-identical LLVM IR; equal-length COFF objects with identical SHA-256 after zeroing only the 4-byte COFF producer timestamp'
