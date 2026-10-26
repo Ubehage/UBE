@@ -61,26 +61,28 @@ Function IrOpcodeIsKnown(ByVal Opcode As Long) As Long
     IrOpcodeIsKnown = 0
 End Function
 
-Function IrBlockHasEdge(ByVal FunctionIndex As Long, ByVal FromBlock As Long, ByVal ToBlock As Long, ByRef Edges() As IrEdge, ByVal EdgeCount As Long) As Long
-    Dim EdgeIndex As Long = 0
-    While EdgeIndex < EdgeCount
+Function IrBlockHasEdge(ByVal FunctionIndex As Long, ByVal FromBlock As Long, ByVal ToBlock As Long, ByRef Edges() As IrEdge, ByRef FirstEdgeByBlock() As Long, ByRef NextEdge() As Long, ByRef EdgeProbeCount As Long) As Long
+    Dim EdgeIndex As Long = FirstEdgeByBlock(FromBlock)
+    While EdgeIndex >= 0
+        EdgeProbeCount = EdgeProbeCount + 1
         If Edges(EdgeIndex).FunctionIndex = FunctionIndex And Edges(EdgeIndex).FromBlock = FromBlock And Edges(EdgeIndex).ToBlock = ToBlock Then
             IrBlockHasEdge = 1
             Exit Function
         End If
-        EdgeIndex = EdgeIndex + 1
+        EdgeIndex = NextEdge(EdgeIndex)
     Wend
     IrBlockHasEdge = 0
 End Function
 
-Function IrBlockHasKindEdge(ByVal FunctionIndex As Long, ByVal FromBlock As Long, ByVal ToBlock As Long, ByVal EdgeKind As Long, ByRef Edges() As IrEdge, ByVal EdgeCount As Long) As Long
-    Dim EdgeIndex As Long = 0
-    While EdgeIndex < EdgeCount
+Function IrBlockHasKindEdge(ByVal FunctionIndex As Long, ByVal FromBlock As Long, ByVal ToBlock As Long, ByVal EdgeKind As Long, ByRef Edges() As IrEdge, ByRef FirstEdgeByBlock() As Long, ByRef NextEdge() As Long, ByRef EdgeProbeCount As Long) As Long
+    Dim EdgeIndex As Long = FirstEdgeByBlock(FromBlock)
+    While EdgeIndex >= 0
+        EdgeProbeCount = EdgeProbeCount + 1
         If Edges(EdgeIndex).FunctionIndex = FunctionIndex And Edges(EdgeIndex).FromBlock = FromBlock And Edges(EdgeIndex).ToBlock = ToBlock And Edges(EdgeIndex).EdgeKind = EdgeKind Then
             IrBlockHasKindEdge = 1
             Exit Function
         End If
-        EdgeIndex = EdgeIndex + 1
+        EdgeIndex = NextEdge(EdgeIndex)
     Wend
     IrBlockHasKindEdge = 0
 End Function
@@ -129,8 +131,9 @@ Function IrTypesExactlyMatch(ByVal LeftType As Long, ByVal RightType As Long, By
     End If
 End Function
 
-Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByVal GlobalCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByVal ParameterCount As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByVal BlockCount As Long, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByVal OperandCount As Long, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Edges() As IrEdge, ByVal EdgeCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByVal GlobalCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByVal ParameterCount As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByVal BlockCount As Long, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByVal OperandCount As Long, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Edges() As IrEdge, ByVal EdgeCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef EdgeProbeCount As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim Valid As Long = 1
+    EdgeProbeCount = 0
     If Program.FormatVersion <> 1 Then
         Call AddIrDiagnostic("UBE5000", "unsupported or missing IR format version", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         Valid = 0
@@ -138,6 +141,35 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
     If Program.EntryFunction < -1 Or Program.EntryFunction >= FunctionCount Then
         Call AddIrDiagnostic("UBE5001", "IR entry function index is outside function storage", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         Valid = 0
+    End If
+
+    ' Control-flow checks used to scan the complete edge array for every
+    ' branch and fallible instruction. That made verification quadratic in a
+    ' program's control-flow size (57,662 blocks and 91,679 edges in the v3
+    ' self-host baseline). Build one bounded adjacency index and restrict each
+    ' lookup to the source block's outgoing edges.
+    Dim FirstEdgeByBlock() As Long
+    Dim NextEdge() As Long
+    If BlockCount > 0 Then
+        ReDim FirstEdgeByBlock(BlockCount - 1)
+        Dim EdgeBlockIndex As Long = 0
+        While EdgeBlockIndex < BlockCount
+            FirstEdgeByBlock(EdgeBlockIndex) = -1
+            EdgeBlockIndex = EdgeBlockIndex + 1
+        Wend
+    End If
+    If EdgeCount > 0 Then
+        ReDim NextEdge(EdgeCount - 1)
+        Dim IndexedEdge As Long = EdgeCount - 1
+        While IndexedEdge >= 0
+            NextEdge(IndexedEdge) = -1
+            Dim IndexedFromBlock As Long = Edges(IndexedEdge).FromBlock
+            If IndexedFromBlock >= 0 And IndexedFromBlock < BlockCount Then
+                NextEdge(IndexedEdge) = FirstEdgeByBlock(IndexedFromBlock)
+                FirstEdgeByBlock(IndexedFromBlock) = IndexedEdge
+            End If
+            IndexedEdge = IndexedEdge - 1
+        Wend
     End If
 
     Dim Index As Long = 0
@@ -293,7 +325,7 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                     Call AddIrDiagnostic("UBE5008", "fallible IR instruction crosses a function boundary", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                     Valid = 0
                 Else
-                    If IrBlockHasKindEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).FailureTarget, IrEdgeError(), Edges, EdgeCount) = 0 Then
+                    If IrBlockHasKindEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).FailureTarget, IrEdgeError(), Edges, FirstEdgeByBlock, NextEdge, EdgeProbeCount) = 0 Then
                         Call AddIrDiagnostic("UBE5008", "fallible IR instruction has no matching error edge", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                         Valid = 0
                     End If
@@ -505,7 +537,7 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                 Call AddIrDiagnostic("UBE5004", "IR primary target crosses a function boundary", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 Valid = 0
             Else
-                If IrBlockHasEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).PrimaryTarget, Edges, EdgeCount) = 0 Then
+                If IrBlockHasEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).PrimaryTarget, Edges, FirstEdgeByBlock, NextEdge, EdgeProbeCount) = 0 Then
                     Call AddIrDiagnostic("UBE5004", "IR target has no matching control-flow edge", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                     Valid = 0
                 End If
@@ -516,7 +548,7 @@ Function VerifyProgramIr(ByRef Program As IrProgram, ByRef Globals() As IrGlobal
                 Call AddIrDiagnostic("UBE5004", "IR secondary target crosses a function boundary", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 Valid = 0
             Else
-                If IrBlockHasEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).SecondaryTarget, Edges, EdgeCount) = 0 Then
+                If IrBlockHasEdge(Instructions(Index).FunctionIndex, Instructions(Index).BlockIndex, Instructions(Index).SecondaryTarget, Edges, FirstEdgeByBlock, NextEdge, EdgeProbeCount) = 0 Then
                     Call AddIrDiagnostic("UBE5004", "IR secondary target has no matching control-flow edge", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                     Valid = 0
                 End If

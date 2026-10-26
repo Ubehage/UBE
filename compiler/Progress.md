@@ -6,19 +6,45 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Beta 1 — public-release hardening**
-- Active item: **multithreading Phase 3 — parallel source front end**.
-- Status: multithreading Phases 0, 1, and 2 are complete. Every compiler command
-  now passes through the bounded executor with default and explicit `--jobs 1`
-  behavior. Deterministic worker-registration, publication, result-allocation,
-  cancellation, drain, and merge failures release executor-owned state and
-  remove produced failure artifacts. The preserved Compiler v2 still builds
-  the seed, the seed builds production, and production remains at its exact
-  fixed point. RP8 and the exact 16-module `UBECore` slice remain verified.
-- Blockers: none recorded. Linux runtime execution is not claimed; RP8 verifies
-  the non-Windows target through LLVM and a Clang-accepted ELF object.
+- Active milestone: **Compiler v4 architecture and reuse decision**.
+- Active item: **v4 Task 0 — bounded parser/syntax prototypes and remaining
+  measured architecture decisions**.
+- Status: v3 Beta Phase 5 is closed as an optimization line. Its verified
+  self-host fell from 800.730 seconds to 400.656 seconds after removing major
+  repeated whole-program work, but its Phase 3/4 worker transport and coupled
+  data distribution are not a suitable foundation. V3 is preserved as the
+  executable UBE 1.0, diagnostic, ABI, package, test, and bootstrap oracle for
+  v4. The proposed documentation-only v4 boundary is under
+  `UBE_Compiler_v4/`; no v4 manifest or production source exists yet.
+- Blockers: none for Task 0 prototype work. Production scaffolding remains
+  gated until the complete Task 0 exit gate passes. Linux runtime execution is
+  still not claimed; v3 RP8 verifies the non-Windows boundary through LLVM and
+  a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-27: the owner approved the proposed v4 Task 0 direction, including
+  the reuse policy, ownership model, measured parser decision, library and
+  compiler-support split, deterministic identity rules, performance and
+  parallelism rules, bootstrap chain, deliverables, and exit gate. This
+  authorizes bounded prototype work, not production scaffolding.
+
+- 2026-10-27: drafted the Compiler v4 planning boundary. Added a proposed
+  ownership/phase design, explicit v3 reuse/retire matrix, library-extraction
+  candidates, an ordered 14-task roadmap, and task-specific agent instructions.
+  The owner subsequently approved this direction for bounded Task 0 prototype
+  work. No compiler source, project manifest, bootstrap script, or
+  source-library implementation changed as part of the v4 draft.
+
+- 2026-10-26: completed the bounded v3 Phase 5 investigation. Indexed IR edge
+  verification, canonical function-range LLVM emission, indexed safe points,
+  and numeric grammar-rule dispatch reduced the verified production self-host
+  from 800.730 seconds to 400.656 seconds. Seed-built and self-built LLVM are
+  byte-identical with SHA-256
+  `C80FC435047E1B31BE8296EC54115BEE797022F8BE67B41ACEE46747F41D318C`.
+  Normal Phase 3/4 worker activation remains suspended because private grammar,
+  token, syntax, and semantic-universe transport costs exceed useful work. The
+  detailed handoff is `UBE_Compiler_v3/performance/PHASE5_INVESTIGATION.md`.
 
 - 2026-10-25: completed Beta 1 multithreading Phase 2. Added the v2-compatible
   bounded task/executor coordinator, logical worker registration, worker-owned
@@ -262,14 +288,11 @@ roadmap.
 
 ## Next actions
 
-1. Execute Phase 3 of `UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`:
-   parallelize preprocessing, lexing, and parsing per source behind a phase
-   barrier, then merge indices and diagnostics in canonical manifest order.
-2. Establish Beta 1 hostile-input, environmental-failure, performance, memory,
-   and reproducibility thresholds.
-3. Preserve the complete RP8 self-build, exact `UBECore`, package, debugger,
-   optimization, platform, concurrency,
-   callback, component-lifetime, managed-memory, and foreign-ABI gates.
+1. Define and run the bounded Task 0 parser/syntax prototypes and measurements.
+2. Freeze the remaining phase interfaces, initial limits, diagnostic comparison
+   policy, dependency ownership, and accepted/rejected design record.
+3. Preserve the complete v3 fixed point and RP8 corpus as v4 differential and
+   bootstrap gates. Do not resume v3 worker expansion unless explicitly asked.
 
 ## Decisions in force
 
@@ -281,6 +304,10 @@ roadmap.
 - Previous working generations remain buildable and tested.
 - V2 is transitional; v3 is the first public-release target and must be
   developed and compiled with preserved v2.
+- V3 is now preserved as the executable reference/bootstrap bridge for v4;
+  v4 is a deliberate architectural generation and must be built first with v3.
+- The owner approved the v4 planning direction on 2026-10-27. Production
+  scaffolding remains gated until the measured Task 0 exit gate passes.
 - Fractional-to-integer conversion uses round-to-nearest, ties-to-even, with
   out-of-range failure. Invariant numeric text parsing trims surrounding
   whitespace, requires a complete match, accepts signs, decimal/exponent

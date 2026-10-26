@@ -46,6 +46,8 @@ Type CompilerPerformanceProfile
     IrEdgeCount As Long
     IrCleanupCount As Long
     IrLocationCount As Long
+    IrVerifyEdgeProbeCount As Long
+    LlvmInstructionVisitCount As Long
     GeneratedBytes As Long
 End Type
 
@@ -146,6 +148,8 @@ Function PerformanceProfileText(ByRef Profile As CompilerPerformanceProfile) As 
     TextValue = TextValue & ProfileField("ir_edge_count", Profile.IrEdgeCount)
     TextValue = TextValue & ProfileField("ir_cleanup_count", Profile.IrCleanupCount)
     TextValue = TextValue & ProfileField("ir_location_count", Profile.IrLocationCount)
+    TextValue = TextValue & ProfileField("ir_verify_edge_probe_count", Profile.IrVerifyEdgeProbeCount)
+    TextValue = TextValue & ProfileField("llvm_instruction_visit_count", Profile.LlvmInstructionVisitCount)
     TextValue = TextValue & ProfileField("generated_bytes", Profile.GeneratedBytes)
     PerformanceProfileText = TextValue
 End Function

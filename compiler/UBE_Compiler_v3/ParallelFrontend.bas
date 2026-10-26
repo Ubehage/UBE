@@ -102,7 +102,10 @@ Sub SortParallelDiagnostics(ByRef Diagnostics() As CompilerDiagnostic, ByVal Dia
     While Index < DiagnosticCount
         Dim Value As CompilerDiagnostic = Diagnostics(Index)
         Dim Position As Long = Index
-        While Position > 0 And ParallelDiagnosticComesBefore(Value, Diagnostics(Position - 1)) <> 0
+        While Position > 0
+            If ParallelDiagnosticComesBefore(Value, Diagnostics(Position - 1)) = 0 Then
+                Exit While
+            End If
             Diagnostics(Position) = Diagnostics(Position - 1)
             Position = Position - 1
         Wend
@@ -647,21 +650,42 @@ End Function
 Function RunCompilerFrontend(ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByVal OutputMode As Long, ByVal RequestedJobs As Long, ByVal FaultSite As String, ByRef Tokens() As LexicalToken, ByRef TokenCount As Long, ByRef TokenCapacity As Long, ByRef GrammarRules() As GrammarRule, ByRef GrammarRuleCount As Long, ByRef GrammarNodes() As GrammarExpression, ByRef GrammarNodeCount As Long, ByRef GrammarLinks() As GrammarChildLink, ByRef GrammarLinkCount As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef SyntaxNodeCount As Long, ByRef SyntaxNodeCapacity As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef SyntaxLinkCount As Long, ByRef SyntaxLinkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long, ByRef Performance As CompilerPerformanceProfile, ByRef FailedPhase As Long) As Long
     Dim EffectiveJobs As Long = ParallelFrontendJobs(RequestedJobs, SourceCount)
     Performance.RequestedJobs = RequestedJobs
-    Performance.EffectiveJobs = EffectiveJobs
-    If EffectiveJobs > 1 Then
-        Performance.ExecutionParallel = 1
-    End If
+    Performance.EffectiveJobs = 1
+    Performance.ExecutionParallel = 0
     Dim SourceTokenStarts() As Long
     Dim SourceTokenLimits() As Long
     ReDim SourceTokenStarts(SourceCount - 1)
     ReDim SourceTokenLimits(SourceCount - 1)
 
     Dim PhaseStart As Long = BeginProfilePhase(Performance)
-    If RunParallelLexWorkers(Sources, SourceCount, EffectiveJobs, 0, FaultSite, SourceTokenStarts, SourceTokenLimits, Tokens, TokenCount, TokenCapacity, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
-        Performance.FrontEndMilliseconds = EndProfilePhase(Performance, PhaseStart)
-        FailedPhase = 1
-        RunCompilerFrontend = 0
-        Exit Function
+    ' The Phase 3 transport gives each worker a private source/token arena and
+    ' copies every token back to the coordinator. Reproducible UBECore and
+    ' self-host measurements show that this costs more than the lexing it
+    ' distributes. Keep the worker path reachable for its deterministic
+    ' creation/drain failure regressions, but do normal work in the canonical
+    ' coordinator until workers can consume immutable shared source views.
+    Dim ExerciseFrontendWorkerFailure As Long = 0
+    If EqualsFolded(FaultSite, "frontend-worker-creation") <> 0 Or EqualsFolded(FaultSite, "frontend-worker-wait") <> 0 Then
+        ExerciseFrontendWorkerFailure = 1
+    End If
+    If ExerciseFrontendWorkerFailure <> 0 Then
+        If RunParallelLexWorkers(Sources, SourceCount, EffectiveJobs, 0, FaultSite, SourceTokenStarts, SourceTokenLimits, Tokens, TokenCount, TokenCapacity, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+            Performance.FrontEndMilliseconds = EndProfilePhase(Performance, PhaseStart)
+            FailedPhase = 1
+            RunCompilerFrontend = 0
+            Exit Function
+        End If
+    Else
+        Dim LexSourceIndex As Long = 0
+        While LexSourceIndex < SourceCount
+            SourceTokenStarts(LexSourceIndex) = TokenCount
+            Dim PreprocessedText As String = ""
+            If PreprocessOneSource(Sources(LexSourceIndex), PreprocessedText, Diagnostics, DiagnosticCount, DiagnosticCapacity) <> 0 Then
+                Call LexOneSource(Sources(LexSourceIndex), PreprocessedText, Tokens, TokenCount, TokenCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            End If
+            SourceTokenLimits(LexSourceIndex) = TokenCount
+            LexSourceIndex = LexSourceIndex + 1
+        Wend
     End If
     Performance.FrontEndMilliseconds = EndProfilePhase(Performance, PhaseStart)
     If DiagnosticCount <> 0 Then
@@ -692,12 +716,18 @@ Function RunCompilerFrontend(ByRef Sources() As SourceDocument, ByVal SourceCoun
     End If
 
     PhaseStart = BeginProfilePhase(Performance)
-    If RunParallelParseWorkers(Sources, SourceCount, EffectiveJobs, SourceTokenStarts, SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
-        Performance.ParseMilliseconds = EndProfilePhase(Performance, PhaseStart)
-        FailedPhase = 3
-        RunCompilerFrontend = 0
-        Exit Function
-    End If
+    ' Parsing workers currently reconstruct the complete embedded grammar in
+    ' each private arena. On both UBECore and self-host inputs that duplicated
+    ' setup costs more than parsing and makes additional jobs progressively
+    ' slower. The coordinator already owns the frozen grammar loaded above, so
+    ' parse each manifest-ordered token slice against it until a shareable
+    ' immutable grammar view is available to workers. Normal preprocessing and
+    ' lexing use the same coordinator fallback above.
+    Dim ParseSourceIndex As Long = 0
+    While ParseSourceIndex < SourceCount
+        Call ParseOneSource(Sources(ParseSourceIndex), GrammarRules, GrammarRuleCount, GrammarNodes, GrammarLinks, Tokens, SourceTokenStarts(ParseSourceIndex), SourceTokenLimits(ParseSourceIndex), SyntaxNodes, SyntaxNodeCount, SyntaxNodeCapacity, SyntaxLinks, SyntaxLinkCount, SyntaxLinkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        ParseSourceIndex = ParseSourceIndex + 1
+    Wend
     If EqualsFolded(FaultSite, "frontend-merge") <> 0 Then
         Call AddParallelFrontendDiagnostic("UBE5312", "parallel frontend deterministic merge failed", Diagnostics, DiagnosticCount, DiagnosticCapacity)
     End If

@@ -901,6 +901,20 @@ foreach ($phase4Path in @($v3Phase4JobsOneLlvm, $v3Phase4JobsTwoLlvm, $v3Phase4J
         throw 'Parallel procedure-body semantics changed emitted LLVM'
     }
 }
+$v3Phase4CoreJobsOneLlvm = Join-Path $out 'v3-phase4-ubecore-jobs-one.ll'
+$v3Phase4CoreJobsEightLlvm = Join-Path $out 'v3-phase4-ubecore-jobs-eight.ll'
+& $v3Rp1Executable '--jobs' '1' '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Phase4CoreJobsOneLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase4CoreJobsOneLlvm)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 4 failed the sequential UBECore regression'
+}
+& $v3Rp1Executable '--jobs' '8' '--emit-llvm' $ubeCoreProject $v3Rp1Target $v3Phase4CoreJobsEightLlvm
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase4CoreJobsEightLlvm)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 4 crashed or failed the eight-worker UBECore regression'
+}
+if ((Get-FileHash -LiteralPath $v3Phase4CoreJobsOneLlvm -Algorithm SHA256).Hash -ne `
+        (Get-FileHash -LiteralPath $v3Phase4CoreJobsEightLlvm -Algorithm SHA256).Hash) {
+    throw 'Parallel procedure-body semantics changed UBECore LLVM'
+}
 $v3Phase4ReferenceSemantics = @(& $v3Rp1Executable '--jobs' '1' '--dump-semantics' `
     $v3Phase4Project $v3Rp1Target)
 if ($LASTEXITCODE -ne 0) {
@@ -951,12 +965,12 @@ $v3Phase4ProfilePath = Join-Path $out 'v3-phase4-profile.txt'
     $v3Phase4ProfileLlvm $v3Phase4ProfilePath
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase4ProfileLlvm) -or `
         -not (Test-Path -LiteralPath $v3Phase4ProfilePath)) {
-    throw 'UBE Compiler v3 Beta 1 Phase 4 failed to produce its parallel performance profile'
+    throw 'UBE Compiler v3 Beta 1 Phase 4 failed to produce its bounded-fallback performance profile'
 }
 $v3Phase4ProfileText = Get-Content -LiteralPath $v3Phase4ProfilePath
-foreach ($requiredProfileLine in @('execution=parallel', 'requested_jobs=8', 'effective_jobs=8')) {
+foreach ($requiredProfileLine in @('execution=sequential', 'requested_jobs=8', 'effective_jobs=1')) {
     if ($v3Phase4ProfileText -notcontains $requiredProfileLine) {
-        throw "Parallel semantic performance profile omitted $requiredProfileLine"
+        throw "Bounded semantic fallback performance profile omitted $requiredProfileLine"
     }
 }
 $v3Phase4ProfileValues = [ordered]@{}
@@ -996,7 +1010,9 @@ foreach ($requiredProfileField in @(
         'phase_front_end_ms=', 'phase_parse_ms=', 'phase_semantics_ms=',
         'phase_ir_lower_ms=', 'phase_ir_verify_ms=', 'phase_llvm_ms=',
         'token_count=', 'syntax_node_count=', 'semantic_symbol_count=',
-        'semantic_expression_count=', 'ir_instruction_count=', 'generated_bytes=')) {
+        'semantic_expression_count=', 'ir_instruction_count=',
+        'ir_verify_edge_probe_count=', 'llvm_instruction_visit_count=',
+        'generated_bytes=')) {
     if (-not ($v3Phase0ProfileText | Where-Object { $_.StartsWith($requiredProfileField, [StringComparison]::Ordinal) })) {
         throw "Compiler performance profile omitted $requiredProfileField"
     }
@@ -1018,6 +1034,37 @@ $v3Phase0PhaseTimings = [ordered]@{
     ir_verify_ms = [long]$v3Phase0ProfileValues['phase_ir_verify_ms']
     llvm_ms = [long]$v3Phase0ProfileValues['phase_llvm_ms']
 }
+if ([long]$v3Phase0ProfileValues['llvm_instruction_visit_count'] -le 0 -or `
+        [long]$v3Phase0ProfileValues['llvm_instruction_visit_count'] -gt `
+        [long]$v3Phase0ProfileValues['ir_instruction_count']) {
+    throw 'LLVM function emission revisited instructions outside canonical function ranges'
+}
+$v3Phase5ControlProfileLlvm = Join-Path $out 'v3-phase5-control-profile.ll'
+$v3Phase5ControlProfilePath = Join-Path $out 'v3-phase5-control-profile.txt'
+& $v3Rp1Executable '--profile' (Join-Path $v3Rp5Tests 'control-flow.UBE') $v3Rp1Target `
+    $v3Phase5ControlProfileLlvm $v3Phase5ControlProfilePath
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $v3Phase5ControlProfileLlvm) -or `
+        -not (Test-Path -LiteralPath $v3Phase5ControlProfilePath)) {
+    throw 'UBE Compiler v3 Beta 1 Phase 5 failed its indexed control-flow profile'
+}
+$v3Phase5ControlProfileValues = [ordered]@{}
+foreach ($profileLine in (Get-Content -LiteralPath $v3Phase5ControlProfilePath)) {
+    $profileSeparator = $profileLine.IndexOf('=')
+    if ($profileSeparator -gt 0) {
+        $v3Phase5ControlProfileValues[$profileLine.Substring(0, $profileSeparator)] = `
+            $profileLine.Substring($profileSeparator + 1)
+    }
+}
+$v3Phase5ControlEdges = [long]$v3Phase5ControlProfileValues['ir_edge_count']
+$v3Phase5ControlEdgeProbes = [long]$v3Phase5ControlProfileValues['ir_verify_edge_probe_count']
+if ($v3Phase5ControlEdges -le 0 -or $v3Phase5ControlEdgeProbes -le 0 -or `
+        $v3Phase5ControlEdgeProbes -gt $v3Phase5ControlEdges * 16) {
+    throw 'IR verification did not retain a bounded source-block edge lookup'
+}
+if ([long]$v3Phase5ControlProfileValues['llvm_instruction_visit_count'] -gt `
+        [long]$v3Phase5ControlProfileValues['ir_instruction_count']) {
+    throw 'Control-flow LLVM emission revisited instructions outside canonical function ranges'
+}
 $v3Phase3ProfileLlvm = Join-Path $out 'v3-phase3-profile.ll'
 $v3Phase3ProfilePath = Join-Path $out 'v3-phase3-profile.txt'
 & $v3Rp1Executable '--jobs' '2' '--profile' $v3Phase3Project $v3Rp1Target `
@@ -1032,11 +1079,11 @@ if ((Get-FileHash -LiteralPath $v3Phase3ProfileLlvm -Algorithm SHA256).Hash -ne 
 $v3Phase3ProfileText = Get-Content -LiteralPath $v3Phase3ProfilePath
 foreach ($requiredProfileLine in @(
         'UBE-COMPILER-PROFILE 1',
-        'execution=parallel',
+        'execution=sequential',
         'requested_jobs=2',
-        'effective_jobs=2')) {
+        'effective_jobs=1')) {
     if ($v3Phase3ProfileText -notcontains $requiredProfileLine) {
-        throw "Parallel compiler performance profile omitted $requiredProfileLine"
+        throw "Bounded frontend fallback performance profile omitted $requiredProfileLine"
     }
 }
 $v3Phase0MissingProfileDirectory = Join-Path $out 'missing-profile-directory'
@@ -1663,7 +1710,7 @@ $v3Rp1BuildManifest = [ordered]@{
         phase_timings = $v3Phase0PhaseTimings
     }
     parallel_semantics = [ordered]@{
-        policy = 'frozen declarations/types; private worker state; canonical semantic merge; byte-identical LLVM for jobs 1, 2, and 8'
+        policy = 'worker fault paths retained; normal activation performance-gated to coordinator analysis; byte-identical LLVM for jobs 1, 2, and 8'
         tested_jobs = @(1, 2, 8)
         llvm_sha256 = $v3Phase4ReferenceHash
         requested_jobs = [int]$v3Phase4ProfileValues['requested_jobs']

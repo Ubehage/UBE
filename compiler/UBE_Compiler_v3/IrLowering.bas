@@ -698,27 +698,35 @@ Function FindExpressionInsideTokenRange(ByVal FirstToken As Long, ByVal LastToke
 End Function
 
 Function FindCalledParameterSymbol(ByVal ProcedureSymbol As Long, ByVal Ordinal As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
-    Dim SymbolIndex As Long = 0
-    While SymbolIndex < SymbolCount
-        If Symbols(SymbolIndex).ParentSymbol = ProcedureSymbol And Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
+    If ProcedureSymbol < 0 Or ProcedureSymbol >= SymbolCount Then
+        FindCalledParameterSymbol = -1
+        Exit Function
+    End If
+    Dim SymbolIndex As Long = Symbols(ProcedureSymbol).IrOwnedHead
+    While SymbolIndex >= 0
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
             If Symbols(SymbolIndex).ParameterOrdinal = Ordinal Then
                 FindCalledParameterSymbol = SymbolIndex
                 Exit Function
             End If
         End If
-        SymbolIndex = SymbolIndex + 1
+        SymbolIndex = Symbols(SymbolIndex).IrOwnedNext
     Wend
     FindCalledParameterSymbol = -1
 End Function
 
 Function CountCalledParameters(ByVal ProcedureSymbol As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long) As Long
+    If ProcedureSymbol < 0 Or ProcedureSymbol >= SymbolCount Then
+        CountCalledParameters = 0
+        Exit Function
+    End If
     Dim Count As Long = 0
-    Dim SymbolIndex As Long = 0
-    While SymbolIndex < SymbolCount
-        If Symbols(SymbolIndex).ParentSymbol = ProcedureSymbol And Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
+    Dim SymbolIndex As Long = Symbols(ProcedureSymbol).IrOwnedHead
+    While SymbolIndex >= 0
+        If Symbols(SymbolIndex).SymbolKind = SemanticSymbolParameter() Then
             Count = Count + 1
         End If
-        SymbolIndex = SymbolIndex + 1
+        SymbolIndex = Symbols(SymbolIndex).IrOwnedNext
     Wend
     CountCalledParameters = Count
 End Function

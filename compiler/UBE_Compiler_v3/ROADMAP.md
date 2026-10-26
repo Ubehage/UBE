@@ -460,6 +460,12 @@ without adding new language features.
   - [x] Phase 4: freeze declarations and types, analyze independent procedure
     bodies with private worker state, and merge bindings and expressions by
     stable syntax identity before whole-program validation.
+  - [x] Audit Phase 3/4 performance on self-host and UBECore workloads; repair
+    crash/quadratic merge defects and suspend normal worker activation because
+    private whole-project copies are slower than coordinator execution.
+  - [~] Phase 5: removed quadratic IR verification, LLVM function-emission
+    rescans, and repeated folded grammar-rule dispatch. Preserve the resulting
+    deterministic v3 compiler as the reference/bootstrap bridge for v4.
 - [ ] Run clean deterministic builds in continuous integration on every
   supported host/target combination.
 - [ ] Publish the supported toolchain/host/target matrix, bootstrap trust
@@ -485,9 +491,11 @@ alone is necessary but not sufficient.
 
 ## Immediate next action
 
-Continue Beta 1 with multithreading Phase 5 in
-`MULTITHREADED_COMPILER_PLAN.md`: construct and verify function-local IR in
-parallel, assign canonical global numbering during deterministic merge, and
-emit LLVM/debugger fragments in canonical function order.
-Keep the sequential seed, `--jobs 1`, and every RP8 fixed-point, package,
-debugger, optimization, platform, malformed-input, and exact-library gate.
+Preserve v3 as an executable language, diagnostic, ABI, and bootstrap oracle
+while defining the v4 compiler architecture. Reuse its corpus and every RP8
+fixed-point, package, debugger, optimization, platform, malformed-input, and
+exact-library gate as differential coverage. Do not copy the Phase 3/4
+whole-project worker transport into v4; start with indexed ownership, immutable
+shared inputs, function-local work, and canonical merge numbering. The measured
+handoff and final v3 baseline are in
+`performance/PHASE5_INVESTIGATION.md`.

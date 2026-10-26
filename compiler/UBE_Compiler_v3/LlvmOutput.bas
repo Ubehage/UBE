@@ -3490,8 +3490,32 @@ Function EmitLlvmObjectLifecycleHelpers(ByRef Abi As TargetAbiDescription, ByRef
     EmitLlvmObjectLifecycleHelpers = 1
 End Function
 
-Function EmitLlvmFunctions(ByRef Abi As TargetAbiDescription, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Managed As ManagedMetadata, ByRef ManagedRoots() As ManagedRoot, ByRef ManagedSafePoints() As ManagedSafePoint, ByRef RootForValue() As Long, ByRef LastUseHeads() As Long, ByRef LastUseNext() As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function EmitLlvmFunctions(ByRef Abi As TargetAbiDescription, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Managed As ManagedMetadata, ByRef ManagedRoots() As ManagedRoot, ByRef ManagedSafePoints() As ManagedSafePoint, ByRef RootForValue() As Long, ByRef LastUseHeads() As Long, ByRef LastUseNext() As Long, ByRef InstructionVisitCount As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim NewLine As String = StringFromByte(10)
+    InstructionVisitCount = 0
+    Dim FirstSafePointByInstruction() As Long
+    Dim NextSafePoint() As Long
+    If InstructionCount > 0 Then
+        ReDim FirstSafePointByInstruction(InstructionCount - 1)
+        Dim SafeInstruction As Long = 0
+        While SafeInstruction < InstructionCount
+            FirstSafePointByInstruction(SafeInstruction) = -1
+            SafeInstruction = SafeInstruction + 1
+        Wend
+    End If
+    If Managed.SafePointCount > 0 Then
+        ReDim NextSafePoint(Managed.SafePointCount - 1)
+        Dim IndexedSafePoint As Long = Managed.SafePointCount - 1
+        While IndexedSafePoint >= 0
+            NextSafePoint(IndexedSafePoint) = -1
+            SafeInstruction = ManagedSafePoints(IndexedSafePoint).InstructionIndex
+            If SafeInstruction >= 0 And SafeInstruction < InstructionCount Then
+                NextSafePoint(IndexedSafePoint) = FirstSafePointByInstruction(SafeInstruction)
+                FirstSafePointByInstruction(SafeInstruction) = IndexedSafePoint
+            End If
+            IndexedSafePoint = IndexedSafePoint - 1
+        Wend
+    End If
     Dim FunctionIndex As Long = 0
     While FunctionIndex < FunctionCount
         While FunctionIndex < FunctionCount
@@ -3539,8 +3563,28 @@ Function EmitLlvmFunctions(ByRef Abi As TargetAbiDescription, ByRef Types() As S
         Dim FunctionLocationNode As Long = LlvmDebugFunctionLocationNode(FunctionIndex, LocationCount, FunctionCount, InstructionCount)
         Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, Header & ") !dbg !" & LongToString(FunctionDebugNode) & " {" & NewLine)
         Dim PreviousBlock As Long = -1
-        Dim InstructionIndex As Long = 0
-        While InstructionIndex < InstructionCount
+        ' Function blocks are canonical contiguous records, but instruction
+        ' emission order is not block-index order (return/failure blocks are
+        ' reserved early and filled last). Derive the exact instruction span
+        ' once from this function's blocks instead of scanning every program
+        ' instruction once per function.
+        Dim FunctionInstructionStart As Long = InstructionCount
+        Dim FunctionInstructionLimit As Long = 0
+        Dim FunctionBlockOffset As Long = 0
+        While FunctionBlockOffset < Functions(FunctionIndex).BlockCount
+            Dim FunctionBlockIndex As Long = Functions(FunctionIndex).FirstBlock + FunctionBlockOffset
+            If Blocks(FunctionBlockIndex).FirstInstruction < FunctionInstructionStart Then
+                FunctionInstructionStart = Blocks(FunctionBlockIndex).FirstInstruction
+            End If
+            Dim FunctionBlockLimit As Long = Blocks(FunctionBlockIndex).FirstInstruction + Blocks(FunctionBlockIndex).InstructionCount
+            If FunctionBlockLimit > FunctionInstructionLimit Then
+                FunctionInstructionLimit = FunctionBlockLimit
+            End If
+            FunctionBlockOffset = FunctionBlockOffset + 1
+        Wend
+        Dim InstructionIndex As Long = FunctionInstructionStart
+        While InstructionIndex < FunctionInstructionLimit
+            InstructionVisitCount = InstructionVisitCount + 1
             If Instructions(InstructionIndex).FunctionIndex = FunctionIndex Then
                 If LlvmOpcodeIsCurrentlyEmittable(Instructions(InstructionIndex).Opcode) = 0 Then
                     Call AddIrDiagnostic("UBE5104", "verified IR opcode is not implemented by the RP5 LLVM writer", Diagnostics, DiagnosticCount, DiagnosticCapacity)
@@ -3662,12 +3706,10 @@ Function EmitLlvmFunctions(ByRef Abi As TargetAbiDescription, ByRef Types() As S
                     End If
                 End If
                 Dim InstructionDebugNode As Long = LlvmDebugInstructionLocationNode(InstructionIndex, LocationCount, FunctionCount, InstructionCount)
-                Dim SafeOffset As Long = 0
-                While SafeOffset < Managed.SafePointCount
-                    If ManagedSafePoints(SafeOffset).InstructionIndex = InstructionIndex Then
-                        Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, AttachLlvmDebugLocation("  call i32 @ube_gc_safe_point()" & NewLine, InstructionDebugNode))
-                    End If
-                    SafeOffset = SafeOffset + 1
+                Dim SafeOffset As Long = FirstSafePointByInstruction(InstructionIndex)
+                While SafeOffset >= 0
+                    Call AppendLlvmChunk(Chunks, ChunkCount, ChunkCapacity, AttachLlvmDebugLocation("  call i32 @ube_gc_safe_point()" & NewLine, InstructionDebugNode))
+                    SafeOffset = NextSafePoint(SafeOffset)
                 Wend
                 If Instructions(InstructionIndex).Opcode = IrOpReturn() Then
                     Dim MonitorCleanupOffset As Long = 0
@@ -4075,7 +4117,7 @@ Function PrepareLlvmManagedValueRoots(ByRef Values() As IrValue, ByVal ValueCoun
     PrepareLlvmManagedValueRoots = 1
 End Function
 
-Function EmitVerifiedIrToLlvm(ByRef Target As TargetDescription, ByRef Abi As TargetAbiDescription, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByVal GlobalCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByVal ParameterCount As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Managed As ManagedMetadata, ByRef ManagedLayouts() As ManagedLayout, ByRef ManagedSlots() As ManagedSlot, ByRef ManagedRoots() As ManagedRoot, ByRef ManagedSafePoints() As ManagedSafePoint, ByRef ManagedBarriers() As ManagedBarrier, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function EmitVerifiedIrToLlvm(ByRef Target As TargetDescription, ByRef Abi As TargetAbiDescription, ByRef Types() As SemanticType, ByVal TypeCount As Long, ByRef Symbols() As SemanticSymbol, ByVal SymbolCount As Long, ByRef Program As IrProgram, ByRef Globals() As IrGlobal, ByVal GlobalCount As Long, ByRef Functions() As IrFunction, ByVal FunctionCount As Long, ByRef Parameters() As IrParameter, ByVal ParameterCount As Long, ByRef Storages() As IrStorage, ByVal StorageCount As Long, ByRef Blocks() As IrBlock, ByRef Instructions() As IrInstruction, ByVal InstructionCount As Long, ByRef Operands() As IrOperand, ByRef Values() As IrValue, ByVal ValueCount As Long, ByRef Cleanups() As IrCleanup, ByVal CleanupCount As Long, ByRef Locations() As IrLocation, ByVal LocationCount As Long, ByRef Managed As ManagedMetadata, ByRef ManagedLayouts() As ManagedLayout, ByRef ManagedSlots() As ManagedSlot, ByRef ManagedRoots() As ManagedRoot, ByRef ManagedSafePoints() As ManagedSafePoint, ByRef ManagedBarriers() As ManagedBarrier, ByRef InstructionVisitCount As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim RootForValue() As Long
     Dim LastUseHeads() As Long
     Dim LastUseNext() As Long
@@ -4141,7 +4183,7 @@ Function EmitVerifiedIrToLlvm(ByRef Target As TargetDescription, ByRef Abi As Ta
         Exit Function
     End If
 
-    If EmitLlvmFunctions(Abi, Types, TypeCount, Symbols, SymbolCount, Functions, FunctionCount, Parameters, Storages, StorageCount, Blocks, Instructions, InstructionCount, Operands, Values, ValueCount, Cleanups, CleanupCount, Locations, LocationCount, Managed, ManagedRoots, ManagedSafePoints, RootForValue, LastUseHeads, LastUseNext, Chunks, ChunkCount, ChunkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+    If EmitLlvmFunctions(Abi, Types, TypeCount, Symbols, SymbolCount, Functions, FunctionCount, Parameters, Storages, StorageCount, Blocks, Instructions, InstructionCount, Operands, Values, ValueCount, Cleanups, CleanupCount, Locations, LocationCount, Managed, ManagedRoots, ManagedSafePoints, RootForValue, LastUseHeads, LastUseNext, InstructionVisitCount, Chunks, ChunkCount, ChunkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         EmitVerifiedIrToLlvm = 0
         Exit Function
     End If

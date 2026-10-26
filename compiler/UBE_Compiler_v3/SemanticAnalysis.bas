@@ -259,7 +259,7 @@ Sub MarkScopeTree(ByVal NodeIndex As Long, ByVal ScopeIndex As Long, ByVal Owner
     NodeOwners(NodeIndex) = OwnerSymbol
 End Sub
 
-Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByVal RuleCount As Long, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
     Dim DeclarationBucketCount As Long = 65536
     Dim DeclarationBucketHeads() As Long
     ReDim DeclarationBucketHeads(DeclarationBucketCount - 1)
@@ -268,6 +268,28 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
         DeclarationBucketHeads(DeclarationBucketIndex) = -1
         DeclarationBucketIndex = DeclarationBucketIndex + 1
     Wend
+    ' ProductionRule is already the canonical grammar identity. Resolve the
+    ' handful of declaration rules once instead of Unicode-folding every rule
+    ' name for every syntax node in the project.
+    Dim StatementBlockRule As Long = FindGrammarRule(Rules, RuleCount, "statement-block")
+    Dim ImplementsStatementRule As Long = FindGrammarRule(Rules, RuleCount, "implements-statement")
+    Dim ConstItemRule As Long = FindGrammarRule(Rules, RuleCount, "const-item")
+    Dim VariableItemRule As Long = FindGrammarRule(Rules, RuleCount, "variable-item")
+    Dim TypeDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "type-declaration")
+    Dim EnumDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "enum-declaration")
+    Dim EnumMemberRule As Long = FindGrammarRule(Rules, RuleCount, "enum-member")
+    Dim TypeFieldRule As Long = FindGrammarRule(Rules, RuleCount, "type-field")
+    Dim EventDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "event-declaration")
+    Dim InterfaceDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "interface-declaration")
+    Dim SubFunctionDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "sub-function-declaration")
+    Dim IntrinsicDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "intrinsic-declaration")
+    Dim ExternalDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "external-declaration")
+    Dim PropertyDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "property-declaration")
+    Dim ParameterRule As Long = FindGrammarRule(Rules, RuleCount, "parameter")
+    Dim LabelDeclarationRule As Long = FindGrammarRule(Rules, RuleCount, "label-declaration")
+    Dim LegacyDefTypeStatementRule As Long = FindGrammarRule(Rules, RuleCount, "legacy-def-type-statement")
+    Dim InlineAssemblyStatementRule As Long = FindGrammarRule(Rules, RuleCount, "inline-assembly-statement")
+    Dim BytecodeStatementRule As Long = FindGrammarRule(Rules, RuleCount, "bytecode-statement")
     If InitializeSemanticTypes(Types, TypeCount, TypeCapacity) = 0 Then
         Call AddDiagnostic(Diagnostics, DiagnosticCount, DiagnosticCapacity, "UBE4099", "<semantic>", 1, 1, "semantic type limit exceeded")
         FreezeSemanticDeclarations = 0
@@ -317,8 +339,8 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
 
     NodeIndex = 0
     While NodeIndex < SyntaxNodeCount
-        Dim RuleName As String = Rules(SyntaxNodes(NodeIndex).ProductionRule).RuleName
-        If EqualsFolded(RuleName, "statement-block") <> 0 Then
+        Dim ProductionRule As Long = SyntaxNodes(NodeIndex).ProductionRule
+        If ProductionRule = StatementBlockRule Then
             Dim EnclosingScope As Long = NearestSemanticScope(SyntaxNodes(NodeIndex).ParentNode, NodeScopes, SyntaxNodes)
             Dim EnclosingOwner As Long = NearestProcedureSymbol(SyntaxNodes(NodeIndex).ParentNode, NodeOwners, SyntaxNodes)
             If EnclosingScope >= 0 Then
@@ -326,7 +348,7 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
                 Call MarkScopeTree(NodeIndex, BlockScope, EnclosingOwner, NodeScopes, NodeOwners, SyntaxNodes, SyntaxLinks)
             End If
         End If
-        If EqualsFolded(RuleName, "implements-statement") <> 0 Then
+        If ProductionRule = ImplementsStatementRule Then
             Dim ImplementsName As String = ""
             Dim ImplementsToken As Long = SyntaxNodes(NodeIndex).FirstToken
             While ImplementsToken <= SyntaxNodes(NodeIndex).LastToken
@@ -344,47 +366,47 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
         Dim CreatesMemberScope As Long = 0
         Dim CreatesProcedureScope As Long = 0
         Dim AllowPropertyPeer As Long = 0
-        If EqualsFolded(RuleName, "const-item") <> 0 Then
+        If ProductionRule = ConstItemRule Then
             SymbolKind = SemanticSymbolConstant()
         End If
-        If EqualsFolded(RuleName, "variable-item") <> 0 Then
+        If ProductionRule = VariableItemRule Then
             SymbolKind = SemanticSymbolVariable()
         End If
-        If EqualsFolded(RuleName, "type-declaration") <> 0 Then
+        If ProductionRule = TypeDeclarationRule Then
             SymbolKind = SemanticSymbolType()
             CreatesMemberScope = 1
         End If
-        If EqualsFolded(RuleName, "enum-declaration") <> 0 Then
+        If ProductionRule = EnumDeclarationRule Then
             SymbolKind = SemanticSymbolEnum()
             CreatesMemberScope = 1
         End If
-        If EqualsFolded(RuleName, "enum-member") <> 0 Then
+        If ProductionRule = EnumMemberRule Then
             SymbolKind = SemanticSymbolMember()
         End If
-        If EqualsFolded(RuleName, "type-field") <> 0 Then
+        If ProductionRule = TypeFieldRule Then
             SymbolKind = SemanticSymbolMember()
         End If
-        If EqualsFolded(RuleName, "event-declaration") <> 0 Then
+        If ProductionRule = EventDeclarationRule Then
             SymbolKind = SemanticSymbolEvent()
             CreatesProcedureScope = 1
         End If
-        If EqualsFolded(RuleName, "interface-declaration") <> 0 Then
+        If ProductionRule = InterfaceDeclarationRule Then
             SymbolKind = SemanticSymbolInterface()
             CreatesMemberScope = 1
         End If
-        If EqualsFolded(RuleName, "sub-function-declaration") <> 0 Then
+        If ProductionRule = SubFunctionDeclarationRule Then
             SymbolKind = SemanticSymbolProcedure()
             CreatesProcedureScope = 1
         End If
-        If EqualsFolded(RuleName, "intrinsic-declaration") <> 0 Then
+        If ProductionRule = IntrinsicDeclarationRule Then
             SymbolKind = SemanticSymbolProcedure()
             CreatesProcedureScope = 1
         End If
-        If EqualsFolded(RuleName, "external-declaration") <> 0 Then
+        If ProductionRule = ExternalDeclarationRule Then
             SymbolKind = SemanticSymbolProcedure()
             CreatesProcedureScope = 1
         End If
-        If EqualsFolded(RuleName, "property-declaration") <> 0 Then
+        If ProductionRule = PropertyDeclarationRule Then
             SymbolKind = SemanticSymbolProperty()
             CreatesProcedureScope = 1
             AllowPropertyPeer = 1
@@ -447,8 +469,8 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
 
     NodeIndex = 0
     While NodeIndex < SyntaxNodeCount
-        Dim CurrentRule As String = Rules(SyntaxNodes(NodeIndex).ProductionRule).RuleName
-        If EqualsFolded(CurrentRule, "parameter") <> 0 Then
+        Dim CurrentRule As Long = SyntaxNodes(NodeIndex).ProductionRule
+        If CurrentRule = ParameterRule Then
             Dim ParameterNameNode As Long = DeclarationNameNode(NodeIndex, SyntaxNodes, SyntaxLinks, Rules)
             Dim ParameterName As String = SyntaxNodeTokenText(ParameterNameNode, SyntaxNodes, Tokens)
             Dim ParameterScope As Long = NearestSemanticScope(NodeIndex, NodeScopes, SyntaxNodes)
@@ -480,7 +502,7 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
                 End If
             End If
         End If
-        If EqualsFolded(CurrentRule, "label-declaration") <> 0 Then
+        If CurrentRule = LabelDeclarationRule Then
             Dim LabelName As String = SemanticLabelName(NodeIndex, SyntaxNodes, Tokens)
             Dim LabelOwner As Long = NearestProcedureSymbol(NodeIndex, NodeOwners, SyntaxNodes)
             Dim LabelParent As Long = -1
@@ -491,10 +513,10 @@ Function FreezeSemanticDeclarations(ByRef Sources() As SourceDocument, ByVal Sou
                 Call AddCheckedSemanticSymbol(SemanticSymbolLabel(), LabelName, LabelParent, LabelOwner, NodeIndex, 0, Sources, SyntaxNodes, Tokens, Symbols, SymbolCount, SymbolCapacity, Scopes, Links, LinkCount, LinkCapacity, DeclarationBucketHeads, DeclarationBucketCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
             End If
         End If
-        If EqualsFolded(CurrentRule, "legacy-def-type-statement") <> 0 Then
+        If CurrentRule = LegacyDefTypeStatementRule Then
             Call AddSemanticDiagnostic("UBE4010", NodeIndex, "legacy Def type directives are not supported; write an explicit As type", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
         End If
-        If EqualsFolded(CurrentRule, "inline-assembly-statement") <> 0 Or EqualsFolded(CurrentRule, "bytecode-statement") <> 0 Then
+        If CurrentRule = InlineAssemblyStatementRule Or CurrentRule = BytecodeStatementRule Then
             Call AddSemanticDiagnostic("UBE4030", NodeIndex, "unsafe source requires an explicitly enabled unsafe build context", Sources, SyntaxNodes, Tokens, Diagnostics, DiagnosticCount, DiagnosticCapacity)
         End If
         NodeIndex = NodeIndex + 1
@@ -543,12 +565,12 @@ Sub FinalizeSemanticAnalysis(ByRef Project As ProjectDescription, ByRef Sources(
     End If
 End Sub
 
-Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
-    If FreezeSemanticDeclarations(Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+Function AnalyzeSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByRef Rules() As GrammarRule, ByVal RuleCount As Long, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long) As Long
+    If FreezeSemanticDeclarations(Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         AnalyzeSemantics = 0
         Exit Function
     End If
-    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+    Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     AnalyzeSemantics = 1
 End Function
