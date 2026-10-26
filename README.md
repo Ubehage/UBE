@@ -127,8 +127,7 @@ buildable throughout this work.
 ## First public-release goals
 
 - A stable UBE language definition and grammar. ✔️
-- A preserved self-hosting v3 reference compiler built with v2. ✔️
-- A verified, self-hosting v4 compiler with measured ownership, scaling, and
+- A verified, self-hosting compiler v4 with measured ownership, scaling, and
   deterministic parallelism. 🚧
 - Lightweight, optimized 64-bit native executables. ✔️
 - A minimal compiler with runtime and standard-library functionality kept in a

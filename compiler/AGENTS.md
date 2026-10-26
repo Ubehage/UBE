@@ -3,6 +3,16 @@
 This folder contains the UBE compiler written in UBE.
 This is seperate from the zero-stage C++ compiler.
 
+## Golden rules for coding
+- **Never duplicate functionality**
+  If a needed function already exists in the compiler or standard library, do not write a new identical (or almost-identical) routine.
+- **Multithreaded compiling is a project priority**
+  All code must be thread-safe.
+- **Export as much code as possible to the standard library**
+  The compiler must be as minimal as practically possible.
+  Native datatypes, intrinsics and generel runtime-functionality should be exported when practical and when it doesn't affect runtime performance.
+
+
 ## Bootstrapping and build policy
 
 Each new compiler generation must have its own subfolder, named `UBE_Compiler_v1`, `UBE_Compiler_v2`, and so on.
