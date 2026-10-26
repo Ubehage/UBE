@@ -110,8 +110,8 @@ Function FreezeParallelSemanticData(ByRef Sources() As SourceDocument, ByVal Sou
     FreezeParallelSemanticData = Data
 End Function
 
-Sub AppendParallelExpressionWork(ByVal Result As ParallelFrontendResult, ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Bindings() As SemanticNodeBinding)
-    Dim Data As String = Result.SourceFilePath
+Function AppendParallelExpressionWork(ByVal Result As ParallelFrontendResult, ByVal NodeIndex As Long, ByRef SyntaxNodes() As SyntaxNode, ByRef Tokens() As LexicalToken, ByRef Bindings() As SemanticNodeBinding) As Long
+    Dim Data As String = ""
     Call AppendSemanticWireLong(Data, 1)
     Call AppendSemanticWireLong(Data, NodeIndex)
     Call AppendSemanticWireLong(Data, SyntaxNodes(NodeIndex).SourceId)
@@ -131,8 +131,8 @@ Sub AppendParallelExpressionWork(ByVal Result As ParallelFrontendResult, ByVal N
         Call AppendSemanticWireString(Data, Tokens(TokenIndex).Decoded)
         TokenIndex = TokenIndex + 1
     Wend
-    Result.SourceFilePath = Data
-End Sub
+    AppendParallelExpressionWork = Result.AppendSemanticWorkItem(Data)
+End Function
 
 Sub AppendParallelBindingWork(ByVal Result As ParallelFrontendResult, ByRef Binding As SemanticNodeBinding)
     Dim Data As String = Result.SourceFilePath
@@ -151,8 +151,7 @@ End Sub
 
 Sub ParallelSemanticWorkerBody(ByVal Result As ParallelFrontendResult)
     Dim FrozenData As String = Result.SourceContents
-    Dim WorkData As String = Result.SourceFilePath
-    If StringLength(FrozenData) = 0 Or StringLength(WorkData) = 0 Then
+    If StringLength(FrozenData) = 0 Or Result.SemanticWorkItemCount <= 0 Then
         Dim MissingExpressions() As SemanticExpression
         Dim MissingBindings() As SemanticNodeBinding
         Dim MissingDiagnostics() As CompilerDiagnostic
@@ -375,8 +374,11 @@ Sub ParallelSemanticWorkerBody(ByVal Result As ParallelFrontendResult)
     End If
     Dim EmptySyntaxLinks() As SyntaxChildLink
     Dim EmptyRules() As GrammarRule
-    Dim WorkCursor As Long = 0
-    While WorkCursor < StringLength(WorkData)
+    Dim WorkItemIndex As Long = 0
+    While WorkItemIndex < Result.SemanticWorkItemCount
+        Dim WorkData As String = Result.SemanticWorkItemAt(WorkItemIndex)
+        Dim WorkCursor As Long = 0
+        While WorkCursor < StringLength(WorkData)
         Dim RecordKind As Long = 0
         RecordKind = ReadSemanticWireLong(WorkData, WorkCursor)
         If RecordKind = 1 Then
@@ -496,6 +498,8 @@ Sub ParallelSemanticWorkerBody(ByVal Result As ParallelFrontendResult)
                 OutputBindings(AddedBinding).IrRegionKind = WireLongValue
             End If
         End If
+        Wend
+        WorkItemIndex = WorkItemIndex + 1
     Wend
     SyncLock ParallelGrammarLoadLock
         Call Result.StoreSemanticWorkerResult(Expressions, ExpressionCount, OutputBindings, OutputBindingCount, Diagnostics, DiagnosticCount, AnalyzedExpressionCount, TypedExpressionCount)
@@ -507,7 +511,10 @@ Sub SortParallelSemanticExpressions(ByRef Expressions() As SemanticExpression, B
     While Index < ExpressionCount
         Dim Value As SemanticExpression = Expressions(Index)
         Dim Position As Long = Index
-        While Position > 0 And Expressions(Position - 1).SyntaxNode > Value.SyntaxNode
+        While Position > 0
+            If Expressions(Position - 1).SyntaxNode <= Value.SyntaxNode Then
+                Exit While
+            End If
             Expressions(Position) = Expressions(Position - 1)
             Position = Position - 1
         Wend
@@ -531,7 +538,10 @@ Sub SortParallelSemanticBindings(ByRef Bindings() As SemanticNodeBinding, ByVal 
         Dim ValueIrRegionOwnerEncoded As Long = Bindings(Index).IrRegionOwnerEncoded
         Dim ValueIrRegionKind As Long = Bindings(Index).IrRegionKind
         Dim Position As Long = Index
-        While Position > 0 And Bindings(Position - 1).SyntaxNode > ValueSyntaxNode
+        While Position > 0
+            If Bindings(Position - 1).SyntaxNode <= ValueSyntaxNode Then
+                Exit While
+            End If
             Bindings(Position).StableId = Bindings(Position - 1).StableId
             Bindings(Position).SyntaxNode = Bindings(Position - 1).SyntaxNode
             Bindings(Position).ScopeIndex = Bindings(Position - 1).ScopeIndex
@@ -562,10 +572,10 @@ End Sub
 Function RunCompilerSemantics(ByRef Project As ProjectDescription, ByRef Sources() As SourceDocument, ByVal SourceCount As Long, ByRef Envelopes() As SourceEnvelopeInfo, ByRef Tokens() As LexicalToken, ByVal TokenCount As Long, ByRef SyntaxNodes() As SyntaxNode, ByVal SyntaxNodeCount As Long, ByRef SyntaxLinks() As SyntaxChildLink, ByVal SyntaxLinkCount As Long, ByRef Rules() As GrammarRule, ByVal RuleCount As Long, ByRef State As SemanticState, ByRef Types() As SemanticType, ByRef TypeCount As Long, ByRef TypeCapacity As Long, ByRef Scopes() As SemanticScope, ByRef ScopeCount As Long, ByRef ScopeCapacity As Long, ByRef Symbols() As SemanticSymbol, ByRef SymbolCount As Long, ByRef SymbolCapacity As Long, ByRef Links() As SemanticSymbolLink, ByRef LinkCount As Long, ByRef LinkCapacity As Long, ByRef Expressions() As SemanticExpression, ByRef ExpressionCount As Long, ByRef ExpressionCapacity As Long, ByRef Bindings() As SemanticNodeBinding, ByRef BindingCount As Long, ByRef BindingCapacity As Long, ByRef Diagnostics() As CompilerDiagnostic, ByRef DiagnosticCount As Long, ByRef DiagnosticCapacity As Long, ByVal RequestedJobs As Long, ByVal FaultSite As String, ByRef EffectiveJobs As Long) As Long
     EffectiveJobs = 1
     If RequestedJobs <= 1 Then
-        RunCompilerSemantics = AnalyzeSemantics(Project, Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        RunCompilerSemantics = AnalyzeSemantics(Project, Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
         Exit Function
     End If
-    If FreezeSemanticDeclarations(Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+    If FreezeSemanticDeclarations(Sources, SourceCount, Envelopes, Tokens, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, State, Types, TypeCount, TypeCapacity, Scopes, ScopeCount, ScopeCapacity, Symbols, SymbolCount, SymbolCapacity, Links, LinkCount, LinkCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
         RunCompilerSemantics = 0
         Exit Function
     End If
@@ -585,12 +595,65 @@ Function RunCompilerSemantics(ByRef Project As ProjectDescription, ByRef Sources
         WorkerCount = ProcedureCount
     End If
     If WorkerCount <= 1 Then
-        Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        RunCompilerSemantics = 1
+        Exit Function
+    End If
+    ' Each Phase 4 worker currently receives and reconstructs the complete
+    ' frozen semantic universe. Measurements on UBECore and the compiler show
+    ' that this transport is more expensive than coordinator analysis at every
+    ' supported job count. Do not activate a known-slower optimization during
+    ' normal compilation. Explicit semantic fault sites still enter the worker
+    ' path so creation, transfer, drain, merge, and cleanup remain covered.
+    Dim ExerciseSemanticWorkers As Long = 0
+    If EqualsFolded(FaultSite, "semantic-worker-creation") <> 0 Or EqualsFolded(FaultSite, "semantic-transfer") <> 0 Or EqualsFolded(FaultSite, "semantic-worker-wait") <> 0 Or EqualsFolded(FaultSite, "semantic-merge") <> 0 Then
+        ExerciseSemanticWorkers = 1
+    End If
+    If ExerciseSemanticWorkers = 0 Then
+        Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        RunCompilerSemantics = 1
+        Exit Function
+    End If
+    ' The current worker wire format owns one token slice per expression.
+    ' Nested expressions overlap, so a compiler-sized source can otherwise
+    ' multiply its token set many times over before workers begin. Keep that
+    ' representation bounded: when publication would exceed one complete
+    ' project token budget, use the proven sequential body analyzer. This also
+    ' bounds the explicit worker fault-path regressions retained above.
+    Dim SemanticTransferTokenCount As Long = 0
+    Dim TransferNodeIndex As Long = 0
+    Dim SemanticTransferFits As Long = 1
+    While TransferNodeIndex < SyntaxNodeCount
+        If SyntaxRuleIs(TransferNodeIndex, "expression", SyntaxNodes, Rules) <> 0 Then
+            Dim TransferTokenCount As Long = SyntaxNodes(TransferNodeIndex).LastToken - SyntaxNodes(TransferNodeIndex).FirstToken + 1
+            If TransferTokenCount <= 0 Then
+                SemanticTransferFits = 0
+                Exit While
+            End If
+            If TransferTokenCount > TokenCount Or SemanticTransferTokenCount > TokenCount - TransferTokenCount Then
+                SemanticTransferFits = 0
+                Exit While
+            End If
+            SemanticTransferTokenCount = SemanticTransferTokenCount + TransferTokenCount
+        End If
+        TransferNodeIndex = TransferNodeIndex + 1
+    Wend
+    If SemanticTransferFits = 0 Then
+        Call AnalyzeExpressions(Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, RuleCount, Tokens, Types, TypeCount, Scopes, Links, Symbols, SymbolCount, State, Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
         Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerSemantics = 1
         Exit Function
     End If
     EffectiveJobs = WorkerCount
+    ' Semantic result publication must own its synchronization setup. Normal
+    ' front-end compilation can intentionally remain sequential, so it is not
+    ' valid to depend on the front-end worker path having initialized this
+    ' shared publication lock as a side effect.
+    If ParallelGrammarLoadLock Is Nothing Then
+        Set ParallelGrammarLoadLock = New ParallelFrontendResult
+    End If
     If EqualsFolded(FaultSite, "semantic-worker-creation") <> 0 Then
         Call AddParallelSemanticDiagnostic("UBE5320", "parallel semantic worker creation failed", Diagnostics, DiagnosticCount, DiagnosticCapacity)
         RunCompilerSemantics = 0
@@ -634,24 +697,23 @@ Function RunCompilerSemantics(ByRef Project As ProjectDescription, ByRef Sources
             If ExpressionOwner >= 0 And ExpressionOwner < SymbolCount Then
                 ExpressionWorker = WorkerBySymbol(ExpressionOwner)
             End If
-        Call AppendParallelExpressionWork(AcquireParallelResultSlot(ExpressionWorker), NodeIndex, SyntaxNodes, Tokens, Bindings)
+        If AppendParallelExpressionWork(AcquireParallelResultSlot(ExpressionWorker), NodeIndex, SyntaxNodes, Tokens, Bindings) = 0 Then
+            Call AddParallelSemanticDiagnostic("UBE5323", "parallel semantic expression publication exceeded a configured bound", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            RunCompilerSemantics = 0
+            Exit Function
+        End If
         End If
         NodeIndex = NodeIndex + 1
     Wend
-    Dim BindingIndex As Long = 0
-    While BindingIndex < BindingCount
-        Dim BindingOwner As Long = Bindings(BindingIndex).OwnerSymbol
-        Dim BindingWorker As Long = 0
-        If BindingOwner >= 0 And BindingOwner < SymbolCount Then
-            BindingWorker = WorkerBySymbol(BindingOwner)
-        End If
-        Call AppendParallelBindingWork(AcquireParallelResultSlot(BindingWorker), Bindings(BindingIndex))
-        BindingIndex = BindingIndex + 1
-    Wend
+    ' Declaration freezing already produced the complete binding table in
+    ' canonical syntax-node order. Procedure workers only read the binding for
+    ' each expression; they do not transform bindings. Keep that coordinator-
+    ' owned table in place instead of serializing every syntax-node binding to
+    ' a worker, copying it back unchanged, and insertion-sorting the result.
+    ' On the self-host input that redundant round trip exceeded one million
+    ' records and dominated the parallel semantic phase.
     ExpressionCount = 0
     ExpressionCapacity = 0
-    BindingCount = 0
-    BindingCapacity = 0
     Dim ThreadIds() As LongLong
     ReDim ThreadIds(WorkerCount - 1)
     Dim LaunchedCount As Long = 0
@@ -694,17 +756,59 @@ Function RunCompilerSemantics(ByRef Project As ProjectDescription, ByRef Sources
     End If
     State.ExpressionCount = 0
     State.TypedExpressionCount = 0
+    Dim WorkerExpressionCursors() As Long
+    ReDim WorkerExpressionCursors(WorkerCount - 1)
+    Dim RemainingWorkerExpressions As Long = 0
     WorkerIndex = 0
     While WorkerIndex < WorkerCount
         Dim MergeResult As ParallelFrontendResult
         Set MergeResult = AcquireParallelResultSlot(WorkerIndex)
-        Call MergeResult.MergeSemanticResult(Expressions, ExpressionCount, ExpressionCapacity, Bindings, BindingCount, BindingCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity)
+        RemainingWorkerExpressions = RemainingWorkerExpressions + MergeResult.SemanticExpressionCount
+        Call MergeResult.MergeDiagnostics(Diagnostics, DiagnosticCount, DiagnosticCapacity)
         State.ExpressionCount = State.ExpressionCount + MergeResult.SemanticAnalyzedExpressionCount
         State.TypedExpressionCount = State.TypedExpressionCount + MergeResult.SemanticTypedExpressionCount
         WorkerIndex = WorkerIndex + 1
     Wend
-    Call SortParallelSemanticExpressions(Expressions, ExpressionCount)
-    Call SortParallelSemanticBindings(Bindings, BindingCount)
+    ' Each worker receives expression nodes in ascending syntax order, so its
+    ' result is already sorted. Merge those bounded sorted streams directly
+    ' instead of appending in worker order and insertion-sorting the complete
+    ' self-host expression set.
+    While RemainingWorkerExpressions > 0
+        Dim BestWorker As Long = -1
+        Dim BestSyntaxNode As Long = -1
+        WorkerIndex = 0
+        While WorkerIndex < WorkerCount
+            Dim CandidateResult As ParallelFrontendResult
+            Set CandidateResult = AcquireParallelResultSlot(WorkerIndex)
+            Dim CandidateCursor As Long = WorkerExpressionCursors(WorkerIndex)
+            If CandidateCursor < CandidateResult.SemanticExpressionCount Then
+                Dim CandidateSyntaxNode As Long = CandidateResult.SemanticExpressionSyntaxNodeAt(CandidateCursor)
+                If BestWorker < 0 Then
+                    BestWorker = WorkerIndex
+                    BestSyntaxNode = CandidateSyntaxNode
+                ElseIf CandidateSyntaxNode < BestSyntaxNode Then
+                    BestWorker = WorkerIndex
+                    BestSyntaxNode = CandidateSyntaxNode
+                End If
+            End If
+            WorkerIndex = WorkerIndex + 1
+        Wend
+        If BestWorker < 0 Then
+            Call AddParallelSemanticDiagnostic("UBE5322", "parallel semantic deterministic merge lost an expression result", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            RunCompilerSemantics = 0
+            Exit Function
+        End If
+        Dim SelectedResult As ParallelFrontendResult
+        Set SelectedResult = AcquireParallelResultSlot(BestWorker)
+        Dim SelectedCursor As Long = WorkerExpressionCursors(BestWorker)
+        If SelectedResult.AppendSemanticExpressionAt(SelectedCursor, Expressions, ExpressionCount, ExpressionCapacity) = 0 Then
+            Call AddParallelSemanticDiagnostic("UBE5322", "parallel semantic deterministic merge exceeded the expression limit", Diagnostics, DiagnosticCount, DiagnosticCapacity)
+            RunCompilerSemantics = 0
+            Exit Function
+        End If
+        WorkerExpressionCursors(BestWorker) = SelectedCursor + 1
+        RemainingWorkerExpressions = RemainingWorkerExpressions - 1
+    Wend
     Call SortParallelDiagnostics(Diagnostics, DiagnosticCount)
     Call FinalizeSemanticConstants(Sources, SyntaxNodes, SyntaxLinks, Rules, Tokens, Symbols, SymbolCount, Diagnostics, DiagnosticCount, DiagnosticCapacity)
     Call FinalizeSemanticAnalysis(Project, Sources, SyntaxNodes, SyntaxNodeCount, SyntaxLinks, Rules, Tokens, Types, TypeCount, Symbols, SymbolCount, State, Diagnostics, DiagnosticCount, DiagnosticCapacity)

@@ -68,6 +68,20 @@ nearer roadmap or progress file.
       a bounded worker pump with manifest-order deterministic merge.
     - [x] Phase 4: freeze declarations and types, analyze independent procedure
       bodies with private worker state, and merge semantic results canonically.
+    - [~] Phase 5: the v3 audit removed quadratic whole-edge IR verification,
+      per-function whole-program LLVM scans, and repeated folded grammar-rule
+      dispatch, reducing the verified self-host from 800.7 to 400.7 seconds.
+      V3 is now retained as the reference/bootstrap bridge for the planned v4
+      design; do not extend its whole-project worker transport architecture.
+- [~] Define Compiler v4 as a clean architectural generation while preserving
+  v3 as its bootstrap compiler and differential oracle.
+  - [x] Draft the v4 ownership model, reuse/retire classification, ordered
+    milestone roadmap, and task-specific agent instructions under
+    `compiler/UBE_Compiler_v4/`.
+  - [x] Obtain owner approval for the Task 0 architecture, parser decision
+    process, library/compiler-support split, and task ordering.
+  - [~] Run the approved bounded design prototypes and freeze phase interfaces
+    before creating the v4 manifest or production source scaffold.
 
 ## Handoff protocol
 

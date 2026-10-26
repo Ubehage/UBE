@@ -376,6 +376,41 @@ by a verified, self-hosting, optimized 64-bit compiler suitable for the runtime,
 standard library, debugger, and native IDE work tracked in
 `project-docs/Roadmap.md`.
 
+## Milestone 9: rebuild the production compiler as v4
+
+Purpose: preserve v3 as the executable UBE 1.0 and bootstrap oracle while
+replacing its coupled whole-program implementation with a compiler designed
+around small owned phase results, indexed lookup, deterministic local work, and
+the correct compiler/library boundary.
+
+The proposed architecture, reuse classification, ordered roadmap, and bounded
+agent task packets are maintained under
+[`UBE_Compiler_v4/`](UBE_Compiler_v4/README.md). V4 remains documentation-only
+until its Task 0 architecture gate receives owner approval.
+
+- [x] Review and approve the v4 architecture, reuse plan, task order, parser
+  decision gate, and library/compiler-support boundary. Owner-approved on
+  2026-10-27.
+- [~] Complete the bounded Task 0 prototypes and freeze the remaining measured
+  architecture decisions before production scaffolding.
+- [ ] Move or implement approved general-purpose foundations in `UBECore` or a
+  versioned compiler-support project before compiler phases depend on them.
+- [ ] Create the v4 manifest/startup scaffold only after the architecture gate.
+- [ ] Establish one narrow v3-built end-to-end vertical slice before expanding
+  language coverage.
+- [ ] Reimplement the complete frozen UBE 1.0 front end, semantics, local IR,
+  backend, packages, and runtime contracts with differential v3 coverage.
+- [ ] Enable deterministic parallel phases only after one-job parity,
+  representative speedup, memory, cancellation, and cleanup gates pass.
+- [ ] Reach the v3-built v4 -> self-built v4 fixed point and reproduce the exact
+  selected source-library slice without weakening prior trust gates.
+- [ ] Pass hostile-input, environmental-failure, performance, portability,
+  documentation, and offline release gates before making v4 authoritative.
+
+Exit gate: v4 satisfies the complete frozen language, library, runtime,
+package, debugger, target, determinism, never-crash, and performance contracts;
+v1 through v3 remain preserved and reproducibly buildable.
+
 ## Definition of compiler-roadmap completion
 
 - [ ] A clean checkout builds stage zero, every preserved compiler generation,

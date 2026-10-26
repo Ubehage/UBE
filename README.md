@@ -84,32 +84,52 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 8 is complete. Beta 1
-> multithreading Phases 0 through 4 are complete. With caller-selected
-> `--jobs N`, the production compiler now runs independent source frontends and
-> procedure-body semantic analysis concurrently; one job remains the default
-> and reference path. Declarations and types are frozen before semantic workers
-> start, worker-local results are merged in canonical order, and deterministic
-> fault, cleanup, parity, stress, and reproducibility gates are permanent. Work
-> now moves to Phase 5: parallel function-local IR and LLVM fragments.
+> **Current milestone:** Compiler v3 Release Preview 8 remains the verified,
+> self-hosting UBE 1.0 reference and bootstrap bridge. Its Beta Phase 5 audit
+> removed major repeated whole-program work and reduced the measured compiler
+> self-build from about 800.7 to 400.7 seconds. The audit also confirmed that
+> v3's frontend and semantic worker design copies too much project state, so
+> normal multi-job activation is suspended. The owner has approved the Compiler
+> v4 Task 0 architectural direction; bounded parser and syntax prototypes now
+> precede any v4 production scaffold.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and reproducibly builds the Compiler v3 sequential seed.</sub></li>
-  <li><strong>Compiler v3 RP8</strong><br><sub>The self-hosting compiler adds bounded project groups, hashed resources and compiled-library bundles, optimization/debug controls, complete debugger metadata modes, explicit compatibility diagnostics, and Linux x86-64 ELF emission.</sub></li>
+  <li><strong>Compiler v3 RP8</strong><br><sub>The preserved self-hosting reference compiler implements the frozen UBE 1.0 contract, project and library formats, optimization/debug controls, compatibility diagnostics, Windows native output, and the Linux x86-64 ELF boundary.</sub></li>
+  <li><strong>Compiler v4</strong><br><sub>The architectural direction and reuse policy are approved. Task 0 is measuring compact parser and syntax designs and freezing ownership, phase, library, determinism, and resource contracts before production source is created.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
-  <li><strong>Beta 1 performance</strong><br><sub>An opt-in profiler records phase time, CPU, peak memory, structural counts, IR size, output size, and requested/effective jobs. The bounded executor now runs per-source preprocessing, lexing, parsing, and procedure-body semantics concurrently while preserving byte-identical output across tested job counts.</sub></li>
+  <li><strong>Performance findings</strong><br><sub>Profiling exposed avoidable whole-program scans and expensive worker-state copying. Indexed IR verification, bounded function-range LLVM emission, and numeric grammar-rule dispatch produced large deterministic improvements; the slower v3 worker paths remain disabled rather than being presented as successful parallelism.</sub></li>
   <li><strong>Bootstrap trust</strong><br><sub>A separately identified v2-buildable seed produces the production compiler, whose three stages emit identical LLVM. The build records seed, executor, job-count, timing, and normalized-object identities.</sub></li>
   <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
 </ul>
 
 UBE remains pre-release software and is not yet ready for production use.
 
+### Why Compiler v4?
+
+Compiler v3 proved the language, native backend, runtime contracts, package
+formats, source-library boundary, and reproducible self-hosting chain. It also
+revealed that too much compiler state is globally coupled and too expensive to
+copy between workers. Several severe hot paths were corrected, but repairing
+the complete ownership and phase architecture inside v3 would amount to an
+increasingly risky rewrite of the same implementation.
+
+Compiler v4 is therefore an architectural rebuild, not a language reset. It
+keeps the frozen UBE 1.0 definition and reuses v3 as its bootstrap compiler,
+differential oracle, regression corpus, and ABI/package reference. Its internal
+design instead uses immutable shared inputs, source- and procedure-owned data,
+function-local verified IR, deterministic merges, and a stricter separation
+between compiler policy and reusable library code. V3 remains preserved and
+buildable throughout this work.
+
 ## First public-release goals
 
 - A stable UBE language definition and grammar. ✔️
-- A self-hosting v3 compiler built with the preserved v2 compiler. ✔️
+- A preserved self-hosting v3 reference compiler built with v2. ✔️
+- A verified, self-hosting v4 compiler with measured ownership, scaling, and
+  deterministic parallelism. 🚧
 - Lightweight, optimized 64-bit native executables. ✔️
 - A minimal compiler with runtime and standard-library functionality kept in a
   separate UBE source library. 🚧

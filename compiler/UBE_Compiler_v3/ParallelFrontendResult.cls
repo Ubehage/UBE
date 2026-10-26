@@ -30,6 +30,9 @@ Public SemanticBindingCount As Long
 Public SemanticBindingCapacity As Long
 Public SemanticAnalyzedExpressionCount As Long
 Public SemanticTypedExpressionCount As Long
+Public SemanticWorkItems() As String
+Public SemanticWorkItemCount As Long
+Public SemanticWorkItemCapacity As Long
 
 Public Sub SetSource(ByVal Source As SourceDocument)
     SourceId = Source.SourceId
@@ -52,8 +55,42 @@ Public Sub PrepareSemantic(ByVal InputFrozenData As String, ByVal InputSourceCou
     DiagnosticCapacity = 0
     SemanticAnalyzedExpressionCount = 0
     SemanticTypedExpressionCount = 0
+    SemanticWorkItemCount = 0
     Completed = 0
 End Sub
+
+Public Function AppendSemanticWorkItem(ByVal Data As String) As Long
+    If SemanticWorkItemCount >= LimitSyntaxNodes() Then
+        AppendSemanticWorkItem = 0
+        Exit Function
+    End If
+    If SemanticWorkItemCount >= SemanticWorkItemCapacity Then
+        Dim NewCapacity As Long = SemanticWorkItemCapacity * 2
+        If NewCapacity < 16 Then
+            NewCapacity = 16
+        End If
+        If NewCapacity > LimitSyntaxNodes() Then
+            NewCapacity = LimitSyntaxNodes()
+        End If
+        If SemanticWorkItemCapacity = 0 Then
+            ReDim SemanticWorkItems(NewCapacity - 1)
+        Else
+            ReDim Preserve SemanticWorkItems(NewCapacity - 1)
+        End If
+        SemanticWorkItemCapacity = NewCapacity
+    End If
+    SemanticWorkItems(SemanticWorkItemCount) = Data
+    SemanticWorkItemCount = SemanticWorkItemCount + 1
+    AppendSemanticWorkItem = 1
+End Function
+
+Public Function SemanticWorkItemAt(ByVal Index As Long) As String
+    If Index < 0 Or Index >= SemanticWorkItemCount Then
+        SemanticWorkItemAt = ""
+        Exit Function
+    End If
+    SemanticWorkItemAt = SemanticWorkItems(Index)
+End Function
 
 Public Sub StoreSemanticWorkerResult(ByRef InputExpressions() As SemanticExpression, ByVal InputExpressionCount As Long, ByRef InputBindings() As SemanticNodeBinding, ByVal InputBindingCount As Long, ByRef InputDiagnostics() As CompilerDiagnostic, ByVal InputDiagnosticCount As Long, ByVal InputAnalyzedExpressionCount As Long, ByVal InputTypedExpressionCount As Long)
     SemanticExpressionCount = InputExpressionCount
@@ -126,6 +163,26 @@ Public Sub MergeSemanticResult(ByRef TargetExpressions() As SemanticExpression, 
     Call MergeDiagnostics(TargetDiagnostics, TargetDiagnosticCount, TargetDiagnosticCapacity)
 End Sub
 
+Public Function SemanticExpressionSyntaxNodeAt(ByVal Index As Long) As Long
+    If Index < 0 Or Index >= SemanticExpressionCount Then
+        SemanticExpressionSyntaxNodeAt = -1
+        Exit Function
+    End If
+    SemanticExpressionSyntaxNodeAt = SemanticExpressions(Index).SyntaxNode
+End Function
+
+Public Function AppendSemanticExpressionAt(ByVal Index As Long, ByRef TargetExpressions() As SemanticExpression, ByRef TargetExpressionCount As Long, ByRef TargetExpressionCapacity As Long) As Long
+    If Index < 0 Or Index >= SemanticExpressionCount Then
+        AppendSemanticExpressionAt = 0
+        Exit Function
+    End If
+    If AppendSemanticExpression(TargetExpressions, TargetExpressionCount, TargetExpressionCapacity, SemanticExpressions(Index).SyntaxNode, SemanticExpressions(Index).TypeIndex, SemanticExpressions(Index).ResolvedSymbol, SemanticExpressions(Index).ConversionKind, SemanticExpressions(Index).ValueCategory, SemanticExpressions(Index).ConstantKind, SemanticExpressions(Index).ConstantText, SemanticExpressions(Index).Flags) < 0 Then
+        AppendSemanticExpressionAt = 0
+    Else
+        AppendSemanticExpressionAt = 1
+    End If
+End Function
+
 Public Sub ResetResult()
     TokenCount = 0
     SyntaxNodeCount = 0
@@ -137,6 +194,7 @@ Public Sub ResetResult()
     SemanticBindingCapacity = 0
     SemanticAnalyzedExpressionCount = 0
     SemanticTypedExpressionCount = 0
+    SemanticWorkItemCount = 0
     Completed = 0
 End Sub
 

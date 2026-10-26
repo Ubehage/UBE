@@ -33,12 +33,15 @@ ube-v3-rp8 --build-native <project.UBE> <target-triple> <clang> <runtime.o> <uni
 ```
 
 Every command accepts `--jobs N`, where `N` is a positive decimal `Long`.
-The default is one. The production compiler runs independent source-file
-preprocessing, lexing, and parsing concurrently, bounded by the source count
-and 32 worker slots. It then freezes declarations and types before distributing
-independent procedure-body semantic work across up to 32 worker slots. Tokens,
-syntax, bindings, expressions, and diagnostics are merged in canonical order.
-The sequential seed remains separate and contains no parallel-only worker code.
+The default is one. The production compiler contains bounded deterministic
+workers for the source frontend and procedure semantics, but normal Phase 3/4
+worker activation is currently suspended: profiling found that private grammar,
+token, and frozen-semantic copies cost more than the work they distribute.
+Requested job counts remain accepted and profiles record the effective fallback
+count honestly. Explicit fault injection continues to exercise worker cleanup,
+and every job count must retain artifact parity. Phase 5 must use shareable
+immutable inputs before enabling parallel IR or LLVM work. The sequential seed
+remains separate and contains no parallel-only worker code.
 
 The frozen RP8 toolchain contract is LLVM/Clang 23.x. Windows native builds
 target `x86_64-w64-windows-gnu`; `x86_64-unknown-linux-gnu` is verified through
@@ -49,11 +52,20 @@ no false-success output after a controlled tool failure. Beta 1
 multithreading Phases 0 through 4 are complete: `--profile` supplies
 phase and resource measurements, measured superlinear name lookups are
 repaired, and the v2→seed→production trust chain is now a permanent clean-build
-gate. Phase 2 adds the bounded executor, Phase 3 adds the deterministic parallel
-source frontend, and Phase 4 adds deterministic parallel procedure semantics
-while retaining default and explicit `--jobs 1` artifact parity. See
+gate. Phase 2 adds the bounded executor; Phases 3 and 4 implement deterministic
+frontend and procedure worker paths while retaining default and explicit
+`--jobs 1` artifact parity. Their normal activation is performance-gated off
+pending a shared immutable worker representation. See
 [`performance/PHASE0_BASELINE.md`](performance/PHASE0_BASELINE.md) and
+[`performance/PHASE5_INVESTIGATION.md`](performance/PHASE5_INVESTIGATION.md), and
 [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
+
+The final measured Phase 5 production self-host baseline is 400.656 seconds for
+44 sources and 299,684 tokens. Indexed IR edge validation, canonical
+function-range LLVM emission, and numeric grammar-rule dispatch replaced major
+repeated whole-program work. Profiles expose deterministic backend work counts
+so the clean gate can reject a recurrence without a machine-dependent limit.
+V3 is retained as the executable reference and bootstrap bridge for v4.
 
 Authoritative inputs:
 

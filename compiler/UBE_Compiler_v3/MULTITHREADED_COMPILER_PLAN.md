@@ -166,6 +166,16 @@ managed token arenas cross the worker/coordinator boundary field by field
 without entering the unsafe recursive aggregate-copy path. The v2-buildable
 seed remains sequential and independently verified.
 
+Performance audit on 2026-10-26: normal Phase 3 activation is suspended. Each
+worker privately rebuilt the complete embedded grammar and copied its token
+arena back to the coordinator. Compiler self-parse exceeded seven minutes with
+eight jobs versus 166 seconds with one before termination of the test, and
+UBECore also regressed. Production now preprocesses, lexes, and parses through
+the canonical coordinator path while explicit frontend fault injection retains
+coverage of worker creation, drain, merge, cleanup, and diagnostics. Re-enable
+only after workers can consume immutable shared source and grammar views and a
+representative performance gate proves a benefit.
+
 ### Phase 4: parallel procedure analysis
 
 - [x] Separate deterministic declaration/type freezing from procedure-body
@@ -187,12 +197,40 @@ repeat eight-worker builds, exercise a 16-procedure interleaving regression,
 verify actual effective-job profile metadata, and inject creation, wait, merge,
 and transfer failures with cleanup and false-success-output checks.
 
+Performance audit on 2026-10-26: normal Phase 4 activation is also suspended.
+The original path serialized every syntax binding, used quadratic immutable
+string accumulation and insertion sorts, copied overlapping token slices for
+each expression, and reconstructed the complete frozen semantic universe in
+every worker. The quadratic paths and an out-of-bounds insertion-sort guard
+were repaired, but the remaining full-state transport still made UBECore
+semantics 4.02 seconds with eight jobs versus 1.83 seconds sequentially.
+Production therefore selects coordinator analysis and reports
+`effective_jobs=1`; explicit semantic fault sites still exercise every worker
+failure path. See `performance/PHASE5_INVESTIGATION.md`.
+
 ### Phase 5: parallel IR and LLVM fragments
 
+- [x] Remove avoidable whole-program rescans before adding workers: IR edge
+  validation now uses a source-block adjacency index, and LLVM function
+  emission visits only canonical function instruction ranges with indexed
+  managed safe points.
+- [x] Add deterministic work-count profile gates that bound verifier edge
+  probes and LLVM instruction visits independently of host timing.
 - [ ] Build and verify function-local IR concurrently using local numbering.
 - [ ] Assign canonical global IR numbers during the serial merge.
 - [ ] Emit function LLVM/debug fragments concurrently and concatenate them in
   canonical function order before atomic artifact publication.
+- [ ] Use immutable shared semantic/IR inputs rather than whole-project worker
+  serialization, and require a reproducible self-host and UBECore speedup before
+  normal worker activation.
+
+The Phase 5 audit on 2026-10-26 reduced self-host IR verification from 143.723
+seconds to 0.485 seconds and LLVM emission from 244.572 seconds to 63.280
+seconds. Total wall time fell from 800.730 seconds to 467.140 seconds while the
+seed-built and self-built LLVM hashes remained identical. The current profile
+records 133,327 verifier edge probes for 92,021 edges and 148,253 LLVM
+instruction visits for 148,601 instructions. Semantics and IR lowering are now
+the dominant phases; worker design must not obscure another avoidable scan.
 
 ### Phase 6: hardening and default enablement
 

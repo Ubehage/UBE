@@ -477,7 +477,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
         Performance.IrCleanupCount = IrBuild.CleanupCount
         Performance.IrLocationCount = IrBuild.LocationCount
         ProfilePhaseStart = BeginProfilePhase(Performance)
-        If VerifyProgramIr(IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrBuild.BlockCount, IrInstructions, IrBuild.InstructionCount, IrOperands, IrBuild.OperandCount, IrValues, IrBuild.ValueCount, IrEdges, IrBuild.EdgeCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, SemanticTypes, SemanticTypeCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+        If VerifyProgramIr(IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrBuild.BlockCount, IrInstructions, IrBuild.InstructionCount, IrOperands, IrBuild.OperandCount, IrValues, IrBuild.ValueCount, IrEdges, IrBuild.EdgeCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, SemanticTypes, SemanticTypeCount, Performance.IrVerifyEdgeProbeCount, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
             Call ReportDriverFailure("IR verification", Diagnostics, DiagnosticCount, DiagnosticCapacity)
             RunCompilerDriver = 1
             Exit Function
@@ -521,7 +521,7 @@ Function RunCompilerDriver(ByVal ManifestPath As String, ByVal TargetTriple As S
             Dim LlvmChunks() As String
             Dim LlvmChunkCount As Long = 0
             Dim LlvmChunkCapacity As Long = 0
-            If EmitVerifiedIrToLlvm(Target, TargetAbi, SemanticTypes, SemanticTypeCount, SemanticSymbols, SemanticSymbolCount, IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrInstructions, IrBuild.InstructionCount, IrOperands, IrValues, IrBuild.ValueCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, ManagedMetadataValue, ManagedLayouts, ManagedSlots, ManagedRoots, ManagedSafePoints, ManagedBarriers, LlvmChunks, LlvmChunkCount, LlvmChunkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
+            If EmitVerifiedIrToLlvm(Target, TargetAbi, SemanticTypes, SemanticTypeCount, SemanticSymbols, SemanticSymbolCount, IrProgramValue, IrGlobals, IrBuild.GlobalCount, IrFunctions, IrBuild.FunctionCount, IrParameters, IrBuild.ParameterCount, IrStorages, IrBuild.StorageCount, IrBlocks, IrInstructions, IrBuild.InstructionCount, IrOperands, IrValues, IrBuild.ValueCount, IrCleanups, IrBuild.CleanupCount, IrLocations, IrBuild.LocationCount, ManagedMetadataValue, ManagedLayouts, ManagedSlots, ManagedRoots, ManagedSafePoints, ManagedBarriers, Performance.LlvmInstructionVisitCount, LlvmChunks, LlvmChunkCount, LlvmChunkCapacity, Diagnostics, DiagnosticCount, DiagnosticCapacity) = 0 Then
                 Call ReportDriverFailure("LLVM emission", Diagnostics, DiagnosticCount, DiagnosticCapacity)
                 RunCompilerDriver = 1
                 Exit Function
