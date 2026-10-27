@@ -1,0 +1,26 @@
+UBE-Test-Case 1
+Id = "task2-shell-argument-limit"
+Task = 2
+Purpose = "Reject a reproducible 4097-byte argument before session allocation."
+Compiler = "ube-v4-task2"
+Mode = "startup"
+Host = "windows-x86-64"
+Target = "x86_64-w64-windows-gnu"
+Expected.Exit = 2
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
+Expected.Stdout = "error UBE6000: command arguments exceed the 4096-byte session limit"
+Expected.Stderr = ""
+Category = "rejection"
+Category = "boundary"
+Category = "stress"
+Category = "native"
+Limit = "argument-bytes:4096+1"
+NotApplicable.Positive = "Inside-limit startup is covered by the positive case."
+NotApplicable.Interaction = "The limit is checked before phase interaction."
+NotApplicable.Failure = "The rejection occurs before allocation is requested."
+NotApplicable.Regression = "No prior defect is owned by this case."
+NotApplicable.Differential = "V3 has a different command surface and argument accounting."
+NotApplicable.Determinism = "The generated argument and exact result are fixed."
+CleanupAssertion = "no-session-or-output-created"

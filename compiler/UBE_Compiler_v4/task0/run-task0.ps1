@@ -257,12 +257,9 @@ function Test-Task0Documentation {
     if ($task0Section -match '(?m)^- \[(?: |~|!)\]') {
         throw 'Task 0 roadmap contains an incomplete or blocked item'
     }
-    if (Test-Path -LiteralPath (Join-Path $v4Root 'UBE_Compiler_v4.UBE')) {
-        throw 'Task 0 must not create the production v4 manifest'
-    }
-    if (Test-Path -LiteralPath (Join-Path $v4Root 'Main.bas')) {
-        throw 'Task 0 must not create production Main.bas'
-    }
+    # Later roadmap tasks are allowed to create production files. Task 0 stays
+    # isolated because its explicit input inventory below contains only the
+    # prototype, grammar, manifests, and fixtures; it never consumes v4 source.
 }
 
 function Publish-JsonAtomically {

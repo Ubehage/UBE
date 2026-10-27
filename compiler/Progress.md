@@ -6,21 +6,33 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v4 scaffold and session shell**.
-- Active item: **begin Task 2 from the completed Task 1 dependency freeze**.
+- Active milestone: **Compiler v4 minimal vertical slice**.
+- Active item: **begin Task 3 from the verified Task 2 session shell**.
 - Status: v3 Beta Phase 5 is closed as an optimization line. Its verified
   self-host fell from 800.730 seconds to 400.656 seconds after removing major
   repeated whole-program work, but its Phase 3/4 worker transport and coupled
   data distribution are not a suitable foundation. V3 is preserved as the
   executable UBE 1.0, diagnostic, ABI, package, test, and bootstrap oracle for
-  v4. Tasks 0 and 1 are complete under `UBE_Compiler_v4/`; no v4 production
-  compiler manifest or source exists yet.
-- Blockers: none. Task 2 may now create the production scaffold against the
-  frozen support boundary. Linux runtime execution is
+  v4. Tasks 0 through 2 are complete under `UBE_Compiler_v4/`; the production
+  shell is native and deliberately contains only fake phase adapters.
+- Blockers: none. Task 3 may add the first genuine phase-to-phase compiler
+  slice against the frozen shell and support boundary. Linux runtime execution is
   still not claimed; v3 RP8 verifies the non-Windows boundary through LLVM and
   a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-27: completed Compiler v4 Task 2. Preserved v3 builds the production
+  `UBE_Compiler_v4.UBE` manifest and native `Main.bas` shell. Its complete
+  frozen limits and sealed `ByVal` session envelopes feed sequential fake load,
+  frontend, and tool adapters with stable diagnostics, sticky cancellation,
+  explicit result release, stale-output removal, and atomic record publication.
+  Thirteen validated case manifests ran in 15 native executions, covering
+  positive startup/publication, exact 4096/4097-byte argument boundaries,
+  invalid usage/target, empty/missing input, injected allocation/tool/write/
+  cancellation failures, host cleanup rejection, repetition, and false-output
+  cleanup. Repeated shell LLVM and published record bytes were identical. The
+  cumulative Task 0/1/2 gates and all 221 grammar productions passed.
 
 - 2026-10-27: completed Compiler v4 Task 1. The exact facility ownership and
   bootstrap dependencies are frozen in `UBE_Compiler_v4/TASK1_DEPENDENCIES.*`.
@@ -322,12 +334,11 @@ roadmap.
 
 ## Next actions
 
-1. Copy the Task 1 packet into `UBE_Compiler_v4/Progress.md` and inventory the
-   exact Task 2/3 text, Unicode, collection, hashing, path/file, process,
-   serialization, and executor needs against the frozen ownership table.
-2. Implement only the smallest independently testable UBECore or versioned
-   compiler-support APIs needed by the next slice and freeze the exact
-   bootstrap dependency manifest.
+1. Copy the Task 3 packet into `UBE_Compiler_v4/Progress.md` and define the
+   smallest real source-to-native fixture and phase dump/validator set.
+2. Implement one genuine path through source snapshot, tokens, selective
+   syntax, frozen declaration, typed body, verified local IR, LLVM, and native
+   execution without broadening the language surface.
 3. Preserve the complete v3 fixed point and RP8 corpus as v4 differential and
    bootstrap gates. Do not resume v3 worker expansion unless explicitly asked.
 
@@ -343,9 +354,9 @@ roadmap.
   developed and compiled with preserved v2.
 - V3 is now preserved as the executable reference/bootstrap bridge for v4;
   v4 is a deliberate architectural generation and must be built first with v3.
-- The owner approved the v4 planning direction on 2026-10-27, and measured Task
-  0 is complete. Production scaffolding remains gated until Task 1 supplies the
-  exact tested dependency manifest required by Tasks 2 and 3.
+- The owner approved the v4 planning direction on 2026-10-27. Tasks 0 through
+  2 are complete; the production shell and exact dependency boundary are now
+  the fixed base for the Task 3 vertical slice.
 - Fractional-to-integer conversion uses round-to-nearest, ties-to-even, with
   out-of-range failure. Invariant numeric text parsing trims surrounding
   whitespace, requires a complete match, accepts signs, decimal/exponent

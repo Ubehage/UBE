@@ -88,8 +88,10 @@ nearer roadmap or progress file.
     determinism programs plus every applicable earlier test.
   - [x] Implement the Task 1 reusable foundation and exact dependency manifest
     before creating the Task 2 production scaffold.
-  - [ ] Build the Task 2 production session shell on the frozen Task 1 support
+  - [x] Build the Task 2 production session shell on the frozen Task 1 support
     boundary and permanent sequential reference path.
+  - [ ] Implement the Task 3 minimal genuine vertical slice through every
+    compiler phase before adding broader language coverage.
 
 ## Handoff protocol
 

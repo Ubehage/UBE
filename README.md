@@ -92,16 +92,17 @@ ownership and design authority remain with Ube.
 > normal multi-job activation is suspended. Compiler v4 Task 0 is complete: the
 > measured selective hybrid syntax design and its ownership, phase, dependency,
 > determinism, resource, and cumulative-verification contracts are frozen.
-> Compiler v4 Task 1 is also complete: its first-slice dependencies are
-> assigned, and a small independently tested compiler-support package now
-> provides the bounded path, text, record, file, process, and measurement
-> boundary needed for the Task 2 session shell.
+> Compiler v4 Tasks 1 and 2 are also complete. Its first-slice dependencies are
+> assigned, the compiler-support package is independently tested, and the first
+> production v4 manifest now builds as a native session shell with bounded
+> arguments, sealed configuration and limits, deterministic diagnostics,
+> cooperative cancellation, explicit cleanup, and atomic record publication.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and reproducibly builds the Compiler v3 sequential seed.</sub></li>
   <li><strong>Compiler v3 RP8</strong><br><sub>The preserved self-hosting reference compiler implements the frozen UBE 1.0 contract, project and library formats, optimization/debug controls, compatibility diagnostics, Windows native output, and the Linux x86-64 ELF boundary.</sub></li>
-  <li><strong>Compiler v4</strong><br><sub>Tasks 0 and 1 are complete. The measured compact per-source hybrid architecture is frozen, and the first reusable compiler-support package now builds independently with bounded, deterministic, thread-safe path, text, record, file, process, and measurement contracts. Task 2 is the production session-shell scaffold.</sub></li>
+  <li><strong>Compiler v4</strong><br><sub>Tasks 0 through 2 are complete. The measured compact architecture and reusable support boundary are frozen, and the v3-built native session shell passes hostile argument/input, allocation, tool, cancellation, publication, cleanup, repetition, and determinism gates. Task 3 is the first genuine end-to-end compiler slice.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
   <li><strong>Performance findings</strong><br><sub>Profiling exposed avoidable whole-program scans and expensive worker-state copying. Indexed IR verification, bounded function-range LLVM emission, and numeric grammar-rule dispatch produced large deterministic improvements; the slower v3 worker paths remain disabled rather than being presented as successful parallelism.</sub></li>

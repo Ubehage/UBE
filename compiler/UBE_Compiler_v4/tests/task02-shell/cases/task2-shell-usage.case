@@ -1,0 +1,25 @@
+UBE-Test-Case 1
+Id = "task2-shell-usage"
+Task = 2
+Purpose = "Reject a missing command with exact usage and exit status."
+Compiler = "ube-v4-task2"
+Mode = "startup"
+Host = "windows-x86-64"
+Target = "x86_64-w64-windows-gnu"
+Expected.Exit = 2
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
+Expected.Stdout = "usage: ube-v4 [--test-fault allocation|tool|write|cancel] <project.UBE> <target-triple>\n       ube-v4 [--test-fault allocation|tool|write|cancel] --emit-shell-record <project.UBE> <target-triple> <output.record>"
+Expected.Stderr = ""
+Category = "rejection"
+Category = "native"
+NotApplicable.Positive = "Valid startup is covered separately."
+NotApplicable.Interaction = "No session is created for invalid usage."
+NotApplicable.Boundary = "Argument byte limits have a focused case."
+NotApplicable.Stress = "No input traversal occurs."
+NotApplicable.Failure = "This is input rejection rather than injected failure."
+Category = "regression"
+NotApplicable.Differential = "V3 and v4 intentionally have different CLI surfaces."
+NotApplicable.Determinism = "Exact output is asserted once; no state is created."
+CleanupAssertion = "no-output-created"

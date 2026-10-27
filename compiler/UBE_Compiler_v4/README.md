@@ -1,16 +1,18 @@
 # UBE Compiler v4
 
-UBE Compiler v4 is the planned clean compiler generation that follows the
+UBE Compiler v4 is the clean compiler generation that follows the
 preserved v3 implementation. V3 remains the executable UBE 1.0, diagnostic,
 ABI, package, and bootstrap oracle. V4 will be written in UBE and built first
 by v3, but its internal architecture will not be copied from v3.
 
-The directory contains the frozen planning documents, the bounded
-non-production Task 0 prototype/evidence harness, and the independently
-buildable `support/UBECompilerSupport.UBE` package completed by Task 1. No v4
-production compiler source or manifest exists yet. Creating the required
-`UBE_Compiler_v4.UBE` manifest and `Main.bas` startup module is part of the
-Task 2 scaffold gate.
+Tasks 0 through 2 are complete. The directory contains the frozen architecture
+and dependency decisions, the Task 0 prototype evidence, the independently
+buildable `support/UBECompilerSupport.UBE` package, and the first production
+`UBE_Compiler_v4.UBE`/`Main.bas` shell. The shell proves bounded startup,
+immutable session ownership, diagnostics, cancellation, failure propagation,
+cleanup, and atomic record publication. It deliberately has no real parser,
+semantic pipeline, IR, or backend; Task 3 adds the first genuine vertical
+slice.
 
 Read in this order:
 
@@ -28,6 +30,14 @@ Read in this order:
    every development build.
 8. [`TASKS.md`](TASKS.md) — bounded briefs for the agent executing each task.
 9. [`Progress.md`](Progress.md) — the single active resumable handoff.
+
+Run the complete current v4 evidence gates with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File task0/run-task0.ps1
+powershell -ExecutionPolicy Bypass -File task1/run-task1.ps1
+powershell -ExecutionPolicy Bypass -File task2/run-task2.ps1
+```
 
 Authoritative external inputs remain:
 

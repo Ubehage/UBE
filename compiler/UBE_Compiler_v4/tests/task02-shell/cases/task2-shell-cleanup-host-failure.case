@@ -1,0 +1,26 @@
+UBE-Test-Case 1
+Id = "task2-shell-cleanup-host-failure"
+Task = 2
+Purpose = "Reject an existing directory at the pre-publication cleanup boundary."
+Compiler = "ube-v4-task2"
+Mode = "emit-shell-record"
+Host = "windows-x86-64"
+Target = "x86_64-w64-windows-gnu"
+Expected.Exit = 1
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
+Expected.Stdout = "bootstrap/out/v4-task2/cases: error UBE6008: could not remove the previous output artifact"
+Expected.Stderr = ""
+Category = "failure"
+Category = "native"
+Input.Project = "fixtures/shell-input.UBE"
+NotApplicable.Positive = "The host path intentionally cannot be removed as a file."
+NotApplicable.Interaction = "Cleanup rejection occurs before fake phases run."
+NotApplicable.Rejection = "Input is valid; the host rejects the file cleanup operation."
+NotApplicable.Boundary = "The output identity is an existing directory rather than a file."
+NotApplicable.Stress = "One existing directory isolates the cleanup boundary."
+NotApplicable.Regression = "No prior v4 cleanup defect exists."
+NotApplicable.Differential = "V3 has no v4 shell-record cleanup diagnostic."
+NotApplicable.Determinism = "Exact exit and diagnostic are asserted."
+CleanupAssertion = "existing-directory-preserved-and-no-file-published"

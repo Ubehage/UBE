@@ -1,0 +1,27 @@
+UBE-Test-Case 1
+Id = "task2-shell-missing-input"
+Task = 2
+Purpose = "Preserve the bootstrap runtime's controlled missing-file exit without output."
+Compiler = "ube-v4-task2"
+Mode = "emit-shell-record"
+Host = "windows-x86-64"
+Target = "x86_64-w64-windows-gnu"
+Expected.Exit = 66
+Expected.Artifact = "absent"
+Differential.Level = 1
+Repeat = 1
+Expected.Stdout = ""
+Expected.Stderr = "UBE runtime: cannot open for reading: bootstrap/out/v4-task2/missing-input.UBE"
+Category = "failure"
+Category = "differential"
+Category = "native"
+Argument = "bootstrap/out/v4-task2/missing-input.UBE"
+Expected.ArtifactPath = "bootstrap/out/v4-task2/cases/task2-shell-missing-input/output.record"
+NotApplicable.Positive = "The input is deliberately absent."
+NotApplicable.Interaction = "The runtime stops before phase publication."
+NotApplicable.Rejection = "The failure is environmental rather than malformed content."
+NotApplicable.Boundary = "File absence has no numeric inside/outside boundary."
+NotApplicable.Stress = "No bytes are read."
+NotApplicable.Regression = "The preserved runtime already owns this controlled-failure regression."
+NotApplicable.Determinism = "The exact runtime diagnostic and exit are asserted."
+CleanupAssertion = "no-output-created"

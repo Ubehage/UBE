@@ -5,15 +5,77 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 
 ## Current position
 
-- Completed task: **Task 1 — reusable foundation and library split**.
-- Next task: **Task 2 — scaffold and session shell**; ready.
-- Status: the first-slice facility inventory, package boundary, intrinsic list,
-  public declarations, deferrals, and native evidence are frozen. No v4
-  production compiler source or manifest was created before the Task 1 exit
-  gate.
+- Completed task: **Task 2 — scaffold and session shell**.
+- Next task: **Task 3 — minimal vertical slice**; ready.
+- Status: the first production v4 manifest and strictly sequential native shell
+  are verified on the frozen Task 1 boundary. No lexer, parser, semantic
+  analysis, IR, compiler-produced LLVM, or parallel executor is claimed yet.
 - Bootstrap compiler: preserved v3 production compiler.
 - Normative language: frozen UBE 1.0 definition and grammar.
 - Blockers: none.
+
+## Completed Task 2 execution packet
+
+- Objective: create a v3-built production v4 shell that owns immutable
+  configuration/session/limit records, bounded deterministic diagnostics, a
+  cooperative cancellation token, explicit phase-result cleanup, fake phase
+  failure propagation, and atomic shell-record publication.
+- Prerequisites checked: Task 0 phase/limit/diagnostic/test contracts; Task 1
+  dependency manifest and support declarations; v3 CLI and diagnostic tests;
+  project naming, source header, output separation, and bootstrap rules.
+- Files in scope: `UBE_Compiler_v4.UBE`, `Main.bas`, focused `src/` modules,
+  `tests/task02-shell/`, `task2/run-task2.ps1`, and synchronized v4/compiler/root
+  documentation. V3, UBECore, the frozen Task 1 support API, bootstrap build
+  integration, and normative language files are excluded.
+- Smallest reproduction: v3 builds the shell; the native shell accepts one
+  nonempty project control file and a supported target, runs load/frontend/tool
+  fake adapters sequentially, and optionally publishes one deterministic
+  bounded record.
+- Expected artifacts: production manifest/startup, immutable session and limit
+  envelope, stable `UBE6000`-series diagnostics, cancellation token, releasable
+  fake phase results, generated native shell/LLVM, deterministic record, and a
+  Task 2 verified-build record only below `bootstrap/out/v4-task2/`.
+- New tests: valid check and record publication; argument-count, empty target,
+  unsupported target, empty/corrupt project, and over-limit arguments;
+  injected phase-allocation, tool, write, and cancellation failures; real
+  missing-input and host cleanup failures; pre-existing-output removal;
+  repeated invocation/deterministic output; native exit/output checks; and
+  cleanup/no-false-artifact assertions. Parallel interaction is not applicable
+  because the frozen reference shell is deliberately one job; its concurrency
+  evidence remains the inherited Task 1 two-worker reentrancy test.
+- Focused command: `task2/run-task2.ps1`; it builds through preserved v3 and
+  Clang, executes each case with separate arguments, verifies exact status and
+  diagnostics, hashes outputs, runs repeated invocations, and publishes
+  evidence only after every case passes.
+- Cumulative gates: Task 0 parser/manifest evidence, Task 1 support/native/
+  thread/cleanup evidence, grammar validation, JSON validation, and diff
+  hygiene.
+- Measurements: input and output hashes, case count, phase work units, shell
+  LLVM/native sizes, elapsed/CPU/peak-memory samples, host/target/tool identity,
+  artifact presence, and cleanup status.
+- Risks: bootstrap file intrinsics own missing/unwritable-file diagnostics and
+  exit codes; tests must distinguish those controlled platform failures from
+  v4 diagnostics. Fake phases must remain obvious scaffolding and must not
+  smuggle Task 3 parsing/backend behavior into Task 2.
+- Decisions and rejected alternatives: all phase inputs are `ByVal` immutable
+  envelopes; mutable cancellation has one coordinator owner; fake results are
+  released on every path. Real parsing/LLVM, worker creation, shared phase
+  arrays, shell command construction, and publish-in-place output were
+  rejected. A missing-parent write was removed as a negative test after proving
+  that the atomic writer correctly creates that directory; an existing
+  directory now exercises real host cleanup rejection instead.
+- Result: all 13 manifests and 15 native executions passed. Repeated v3 shell
+  LLVM and three published records were byte-identical. Their deterministic
+  hashes are LLVM
+  `05EE253CE4DDAC3710CD6EA8359E1F5C5DD945113A68C88BEF02AAA05D201B15`,
+  and shell record
+  `CDCCFCD079746687533566041F24601EE6FDEA16995F8956A83D958B83A02EBC`.
+  The recorded run produced 1,259,750 LLVM bytes and a 193,024-byte native
+  executable. The native hash is retained in each generated evidence record,
+  but reproducible final linker containers are not claimed before Task 9/12. The
+  run recorded three phase work units, zero live resources, and zero
+  false-success artifacts. The host process API reported peak working set as
+  unavailable (`0`), so no memory claim is inferred from that field.
 
 ## Completed Task 0 execution packet
 
@@ -143,9 +205,22 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 - `Progress.md`
 - `task0/` non-production prototype, fixtures, formats, validator, and runner
 - `task1/` reusable-foundation build and evidence runner
+- `task2/` production shell build, native-case, and evidence runner
+- `src/`, `Main.bas`, and `UBE_Compiler_v4.UBE` production Task 2 shell
+- `tests/task02-shell/` checked manifests and minimal project fixtures
 - `support/` independently buildable compiler-support package and fixtures
 
 ## Verification
+
+- `task2/run-task2.ps1` passed 13 validated manifests in 15 native executions.
+  V3 emitted identical shell LLVM twice and built the native executable. Exact
+  success, usage, target, empty/missing input, 4096/4097-byte argument,
+  allocation, tool, cancellation, publication, stale-output, and host cleanup
+  results matched their manifests. Three publication runs produced identical
+  bytes, and every failure left zero false-success files and live resources.
+- The final cumulative run passed `task0/run-task0.ps1`,
+  `task1/run-task1.ps1`, `task2/run-task2.ps1`, and grammar validation for 202
+  core plus 19 conditional productions. `git diff --check` also passed.
 
 - `task0/run-task0.ps1` passed with three repetitions for both modes. It
   validated positive and hostile manifests, compiled with C++17 warnings as
@@ -159,17 +234,17 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 - Depth 32 was accepted and depth 65 was rejected in a controlled way under
   the experimental 64-frame prototype limit. The malformed fixture produced
   the same two recovery diagnostics and locations in both modes.
-- Generated evidence is under `bootstrap/out/v4-task0/`; the final measurement
-  JSON SHA-256 for the final recorded run is `2627477CF98374F8531956E933A3681C035B11CDA97E33A3CA693A4B0CC3AF3E`
-  and the verified-build record SHA-256 is
-  `72F7022E8BB88F54C1DEC2DDBD068B09BF212477E1BB7BFA6DDDA4E94867ACBC`.
+- Generated evidence is under `bootstrap/out/v4-task0/`. Whole evidence-file
+  hashes are run-specific because timing measurements are included; stable
+  input, span, semantic, and artifact hashes are stored inside each record.
 - Production compiler/self-host/native gates are not applicable: Task 0 changed
   no production compiler, bootstrap integration, language semantics, ABI,
   library API, or native code generation.
 
 ## Exact next action
 
-Copy the Task 2 packet into this file, then create `UBE_Compiler_v4.UBE`,
-`Main.bas`, immutable session/limit/diagnostic records, fake phase adapters,
-and the cumulative runner against `TASK1_DEPENDENCIES.json`. Start with the
-hostile-argument and atomic-publication shell; do not add real parsing or LLVM.
+Copy the Task 3 packet into this file and define the smallest real `Sub Main`
+fixture plus each phase envelope/dump/validator. Replace fake adapters one
+vertical path at a time through source snapshot, tokens, selective syntax,
+frozen declaration, typed body, verified local IR, LLVM, link, and native
+execution. Preserve the sequential shell and every Task 0–2 cumulative case.

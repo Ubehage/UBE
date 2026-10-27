@@ -1,0 +1,26 @@
+UBE-Test-Case 1
+Id = "task2-shell-target"
+Task = 2
+Purpose = "Reject an unsupported target before creating a build session."
+Compiler = "ube-v4-task2"
+Mode = "check-shell"
+Host = "windows-x86-64"
+Target = "unsupported-target"
+Expected.Exit = 2
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
+Expected.Stdout = "error UBE6001: unsupported Task 2 target: unsupported-target"
+Expected.Stderr = ""
+Category = "rejection"
+Category = "native"
+Input.Project = "fixtures/shell-input.UBE"
+NotApplicable.Positive = "Supported-target startup is covered separately."
+NotApplicable.Interaction = "No phase runs after target rejection."
+NotApplicable.Boundary = "The target is an identity rather than a numeric range."
+NotApplicable.Stress = "No input traversal occurs."
+NotApplicable.Failure = "This is controlled validation rather than infrastructure failure."
+NotApplicable.Regression = "No prior defect is owned by this case."
+NotApplicable.Differential = "V3 target breadth is not the Task 2 shell contract."
+NotApplicable.Determinism = "Exact output is asserted and no artifact exists."
+CleanupAssertion = "no-output-created"

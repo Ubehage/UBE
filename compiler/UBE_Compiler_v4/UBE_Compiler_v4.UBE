@@ -1,0 +1,11 @@
+UBE-Project 1
+Name = "UBECompilerV4"
+Kind = "Exe"
+Startup = "Main"
+Reference = "support/UBECompilerSupport.UBE"
+Source = "src/Session.bas"
+Source = "src/Diagnostics.bas"
+Source = "src/Cancellation.bas"
+Source = "src/FakePhases.bas"
+Source = "src/Driver.bas"
+Source = "Main.bas"

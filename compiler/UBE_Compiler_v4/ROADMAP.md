@@ -2,8 +2,8 @@
 
 ## Status and completion rules
 
-Task 0 architecture planning is complete; Task 1 is the next implementation
-gate. Status markers are `[ ]` pending, `[~]` active, `[x]` verified, and `[!]`
+Tasks 0 through 2 are complete; Task 3 is the next implementation gate. Status
+markers are `[ ]` pending, `[~]` active, `[x]` verified, and `[!]`
 blocked with the reason in `Progress.md`.
 
 Tasks run in dependency order unless `Progress.md` records an approved isolated
@@ -62,14 +62,22 @@ copying general-purpose routines into the compiler or adding hidden intrinsics.
 
 ### Task 2: v4 scaffold and session shell
 
-- [ ] Create `UBE_Compiler_v4.UBE`, `Main.bas`, generation-local tests, and
+- [x] Create `UBE_Compiler_v4.UBE`, `Main.bas`, generation-local tests, and
   output separation only after the complete Task 0 exit gate passes.
-- [ ] Implement bounded arguments, immutable configuration/limits, project and
+- [x] Implement bounded arguments, immutable configuration/limits, project and
   target identity, diagnostic aggregation, cancellation, cleanup, and atomic
   artifact publication interfaces.
-- [ ] Create the deterministic test runner and initial Task 2 focused/cumulative
+- [x] Create the deterministic test runner and initial Task 2 focused/cumulative
   suite defined by `TESTING.md`.
-- [ ] Add v3-built smoke and hostile-argument gates.
+- [x] Add v3-built smoke and hostile-argument gates.
+
+Task 2 completed on 2026-10-27. The production manifest and native shell use
+sealed `ByVal` session envelopes, the complete frozen limit set, stable
+`UBE6000` diagnostics, cooperative cancellation, private releasable fake phase
+results, and atomic shell-record publication. Thirteen checked case manifests
+cover success, exact boundaries, hostile input, allocation/tool/write/cancel
+faults, runtime file failure, cleanup, native execution, and deterministic
+repetition. The cumulative Task 0/1/2 and grammar gates pass.
 
 Exit gate: v3 builds the shell; the shell accepts or rejects a minimal project
 without a crash, leaked external resource, or false-success artifact.
