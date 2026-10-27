@@ -84,21 +84,10 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 8 remains the verified,
-> self-hosting UBE 1.0 reference and bootstrap bridge. Its Beta Phase 5 audit
-> removed major repeated whole-program work and reduced the measured compiler
-> self-build from about 800.7 to 400.7 seconds. The audit also confirmed that
-> v3's frontend and semantic worker design copies too much project state, so
-> normal multi-job activation is suspended. Compiler v4 Task 0 is complete: the
-> measured selective hybrid syntax design and its ownership, phase, dependency,
-> determinism, resource, and cumulative-verification contracts are frozen.
-> Compiler v4 Tasks 1 through 3 are also complete. Its first-slice dependencies are
-> assigned, the compiler-support package is independently tested, and the first
-> production v4 manifest now builds as a native session shell with bounded
-> arguments, sealed configuration and limits, deterministic diagnostics,
-> cooperative cancellation, explicit cleanup, and atomic record publication.
-> The first genuine vertical slice now compiles a minimal `Sub Main` through
-> seven validated phases to deterministic LLVM and v3-equivalent native code.
+> **Current milestone:** Compiler v3 Release Preview 8 remains the functionally verified,
+> self-hosting UBE 1.0 reference and bootstrap bridge. Its Beta Phase audit
+> found several problems that needed correction.
+> Compiler v4 is currently at Step 4/13.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>

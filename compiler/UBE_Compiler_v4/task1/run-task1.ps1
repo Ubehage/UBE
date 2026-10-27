@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $coreLlvm -PathType Lea
 
 $api = Build-Native 'SupportApiTest.UBE' 'support-api-test.exe'
 $apiOutput = (& $api) -join "`n"
-$expectedApi = "1`nUBE`n0`n1`nsrc/main.bas`n0`n1`nUBEphase=shell`n`n0`n66`n-1`n1`nomp`n0`nA`n`n5`n1203`n"
+$expectedApi = "1`nUBE`n0`n1`nsrc/main.bas`n0`n1`nUBEphase=shell`n`n0`n66`n-1`n1`nomp`n0`nA`n`n5`n1203`n`n1`n0`n97"
 if ($LASTEXITCODE -ne 0 -or $apiOutput -cne $expectedApi) {
     throw "support API fixture failed:`n$apiOutput"
 }
@@ -77,8 +77,8 @@ foreach ($path in @($libraryLlvm, $coreLlvm, $api, $thread, $io)) {
 $record = [ordered]@{
     format = 'UBE-v4-task1-evidence-1'
     status = 'passed'
-    packages = @('UBECompilerSupport@0.1.0-v4t1', 'UBECore@0.1.0-rp8')
-    compiler_support_intrinsic_count = 13
+    packages = @('UBECompilerSupport@0.2.0-v4t4', 'UBECore@0.1.0-rp8')
+    compiler_support_intrinsic_count = 15
     ubecore_intrinsic_count = 54
     target = $target
     hashes = $hashes

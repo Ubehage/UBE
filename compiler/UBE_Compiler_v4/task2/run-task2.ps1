@@ -260,9 +260,9 @@ $evidence = [ordered]@{
         case_manifests = @($manifests | ForEach-Object { [ordered]@{ path = Get-RepoRelativePath $_.FullName; sha256 = Get-Sha256 $_.FullName } })
         dependency_manifest = [ordered]@{ path = 'compiler/UBE_Compiler_v4/TASK1_DEPENDENCIES.json'; sha256 = Get-Sha256 (Join-Path $v4Root 'TASK1_DEPENDENCIES.json') }
         grammar = [ordered]@{ path = 'lang-doc/grammar/ube.ebnf'; sha256 = Get-Sha256 (Join-Path $repoRoot 'lang-doc\grammar\ube.ebnf') }
-        library = @('UBECompilerSupport@0.1.0-v4t1')
+        library = @('UBECompilerSupport@0.2.0-v4t4')
         available_not_linked = @('UBECore@0.1.0-rp8')
-        intrinsic = 'ube-intrinsic-abi-1; 13 compiler-support hooks; zero new Task 2 hooks'
+        intrinsic = 'ube-intrinsic-abi-1; 15 compiler-support hooks; zero new ABI names'
         runtime = @((Get-Sha256 $runtime), (Get-Sha256 $unicodeRuntime))
     }
     environment = [ordered]@{

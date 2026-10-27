@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "InvalidNumber"
+Kind = "Exe"
+Startup = "Main"
+Source = "invalid-number.bas"

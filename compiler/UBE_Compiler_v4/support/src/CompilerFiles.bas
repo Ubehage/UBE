@@ -12,6 +12,12 @@ Public Function ReadRequiredCompilerText(ByVal Path As String, ByRef Contents As
     End If
 End Function
 
+' Reads compiler-owned UTF-8 text without imposing nonempty policy. The caller
+' validates emptiness and format before publishing a phase result.
+Public Function ReadCompilerText(ByVal Path As String) As String
+    ReadCompilerText = ReadAllText(Path)
+End Function
+
 ' Publishes Contents using the bootstrap ABI's sibling-temp, close, and atomic
 ' replace contract. Returns 0 on success or the documented nonzero status.
 Public Function PublishCompilerText(ByVal Path As String, ByVal Contents As String) As Long

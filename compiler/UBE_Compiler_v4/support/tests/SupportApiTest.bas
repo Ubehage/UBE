@@ -24,6 +24,9 @@ Function Main() As Long
     Print CompilerTextLength("three")
     Print CompilerLongToText(1203)
     Print CompilerLongToText(-1)
+    Print CompilerCodePointIsLetter(197)
+    Print CompilerCodePointIsLetter(48)
+    Print CompilerFoldCodePoint(65)
     If CompilerElapsedMilliseconds() < -1 Then
         Main = 10
         Exit Function

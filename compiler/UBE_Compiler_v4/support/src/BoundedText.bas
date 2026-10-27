@@ -79,3 +79,15 @@ Public Function CompilerLongToText(ByVal Value As Long) As String
     Wend
     CompilerLongToText = Result
 End Function
+
+' Returns 1 when CodePoint is a Unicode 18.0 Letter through the pinned
+' bootstrap table, and 0 otherwise.
+Public Function CompilerCodePointIsLetter(ByVal CodePoint As Long) As Long
+    CompilerCodePointIsLetter = UnicodeIsLetter(CodePoint)
+End Function
+
+' Returns the Unicode 18.0 simple-folded code point used for identifier and
+' keyword comparison. Invalid values retain the bootstrap hook's neutral form.
+Public Function CompilerFoldCodePoint(ByVal CodePoint As Long) As Long
+    CompilerFoldCodePoint = UnicodeSimpleFoldCodePoint(CodePoint)
+End Function

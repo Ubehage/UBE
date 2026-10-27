@@ -1,7 +1,7 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "SupportIntrinsics"
 
-' Private bootstrap hooks used by UBECompilerSupport 0.1.0-v4t1. They remain
+' Private bootstrap hooks used by UBECompilerSupport 0.2.0-v4t4. They remain
 ' implementation details and are not part of the package's public API.
 Intrinsic Function StringLength(ByVal Value As String) As Long
 End Function
@@ -40,4 +40,10 @@ Intrinsic Function CompilerProcessCpuMilliseconds() As LongLong
 End Function
 
 Intrinsic Function CompilerPeakWorkingSetBytes() As LongLong
+End Function
+
+Intrinsic Function UnicodeIsLetter(ByVal CodePoint As Long) As Long
+End Function
+
+Intrinsic Function UnicodeSimpleFoldCodePoint(ByVal CodePoint As Long) As Long
 End Function

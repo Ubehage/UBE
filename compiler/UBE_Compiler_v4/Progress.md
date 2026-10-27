@@ -5,17 +5,34 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 
 ## Current position
 
-- Completed task: **Task 3 — minimal vertical slice**.
+- Completed task: **Task 4 — projects, sources, preprocessing, and lexer**.
 
-- Previous task: **Task 2 — scaffold and session shell**.
-- Next task: **Task 4 — projects, sources, preprocessing, and lexer**; ready.
-- Status: Tasks 0 through 3 are verified. The production compiler preserves the
-  Task 2 shell and compiles one bounded genuine `Sub Main` through seven
-  validated phase envelopes to deterministic LLVM and v3-equivalent native
-  behavior. Broader language coverage and parallel execution are not claimed.
+- Previous task: **Task 3 — minimal vertical slice**.
+- Next task: **Task 5 — compact parser and recovery**; ready.
+- Status: Tasks 0 through 4 are verified. The production compiler now loads
+  bounded project sources once into immutable per-source snapshots, applies
+  explicit byte-preserving conditional preprocessing, and emits complete
+  deterministic lexical tokens with stable source IDs and byte spans.
 - Bootstrap compiler: preserved v3 production compiler.
 - Normative language: frozen UBE 1.0 definition and grammar.
 - Blockers: none.
+
+## Completed Task 4 execution packet
+
+- Objective: complete project/source loading, conditional preprocessing, and
+  UBE 1.0 lexical coverage without weakening the verified Task 0–3 envelopes.
+- Scope: five production modules, two private Unicode support hooks, a native
+  `--dump-tokens` mode, focused fixtures, and the cumulative Task 4 gate.
+- Differential proof: all four positive v3 RP2 projects plus a two-source
+  native/class project matched v3 exactly; repeated dumps were byte-identical.
+- Failure proof: RP2 malformed projects, invalid invariant dates and numeric
+  exponents, escaping and missing paths, eight arbitrary-byte cases, conditional
+  depth, and the 16 MiB source limit all failed without false success. The
+  unmatched-`#Else` crash regression now reports `UBE3507` with exit 1.
+- Scaling proof: deterministic 100/1,000/5,000-statement series preserved
+  monotonic byte/token counts and one lexical work unit per source byte.
+- Evidence: `bootstrap/out/v4-task4/evidence.json`; runner:
+  `task4/run-task4.ps1`.
 
 ## Completed Task 3 execution packet
 
@@ -266,6 +283,6 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 
 ## Exact next action
 
-Task 3 is complete. Copy the Task 4 packet into this file and expand project
-and source loading, preprocessing, and lexical coverage from these envelopes.
-Begin with the smallest differential fixture and preserve every Task 0–3 gate.
+Task 4 is complete. Copy the Task 5 packet into this file and expand the compact
+parser and recovery from the verified lexical envelopes. Begin with the
+smallest RP3 differential fixture and preserve every Task 0–4 gate.

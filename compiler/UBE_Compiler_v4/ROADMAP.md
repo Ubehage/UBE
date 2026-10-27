@@ -2,7 +2,7 @@
 
 ## Status and completion rules
 
-Tasks 0 through 3 are complete; Task 4 is the next implementation gate. Status
+Tasks 0 through 4 are complete; Task 5 is the next implementation gate. Status
 markers are `[ ]` pending, `[~]` active, `[x]` verified, and `[!]`
 blocked with the reason in `Progress.md`.
 
@@ -103,10 +103,10 @@ artifact ownership.
 
 ### Task 4: projects, sources, preprocessing, and lexer
 
-- [ ] Implement frozen project/source envelopes and preprocessing with sources
+- [x] Implement frozen project/source envelopes and preprocessing with sources
   loaded once into immutable snapshots.
-- [ ] Complete UBE 1.0 lexing with per-source tokens and stable spans.
-- [ ] Differentially cover arbitrary bytes, Unicode, continuations, legacy
+- [x] Complete UBE 1.0 lexing with per-source tokens and stable spans.
+- [x] Differentially cover arbitrary bytes, Unicode, continuations, legacy
   envelopes, limits, path failures, and deterministic diagnostic recovery.
 
 Exit gate: the full lexical corpus matches the approved v3 contract and scales

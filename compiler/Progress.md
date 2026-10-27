@@ -6,21 +6,27 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v4 projects, sources, preprocessing, and lexer**.
-- Active item: **begin Task 4 from the verified Task 3 vertical slice**.
+- Active milestone: **Compiler v4 compact parser and recovery**.
+- Active item: **begin Task 5 from the verified Task 4 lexical pipeline**.
 - Status: v3 Beta Phase 5 is closed as an optimization line. Its verified
   self-host fell from 800.730 seconds to 400.656 seconds after removing major
   repeated whole-program work, but its Phase 3/4 worker transport and coupled
   data distribution are not a suitable foundation. V3 is preserved as the
   executable UBE 1.0, diagnostic, ABI, package, test, and bootstrap oracle for
-  v4. Tasks 0 through 3 are complete under `UBE_Compiler_v4/`; the production
-  compiler preserves the shell and adds a bounded genuine source-to-native slice.
-- Blockers: none. Task 4 may broaden projects, sources, preprocessing, and the
-  lexer from the verified phase contracts. Linux runtime execution is
+  v4. Tasks 0 through 4 are complete under `UBE_Compiler_v4/`; the production
+  compiler adds immutable multi-source loading, preprocessing, and full lexing.
+- Blockers: none. Task 5 may broaden the compact parser and recovery from the
+  verified lexical and phase contracts. Linux runtime execution is
   still not claimed; v3 RP8 verifies the non-Windows boundary through LLVM and
   a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-27: completed Compiler v4 Task 4. The v3-built native compiler
+  matched the full RP2 lexical corpus and a multi-source conditional project,
+  rejected malformed UTF-8, preprocessing, paths, dates, numbers, controls,
+  and limits without a runtime bounds failure, and passed deterministic
+  100/1,000/5,000-statement scaling evidence.
 
 - 2026-10-27: completed Compiler v4 Task 3. The v3-built native compiler emits
   deterministic LLVM and seven phase dumps for a minimal `Sub Main`, matches

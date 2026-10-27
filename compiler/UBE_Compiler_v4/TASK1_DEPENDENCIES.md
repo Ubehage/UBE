@@ -35,3 +35,14 @@ projects with the preserved v3 compiler, repeats and compares support LLVM,
 builds three native fixtures, checks limits/rejections/portable paths, runs
 reentrant calls on two UBE threads, and checks file/process cleanup. Generated
 evidence belongs only under `bootstrap/out/v4-task1/`.
+
+## Task 4 extension
+
+Task 4 activates the previously deferred Unicode boundary. The compiler-support
+package is now `0.2.0-v4t4` and exposes ordinary UBE wrappers for two additional
+intrinsics already present in `ube-intrinsic-abi-1`: Unicode letter membership
+and simple code-point folding. It also exposes the existing required-text read
+operation to the load-once project/source phase. The package therefore has 15
+private intrinsic declarations and still introduces zero new ABI names. The
+Task 1 ownership decisions remain frozen; this section records the later,
+verified extension instead of rewriting their historical scope.

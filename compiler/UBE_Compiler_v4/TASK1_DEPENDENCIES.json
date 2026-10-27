@@ -13,10 +13,15 @@
     },
     {
       "name": "UBECompilerSupport",
-      "version": "0.1.0-v4t1",
+      "version": "0.2.0-v4t4",
       "manifest": "support/UBECompilerSupport.UBE",
-      "intrinsic_count": 13,
+      "intrinsic_count": 15,
       "new_intrinsic_count": 0,
+      "task4_extension": {
+        "unicode_letter_and_simple_fold_wrappers": true,
+        "required_text_read_wrapper": true,
+        "new_intrinsic_count": 0
+      },
       "public_modules": [
         "BoundedText",
         "PortablePaths",

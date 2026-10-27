@@ -45,6 +45,15 @@ Function Main() As Long
 
     Dim Configuration As CompilerConfiguration
     Configuration.FaultSite = FaultSite
+    Dim TokenDumpMode As Long = 0
+    If ArgumentCount = 3 Then
+        If CompilerArgumentAt(ArgumentBase) = "--dump-tokens" Then TokenDumpMode = 1
+    End If
+    If TokenDumpMode <> 0 Then
+        Configuration.ProjectPath = CompilerArgumentAt(ArgumentBase + 1)
+        Configuration.TargetTriple = CompilerArgumentAt(ArgumentBase + 2)
+        Configuration.PublishRecord = 4
+    Else
     If ArgumentCount = 2 Then
         Configuration.ProjectPath = CompilerArgumentAt(ArgumentBase)
         Configuration.TargetTriple = CompilerArgumentAt(ArgumentBase + 1)
@@ -69,12 +78,13 @@ Function Main() As Long
             Exit Function
         End If
     End If
+    End If
     If Configuration.TargetTriple <> "x86_64-w64-windows-gnu" Then
         Print "error UBE6001: unsupported Task 2 target: " & Configuration.TargetTriple
         Main = 2
         Exit Function
     End If
-    If Configuration.PublishRecord <> 0 And Configuration.OutputPath = "" Then
+    If Configuration.PublishRecord >= 1 And Configuration.PublishRecord <= 3 And Configuration.OutputPath = "" Then
         Print "error UBE6000: output path must not be empty"
         Main = 2
         Exit Function
@@ -85,6 +95,9 @@ Function Main() As Long
         Main = 2
         Exit Function
     End If
+    If Configuration.PublishRecord = 4 Then
+        Main = RunTokenDump(Session)
+    Else
     If Configuration.PublishRecord = 2 Then
         Main = RunVerticalSlice(Session, 0)
     Else
@@ -93,5 +106,6 @@ Function Main() As Long
         Else
             Main = RunCompilerSession(Session)
         End If
+    End If
     End If
 End Function
