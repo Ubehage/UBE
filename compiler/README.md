@@ -13,6 +13,10 @@ prove reproducibility and self-hosting.
 - [`UBE_Compiler_v3/`](UBE_Compiler_v3/README.md) is the first public-release
   compiler target. Release Preview 8 is the current verified baseline, built
   on the permanent RP5 self-build fixed point.
+- [`UBE_Compiler_v4/`](UBE_Compiler_v4/README.md) is the clean architectural
+  successor. Tasks 0 and 1 are complete: the architecture and first-slice
+  dependencies are frozen, and the independent compiler-support foundation is
+  verified. The production manifest and `Main.bas` begin in Task 2.
 
 The generation-wide roadmap is [Roadmap.md](Roadmap.md), and the active handoff
 record is [Progress.md](Progress.md). Intermediate generated artifacts belong

@@ -1,0 +1,23 @@
+UBE-Test-Case 1
+Id = "task0-format-minimal"
+Task = 0
+Purpose = "Prove the smallest valid case manifest can be parsed deterministically."
+Compiler = "task0-format-validator"
+Mode = "validate"
+Host = "portable"
+Target = "none"
+Expected.Exit = 0
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 2
+Category = "positive"
+Category = "determinism"
+NotApplicable.Interaction = "The format validator has no compiler subsystem interaction."
+NotApplicable.Rejection = "Malformed format inputs are separate negative validator cases."
+NotApplicable.Boundary = "Boundary format inputs are separate validator cases."
+NotApplicable.Stress = "The bounded parser prototype supplies the Task 0 scaling series."
+NotApplicable.Failure = "This case owns no allocation, file, process, or publication boundary."
+NotApplicable.Regression = "No prior defect exists for the new format."
+NotApplicable.Differential = "V3 has no version of the v4 case-manifest format."
+NotApplicable.Native = "Task 0 does not generate or execute native UBE output."
+CleanupAssertion = "no-output-created"

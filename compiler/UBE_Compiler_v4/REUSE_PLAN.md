@@ -63,3 +63,18 @@ compiler-support library instead of polluting either UBECore or the compiler.
 7. V4 stage-two/stage-three fixed point and exact UBECore slice reproduction.
 
 Each task uses only the lowest comparison level needed to isolate failure.
+
+## First vertical-slice dependency closure
+
+Task 0 classified every non-language capability required by Tasks 2 and 3.
+The authoritative ownership table and exact restrictions are in
+`TASK0_DECISIONS.md`. In summary, compiler policy owns grammar, syntax,
+diagnostics, semantic, IR, and backend decisions; UBECore owns general Unicode,
+collections, stable sorting, text building, hashing, serialization, paths, and
+portable file contracts; a versioned compiler-support package owns bounded
+shell-free tool execution and measurements; platform adapters own unavoidable
+OS primitives. The sequential first slice has no executor dependency.
+
+No unclassified v3 module or helper is a permitted dependency. Task 1 must
+freeze concrete APIs and the exact bootstrap slice before compiler use, but it
+may not silently change an ownership decision or add an intrinsic/dependency.

@@ -5,21 +5,29 @@ preserved v3 implementation. V3 remains the executable UBE 1.0, diagnostic,
 ABI, package, and bootstrap oracle. V4 will be written in UBE and built first
 by v3, but its internal architecture will not be copied from v3.
 
-The directory currently contains planning documents only. No v4 production
-source or project manifest exists yet. Creating the required
+The directory contains the frozen planning documents, the bounded
+non-production Task 0 prototype/evidence harness, and the independently
+buildable `support/UBECompilerSupport.UBE` package completed by Task 1. No v4
+production compiler source or manifest exists yet. Creating the required
 `UBE_Compiler_v4.UBE` manifest and `Main.bas` startup module is part of the
-post-Task-0 scaffold gate, not part of roadmap drafting.
+Task 2 scaffold gate.
 
 Read in this order:
 
 1. [`AGENTS.md`](AGENTS.md) — mandatory local instructions.
-2. [`DESIGN.md`](DESIGN.md) — proposed phase, ownership, and determinism
+2. [`DESIGN.md`](DESIGN.md) — frozen phase, ownership, and determinism
    contracts.
-3. [`REUSE_PLAN.md`](REUSE_PLAN.md) — what v3 contributes and how it may be
+3. [`TASK0_DECISIONS.md`](TASK0_DECISIONS.md) — measured syntax choice, phase
+   APIs, IDs, limits, diagnostics, test formats, and rejected alternatives.
+4. [`REUSE_PLAN.md`](REUSE_PLAN.md) — what v3 contributes and how it may be
    used.
-4. [`ROADMAP.md`](ROADMAP.md) — milestones, dependencies, and exit gates.
-5. [`TASKS.md`](TASKS.md) — bounded briefs for the agent executing each task.
-6. [`Progress.md`](Progress.md) — the single active resumable handoff.
+5. [`TASK1_DEPENDENCIES.md`](TASK1_DEPENDENCIES.md) — frozen first-slice
+   ownership, package, intrinsic, and deferral decisions.
+6. [`ROADMAP.md`](ROADMAP.md) — milestones, dependencies, and exit gates.
+7. [`TESTING.md`](TESTING.md) — mandatory focused and cumulative proof for
+   every development build.
+8. [`TASKS.md`](TASKS.md) — bounded briefs for the agent executing each task.
+9. [`Progress.md`](Progress.md) — the single active resumable handoff.
 
 Authoritative external inputs remain:
 

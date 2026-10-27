@@ -4,9 +4,16 @@
 
 Before starting any numbered task, copy its packet into `Progress.md` and fill
 in: objective, prerequisites checked, files in scope, smallest reproduction,
-expected artifacts, focused commands, inherited gates, measurements, risks,
-and exact next action. Keep one active task. If work reveals a new prerequisite,
-record it in the roadmap and stop broadening the task silently.
+expected artifacts, new test inventory, focused commands, cumulative inherited
+gates, measurements, risks, and exact next action. Keep one active task. If
+work reveals a new prerequisite, record it in the roadmap and stop broadening
+the task silently.
+
+`TESTING.md` applies to every packet. For each new capability, explicitly list
+the positive, interaction, rejection, boundary, stress, failure-injection,
+regression, differential, native, and determinism cases. Marking a category not
+applicable requires a recorded reason. No agent may call a build working merely
+because the compiler executable was produced or one showcase program passed.
 
 Every handoff must state:
 
@@ -26,7 +33,9 @@ design/rules; normative grammar and versioning documents.
 **Do:** turn each open architectural choice into a small question with a
 representative fixture and measurable acceptance criteria. Prototype syntax
 representations outside the production manifest. Produce record/ownership
-diagrams, phase API sketches, estimated memory, and library placement decisions.
+diagrams, phase API sketches, estimated memory, library placement decisions,
+and the dependency-minimal test case/build-record format required by
+`TESTING.md`.
 
 **Do not:** create production source, edit frozen semantics, optimize v3, or
 select a design because it resembles v3.
@@ -59,7 +68,8 @@ tests, and generation naming/build policy.
 
 **Do:** create the exact manifest/startup structure, immutable session records,
 limits, diagnostics, cancellation, and explicit resource cleanup. Use fake
-phase adapters to prove failure propagation and atomic publication.
+phase adapters to prove failure propagation and atomic publication. Create the
+deterministic cumulative test runner before expanding the compiler surface.
 
 **Do not:** add real parsing or LLVM, put generated output in the source tree,
 or make the driver own phase-private arrays.

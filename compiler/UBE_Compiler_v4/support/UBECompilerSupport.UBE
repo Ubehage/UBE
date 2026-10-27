@@ -1,0 +1,10 @@
+UBE-Project 1
+Name = "UBECompilerSupport"
+Kind = "Library"
+Source = "src/SupportIntrinsics.bas"
+Source = "src/BoundedText.bas"
+Source = "src/PortablePaths.bas"
+Source = "src/RecordSerialization.bas"
+Source = "src/CompilerEnvironment.bas"
+Source = "src/CompilerFiles.bas"
+Source = "src/CompilerProcesses.bas"

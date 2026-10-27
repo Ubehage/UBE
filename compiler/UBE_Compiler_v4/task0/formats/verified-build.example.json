@@ -1,0 +1,32 @@
+{
+  "format": "ube-v4-verified-build-1",
+  "roadmap_task": 0,
+  "build_identity": "task0-format-example",
+  "status": "passed",
+  "bootstrap": {
+    "compiler": "not-applicable",
+    "sha256": ""
+  },
+  "inputs": [],
+  "environment": {
+    "host": "portable",
+    "target": "none",
+    "os": "example",
+    "architecture": "example",
+    "tools": []
+  },
+  "execution": {
+    "requested_jobs": 1,
+    "effective_jobs": 1,
+    "schedules": [],
+    "faults": []
+  },
+  "cases": [],
+  "measurements": [],
+  "artifacts": [],
+  "cleanup": {
+    "live_resources": 0,
+    "false_success_artifacts": 0,
+    "passed": true
+  }
+}

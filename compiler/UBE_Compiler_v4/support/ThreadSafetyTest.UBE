@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "UBECompilerSupportThreadSafetyTest"
+Kind = "Exe"
+Startup = "Main"
+Reference = "UBECompilerSupport.UBE"
+Source = "tests/ThreadSafetyTest.bas"

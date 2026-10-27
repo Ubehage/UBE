@@ -2,14 +2,17 @@
 
 ## Status and completion rules
 
-V4 is in architecture planning. Status markers are `[ ]` pending, `[~]`
-active, `[x]` verified, and `[!]` blocked with the reason in `Progress.md`.
+Task 0 architecture planning is complete; Task 1 is the next implementation
+gate. Status markers are `[ ]` pending, `[~]` active, `[x]` verified, and `[!]`
+blocked with the reason in `Progress.md`.
 
 Tasks run in dependency order unless `Progress.md` records an approved isolated
 prerequisite. A task is complete only when its implementation, controlled
 failure paths, focused regression tests, differential evidence, performance
 work counters, documentation, and task exit gate pass. Detailed execution
-instructions are in `TASKS.md`.
+instructions are in `TASKS.md`. Every development build must also satisfy the
+focused and cumulative verified-build policy in `TESTING.md`; successfully
+building the compiler alone never completes a step.
 
 ## Phase A — approve the boundary before production code
 
@@ -17,22 +20,40 @@ instructions are in `TASKS.md`.
 
 - [x] Review and owner-approve `DESIGN.md`, `REUSE_PLAN.md`, this roadmap, and
   the task packets. Approved by the owner on 2026-10-27.
-- [~] Resolve the syntax representation decision gate with bounded prototypes.
-- [ ] Freeze initial phase interfaces, ID rules, ownership, limits, diagnostic
+- [x] Resolve the syntax representation decision gate with bounded prototypes.
+- [x] Freeze initial phase interfaces, ID rules, ownership, limits, diagnostic
   comparison policy, and library/compiler-support split.
-- [ ] Record accepted decisions and explicitly rejected alternatives.
+- [x] Freeze the dependency-minimal test case manifest, cumulative runner
+  contract, verified-build record, and the required positive, rejection,
+  boundary, stress, failure, regression, differential, native, and determinism
+  matrix from `TESTING.md`.
+- [x] Record accepted decisions and explicitly rejected alternatives.
+
+Task 0 completed on 2026-10-27. `TASK0_DECISIONS.md` freezes the measured
+selective hybrid syntax representation and every remaining contract. The
+offline `task0/run-task0.ps1` evidence gate validates the manifest formats,
+compares both representations over valid/malformed/depth/scaling fixtures,
+requires deterministic reruns and v3 acceptance parity, and proves atomic
+publication cleanup. No production manifest or source was created.
 
 Exit gate: the owner approves a written architecture; measured prototypes
 support uncertain choices; no production scaffold predates the decision.
 
 ### Task 1: reusable foundation and library split
 
-- [ ] Inventory every non-language facility required by the first vertical
+- [x] Inventory every non-language facility required by the first vertical
   slice and assign it to compiler, UBECore, compiler-support, or platform.
-- [ ] Implement only the minimal approved text, Unicode, collection, hashing,
+- [x] Implement only the minimal approved text, Unicode, collection, hashing,
   path/file, process, serialization, and executor facilities needed by the
   next task, each in its owning project with focused tests.
-- [ ] Freeze the v4 bootstrap/library/intrinsic dependency manifest.
+- [x] Freeze the v4 bootstrap/library/intrinsic dependency manifest.
+
+Task 1 completed on 2026-10-27. `TASK1_DEPENDENCIES.md` and its JSON companion
+freeze the exact first-slice inventory. The separately buildable
+`UBECompilerSupport` 0.1.0-v4t1 package supplies only the Task 2 shell's
+bounded text, path, record, environment, file, process, and measurement
+contracts. Unicode, general collections/hashing, and parallel execution are
+explicitly deferred because the first slice does not need them.
 
 Exit gate: the first slice can depend on documented tested APIs without
 copying general-purpose routines into the compiler or adding hidden intrinsics.
@@ -46,6 +67,8 @@ copying general-purpose routines into the compiler or adding hidden intrinsics.
 - [ ] Implement bounded arguments, immutable configuration/limits, project and
   target identity, diagnostic aggregation, cancellation, cleanup, and atomic
   artifact publication interfaces.
+- [ ] Create the deterministic test runner and initial Task 2 focused/cumulative
+  suite defined by `TESTING.md`.
 - [ ] Add v3-built smoke and hostile-argument gates.
 
 Exit gate: v3 builds the shell; the shell accepts or rejects a minimal project

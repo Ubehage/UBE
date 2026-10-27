@@ -89,15 +89,19 @@ ownership and design authority remain with Ube.
 > removed major repeated whole-program work and reduced the measured compiler
 > self-build from about 800.7 to 400.7 seconds. The audit also confirmed that
 > v3's frontend and semantic worker design copies too much project state, so
-> normal multi-job activation is suspended. The owner has approved the Compiler
-> v4 Task 0 architectural direction; bounded parser and syntax prototypes now
-> precede any v4 production scaffold.
+> normal multi-job activation is suspended. Compiler v4 Task 0 is complete: the
+> measured selective hybrid syntax design and its ownership, phase, dependency,
+> determinism, resource, and cumulative-verification contracts are frozen.
+> Compiler v4 Task 1 is also complete: its first-slice dependencies are
+> assigned, and a small independently tested compiler-support package now
+> provides the bounded path, text, record, file, process, and measurement
+> boundary needed for the Task 2 session shell.
 
 <ul>
   <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
   <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and reproducibly builds the Compiler v3 sequential seed.</sub></li>
   <li><strong>Compiler v3 RP8</strong><br><sub>The preserved self-hosting reference compiler implements the frozen UBE 1.0 contract, project and library formats, optimization/debug controls, compatibility diagnostics, Windows native output, and the Linux x86-64 ELF boundary.</sub></li>
-  <li><strong>Compiler v4</strong><br><sub>The architectural direction and reuse policy are approved. Task 0 is measuring compact parser and syntax designs and freezing ownership, phase, library, determinism, and resource contracts before production source is created.</sub></li>
+  <li><strong>Compiler v4</strong><br><sub>Tasks 0 and 1 are complete. The measured compact per-source hybrid architecture is frozen, and the first reusable compiler-support package now builds independently with bounded, deterministic, thread-safe path, text, record, file, process, and measurement contracts. Task 2 is the production session-shell scaffold.</sub></li>
   <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
   <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
   <li><strong>Performance findings</strong><br><sub>Profiling exposed avoidable whole-program scans and expensive worker-state copying. Indexed IR verification, bounded function-range LLVM emission, and numeric grammar-rule dispatch produced large deterministic improvements; the slower v3 worker paths remain disabled rather than being presented as successful parallelism.</sub></li>
@@ -129,6 +133,8 @@ buildable throughout this work.
 - A stable UBE language definition and grammar. ✔️
 - A verified, self-hosting compiler v4 with measured ownership, scaling, and
   deterministic parallelism. 🚧
+- Every compiler milestone verified by small purpose-built programs and the
+  cumulative regression, stress, failure, determinism, and native suite. 🚧
 - Lightweight, optimized 64-bit native executables. ✔️
 - A minimal compiler with runtime and standard-library functionality kept in a
   separate UBE source library. 🚧

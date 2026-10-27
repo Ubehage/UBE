@@ -6,22 +6,56 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v4 architecture and reuse decision**.
-- Active item: **v4 Task 0 — bounded parser/syntax prototypes and remaining
-  measured architecture decisions**.
+- Active milestone: **Compiler v4 scaffold and session shell**.
+- Active item: **begin Task 2 from the completed Task 1 dependency freeze**.
 - Status: v3 Beta Phase 5 is closed as an optimization line. Its verified
   self-host fell from 800.730 seconds to 400.656 seconds after removing major
   repeated whole-program work, but its Phase 3/4 worker transport and coupled
   data distribution are not a suitable foundation. V3 is preserved as the
   executable UBE 1.0, diagnostic, ABI, package, test, and bootstrap oracle for
-  v4. The proposed documentation-only v4 boundary is under
-  `UBE_Compiler_v4/`; no v4 manifest or production source exists yet.
-- Blockers: none for Task 0 prototype work. Production scaffolding remains
-  gated until the complete Task 0 exit gate passes. Linux runtime execution is
+  v4. Tasks 0 and 1 are complete under `UBE_Compiler_v4/`; no v4 production
+  compiler manifest or source exists yet.
+- Blockers: none. Task 2 may now create the production scaffold against the
+  frozen support boundary. Linux runtime execution is
   still not claimed; v3 RP8 verifies the non-Windows boundary through LLVM and
   a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-27: completed Compiler v4 Task 1. The exact facility ownership and
+  bootstrap dependencies are frozen in `UBE_Compiler_v4/TASK1_DEPENDENCIES.*`.
+  The independent `UBECompilerSupport` 0.1.0-v4t1 project adds bounded text,
+  portable relative paths, deterministic record fields, arguments,
+  measurements, required-file I/O, atomic publication/cleanup, and
+  separate-argument process execution without shared mutable module state.
+  The focused gate compiled both UBECore and compiler support with preserved
+  v3, repeated support LLVM deterministically, and passed native API,
+  two-thread reentrancy, and I/O/process cleanup fixtures. Its 13 private hooks
+  are existing `ube-intrinsic-abi-1` names; no intrinsic was added.
+
+- 2026-10-27: completed Compiler v4 Task 0. The dependency-minimal
+  `UBE-Test-Case 1` input format, cumulative runner contract, and generated
+  `ube-v4-verified-build-1` evidence format are frozen. A compiled C++17
+  non-production probe compared a full table syntax form with the selected
+  selective hybrid representation over valid, malformed, depth 32/65, and
+  100/1,000/5,000-statement inputs. Three repetitions preserved exact counters,
+  spans, normalized meaning, and diagnostics; both modes matched v3 acceptance
+  on the checked-in differential fixtures and stayed within the 1.20
+  work/token scaling bound. On 30,025 tokens the hybrid used 240,060 syntax
+  bytes versus 1,000,596. Task 0 also froze phase envelopes, one-based owner-
+  local IDs, deterministic merges, initial compatibility limits, diagnostic
+  comparison, complete first-slice dependency ownership, and rejected
+  alternatives in `UBE_Compiler_v4/TASK0_DECISIONS.md`. The runner proved
+  cleanup under injected publication failure and produced its verified record
+  beneath `bootstrap/out/v4-task0/`. No production compiler or bootstrap source
+  changed.
+
+- 2026-10-27: the owner required every v4 roadmap step and every claimed
+  working compiler build to pass small purpose-built positive, rejection,
+  boundary, stress, failure, regression, differential, native, and determinism
+  programs plus the cumulative earlier suite. The v4 verified-build policy now
+  requires an exact generated evidence record; compilation alone is never a
+  completed gate.
 
 - 2026-10-27: the owner approved the proposed v4 Task 0 direction, including
   the reuse policy, ownership model, measured parser decision, library and
@@ -288,9 +322,12 @@ roadmap.
 
 ## Next actions
 
-1. Define and run the bounded Task 0 parser/syntax prototypes and measurements.
-2. Freeze the remaining phase interfaces, initial limits, diagnostic comparison
-   policy, dependency ownership, and accepted/rejected design record.
+1. Copy the Task 1 packet into `UBE_Compiler_v4/Progress.md` and inventory the
+   exact Task 2/3 text, Unicode, collection, hashing, path/file, process,
+   serialization, and executor needs against the frozen ownership table.
+2. Implement only the smallest independently testable UBECore or versioned
+   compiler-support APIs needed by the next slice and freeze the exact
+   bootstrap dependency manifest.
 3. Preserve the complete v3 fixed point and RP8 corpus as v4 differential and
    bootstrap gates. Do not resume v3 worker expansion unless explicitly asked.
 
@@ -306,8 +343,9 @@ roadmap.
   developed and compiled with preserved v2.
 - V3 is now preserved as the executable reference/bootstrap bridge for v4;
   v4 is a deliberate architectural generation and must be built first with v3.
-- The owner approved the v4 planning direction on 2026-10-27. Production
-  scaffolding remains gated until the measured Task 0 exit gate passes.
+- The owner approved the v4 planning direction on 2026-10-27, and measured Task
+  0 is complete. Production scaffolding remains gated until Task 1 supplies the
+  exact tested dependency manifest required by Tasks 2 and 3.
 - Fractional-to-integer conversion uses round-to-nearest, ties-to-even, with
   out-of-range failure. Invariant numeric text parsing trims surrounding
   whitespace, requires a complete match, accepts signs, decimal/exponent

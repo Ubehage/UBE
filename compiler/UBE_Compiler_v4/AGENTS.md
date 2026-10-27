@@ -2,8 +2,8 @@
 
 This directory defines and, after owner approval, implements the v4 compiler
 generation. These instructions supplement `../AGENTS.md`. Read `README.md`,
-`DESIGN.md`, `REUSE_PLAN.md`, `ROADMAP.md`, and `Progress.md` before changing
-anything in this directory.
+`DESIGN.md`, `REUSE_PLAN.md`, `ROADMAP.md`, `TESTING.md`, `TASKS.md`, and
+`Progress.md` before changing anything in this directory.
 
 ## Current authorization boundary
 
@@ -41,6 +41,12 @@ authorizes the bounded prototype work, not production scaffolding.
 - Do not optimize by adding workers to an unmeasured algorithm. First record a
   work counter or scaling fixture that can distinguish linear from repeated
   whole-program work.
+- Every implementation increment must satisfy `TESTING.md`. A successful
+  compiler build is unverified until its focused purpose-built programs and the
+  cumulative applicable suite pass and a verified-build record is produced.
+- Every discovered crash, hang, miscompile, nondeterministic result, leak, bad
+  diagnostic, or false-success artifact becomes a minimal permanent regression
+  test that fails before the correction.
 - Keep external resources under explicit lifetime management. Garbage
   collection does not close files, processes, pipes, locks, temporary files,
   or tool handles.
@@ -56,11 +62,13 @@ authorizes the bounded prototype work, not production scaffolding.
    fundamental design change requires owner approval and a recorded decision.
 5. Run the task's focused tests first, then its differential and inherited
    gates. Never use a full self-build as the first diagnostic.
-6. Record measurements using input hashes, record counts, work counters, wall
+6. Run every applicable earlier v4 suite; test coverage is cumulative and a
+   later build must not discard proof established by an earlier build.
+7. Record measurements using input hashes, record counts, work counters, wall
    time, CPU time, peak memory, artifact size, host, target, and tool versions.
-7. Update `Progress.md` during the task and `ROADMAP.md`, `REUSE_PLAN.md`, and
+8. Update `Progress.md` during the task and `ROADMAP.md`, `REUSE_PLAN.md`, and
    affected public/library documentation when the result changes them.
-8. Mark a task complete only when code, controlled failures, regression tests,
+9. Mark a task complete only when code, controlled failures, regression tests,
    documentation, cleanup, and the stated exit gate all pass.
 
 ## Review stop conditions

@@ -1,0 +1,23 @@
+UBE-Test-Case 1
+Id = "task0-format-escaping-path"
+Task = 0
+Purpose = "An input path may not escape the case directory."
+Compiler = "task0-format-validator"
+Mode = "validate"
+Host = "portable"
+Target = "none"
+Expected.Exit = 0
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
+Input.Source = "../outside.bas"
+Category = "rejection"
+NotApplicable.Positive = "This is an intentionally invalid manifest."
+NotApplicable.Interaction = "The format validator has no compiler subsystem interaction."
+NotApplicable.Boundary = "Path traversal is a rejection case rather than a size boundary."
+NotApplicable.Stress = "The bounded parser prototype supplies the Task 0 scaling series."
+NotApplicable.Failure = "This case owns no allocation, file, process, or publication boundary."
+NotApplicable.Regression = "No prior defect exists for the new format."
+NotApplicable.Differential = "V3 has no version of the v4 case-manifest format."
+NotApplicable.Native = "Task 0 does not generate or execute native UBE output."
+NotApplicable.Determinism = "A single deterministic rejection is sufficient for this invalid input."

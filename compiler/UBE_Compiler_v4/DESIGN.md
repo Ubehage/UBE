@@ -1,13 +1,14 @@
-# UBE Compiler v4 proposed architecture
+# UBE Compiler v4 architecture
 
 ## Status
 
-The owner approved this proposed direction on 2026-10-27. It is binding for
-Task 0 prototypes and design decisions. Production implementation remains
-gated until Task 0 completes its measurements, freezes the remaining open
-interfaces, and passes its exit gate. Open questions must be settled with
-focused prototypes or measurements; agents must not fill them with accidental
-implementation choices.
+The owner approved this direction on 2026-10-27. Task 0 subsequently froze the
+measured syntax choice, phase interfaces, identity and merge rules, initial
+limits, diagnostic comparison, test/evidence formats, and complete first-slice
+library placement in [`TASK0_DECISIONS.md`](TASK0_DECISIONS.md). This document
+is the production architecture boundary. Later changes to a frozen contract
+require the review specified by `AGENTS.md`; implementation convenience is not
+a design decision.
 
 ## Design objective
 
@@ -85,20 +86,26 @@ Each phase publishes a bounded result with:
 
 The published result must be testable without running every later phase.
 
-## Syntax decision gate
+Every published phase contract also has purpose-built executable fixtures under
+the cumulative policy in `TESTING.md`. Phase dumps and internal validators make
+the smallest relevant layer independently testable; a complete self-build is
+never the only evidence that a phase works.
 
-V3's generic grammar engine proved the grammar and recovery behavior, but its
-approximately 1.25 million syntax nodes for the compiler source are not an
-acceptable default for v4. Task 0 must compare at least two bounded approaches
-on representative valid, malformed, and deeply nested inputs:
+## Syntax decision
 
-1. generated table-driven parsing with a compact lossless syntax form; and
-2. a deliberate hand-written or hybrid parser generated/checked against the
-   normative grammar.
+V4 uses the measured selective hybrid representation defined in
+`TASK0_DECISIONS.md`: immutable source bytes and tokens retain lossless input;
+per-source syntax stores only structures required by later phases; every token
+and node retains an exact span; and a generated grammar inventory/coverage
+check prevents hand-written parser drift. Numeric production identities replace
+hot folded-name dispatch. Full wrapper/token CST nodes and v3's global syntax
+arrays are explicitly rejected.
 
-The selected representation must retain exact source spans and deterministic
-recovery while measuring nodes/bytes per token, parse work, peak memory, and
-maintenance risk. Do not choose solely from wall time.
+The reproducible Task 0 runner compares the accepted hybrid against a full
+table-driven representation on valid, malformed, depth, and scaling inputs. It
+records nodes and bytes per token, parser work, peak working set, recovery,
+spans, grammar coverage, and maintenance constraints rather than selecting from
+wall time alone.
 
 ## Library boundary
 

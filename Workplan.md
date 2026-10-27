@@ -80,8 +80,16 @@ nearer roadmap or progress file.
     `compiler/UBE_Compiler_v4/`.
   - [x] Obtain owner approval for the Task 0 architecture, parser decision
     process, library/compiler-support split, and task ordering.
-  - [~] Run the approved bounded design prototypes and freeze phase interfaces
+  - [x] Run the approved bounded design prototypes and freeze phase interfaces
     before creating the v4 manifest or production source scaffold.
+  - [x] Freeze and enforce the v4 verified-build policy: every roadmap step and
+    claimed working build needs small purpose-built success, rejection,
+    boundary, stress, failure, regression, differential, native, and
+    determinism programs plus every applicable earlier test.
+  - [x] Implement the Task 1 reusable foundation and exact dependency manifest
+    before creating the Task 2 production scaffold.
+  - [ ] Build the Task 2 production session shell on the frozen Task 1 support
+    boundary and permanent sequential reference path.
 
 ## Handoff protocol
 

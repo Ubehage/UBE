@@ -1,0 +1,13 @@
+UBE-Test-Case 1
+Id = "task0-format-duplicate"
+Id = "task0-format-duplicate-again"
+Task = 0
+Purpose = "A duplicate singleton must be rejected."
+Compiler = "task0-format-validator"
+Mode = "validate"
+Host = "portable"
+Target = "none"
+Expected.Exit = 0
+Expected.Artifact = "not-applicable"
+Differential.Level = 0
+Repeat = 1
