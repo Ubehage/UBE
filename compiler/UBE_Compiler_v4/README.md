@@ -5,14 +5,15 @@ preserved v3 implementation. V3 remains the executable UBE 1.0, diagnostic,
 ABI, package, and bootstrap oracle. V4 will be written in UBE and built first
 by v3, but its internal architecture will not be copied from v3.
 
-Tasks 0 through 2 are complete. The directory contains the frozen architecture
+Tasks 0 through 3 are complete. The directory contains the frozen architecture
 and dependency decisions, the Task 0 prototype evidence, the independently
 buildable `support/UBECompilerSupport.UBE` package, and the first production
 `UBE_Compiler_v4.UBE`/`Main.bas` shell. The shell proves bounded startup,
 immutable session ownership, diagnostics, cancellation, failure propagation,
 cleanup, and atomic record publication. It deliberately has no real parser,
-semantic pipeline, IR, or backend; Task 3 adds the first genuine vertical
-slice.
+semantic pipeline, IR, or backend. Task 3 adds the first genuine vertical
+slice through separate source, lexer, syntax, declaration, semantic, verified
+function-local IR, and LLVM backend modules.
 
 Read in this order:
 
@@ -37,6 +38,7 @@ Run the complete current v4 evidence gates with:
 powershell -ExecutionPolicy Bypass -File task0/run-task0.ps1
 powershell -ExecutionPolicy Bypass -File task1/run-task1.ps1
 powershell -ExecutionPolicy Bypass -File task2/run-task2.ps1
+powershell -ExecutionPolicy Bypass -File task3/run-task3.ps1
 ```
 
 Authoritative external inputs remain:

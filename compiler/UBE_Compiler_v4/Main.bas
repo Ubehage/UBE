@@ -7,7 +7,7 @@ Sub PrintCompilerUsage()
 End Sub
 
 Function IsTask2Fault(ByVal Value As String) As Long
-    If Value = "allocation" Or Value = "tool" Or Value = "write" Or Value = "cancel" Then
+    If Value = "allocation" Or Value = "tool" Or Value = "write" Or Value = "cancel" Or Value = "source-envelope" Or Value = "token-envelope" Or Value = "syntax-envelope" Or Value = "declaration-envelope" Or Value = "semantic-envelope" Or Value = "ir-envelope" Or Value = "backend-envelope" Then
         IsTask2Fault = 1
     Else
         IsTask2Fault = 0
@@ -51,11 +51,13 @@ Function Main() As Long
         Configuration.PublishRecord = 0
     Else
         If ArgumentCount = 4 Then
-            If CompilerArgumentAt(ArgumentBase) = "--emit-shell-record" Then
+            If CompilerArgumentAt(ArgumentBase) = "--emit-shell-record" Or CompilerArgumentAt(ArgumentBase) = "--emit-llvm" Or CompilerArgumentAt(ArgumentBase) = "--emit-phase-dump" Then
                 Configuration.ProjectPath = CompilerArgumentAt(ArgumentBase + 1)
                 Configuration.TargetTriple = CompilerArgumentAt(ArgumentBase + 2)
                 Configuration.OutputPath = CompilerArgumentAt(ArgumentBase + 3)
-                Configuration.PublishRecord = 1
+                If CompilerArgumentAt(ArgumentBase) = "--emit-shell-record" Then Configuration.PublishRecord = 1
+                If CompilerArgumentAt(ArgumentBase) = "--emit-llvm" Then Configuration.PublishRecord = 2
+                If CompilerArgumentAt(ArgumentBase) = "--emit-phase-dump" Then Configuration.PublishRecord = 3
             Else
                 Call PrintCompilerUsage()
                 Main = 2
@@ -83,5 +85,13 @@ Function Main() As Long
         Main = 2
         Exit Function
     End If
-    Main = RunCompilerSession(Session)
+    If Configuration.PublishRecord = 2 Then
+        Main = RunVerticalSlice(Session, 0)
+    Else
+        If Configuration.PublishRecord = 3 Then
+            Main = RunVerticalSlice(Session, 1)
+        Else
+            Main = RunCompilerSession(Session)
+        End If
+    End If
 End Function

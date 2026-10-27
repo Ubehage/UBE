@@ -90,7 +90,7 @@ nearer roadmap or progress file.
     before creating the Task 2 production scaffold.
   - [x] Build the Task 2 production session shell on the frozen Task 1 support
     boundary and permanent sequential reference path.
-  - [ ] Implement the Task 3 minimal genuine vertical slice through every
+  - [x] Implement the Task 3 minimal genuine vertical slice through every
     compiler phase before adding broader language coverage.
 
 ## Handoff protocol

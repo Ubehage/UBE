@@ -6,21 +6,26 @@ roadmap.
 
 ## Current position
 
-- Active milestone: **Compiler v4 minimal vertical slice**.
-- Active item: **begin Task 3 from the verified Task 2 session shell**.
+- Active milestone: **Compiler v4 projects, sources, preprocessing, and lexer**.
+- Active item: **begin Task 4 from the verified Task 3 vertical slice**.
 - Status: v3 Beta Phase 5 is closed as an optimization line. Its verified
   self-host fell from 800.730 seconds to 400.656 seconds after removing major
   repeated whole-program work, but its Phase 3/4 worker transport and coupled
   data distribution are not a suitable foundation. V3 is preserved as the
   executable UBE 1.0, diagnostic, ABI, package, test, and bootstrap oracle for
-  v4. Tasks 0 through 2 are complete under `UBE_Compiler_v4/`; the production
-  shell is native and deliberately contains only fake phase adapters.
-- Blockers: none. Task 3 may add the first genuine phase-to-phase compiler
-  slice against the frozen shell and support boundary. Linux runtime execution is
+  v4. Tasks 0 through 3 are complete under `UBE_Compiler_v4/`; the production
+  compiler preserves the shell and adds a bounded genuine source-to-native slice.
+- Blockers: none. Task 4 may broaden projects, sources, preprocessing, and the
+  lexer from the verified phase contracts. Linux runtime execution is
   still not claimed; v3 RP8 verifies the non-Windows boundary through LLVM and
   a Clang-accepted ELF object.
 
 ## Latest verification
+
+- 2026-10-27: completed Compiler v4 Task 3. The v3-built native compiler emits
+  deterministic LLVM and seven phase dumps for a minimal `Sub Main`, matches
+  v3 native behavior, rejects malformed inputs and all envelope mutations, and
+  passes a 100,000-byte stress case without false-success artifacts.
 
 - 2026-10-27: completed Compiler v4 Task 2. Preserved v3 builds the production
   `UBE_Compiler_v4.UBE` manifest and native `Main.bas` shell. Its complete

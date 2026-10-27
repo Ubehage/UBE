@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "Task3Minimal"
+Kind = "Exe"
+Startup = "Main"
+Source = "minimal.bas"

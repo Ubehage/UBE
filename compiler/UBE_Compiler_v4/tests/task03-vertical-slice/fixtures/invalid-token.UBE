@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "Task3InvalidToken"
+Kind = "Exe"
+Startup = "Main"
+Source = "invalid-token.bas"

@@ -2,7 +2,7 @@
 
 ## Status and completion rules
 
-Tasks 0 through 2 are complete; Task 3 is the next implementation gate. Status
+Tasks 0 through 3 are complete; Task 4 is the next implementation gate. Status
 markers are `[ ]` pending, `[~]` active, `[x]` verified, and `[!]`
 blocked with the reason in `Progress.md`.
 
@@ -84,15 +84,20 @@ without a crash, leaked external resource, or false-success artifact.
 
 ### Task 3: minimal vertical slice
 
-- [ ] Compile one tiny `Sub Main` program through source snapshot, tokens,
+- [x] Compile one tiny `Sub Main` program through source snapshot, tokens,
   compact syntax, frozen declaration, typed body, verified local IR, LLVM,
   link, and native execution.
-- [ ] Keep each phase in a separate module with serialized debug snapshots.
-- [ ] Compare v3/v4 acceptance, diagnostics, output, exit status, and native
+- [x] Keep each phase in a separate module with serialized debug snapshots.
+- [x] Compare v3/v4 acceptance, diagnostics, output, exit status, and native
   behavior for the slice and its malformed variants.
 
 Exit gate: the architecture works end to end before language breadth grows;
 no phase queries another phase's private mutable state.
+
+Task 3 completed on 2026-10-27. The permanent Task 3 gate proves deterministic
+phase dumps and LLVM, controlled malformed-input and envelope-mutation failures,
+a 100,000-byte stress literal, LLVM link, native execution, v3 parity, and clean
+artifact ownership.
 
 ## Phase C — complete the front end and semantic core
 

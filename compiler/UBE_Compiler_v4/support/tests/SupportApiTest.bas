@@ -13,6 +13,17 @@ Function Main() As Long
     Print AppendRecordField(Buffer, "phase", "shell", 64)
     Print Buffer
     Print AppendRecordField(Buffer, "bad key", "x", 64)
+    Print CompilerTextByteAt("UBE", 1)
+    Print CompilerTextByteAt("UBE", 3)
+    Dim Slice As String = "stale"
+    Print CompilerTextSlice("compiler", 1, 3, Slice)
+    Print Slice
+    Print CompilerTextSlice("compiler", 7, 2, Slice)
+    Print CompilerTextFromByte(65)
+    Print CompilerTextFromByte(256)
+    Print CompilerTextLength("three")
+    Print CompilerLongToText(1203)
+    Print CompilerLongToText(-1)
     If CompilerElapsedMilliseconds() < -1 Then
         Main = 10
         Exit Function

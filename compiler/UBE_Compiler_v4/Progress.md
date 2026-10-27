@@ -5,14 +5,37 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 
 ## Current position
 
-- Completed task: **Task 2 — scaffold and session shell**.
-- Next task: **Task 3 — minimal vertical slice**; ready.
-- Status: the first production v4 manifest and strictly sequential native shell
-  are verified on the frozen Task 1 boundary. No lexer, parser, semantic
-  analysis, IR, compiler-produced LLVM, or parallel executor is claimed yet.
+- Completed task: **Task 3 — minimal vertical slice**.
+
+- Previous task: **Task 2 — scaffold and session shell**.
+- Next task: **Task 4 — projects, sources, preprocessing, and lexer**; ready.
+- Status: Tasks 0 through 3 are verified. The production compiler preserves the
+  Task 2 shell and compiles one bounded genuine `Sub Main` through seven
+  validated phase envelopes to deterministic LLVM and v3-equivalent native
+  behavior. Broader language coverage and parallel execution are not claimed.
 - Bootstrap compiler: preserved v3 production compiler.
 - Normative language: frozen UBE 1.0 definition and grammar.
 - Blockers: none.
+
+## Completed Task 3 execution packet
+
+- Objective: prove the frozen architecture end to end before adding breadth.
+- Prerequisites checked: Tasks 0–2, phase/ownership contracts, support boundary,
+  minimal grammar fixture, v3 oracle, LLVM, and bootstrap runtimes.
+- Scope: production phase modules, bounded support text views, Task 3 fixtures,
+  runner/evidence, and synchronized status documentation.
+- Smallest reproduction: one 17-token `Public Sub Main()` printing `task3-ok`;
+  malformed token, truncated syntax, and wrong-startup variants.
+- Test inventory: positive/native/v3 differential, deterministic LLVM and all
+  seven phase dumps, three rejections, seven envelope mutations, 100,000-byte
+  stress, post-fault ownership isolation, and artifact cleanup.
+- Result: `task3/run-task3.ps1` passed. The 104-byte source produced 17 tokens,
+  four syntax nodes, one declaration, one typed statement, three IR
+  instructions, 736 LLVM bytes, and a 147,456-byte native executable. LLVM
+  SHA-256 is `53C84191CF3B60B6A6198DF3E808ABB328C492774893C8A683D5E657E03FE747`;
+  dump SHA-256 is
+  `15411BBEFE824A2BA7AF90AD37197C31ACC5DF791C3A55B9ADB4AF5C80FF3ED2`.
+  No false-success artifact or live resource remained.
 
 ## Completed Task 2 execution packet
 
@@ -243,8 +266,6 @@ roadmap is `ROADMAP.md`; do not duplicate the complete backlog here.
 
 ## Exact next action
 
-Copy the Task 3 packet into this file and define the smallest real `Sub Main`
-fixture plus each phase envelope/dump/validator. Replace fake adapters one
-vertical path at a time through source snapshot, tokens, selective syntax,
-frozen declaration, typed body, verified local IR, LLVM, link, and native
-execution. Preserve the sequential shell and every Task 0–2 cumulative case.
+Task 3 is complete. Copy the Task 4 packet into this file and expand project
+and source loading, preprocessing, and lexical coverage from these envelopes.
+Begin with the smallest differential fixture and preserve every Task 0–3 gate.

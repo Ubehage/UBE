@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $coreLlvm -PathType Lea
 
 $api = Build-Native 'SupportApiTest.UBE' 'support-api-test.exe'
 $apiOutput = (& $api) -join "`n"
-$expectedApi = "1`nUBE`n0`n1`nsrc/main.bas`n0`n1`nUBEphase=shell`n`n0"
+$expectedApi = "1`nUBE`n0`n1`nsrc/main.bas`n0`n1`nUBEphase=shell`n`n0`n66`n-1`n1`nomp`n0`nA`n`n5`n1203`n"
 if ($LASTEXITCODE -ne 0 -or $apiOutput -cne $expectedApi) {
     throw "support API fixture failed:`n$apiOutput"
 }

@@ -14,11 +14,11 @@ prove reproducibility and self-hosting.
   compiler target. Release Preview 8 is the current verified baseline, built
   on the permanent RP5 self-build fixed point.
 - [`UBE_Compiler_v4/`](UBE_Compiler_v4/README.md) is the clean architectural
-  successor. Tasks 0 through 2 are complete: the architecture and first-slice
+  successor. Tasks 0 through 3 are complete: the architecture and first-slice
   dependencies are frozen, the compiler-support foundation is verified, and a
   v3-built production session shell now proves bounded startup, failure
   propagation, cancellation, cleanup, and atomic publication. Task 3 adds the
-  first real end-to-end compiler slice.
+  verified minimal source-to-native compiler slice.
 
 The generation-wide roadmap is [Roadmap.md](Roadmap.md), and the active handoff
 record is [Progress.md](Progress.md). Intermediate generated artifacts belong
