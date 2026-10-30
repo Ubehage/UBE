@@ -15,7 +15,7 @@ portable, separately compiled library architecture
 - `audits/forms-controls.md`
 - `project-docs/architecture.md`
 - `compiler/UBE_Compiler_v2/V3_BOOTSTRAP_CONTRACT.md`
-- `compiler/UBE_Compiler_v3/DESIGN.md`
+- `compiler/archived/UBE_Compiler_v3/DESIGN.md`
 
 ## Compatible project model
 

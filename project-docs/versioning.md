@@ -1,6 +1,13 @@
 # UBE version and compatibility identities
 
-**Status:** Compiler v3 RP8 compatibility contract
+**Status:** archived Compiler v3 RP8 compatibility contract
+
+The owner reused the v3 source-directory label for the fresh compiler on
+2026-10-30. The identities and RP contracts below describe the previous
+implementation under `../compiler/archived/`; they are not assigned to the
+fresh line. A shared numeric generation label is not compatibility evidence.
+Use exact source/tool/artifact identities, and assign the fresh compiler's
+build and ABI identities explicitly when its implementation is established.
 
 UBE versions several independent contracts. A compiler generation, language
 version, project format, intrinsic ABI, and source-library release are not the

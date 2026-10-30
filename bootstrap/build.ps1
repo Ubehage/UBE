@@ -446,7 +446,7 @@ if ($LASTEXITCODE -ne 7 -or $v2MultiModuleOutput -ne 'multi-module') {
     throw 'UBE Compiler v2 multi-module program failed'
 }
 
-$v3Project = Join-Path $root 'compiler/UBE_Compiler_v3'
+$v3Project = Join-Path $root 'compiler/archived/UBE_Compiler_v3'
 $v3Manifest = Join-Path $v3Project 'UBE_Compiler_v3.UBE'
 $v3SeedManifest = Join-Path $v3Project 'UBE_Compiler_v3_seed.UBE'
 $v3SeedStageOneIr = Join-Path $out 'v3-seed-v2-stage1.ll'
@@ -489,7 +489,7 @@ $v3Rp1FixtureOutput = & $v3Rp1Executable (Join-Path $v3Rp1Tests 'rp1-valid.UBE')
 if ($LASTEXITCODE -ne 0 -or $v3Rp1FixtureOutput -notlike 'UBE Compiler v3 RP8: project RP1Fixture (Exe), 2 source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed its inherited multi-module project fixture'
 }
-$ubeCoreProject = Join-Path $root 'source-library/UBECore.UBE'
+$ubeCoreProject = Join-Path $root 'archive/source-library/UBECore.UBE'
 $ubeCoreOutput = & $v3Rp1Executable $ubeCoreProject $v3Rp1Target
 if ($LASTEXITCODE -ne 0 -or $ubeCoreOutput -notlike 'UBE Compiler v3 RP8: project UBECore (Library), * source(s), * token(s), * syntax node(s), * symbol(s), host windows-x86_64, target x86_64-w64-windows-gnu') {
     throw 'UBE Compiler v3 RP5 failed to validate the UBECore project boundary'
@@ -1170,7 +1170,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # RP5 is the first v3 preview with a permanent self-build gate.  Keep every
 # generated stage under bootstrap/out: only the final, fully verified preview
-# is copied to compiler/release-previews when the milestone is completed.
+# is copied to compiler/archived/release-previews when the milestone is completed.
 $v3Rp5SelfStageTwoIr = Join-Path $out 'v3-rp5-self-stage2.ll'
 $v3Rp5SelfStageTwoObject = Join-Path $out 'v3-rp5-self-stage2.o'
 $v3Rp5SelfStageTwoExecutable = Join-Path $out 'v3-rp5-self-stage2.exe'
@@ -1519,11 +1519,11 @@ $v3Rp7NativeFixtureResults = @(
     Test-V3Rp5NativeFixture -Name 'rp7-control-parent' -Project (Join-Path $v3Rp7Tests 'control-parent.UBE') -ExpectedOutput '91' -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-startup-form' -Project (Join-Path $v3Rp7Tests 'startup-form.UBE') -ExpectedOutput "10`n30`n20`n10`n20" -ExpectedExitCode 0
     Test-V3Rp5NativeFixture -Name 'rp7-object-identity' -Project (Join-Path $v3Rp7Tests 'object-identity.UBE') -ExpectedOutput "-1`n-1" -ExpectedExitCode 0
-    Test-V3Rp5NativeFixture -Name 'rp7-ubecore-coordination' -Project (Join-Path $root 'source-library/AtomicTest.UBE') -ExpectedOutput "1`n5`n5`n8`n1`n4000000009`n1`n-1`n1`n1`n2008`n0`n1`n1`n0`n1`n0`n1`n1`n1`n1`n1`n1`n42`n0" -ExpectedExitCode 0
+    Test-V3Rp5NativeFixture -Name 'rp7-ubecore-coordination' -Project (Join-Path $root 'archive/source-library/AtomicTest.UBE') -ExpectedOutput "1`n5`n5`n8`n1`n4000000009`n1`n-1`n1`n1`n2008`n0`n1`n1`n0`n1`n0`n1`n1`n1`n1`n1`n1`n42`n0" -ExpectedExitCode 0
 )
 $v3Rp8NativeFixtureResults = @(
     Test-V3Rp5NativeFixture -Name 'rp8-ubecore-public-api' `
-        -Project (Join-Path $root 'source-library/CoreApiTest.UBE') `
+        -Project (Join-Path $root 'archive/source-library/CoreApiTest.UBE') `
         -ExpectedOutput "-1`n-1`n1`n1`n1`n42`n3`n1`n-123`n456`n1`n1" -ExpectedExitCode 0
 )
 Test-V3Rp6Failure -Name 'rp7-event-handler-signature' `
@@ -1678,7 +1678,7 @@ $v3Rp1BuildManifest = [ordered]@{
     grammar = (Get-FileHash -LiteralPath (Join-Path $root 'lang-doc/grammar/ube.ebnf') -Algorithm SHA256).Hash
     sources = $v3SourceHashes
     core_library_project = (Get-FileHash -LiteralPath $ubeCoreProject -Algorithm SHA256).Hash
-    core_library_identity_source = (Get-FileHash -LiteralPath (Join-Path $root 'source-library/src/portable/CoreIdentity.bas') -Algorithm SHA256).Hash
+    core_library_identity_source = (Get-FileHash -LiteralPath (Join-Path $root 'archive/source-library/src/portable/CoreIdentity.bas') -Algorithm SHA256).Hash
     runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
     unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
@@ -1687,14 +1687,14 @@ $v3Rp1BuildManifest = [ordered]@{
     bootstrap_chain = [ordered]@{
         policy = 'stage zero -> preserved v2 -> sequential seed -> production stage one -> production stages two and three'
         seed_identity = 'ube-v3-sequential-seed-1'
-        seed_manifest = 'compiler/UBE_Compiler_v3/UBE_Compiler_v3_seed.UBE'
+        seed_manifest = 'compiler/archived/UBE_Compiler_v3/UBE_Compiler_v3_seed.UBE'
         seed_manifest_sha256 = (Get-FileHash -LiteralPath $v3SeedManifest -Algorithm SHA256).Hash
         seed_sources = $v3SeedSourceHashes
         v2_stage1_seed_ir_sha256 = $v3SeedStageOneIrHash
         v2_stage2_seed_ir_sha256 = $v3SeedStageTwoIrHash
         seed_executable_sha256 = (Get-FileHash -LiteralPath $v3SeedExecutable -Algorithm SHA256).Hash
         production_identity = 'ube-v3-production-rp8'
-        production_manifest = 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'
+        production_manifest = 'compiler/archived/UBE_Compiler_v3/UBE_Compiler_v3.UBE'
         production_manifest_sha256 = (Get-FileHash -LiteralPath $v3Manifest -Algorithm SHA256).Hash
         seed_built_production_stage1_ir_sha256 = $v3Rp1StageOneIrHash
         seed_built_production_stage1_executable_sha256 = (Get-FileHash -LiteralPath $v3Rp1Executable -Algorithm SHA256).Hash
@@ -1730,7 +1730,7 @@ $v3Rp1BuildManifest = [ordered]@{
         corpus_case_count = $v3Rp5ParityCases.Count + $v3Rp6NativeFixtureResults.Count + $v3Rp7NativeFixtureResults.Count + $v3Rp8NativeFixtureResults.Count + 5
     }
     source_library_comparison = [ordered]@{
-        project = 'source-library/UBECore.UBE'
+        project = 'archive/source-library/UBECore.UBE'
         seed_built_ir_sha256 = $v3Rp5CoreV2IrHash
         self_built_ir_sha256 = $v3Rp5CoreSelfIrHash
         seed_built_object_sha256 = $v3Rp5CoreV2ObjectHash
@@ -1964,6 +1964,6 @@ $v2BootstrapManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $v2Boo
 
 # Materialize the named RP8 release candidate only after every inherited and
 # preview-specific gate above has passed.  The completion workflow can then
-# copy this exact file and hash into compiler/release-previews.
+# copy this exact file and hash into compiler/archived/release-previews.
 Copy-Item -LiteralPath $v3Rp5SelfStageTwoExecutable -Destination $v3Rp8ReleaseCandidate
 $global:LASTEXITCODE = 0

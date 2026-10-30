@@ -12,7 +12,44 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
-## Current checkpoint
+## Current priority — 2026-10-30
+
+The owner chose to establish a fresh UBECore in `std-lib/` before further
+compiler feature expansion. Grow the library with concrete compiler needs;
+do not import the previous implementation or assume its APIs are the new base.
+The existing v3/v4 plans below are preserved history and do not define the
+next active implementation task.
+
+The owner subsequently approved early library-defined native datatype
+mechanisms and investigation of the smallest stage-zero/v2 bootstrap route.
+The fresh compiler is named v3. Previous v3/v4 implementations, previews and
+compiler-wide handoffs are now under `compiler/archived/`, with exact original
+working-tree snapshots and recorded relocation-only integration edits. Resume
+from `compiler/UBE_Compiler_v3/Progress.md` and `std-lib/ROADMAP.md`.
+
+- [x] Move the entire previous library to `archive/source-library/`, preserving
+  all 28 files byte-for-byte, including working-tree changes and instructions.
+  `archive/source-library.snapshot.json` records sizes and SHA-256 values.
+- [x] Establish `std-lib/UBECore.UBE`, its empty identity module, design,
+  contributor guidance, and `std-lib/ROADMAP.md`.
+- [x] Retarget historical build/test paths to the archived library; keep them
+  separate from the fresh project.
+- [x] Build the owner's requested finished-library inventory for VB6, VBA7,
+  and UBE additions in `std-lib/INVENTORY.md`; keep planned scope distinct
+  from implemented or frozen APIs. Its documentary gate covers 175 reference
+  function/alias names and 73 historical private intrinsic names; detailed
+  component-member/signature/value reconciliation remains explicitly open.
+- [ ] Select and test the bounded bootstrap tool/subset and define the first
+  library contracts before implementation. Resume from `std-lib/ROADMAP.md`.
+- [x] Archive previous v3/v4 and their preview/history material, preserve exact
+  original bytes for 367 files, and establish the fresh v3 design/workplan.
+- [x] Record the owner's native-datatype and temporary-bootstrap decisions;
+  exact mechanisms, syntax and signatures remain to be specified and proven.
+
+Structural setup and archive-integrity checks do not constitute compiler or
+library execution verification. The new UBECore has not been compiled.
+
+## Preserved compiler checkpoint
 
 - [x] Preserve and verify the self-hosting UBE Compiler v2.
 - [x] Add ordered multi-module compilation and cross-module resolution to v2.
@@ -22,9 +59,9 @@ nearer roadmap or progress file.
   frozen UBE 1.0 definition, with specified behavior separated from verified
   Compiler v2 behavior and unresolved public APIs represented by status pages.
 - [x] Define and freeze the UBE 1.0 language contract for Compiler v3.
-- [x] Create `compiler/UBE_Compiler_v3/` with its architecture, roadmap, and
+- [x] Create the previous `compiler/archived/UBE_Compiler_v3/` with its architecture, roadmap, and
   v2-buildable project scaffold.
-- [x] Establish `source-library/` as the separate root for UBE library source,
+- [x] Establish the previous `source-library/` root (now archived) for UBE library source,
   with preview, portability, ownership, and resumable-work boundaries.
 - [~] Develop and compile v3 using the preserved v2 compiler.
   - [x] Preserve the explicit RP0 scaffold baseline.
@@ -52,7 +89,7 @@ nearer roadmap or progress file.
     optimization/debug controls, the minimum public `UBECore` API, and a
     verified Linux x86-64 ELF object boundary.
   - [ ] After the RP8 gate, execute the Beta 1 compiler parallelization plan in
-    `compiler/UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`: preserve the
+    `compiler/archived/UBE_Compiler_v3/MULTITHREADED_COMPILER_PLAN.md`: preserve the
     v2-built sequential seed, add deterministic `--jobs` execution in measured
     phases, keep one job as the default, and require explicit caller-selected
     parallelism after reproducibility, failure, memory, and performance gates
@@ -77,7 +114,7 @@ nearer roadmap or progress file.
   v3 as its bootstrap compiler and differential oracle.
   - [x] Draft the v4 ownership model, reuse/retire classification, ordered
     milestone roadmap, and task-specific agent instructions under
-    `compiler/UBE_Compiler_v4/`.
+    `compiler/archived/UBE_Compiler_v4/`.
   - [x] Obtain owner approval for the Task 0 architecture, parser decision
     process, library/compiler-support split, and task ordering.
   - [x] Run the approved bounded design prototypes and freeze phase interfaces

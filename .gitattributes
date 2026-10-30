@@ -1,0 +1,4 @@
+# Archive manifests record exact file bytes. Preserve their line endings on
+# every host, independently of the checkout's core.autocrlf setting.
+archive/source-library/** -text
+compiler/archived/** -text

@@ -281,8 +281,8 @@ $record = [ordered]@{
         many_procedure_functions = @(128, 256, 512)
     }
     benchmarks = [ordered]@{
-        self_compile = Measure-Benchmark -Name 'self' -Project (Join-Path $root 'compiler\UBE_Compiler_v3\UBE_Compiler_v3.UBE')
-        ubecore = Measure-Benchmark -Name 'ubecore' -Project (Join-Path $root 'source-library\UBECore.UBE')
+        self_compile = Measure-Benchmark -Name 'self' -Project (Join-Path $root 'compiler\archived\UBE_Compiler_v3\UBE_Compiler_v3.UBE')
+        ubecore = Measure-Benchmark -Name 'ubecore' -Project (Join-Path $root 'archive\source-library\UBECore.UBE')
         many_source_32 = Measure-Benchmark -Name 'many-source-32' -Project $manySource32Project
         many_source_64 = Measure-Benchmark -Name 'many-source-64' -Project $manySource64Project
         many_source = Measure-Benchmark -Name 'many-source' -Project $manySourceProject

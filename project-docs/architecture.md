@@ -2,6 +2,25 @@
 
 **Status:** project direction for frozen UBE 1.0
 
+**Current development order — 2026-10-30:** establish a fresh UBECore in
+`std-lib/`, growing it with concrete compiler needs before further compiler
+feature expansion. The prior library is preserved byte-for-byte under
+`archive/source-library/`; historical compiler gates explicitly select that
+archive. It is not the implementation or API base for the new library.
+`../std-lib/DESIGN.md` and `../std-lib/ROADMAP.md` define the new starting
+boundary and next work. The language semantics and compiler/library/platform
+separation below remain in force; no bootstrap executable is selected for the
+fresh project yet.
+
+The owner approved the native-datatype and bootstrap starting direction later
+on 2026-10-30: the fresh compiler is `compiler/UBE_Compiler_v3/`; previous v3/v4
+implementations are preserved under `compiler/archived/`. Establish the small
+machine/storage/type-mechanism boundary and prove library-defined datatypes
+early, with higher-level behavior in UBECore where practical. Investigate the
+stage-zero/v2 route as a temporary tool and test the exact required subset.
+Exact syntax, layouts and intrinsic signatures remain undecided. The detailed
+foundation direction is `../compiler/UBE_Compiler_v3/DESIGN.md`.
+
 UBE is intended to become self-hosting. The complete system is divided into
 three layers with deliberately narrow boundaries.
 
@@ -21,7 +40,9 @@ container bounds, and duplicate inputs and reports controlled diagnostics for
 every invalid build input. See
 [`../lang-doc/project-files.md`](../lang-doc/project-files.md).
 
-Bootstrapping proceeds in reproducible stages:
+The archived compiler chain proceeds in reproducible stages below. It remains
+historical verification material; it is not the selected bootstrap route or
+architecture of the fresh v3:
 
 1. A small stage-zero compiler, written in an existing implementation language,
    builds the preserved Compiler v2.
@@ -91,7 +112,8 @@ The intended repository layout, as implementation begins, is:
 compiler/       Self-hosting UBE compiler
 bootstrap/      Stage-zero compiler and reproducible bootstrap scripts
 runtime/        Minimal target and ABI substrate
-source-library/ Standard source library written in UBE
+std-lib/        Fresh standard source library written in UBE
+archive/        Preserved previous source library and integrity snapshot
 docs/           Public offline language manual
 lang-doc/       Normative language specification and grammar
 project-docs/   Architecture and project-wide roadmaps

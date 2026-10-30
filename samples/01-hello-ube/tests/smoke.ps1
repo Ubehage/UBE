@@ -12,7 +12,7 @@ $repositoryRoot = (Resolve-Path (Join-Path $sampleRoot '../..')).Path
 $projectPath = Join-Path $sampleRoot 'HelloUBE.UBE'
 
 if (-not $CompilerPath) {
-    $CompilerPath = Join-Path $repositoryRoot 'compiler/release-previews/ube-v3-rp8-windows-x86_64-x86_64-w64-windows-gnu.exe'
+    $CompilerPath = Join-Path $repositoryRoot 'compiler/archived/release-previews/ube-v3-rp8-windows-x86_64-x86_64-w64-windows-gnu.exe'
 }
 if (-not $ClangPath) {
     $clangCommand = Get-Command clang -ErrorAction SilentlyContinue

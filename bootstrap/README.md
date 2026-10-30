@@ -1,5 +1,12 @@
 # Stage-zero compiler
 
+The historical full build selects previous v3 source under
+`../compiler/archived/UBE_Compiler_v3/` and the archived source library. Its
+`ube-v3-*` output names belong to that old implementation. The fresh v3 has no
+production source yet; its candidate bounded stage-zero/v2 route is described
+in `../compiler/UBE_Compiler_v3/`. No bootstrap fitness or full historical
+runtime gate is claimed by the archive relocation checks.
+
 This directory contains the temporary C++ implementation used to bootstrap the
 self-hosting UBE compiler. It requires a C++17-capable GCC installation.
 

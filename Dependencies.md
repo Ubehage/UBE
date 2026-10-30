@@ -16,6 +16,9 @@ web frameworks, runtime CDNs, or install-on-first-run behavior.
   as explicit temporary prerequisites, not permission to add hidden
   dependencies. Pin and document them, and move releases toward a portable,
   self-contained toolchain bundle as self-hosting matures.
+- The accepted initial versions, target, provenance, hashes, and offline rules
+  are frozen in `project-docs/toolchain.md` and
+  `project-docs/toolchain.lock.json`.
 - An unavoidable new third-party dependency requires the project owner's
   explicit approval. Vendor the exact reviewed source or binary, record its
   version, license, provenance, and integrity hash, and provide a controlled

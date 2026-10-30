@@ -1,113 +1,66 @@
-# UBE Compiler v3 architecture
+# Compiler foundation direction
 
-## Status
+## Owner decisions — 2026-10-30
 
-This is the architectural boundary for the v3 generation. V3 is UBE's first
-public-release compiler target. The checked-in program is the verified,
-v2-buildable RP8 compiler with complete lexical, preprocessing, owned syntax,
-symbol, scope, type, semantic-validation, bounded typed-IR, IR-verification,
-LLVM, debug-line, target-ABI, native-tool handoff, and deterministic project
-group phases. Beta 1 multithreading Phases 0 and 1 add opt-in sequential
-performance instrumentation, repaired declaration and IR ownership indexes,
-and a verified sequential seed/production bootstrap split; worker execution is
-not implemented yet.
+The owner approved the following starting point:
 
-## Bootstrap boundary
+1. Develop a fresh UBECore as reusable foundations, growing with concrete
+   compiler needs.
+2. Keep the compiler's builtin knowledge limited to necessary machine/storage
+   primitives and mechanisms for defining types. Implement higher-level types
+   and operations in UBE where practical.
+3. Prove library-defined native datatype mechanisms early, before substantial
+   String, Decimal, Date or Variant implementation.
+4. Investigate the smallest existing stage-zero/v2 bootstrap route and test
+   every feature required by the first foundation slice independently.
+5. Preserve old implementations as history. The active compiler is the new v3;
+   old v3 and v4 are under `../archived/`.
 
-V2 is the sole bootstrap compiler for the v3 sequential seed. Seed source stays
-within v2's frozen contract. The seed accepts the frozen UBE 1.0 language and
-builds the production compiler, whose production-only modules may later use
-facilities the seed source itself does not use. No pre-existing production v3
-binary is required.
+This approves the direction, not a particular type-layout language, generic
+system, lifetime hook ABI, raw-address API, parser representation or phase API.
+Those require written contracts and focused evidence before implementation.
 
-The required chain is:
+## Boundary to establish first
 
-```text
-stage zero -> preserved v2 -> sequential v3 seed
-           -> production stage one -> production stages two and three
-```
+Define which primitive storage and operations must be compiler-recognized,
+which behavior is ordinary UBECore code, and how declarations communicate
+representation, initialization, access, copying and destruction without
+weakening language safety or portable behavior. The mechanism must serve
+ordinary user-defined native types, not only privileged compiler-known names.
 
-The manifest boundary, allowed dependencies, and recorded identities are
-defined in [`BOOTSTRAP_SPLIT.md`](BOOTSTRAP_SPLIT.md).
+The frozen language specification remains authoritative. Existing value-copy,
+object-identity, roots/barriers, neutral-failure/Err, concurrency and lifecycle
+rules constrain the mechanism. Any additional syntax or observable semantic
+change needs an explicit reviewed decision before it becomes production code.
 
-V1 and v2 remain preserved and verified after v3 becomes authoritative.
+## First proof obligations
 
-## Minimal compiler boundary
+- The selected bootstrap tool can compile the exact bounded features needed
+  by the foundation fixtures, with independently specified native results and
+  controlled rejection/failure cases.
+- One small library-defined datatype demonstrates the intended representation
+  and lifecycle mechanisms. Test copies, failures and cleanup rather than
+  treating successful compilation as proof.
+- Byte/text storage defines embedded zeros, byte/scalar positions, ownership,
+  mutable versus immutable access, bounds and allocation failure.
+- Text construction has measured work, allocations and copied bytes across
+  input sizes. Independent instances and immutable shared inputs are tested
+  concurrently before a large compiler relies on them.
+- Compiler inputs/results have explicit owners. A bounded worker budget and
+  deterministic publication must be demonstrated while the design is small.
 
-The compiler owns only behavior that must be known to translate a program:
+Windows x86-64 and LLVM remain the initial toolchain direction. Portable
+algorithms must not depend on host handles, path syntax or target ABI details.
+The compiler and library add no new third-party dependency through this setup.
 
-- source/project validation;
-- lexing and parsing;
-- name and type resolution;
-- implicit-conversion selection;
-- lifetime, call, control-flow, and concurrency validation;
-- target-independent typed IR and verification;
-- LLVM lowering, debug metadata, and target ABI selection;
-- dependency and linkage metadata for separately compiled libraries.
+## Bootstrap and identity
 
-Algorithms expressible in UBE do not become compiler built-ins. Strings,
-formatting, conversions, collections, threading helpers, error helpers, and
-other public facilities live in a separately compiled, versioned UBE core
-library. The compiler recognizes only the small intrinsic ABI needed for
-irreducible operations.
+Select tools by source/artifact hash, supported subset, flags, runtime/toolchain
+identity and test results. The old version label alone is not a trust proof.
+The stage-zero/v2 route is a candidate, not a newly verified build chain.
+Existing unsupported features are not silently accepted to reach a milestone.
 
-The compiler emits managed-layout metadata, live-root information, safe points,
-and barriers required by the UBE garbage collector. The collector algorithm is
-runtime/library code rather than compiler code.
-
-Garbage collection covers managed memory only. Compiler code explicitly closes
-every file, pipe, process handle, lock, temporary artifact, and target-tool
-resource it acquires on success and on every failure path. The compiler must
-not rely on collection or process exit for externally visible cleanup.
-
-The initial compiler-tool process adapter and compiler performance measurements
-use the private, versioned intrinsic ABI documented in
-[`../../lang-doc/bootstrap-intrinsics.md`](../../lang-doc/bootstrap-intrinsics.md).
-`CompilerRunTool` accepts an executable path and separate bounded arguments;
-compiler code must not construct a shell command line.
-
-## Linked program support and platform boundary
-
-UBE has no separately installed runtime or VM. Required support is compiled and
-linked into each produced native program. The public core and standard
-libraries are primarily portable UBE source. A small platform substrate
-implements facilities that necessarily cross an OS
-or hardware boundary: process startup, virtual memory, thread creation, files,
-clocks, message dispatch, atomics, and equivalent primitives.
-
-Portable library APIs must not expose native handles accidentally. Explicit
-platform modules may expose platform functionality by opt-in.
-
-Host and target are independent compiler inputs. Target triples, data layouts,
-calling conventions, object formats, linkers, runtime objects, and platform
-library implementations are selected through target descriptions. Windows is
-the first development host and target, not a semantic default.
-
-## Planned compiler modules
-
-The initial source remains v2-compatible and is split only through ordered
-`.UBE` source entries:
-
-1. driver and project loading;
-2. source manager and diagnostics;
-3. lexer and parser;
-4. declarations, symbols, and type system;
-5. semantic analysis and conversion planning;
-6. ownership, managed-reference, and concurrency validation;
-7. target-independent IR and verifier;
-8. LLVM backend and debug information;
-9. library metadata and linker handoff;
-10. bootstrap comparison and conformance harness.
-
-Each phase consumes validated records and returns controlled diagnostics.
-Malformed source, project data, library metadata, target descriptions, and
-external-tool failures must never produce an uncontrolled compiler crash.
-
-## Reproducibility gate
-
-RP5 satisfies the first complete v3 self-build gate: a clean v2-built compiler
-builds itself and the current `UBECore` slice, the self-built compiler repeats
-both builds, the documented deterministic comparisons pass, and both stages
-agree on the positive and negative native corpus for the declared
-`x86_64-w64-windows-gnu` target. Later previews must preserve this gate while
-expanding toward the complete language and library.
+Archived v3 preview names and existing `bootstrap/out/ube-v3-*` products belong
+to the old implementation. The fresh line has no compiler binary or release
+identity yet. Its build/output records must distinguish exact source and tool
+identities when implementation begins. Do not overwrite archived previews.

@@ -7,8 +7,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$rp8 = Join-Path $root 'compiler/UBE_Compiler_v3/tests/rp8'
-$tools = Join-Path $root 'compiler/UBE_Compiler_v3/tools'
+$rp8 = Join-Path $root 'compiler/archived/UBE_Compiler_v3/tests/rp8'
+$tools = Join-Path $root 'compiler/archived/UBE_Compiler_v3/tools'
 $utf8 = [Text.UTF8Encoding]::new($false)
 
 if (-not (Test-Path -LiteralPath $OutputDirectory -PathType Container)) {

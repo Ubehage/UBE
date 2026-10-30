@@ -1,7 +1,7 @@
 # UBE 1.0 expanded language definition for Compiler v3
 
 **Status:** approved and frozen UBE 1.0 target; not yet fully implemented  
-**Implementation target:** `compiler/UBE_Compiler_v3/`  
+**Historical implementation target:** `compiler/archived/UBE_Compiler_v3/`
 **Bootstrap compiler:** preserved UBE Compiler v2
 
 This document consolidates the owner-confirmed language and architecture

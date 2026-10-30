@@ -1,5 +1,11 @@
 # UBE language definition
 
+The semantic documents retain their historical Compiler v3 terminology.
+That previous implementation is now `../compiler/archived/UBE_Compiler_v3/`;
+the fresh active v3 starts under `../compiler/UBE_Compiler_v3/`. Archive status
+does not change the frozen language rules, and historical implementation
+claims do not establish support in the fresh compiler.
+
 This directory contains UBE's normative and internal language documents:
 
 - [language-spec.md](language-spec.md) is the frozen UBE 1.0 lexical and

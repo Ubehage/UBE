@@ -1,9 +1,10 @@
 /bootstrap/out/
+/out/
 /.continue/
 /Agent-ideas.md
 /Owner-ideas.md
 /Release-Requirements.md
-/GitHub.md
+/GitHub.*
 /docs/*.md
 /media/*
 !/media/logo.png
@@ -11,3 +12,4 @@
 /.agents/
 /bootstrap-vb6/
 *.exe
+!/compiler/archived/release-previews/*.exe

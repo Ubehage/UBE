@@ -84,81 +84,39 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-> **Current milestone:** Compiler v3 Release Preview 8 remains the functionally verified,
-> self-hosting UBE 1.0 reference and bootstrap bridge. Its Beta Phase audit
-> found several problems that needed correction.
-> Compiler v4 is currently at Step 4/13.
+**Compiler reset — Rebuilding the standard library and Compiler v3.**
 
-<ul>
-  <li><strong>UBE 1.0</strong><br><sub>The language definition, grammar, compiler boundaries, and staged development plan are frozen.</sub></li>
-  <li><strong>Compiler v2</strong><br><sub>The stable transitional compiler is self-hosting, supports multiple modules and cross-module references, and reproducibly builds the Compiler v3 sequential seed.</sub></li>
-  <li><strong>Compiler v3 RP8</strong><br><sub>The preserved self-hosting reference compiler implements the frozen UBE 1.0 contract, project and library formats, optimization/debug controls, compatibility diagnostics, Windows native output, and the Linux x86-64 ELF boundary.</sub></li>
-  <li><strong>Compiler v4</strong><br><sub>Tasks 0 through 3 are complete. The v3-built compiler now runs a genuine source, lexer, syntax, declaration, semantic, verified function-local IR, and LLVM backend slice. Deterministic dumps, malformed inputs, validator mutations, stress, LLVM link, native execution, and v3 differential behavior all pass.</sub></li>
-  <li><strong>UBECore</strong><br><sub>The separate 16-module source-library slice exposes and tests its minimum RP8 public API while keeping portable modules separate from Windows adapters. Both compiler stages reproduce it exactly.</sub></li>
-  <li><strong>Verification</strong><br><sub>The clean RP8 gate reproduces byte-identical self-hosted LLVM, matching normalized COFF objects, identical UBECore output, 50 recorded cross-stage corpus cases, and a Clang-accepted Linux ELF object.</sub></li>
-  <li><strong>Performance findings</strong><br><sub>Profiling exposed avoidable whole-program scans and expensive worker-state copying. Indexed IR verification, bounded function-range LLVM emission, and numeric grammar-rule dispatch produced large deterministic improvements; the slower v3 worker paths remain disabled rather than being presented as successful parallelism.</sub></li>
-  <li><strong>Bootstrap trust</strong><br><sub>A separately identified v2-buildable seed produces the production compiler, whose three stages emit identical LLVM. The build records seed, executor, job-count, timing, and normalized-object identities.</sub></li>
-  <li><strong>Documentation</strong><br><sub>The offline manual and expandable A-Z language reference are available, with planned behavior distinguished from verified behavior.</sub></li>
-</ul>
+We are rebuilding UBE's foundations, starting with UBECore, the standard
+library. Compiler v3 will grow alongside it, with a focus on speed,
+reliability, and multithreaded compilation.
 
-UBE remains pre-release software and is not yet ready for production use.
+**UBE is under active development and is not ready for production use.**
 
-### Why Compiler v4?
-
-Compiler v3 proved the language, native backend, runtime contracts, package
-formats, source-library boundary, and reproducible self-hosting chain. It also
-revealed that too much compiler state is globally coupled and too expensive to
-copy between workers. Several severe hot paths were corrected, but repairing
-the complete ownership and phase architecture inside v3 would amount to an
-increasingly risky rewrite of the same implementation.
-
-Compiler v4 is therefore an architectural rebuild, not a language reset. It
-keeps the frozen UBE 1.0 definition and reuses v3 as its bootstrap compiler,
-differential oracle, regression corpus, and ABI/package reference. Its internal
-design instead uses immutable shared inputs, source- and procedure-owned data,
-function-local verified IR, deterministic merges, and a stricter separation
-between compiler policy and reusable library code. V3 remains preserved and
-buildable throughout this work.
+See the [workplan](Workplan.md) for development details.
 
 ## First public-release goals
 
-- A stable UBE language definition and grammar. ✔️
-- A verified, self-hosting compiler v4 with measured ownership, scaling, and
-  deterministic parallelism. 🚧
-- Every compiler milestone verified by small purpose-built programs and the
-  cumulative regression, stress, failure, determinism, and native suite. 🚧
-- Lightweight, optimized 64-bit native executables. ✔️
-- A minimal compiler with runtime and standard-library functionality kept in a
-  separate UBE source library. 🚧
-- Multiple source modules with clear visibility and reference rules. ✔️
-- Defined conversions, errors, lifetimes, garbage collection, and threading. ✔️
-- Portable behavior with platform-specific features clearly identified. 🚧
-- Complete offline language and library documentation. 🚧
-- Useful diagnostics and the foundations required for source-level debugging. ✔️
+- Familiar Basic syntax with clearly defined modern behavior.
+- Small, fast 64-bit native programs.
+- Reliable compilation with support for multithreaded builds.
+- A reusable, portable standard library.
+- Clear diagnostics, debugging support, and complete offline documentation.
 
-## Building the current compiler
+## Development builds
 
-The current bootstrap build targets x86-64 Windows and requires PowerShell,
-GCC/MinGW-w64, and LLVM/Clang. From the repository root, run:
-
-```powershell
-./bootstrap/build.ps1
-```
-
-The command builds and tests stage zero, preserved compiler generations, the
-v2 self-hosting chain, Compiler v3 RP8 and its complete inherited and RP8
-corpora, the current 16-module `UBECore` source slice, runtime probes,
-resource/library compatibility checks, debugger and optimization modes,
-Windows native execution, Linux ELF emission, and conformance fixtures. See
-[bootstrap/README.md](bootstrap/README.md) for prerequisites and details.
+See the [build documentation](bootstrap/README.md) for prerequisites and
+instructions for the preserved toolchain. The rebuilt Compiler v3 is not yet
+available as a working release.
 
 ## Repository guide
 
 - [docs/](docs/README.md) — public UBE language manual
 - [lang-doc/](lang-doc/README.md) — normative language specification and grammar
 - [project-docs/](project-docs/README.md) — architecture and development roadmap
-- [compiler/](compiler/README.md) — preserved UBE compiler generations
-- [source-library/](source-library/README.md) — separately built UBE source library
+- [compiler/](compiler/README.md) — active fresh v3 and preserved v1/v2
+- [compiler/archived/](compiler/archived/README.md) — previous v3/v4 implementations and previews
+- [std-lib/](std-lib/README.md) — fresh UBECore standard-library project
+- [archive/](archive/README.md) — preserved previous library and integrity snapshot
 - [bootstrap/](bootstrap/README.md) — temporary stage-zero compiler and tests
 - [Release-Requirements.md](Release-Requirements.md) — owner-defined release requirements
 - [Workplan.md](Workplan.md) — current repository-wide work checkpoint

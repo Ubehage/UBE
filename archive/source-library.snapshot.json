@@ -1,0 +1,155 @@
+﻿{
+    "format":  "ube-library-archive-1",
+    "archived_on":  "2026-10-30",
+    "original_path":  "source-library",
+    "archive_path":  "archive/source-library",
+    "preservation":  "Exact working-tree file bytes, including uncommitted changes and contributor instructions.",
+    "file_count":  28,
+    "directories":  [
+                        "src",
+                        "src/portable",
+                        "tests"
+                    ],
+    "files":  [
+                  {
+                      "path":  "agent-rules.md",
+                      "bytes":  2402,
+                      "sha256":  "783839385482C400F61C05995949AD6981976827BEEAD08C01004E7155FACEFA"
+                  },
+                  {
+                      "path":  "AGENTS.md",
+                      "bytes":  881,
+                      "sha256":  "317FA19D8F340F16F32B002EDF1F3566BB8043B3133A1B55AE205C381DC051B6"
+                  },
+                  {
+                      "path":  "AtomicTest.UBE",
+                      "bytes":  167,
+                      "sha256":  "6721F7E553F431A940EF915C4832A7A22AD8590B35A7A0C944F4EF007B3C572E"
+                  },
+                  {
+                      "path":  "CoreApiTest.UBE",
+                      "bytes":  127,
+                      "sha256":  "B2B736691687F3AE34EEE2220209D22740848578D47D820A6F421DDF5139ACD7"
+                  },
+                  {
+                      "path":  "DESIGN.md",
+                      "bytes":  3478,
+                      "sha256":  "541CF6AC737D834E47C5A419ABECFC75AF64CB6A7E4929448077F5EA6E31BE32"
+                  },
+                  {
+                      "path":  "OS-specifics.md",
+                      "bytes":  456,
+                      "sha256":  "CA52531D6BA63A108EDB22D7264890E5C9FFB1EC03B398A23CDF610AEC31F3A3"
+                  },
+                  {
+                      "path":  "README.md",
+                      "bytes":  1786,
+                      "sha256":  "58BE5AE26D69D70EACCED2857CEBBE502EED8750AA530A0099C72E6DDFA33302"
+                  },
+                  {
+                      "path":  "ROADMAP.md",
+                      "bytes":  4524,
+                      "sha256":  "38F92AFF8C382C5B8259E7F73DAC2B1BEC8578954B8E9054958A21D6D9977F68"
+                  },
+                  {
+                      "path":  "src/portable/AtomicBoolean.cls",
+                      "bytes":  1702,
+                      "sha256":  "5B8D6C92DB39E1B97DBF18898EFE01E9830BB36BE7DBC43ACEA7F9E4D5787799"
+                  },
+                  {
+                      "path":  "src/portable/AtomicLong.cls",
+                      "bytes":  1777,
+                      "sha256":  "1F27976D57154585FA6CD75BFAF760D5A92A3E12360F481200FB72C3D69FC034"
+                  },
+                  {
+                      "path":  "src/portable/AtomicLongLong.cls",
+                      "bytes":  1861,
+                      "sha256":  "82C21C00A9E9B5561415AEF6E1FB9350E4675605385429E9D8428E82DD289197"
+                  },
+                  {
+                      "path":  "src/portable/AtomicObject.cls",
+                      "bytes":  1696,
+                      "sha256":  "5722091C8DC681D71919F560CEB2E62FAB62D8DD18218A276D894E4C3E8F7585"
+                  },
+                  {
+                      "path":  "src/portable/Conversions.bas",
+                      "bytes":  2124,
+                      "sha256":  "A2DECBE8DCF1CD525FC70377FFA0909A9462CF8BECD059741236BF45213A2506"
+                  },
+                  {
+                      "path":  "src/portable/CoreIdentity.bas",
+                      "bytes":  252,
+                      "sha256":  "09A670A130E95EB1BC12B3D8D3A028887369FE258BA2175B1CE8C96679D62CE4"
+                  },
+                  {
+                      "path":  "src/portable/Errors.bas",
+                      "bytes":  1498,
+                      "sha256":  "8C1641BD588926F142CFBC68F02E2CFC689BB79088F63B66A9D9F15D2AC7D8F5"
+                  },
+                  {
+                      "path":  "src/portable/Memory.bas",
+                      "bytes":  366,
+                      "sha256":  "0D17F8679558FB18E687F241BE6F005B10B16317B74D4701C65C5AF4D734166B"
+                  },
+                  {
+                      "path":  "src/portable/MessageQueue.cls",
+                      "bytes":  1060,
+                      "sha256":  "F4001AEEB9FE7D959135CDC0DF9A519830D7231D2C66F9FC8F81372E327433AE"
+                  },
+                  {
+                      "path":  "src/portable/RuntimeIntrinsics.bas",
+                      "bytes":  6666,
+                      "sha256":  "F99F91E53D27A8FDB821A2271B391970D972F04AB24B35D6392EB6FA92F26271"
+                  },
+                  {
+                      "path":  "src/portable/Semaphore.cls",
+                      "bytes":  1438,
+                      "sha256":  "66CCB6BFD8EA008E0C39254476D7C0FAE13E8BFA107885274A97AB269AD7BA25"
+                  },
+                  {
+                      "path":  "src/portable/Strings.bas",
+                      "bytes":  548,
+                      "sha256":  "BA3D1E0AAA65ED1BD5E57AA9918A95C12F97532CBEC614D7AB35360AE98C7293"
+                  },
+                  {
+                      "path":  "src/portable/Synchronization.bas",
+                      "bytes":  1010,
+                      "sha256":  "C9E015B70853D248B18F67175311A5214D33D8401BAA96994727DB4030BD7B35"
+                  },
+                  {
+                      "path":  "src/portable/ThreadEvent.cls",
+                      "bytes":  1730,
+                      "sha256":  "A361FC403360096AAA3F7DC7743699E822AA688C0BDB567C8BE711E3C2D83EFD"
+                  },
+                  {
+                      "path":  "src/portable/Threads.bas",
+                      "bytes":  1647,
+                      "sha256":  "A6B37EBE6E1111CBF519D27B4EC736DA0C0319A5868FF072F71C65EBE3ABD090"
+                  },
+                  {
+                      "path":  "src/portable/Variants.bas",
+                      "bytes":  2245,
+                      "sha256":  "AC26E8AE67E5732F261D946243FE68E74BE09CB98DCF3A6A2388FDDF22E466CD"
+                  },
+                  {
+                      "path":  "tests/AtomicTest.bas",
+                      "bytes":  1852,
+                      "sha256":  "963D42C190EF0401545706B07AA192D958E70BE7A2FAAD49F4D9CF7ED2FF97D7"
+                  },
+                  {
+                      "path":  "tests/AtomicTestObject.cls",
+                      "bytes":  81,
+                      "sha256":  "6BC60456AEB564D5F674C4833F143293545BCD29FA4160F5241DCBD32CD0EA11"
+                  },
+                  {
+                      "path":  "tests/CoreApiTest.bas",
+                      "bytes":  691,
+                      "sha256":  "31242AA9CF13DD070972223C22503CE82E315A8DFB986C8CD2987828D39835A7"
+                  },
+                  {
+                      "path":  "UBECore.UBE",
+                      "bytes":  682,
+                      "sha256":  "49B118F43EAD355D2C3EB6C8DDFD04EBA43D9F253878F274ED19471EF4DA5B51"
+                  }
+              ]
+}

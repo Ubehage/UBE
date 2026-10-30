@@ -1,0 +1,38 @@
+{
+  "format": "UBE-v4-dependencies-1",
+  "task": 1,
+  "language": "1.0",
+  "intrinsic_abi": "ube-intrinsic-abi-1",
+  "packages": [
+    {
+      "name": "UBECore",
+      "version": "0.1.0-rp8",
+      "manifest": "../../../archive/source-library/UBECore.UBE",
+      "intrinsic_count": 54,
+      "declarations_changed": false
+    },
+    {
+      "name": "UBECompilerSupport",
+      "version": "0.2.0-v4t4",
+      "manifest": "support/UBECompilerSupport.UBE",
+      "intrinsic_count": 15,
+      "new_intrinsic_count": 0,
+      "task4_extension": {
+        "unicode_letter_and_simple_fold_wrappers": true,
+        "required_text_read_wrapper": true,
+        "new_intrinsic_count": 0
+      },
+      "public_modules": [
+        "BoundedText",
+        "PortablePaths",
+        "RecordSerialization",
+        "CompilerEnvironment",
+        "CompilerFiles",
+        "CompilerProcesses"
+      ]
+    }
+  ],
+  "executor": "sequential-compiler-owned-task2",
+  "parallel_executor": "deferred-task11",
+  "generated_output_root": "bootstrap/out/v4-task1"
+}

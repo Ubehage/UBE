@@ -35,6 +35,20 @@ documents first or in the same change:
 
 ## Current position
 
+The owner has now named the fresh compiler v3 and archived the previous v3/v4
+under `../compiler/archived/`. Early native-datatype mechanisms and investigation
+of a bounded stage-zero/v2 bootstrap route are approved. Resume from
+`../compiler/UBE_Compiler_v3/Roadmap.md` and `../std-lib/ROADMAP.md`. References to
+old v3/v4 milestones below describe the archived lines.
+
+The owner changed the immediate development order on 2026-10-30: establish a
+fresh UBECore in [`../std-lib/`](../std-lib/README.md), adding independently
+tested facilities as concrete compiler needs arise. The previous library is
+archived intact. Further v3/v4 feature expansion is deferred; resume from
+[`../std-lib/ROADMAP.md`](../std-lib/ROADMAP.md). The compiler checkpoints and
+long-term feature inventory below are preserved history and scope, not the
+current execution order.
+
 UBE currently has a frozen UBE 1.0 language definition, a C++17 stage-zero compiler,
 a minimal native runtime, and the preserved self-hosting UBE Compiler v2.
 Stage zero builds v2; v2 rebuilds itself through stage two with byte-identical
@@ -260,9 +274,9 @@ and documented.
 ## Phase 7: standard library
 
 Library implementation belongs in the root-level
-[`source-library/`](../source-library/README.md), never inside a compiler
+[`std-lib/`](../std-lib/README.md), never inside a compiler
 generation. Its focused resumable checklist is
-[`source-library/ROADMAP.md`](../source-library/ROADMAP.md).
+[`std-lib/ROADMAP.md`](../std-lib/ROADMAP.md).
 
 - [ ] Define the initial standard-library module layout and public API policy.
 - [ ] Implement core conversions, math, strings, characters, dates, and error
