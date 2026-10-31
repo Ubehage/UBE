@@ -22,17 +22,60 @@ v3/v4 sources, previews and handoffs are under `../compiler/archived/`.
   including datatypes, callables, objects/constants, compiler/substrate
   boundaries, and unresolved compatibility decisions. The owner requested
   this inventory and explicitly included VBA7 on 2026-10-30; see `INVENTORY.md`.
-- [ ] Select the smallest suitable bootstrap tool and language subset; prove
-  its required behavior with small independent native programs.
-- [ ] Define the primitive/type-mechanism ledger and prove one small library-
-  defined native datatype before substantial higher-level type implementation.
-- [ ] Define the first byte/text storage and construction contracts, including
+- [x] Define the primitive/type-mechanism ledger and independent acceptance
+  obligations in `FOUNDATION.md`, keeping undecided syntax/ABI explicit.
+- [x] Investigate the smallest bootstrap tool/subset with independent native
+  and rejection cases. `FOUNDATION-EVIDENCE.md` records 18/18 subset passes,
+  nine failed target probes and exact tool/source provenance limitations.
+- [x] Qualify source-built v2 for the bounded Byte/Integer/Long scalar, record
+  and compact-array work needed next. The owner explicitly requested the repair;
+  `../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md` records its fixed point
+  and the original 130 acceptance assertions.
+- [x] Review the native-type mechanism proposal, settle its syntax/ABI and
+  prove one small library-defined native datatype before substantial higher-
+  level type implementation.
+  The owner delegated design decisions with VB6 compatibility preferred.
+  `tests/native-type/NATIVE-EVIDENCE.md` records the adopted scalar mechanism:
+  66 native assertions, eight record baselines and all 130 earlier assertions.
+- [x] Define the first byte/text storage and construction contracts, including
   failures, ownership, Unicode boundaries, and sharing behavior.
-- [ ] Implement that first facility in UBE and a library-only test runner.
-- [ ] Establish meaningful work/allocation/copy/memory measurements and
+  `BYTE-TEXT-CONTRACT.md` defines the decoder and storage obligations; the
+  compiler-wide managed mechanism was subsequently approved and implemented.
+- [x] Implement that first facility in UBE and a library-only test runner.
+  Utf8.bas and ByteBuffer.bas pass the source-body runners through both stages;
+  the earlier source-body gate records 296 assertions. See BYTE-BUFFER-EVIDENCE.md.
+- [x] Establish meaningful work/allocation/copy/memory measurements and
   appropriate concurrent-instance tests before compiler use.
+  Decoder state is 16 bytes with zero measured allocations and one Feed call
+  per byte at measured input sizes; four independent test workers pass.
+  ByteBuffer growth/snapshot allocation and actual payload-copy measurements,
+  failure injection, scope cleanup and four native workers pass their oracles.
+  These qualify the component, not a UBE thread scheduler or compiler worker pool.
+- [x] Supply counted UTF-8 arguments/paths and recoverable stepwise file bytes
+  for the first compiler consumer. Explicit resource cleanup, cancellation by
+  early close, fault atomicity and private native workers pass their oracles.
+  Intact library source references and the source reader passed the earlier
+  470-check gate and remain covered by the current 501-check gate. See
+  `../compiler/UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.
+- [x] Implement the raw scanner's concrete Unicode and scalar-cursor needs in
+  ordinary UBE, with checked-in official Unicode 18 raw data, license,
+  provenance and offline deterministic generation. Exhaustive native tests
+  through both accepted stages pass; see `UNICODE-EVIDENCE.md` for their limits.
+- [x] Qualify the Unicode/cursor slice against the final current-source
+  bootstrap selection with the unchanged maintained gate: eight assertions pass
+  within the complete 501-check gate. Exact cohort/report identities are in
+  `UNICODE-EVIDENCE.md`; earlier diagnostic runs remain historical.
 
 ## Subsequent needs
+
+The compiler's production parser now uses the measured linked-child nodes and
+explicit stacks over the existing UBECore byte, Unicode and cursor facilities.
+No library collection, primitive or API expansion was needed. Both source-built
+stages pass the full bounded native gate, including failure retention, cleanup,
+private workers and measured work/copy bounds. The refreshed foundation passes
+all 501 checks. Current identities, commands and limits are in
+`../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`; the earlier probes and
+their recoverable-memory prerequisite remain historical evidence.
 
 Add collections, lookup/hashing, sorting, file/path facilities, platform
 adapters, and concurrency facilities only as concrete consumers require them.
@@ -49,7 +92,8 @@ The setup acceptance procedure checks the archive against the snapshot, resolves
 every archived/new manifest Source entry, checks historical script paths and
 PowerShell syntax, checks the empty new API boundary, and checks diff hygiene.
 It does not establish language, library, bootstrap, or native execution support.
-The new project has not been compiled or executed.
+The initial setup did not compile the project. Current ordinary module-body
+qualification is recorded above; standalone shared-library output remains unbuilt.
 
 Setup verification command:
 `rtk proxy powershell -NoProfile -File bootstrap/out/verify-library-layout.ps1`.
@@ -63,13 +107,98 @@ also passed for tracked changes.
 
 ## Exact next action
 
-Use `INVENTORY.md` to choose the first byte/text storage and construction
-capabilities and identify their required primitives/type mechanisms with the
-fresh compiler's workplan. Choose and test the
-bootstrap tool/subset for those operations, then record the first API contract
-and independent acceptance cases before writing implementation code.
+The concrete source reader, raw scanner, source-envelope and bounded grammar
+consumers are implemented and independently qualified. Agree the next bounded
+consumer contract before library expansion; add only the reusable facilities
+that its independent cases demonstrate are needed. Keep compiler policy outside
+UBECore and preserve the platform boundary and builtin String limits. No
+additional library feature expansion is selected by this completed slice.
+
+## Unicode and cursor handoff - 2026-10-30
+
+`src/portable/Unicode.bas` implements Unicode 18 Lu/Ll/Lt/Lm/Lo membership and
+default C/S simple folding. Its generated balanced decisions contain 694 letter
+ranges and 219 constant-delta stride ranges covering 1,533 fold mappings.
+`src/portable/Utf8Cursor.bas` reads one scalar from a borrowed immutable byte
+array through the existing decoder, with neutral outputs on failure. Neither
+introduces an intrinsic, mutable initialization or compiler-type dependency.
+
+The official raw UCD files, final-version ReadMe, Unicode License V3 and exact
+retrieval hashes are under `data/unicode/18.0.0/`. The maintained generator and
+acceptance procedure operate offline. Current-source native runs compare the raw
+data independently with every codepoint and the bootstrap headers, decode every
+scalar, and cover malformed input, offsets, Err, immutable shared input, four
+workers, cleanup and observed work/allocation/copy bounds through both pinned
+stages. The unchanged maintained gate now passes all eight Unicode/cursor
+assertions within the complete 501-check gate. The final cohort is
+`bootstrap/out/v2/4eb76c64ed774a1a9fb38b38155b71ef/`; exact manifests, report
+hashes and observed work are in `UNICODE-EVIDENCE.md`. Earlier diagnostic runs
+deliberately bypassed stale source-cohort checks and remain historical only.
+
+## Byte/text handoff - 2026-10-30
+
+`BYTE-TEXT-CONTRACT.md` identifies source ingestion as the first compiler
+consumer and separates bytes, Unicode scalars and source byte positions.
+`src/portable/Utf8.bas` implements reset/feed/finish without managed state.
+`tools/check-utf8.ps1` passes all scalars, one/two-byte strings, boundary and
+random sequences, state copying, failure/Err and independent-worker oracles.
+The initial storage probes recorded ten failed obligations. Under the owner's
+subsequent approval, v2 now implements precise array roots, independent record/
+array copies, managed call/results, safe element borrowing and recoverable
+allocation failure. ByteBuffer adds ordinary UBE growth, append, snapshots and
+UTF-8 scalar counting. The maintained gate passes all 296 assertions including
+the focused regressions, 13 functional buffer and five instrumented report
+checks. `BYTE-BUFFER-EVIDENCE.md` records exact identities and actual measured
+work, memory, failure and four-worker results. The library manifest includes
+both functional modules and its identity anchor; only ordinary bodies are
+qualified in that earlier snapshot, not full native Library packaging. The later
+470-check source-consumer goal validates intact source-reference builds and adds
+FileBytes plus the first fresh v3 production source. Shared-library packaging
+remains unqualified; current evidence is in the source-consumer record above.
+
+## Native mechanism handoff - 2026-10-30 (earlier snapshot)
+
+The owner delegated syntax/ABI decisions, preferring VB6 where compatible with
+agreed definitions. V2 now implements opaque nominal Byte/Integer/Long-backed
+values, synthesized zero/copy, exact explicit Pack/Unpack metadata and equality.
+Bindings belong to the type's declaring source module. Ordinary records remain
+covered by their independent baseline. `bootstrap/build-v2.ps1` passes 204
+assertions and publishes its selection only after both additional proof suites
+pass. Grammar, semantics, bootstrap profile and public reference agree on this
+bounded addition. Exact identities, tests and limits:
+`tests/native-type/NATIVE-EVIDENCE.md`. No archive, seed or public UBECore API
+was imported or introduced by this goal.
+
+## Foundation handoff - 2026-10-30
+
+The owner explicitly requested a goal for the first contract and bounded
+bootstrap investigation. The maintained command is:
+`rtk proxy powershell -NoProfile -File std-lib/tools/check-foundation.ps1`.
+It builds only the current small seed/runtime in a separate generated output
+directory and checks exact native results, storage widths, rejection and repeat
+LLVM identity against independently specified cases. Optional restored v2
+artifacts are identified and tested without claiming source reproduction.
+
+All six narrow-subset cases pass in each of three tools. Byte is unsupported;
+v2 Integer storage is i32; seed ByVal records are unsupported; the bootstrap
+StringFromByte operation excludes zero and terminates on that input. These
+limits prevent using the tested subset as the proposed datatype/byte-text base.
+The source-built seed is selected only for the demonstrated diagnostic work.
+`FOUNDATION-EVIDENCE.md` records identities, results and remaining obligations.
+No archived code was imported, no production bootstrap source was changed,
+and the fresh library project still has no implemented APIs or execution proof.
 
 ## Inventory handoff — 2026-10-30
+
+Current bootstrap handoff: the subsequent usable-v2 goal passed the maintained
+`bootstrap/build-v2.ps1` gate with 130 assertions. It builds from current source
+without restored executables, supports tested Byte/Integer storage/conversions
+and diagnoses unsupported deep-copy paths. It also fixes integer-failure
+termination and rejects expressions exceeding the bootstrap depth limit before
+recursive processing. See the v2 verification record for exact identities,
+commands and remaining language/runtime limits. The earlier foundation handoff
+above describes the pre-repair investigation; those backup artifacts are not
+the current selected tool.
 
 The owner requested a finished-library overview covering the VB6 runtime and
 UBE additions, and explicitly included VBA7. `INVENTORY.md` links four detailed

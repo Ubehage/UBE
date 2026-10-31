@@ -1,0 +1,21 @@
+{
+  "schema":"ube-parser-probe-kinds-1",
+  "scope":"Test-only command vocabulary; no production enum or syntax representation is selected.",
+  "kinds":{
+    "Name":1,"Literal":2,"Group":3,"Positive":4,"Negative":5,"Not":6,
+    "Power":7,"Multiply":8,"Divide":9,"IntegerDivide":10,"Modulo":11,
+    "Add":12,"Subtract":13,"Concat":14,"Equal":15,"NotEqual":16,
+    "Less":17,"LessEqual":18,"Greater":19,"GreaterEqual":20,"Like":21,
+    "Is":22,"IsNot":23,"And":24,"AndAlso":25,"Or":26,"OrElse":27,
+    "Xor":28,"Eqv":29,"Imp":30,"AddressOf":31,"New":32,
+    "LeadingMember":33,"Member":34,"Bang":35,"NamedArgument":36,
+    "TypeOfIs":37,"Call":38,"CallNew":39,"Assign":40,"LetAssign":41,
+    "SetAssign":42,"CallStatement":43,"CallKeyword":44,"Module":45,
+    "Block":46,"Parameters":47,"StatementList":48,"Print":49,"Header":50,
+    "Option":51,"Attribute":52,"Field":53,"VariableDecl":54,"ConstantDecl":55,
+    "Parameter":56,"ResultType":57,"EndMarker":58,"Exit":59,"Label":60,
+    "Goto":61,"Return":62,"RecordType":63,"NativeType":64,"Procedure":65,
+    "IntrinsicProcedure":66,"IfLine":67,"IfBlock":68,"ElseIf":69,"Else":70,
+    "While":71,"With":72,"Omitted":73,"TypeName":74
+  }
+}

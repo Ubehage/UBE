@@ -1,0 +1,13 @@
+{
+  "positive": [
+    {"name":"array-values","source":"array-values.bas","stdout":"0\n0\n0\n0\n88\n0\n65\n3\n99\n0\n255\n66\n0\n3\n"},
+    {"name":"record-values","source":"record-values.bas","stdout":"0\n0\n0\n88\n65\n7\n2\n12345\n99\n255\n65\n","layoutTypePattern":"%ube\\.type\\.[0-9]+\\s*=\\s*type\\s*\\{\\s*i8\\s*,\\s*ptr\\s*,\\s*i16\\s*\\}","size":24,"alignment":8},
+    {"name":"results","source":"results.bas","stdout":"65\n66\n70\n71\n255\n1234\n"},
+    {"name":"nested-roots","source":"nested-roots.bas","stdout":"66\n65\n70\n255\n111\n222\n"},
+    {"name":"borrowed-element","source":"borrowed-element.bas","stdout":"65\n88\n99\n99\n"},
+    {"name":"scope-cleanup","source":"scope-cleanup.bas","stdout":""}
+  ],
+  "failureStdout":"copy-failure err:7\n65\n9\n1\ncopy-retry err:77\n66\n65\n2\ngrow-failure status:0 err:7\n66\n65\n2\ngrow-retry status:1 err:77\n65\n255\n0\n0\ndead-bytes:0\n",
+  "initializationStdout":"byval-failure result:0 source:65 err:7 unpublished-bytes:0\nbyval-retry result:123 source:65 err:77 dead-copy-bytes:0\narray-result-failure empty:1 source:65 err:7 unpublished-bytes:0\narray-result-retry source:66 result:65 err:77\nrecord-result-failure empty:1 marker:0 source:65 err:7 unpublished-bytes:0\nrecord-result-retry first:65 marker:123 err:77\ndead-bytes:0\n",
+  "scope":"Ordinary Byte arrays and finite records containing arrays. No builtin String, objects, recursive records, concurrent mutation or public library claim."
+}

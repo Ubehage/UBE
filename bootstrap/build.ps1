@@ -230,7 +230,9 @@ $overflowProgram = Join-Path $out 'integer_overflow.exe'
     (Join-Path $PSScriptRoot 'tests/fixtures/integer_overflow.bas') '-o' $overflowProgram
 if ($LASTEXITCODE -ne 0) { throw 'Integer-overflow native compilation failed' }
 $overflowFailure = Invoke-ExpectedNativeFailure -FilePath $overflowProgram
-if ($overflowFailure.ExitCode -ne 65) { throw 'Integer overflow did not use the controlled failure path' }
+if ($overflowFailure.ExitCode -ne 0 -or $overflowFailure.Output -ne '0') {
+    throw 'Integer overflow did not return neutral zero without terminating'
+}
 
 $stringProgram = Join-Path $out 'strings.exe'
 & (Join-Path $out 'ubec.exe') '--compile' `

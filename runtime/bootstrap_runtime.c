@@ -9,6 +9,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "value_storage.h"
+
+/* A test harness may observe executed payload leaf copies. Production builds
+   have no counter, call, or evaluated argument on this path. */
+#ifdef UBE_VALUE_OBSERVE_COPY
+#define UBE_VALUE_COPY_OBSERVED 1
+#define UBE_VALUE_PAYLOAD(value) , value
+#define UBE_VALUE_OBSERVE_LEAF(bytes, condition) do { if (condition) UBE_VALUE_OBSERVE_COPY(bytes); } while (0)
+#else
+#define UBE_VALUE_COPY_OBSERVED 0
+#define UBE_VALUE_PAYLOAD(value)
+#define UBE_VALUE_OBSERVE_LEAF(bytes, condition) ((void)0)
+#define UBE_VALUE_OBSERVE_COPY(size) ((void)0)
+#endif
 
 struct ube_string_allocation {
     struct ube_string_allocation* next;
@@ -79,7 +93,10 @@ struct ube_gc_header {
     uint32_t pin_count;
     CRITICAL_SECTION monitor;
     unsigned char monitor_initialized;
-    unsigned char data[];
+    const struct ube_value_layout* element_layout;
+    size_t element_count;
+    struct ube_gc_header* transaction_next;
+    _Alignas(max_align_t) unsigned char data[];
 };
 
 struct ube_gc_root {
@@ -202,6 +219,15 @@ struct ube_error_state {
     char source[256];
 };
 
+/* The maintained Windows runtime is compiled with native TLS by Clang.
+   First-error publication must not require allocation of the larger FLS
+   record used for monitors, events and thread registration. */
+static _Thread_local struct ube_error_state ube_thread_error;
+
+static struct ube_error_state* ube_current_error_state(void) {
+    return &ube_thread_error;
+}
+
 #define UBE_MONITOR_TRACKING_CAPACITY 256u
 
 /* Monitor ownership is tracked per native thread so structured error
@@ -214,7 +240,11 @@ struct ube_monitor_tracking {
 
 struct ube_thread_record;
 struct ube_thread_local_state {
-    struct ube_error_state error;
+#ifdef UBE_FILE_TESTING
+    int32_t file_test_mode;
+    void (*file_before_read)(void*);
+    void* file_before_read_context;
+#endif
     int64_t thread_id;
     struct ube_thread_record* thread_record;
     uint32_t event_depth;
@@ -266,33 +296,27 @@ static void ube_error_copy_text(char* destination, size_t capacity,
 /* Records a recoverable failure in the calling thread without clearing any
    other thread's state. */
 void ube_err_set(int32_t number, const char* description, const char* source) {
-    struct ube_thread_local_state* state = ube_tls_get(1);
-    if (state == NULL) return;
-    ++state->error.revision;
-    if (state->error.revision == 0) ++state->error.revision;
-    state->error.number = number;
-    ube_error_copy_text(state->error.description,
-                        sizeof(state->error.description), description);
-    ube_error_copy_text(state->error.source,
-                        sizeof(state->error.source), source);
+    struct ube_error_state* state = ube_current_error_state();
+    ++state->revision;
+    if (state->revision == 0) ++state->revision;
+    state->number = number;
+    ube_error_copy_text(state->description, sizeof(state->description), description);
+    ube_error_copy_text(state->source, sizeof(state->source), source);
 }
 
 /* Returns the calling thread's current UBE error number. */
 int32_t ube_err_number(void) {
-    struct ube_thread_local_state* state = ube_tls_get(0);
-    return state != NULL ? state->error.number : 0;
+    return ube_current_error_state()->number;
 }
 
 /* Explicitly clears the calling thread's error record. Successful operations
    deliberately do not call this function. */
 void ube_err_clear(void) {
-    struct ube_thread_local_state* state = ube_tls_get(0);
-    if (state != NULL) {
-        uint64_t revision = state->error.revision + 1u;
-        if (revision == 0) revision = 1u;
-        memset(&state->error, 0, sizeof(state->error));
-        state->error.revision = revision;
-    }
+    struct ube_error_state* state = ube_current_error_state();
+    uint64_t revision = state->revision + 1u;
+    if (revision == 0) revision = 1u;
+    memset(state, 0, sizeof(*state));
+    state->revision = revision;
 }
 
 /* Event recursion is admitted before generated dispatch enters user code so a
@@ -550,8 +574,7 @@ void ube_event_test_fail_snapshots(uint32_t count) {
 
 /* Returns an independently managed copy of the current error description. */
 void* ube_err_description(void) {
-    struct ube_thread_local_state* state = ube_tls_get(0);
-    const char* description = state != NULL ? state->error.description : "";
+    const char* description = ube_current_error_state()->description;
     const size_t length = strlen(description);
     char* result = ube_allocate_string_managed(length);
     if (result == NULL) return NULL;
@@ -561,8 +584,7 @@ void* ube_err_description(void) {
 
 /* Returns an independently managed copy of the current error source. */
 void* ube_err_source(void) {
-    struct ube_thread_local_state* state = ube_tls_get(0);
-    const char* source = state != NULL ? state->error.source : "";
+    const char* source = ube_current_error_state()->source;
     const size_t length = strlen(source);
     char* result = ube_allocate_string_managed(length);
     if (result == NULL) return NULL;
@@ -1266,7 +1288,7 @@ static int ube_gc_mark_roots(void) {
     for (struct ube_gc_root* root = ube_gc_roots; root != NULL; root = root->next) {
         if (root->slot != NULL) {
             if (root->slot_count <= 1 && root->slot_offsets == NULL) {
-                if (!ube_gc_push_value(*root->slot, &work, &count, &capacity)) {
+                if (!ube_gc_push_value(__atomic_load_n(root->slot, __ATOMIC_SEQ_CST), &work, &count, &capacity)) {
                     free(work);
                     return 0;
                 }
@@ -1274,7 +1296,7 @@ static int ube_gc_mark_roots(void) {
                 const unsigned char* base = (const unsigned char*)root->slot;
                 for (size_t index = 0; index < root->slot_count; ++index) {
                     void* child = NULL;
-                    memcpy(&child, base + root->slot_offsets[index], sizeof(child));
+                    child = __atomic_load_n((void* const*)(base + root->slot_offsets[index]), __ATOMIC_SEQ_CST);
                     if (!ube_gc_push_value(child, &work, &count, &capacity)) {
                         free(work);
                         return 0;
@@ -1292,6 +1314,24 @@ static int ube_gc_mark_roots(void) {
     }
     while (count != 0) {
         struct ube_gc_header* header = work[--count];
+        if (header->element_layout != NULL) {
+            const struct ube_value_layout* element = header->element_layout;
+            for (size_t item = 0; item < header->element_count; ++item) {
+                for (size_t slot = 0; slot < element->root_count; ++slot) {
+                    const size_t offset = sizeof(struct ube_array) + item * element->size + element->root_offsets[slot];
+                    if (offset > header->payload_size || header->payload_size - offset < sizeof(void*)) {
+                        free(work);
+                        return 0;
+                    }
+                    void* const* reference = __builtin_assume_aligned(header->data + offset, sizeof(void*));
+                    void* child = __atomic_load_n(reference, __ATOMIC_SEQ_CST);
+                    if (!ube_gc_push_value(child, &work, &count, &capacity)) {
+                        free(work);
+                        return 0;
+                    }
+                }
+            }
+        }
         const struct ube_gc_layout* layout = header->layout;
         if (layout == NULL) continue;
         for (size_t index = 0; index < layout->slot_count; ++index) {
@@ -1312,15 +1352,10 @@ static int ube_gc_mark_roots(void) {
     return 1;
 }
 
-static void ube_gc_controlled_fatal(const char* message) {
-    fputs("UBE managed support: ", stderr);
-    fputs(message, stderr);
-    fputc('\n', stderr);
-    fflush(stderr);
-    ExitProcess(70);
-}
-
-int32_t ube_gc_collect(void) {
+/* An incomplete mark pass cannot justify either finalization or sweeping.
+   Automatic allocation recovery is opportunistic and preserves the caller's
+   error record; an explicitly requested collection reports its fresh failure. */
+static int32_t ube_gc_collect_internal(int report_failure) {
     ube_gc_enter_lock();
     if (ube_gc_collecting) {
         ube_gc_leave_lock();
@@ -1331,8 +1366,15 @@ int32_t ube_gc_collect(void) {
         item->marked = 0;
     }
     if (!ube_gc_mark_roots()) {
+        for (struct ube_gc_header* item = ube_gc_allocations; item != NULL; item = item->next) {
+            item->marked = 0;
+        }
         ube_gc_collecting = 0;
-        ube_gc_controlled_fatal("insufficient bookkeeping memory while tracing");
+        ube_gc_leave_lock();
+        if (report_failure) {
+            ube_err_set(7, "insufficient bookkeeping memory while tracing", "UBE.Memory");
+        }
+        return 0;
     }
 
     int32_t performed = 0;
@@ -1375,13 +1417,17 @@ int32_t ube_gc_collect(void) {
     return performed;
 }
 
+int32_t ube_gc_collect(void) {
+    return ube_gc_collect_internal(1);
+}
+
 int32_t ube_gc_safe_point(void) {
     ube_gc_enter_lock();
     const int should_collect = !ube_gc_collecting && !ube_gc_shutdown &&
         ube_gc_live_bytes >= ube_gc_threshold;
     ube_gc_leave_lock();
     if (!should_collect) return 0;
-    return ube_gc_collect();
+    return ube_gc_collect_internal(0);
 }
 
 void* ube_gc_allocate(const struct ube_gc_layout* layout) {
@@ -1396,7 +1442,7 @@ void* ube_gc_allocate(const struct ube_gc_layout* layout) {
     }
     if (!ube_gc_collecting && (ube_gc_live_bytes > ube_gc_threshold ||
         layout->size > ube_gc_threshold - ube_gc_live_bytes)) {
-        (void)ube_gc_collect();
+        (void)ube_gc_collect_internal(0);
     }
     struct ube_gc_header* header = NULL;
     if (ube_gc_test_allocation_failures != 0) {
@@ -1405,7 +1451,7 @@ void* ube_gc_allocate(const struct ube_gc_layout* layout) {
         header = calloc(1, sizeof(*header) + layout->size);
     }
     if (header == NULL) {
-        (void)ube_gc_collect();
+        (void)ube_gc_collect_internal(0);
         if (ube_gc_test_allocation_failures != 0) {
             ube_gc_test_allocation_failures -= 1;
         } else {
@@ -1459,7 +1505,7 @@ static void* ube_gc_allocate_untraced_pending(size_t size) {
     }
     if (!ube_gc_collecting && (ube_gc_live_bytes > ube_gc_threshold ||
         size > ube_gc_threshold - ube_gc_live_bytes)) {
-        (void)ube_gc_collect();
+        (void)ube_gc_collect_internal(0);
     }
     struct ube_gc_header* header = NULL;
     if (ube_gc_test_allocation_failures != 0) {
@@ -1468,7 +1514,7 @@ static void* ube_gc_allocate_untraced_pending(size_t size) {
         header = calloc(1, sizeof(*header) + size);
     }
     if (header == NULL) {
-        (void)ube_gc_collect();
+        (void)ube_gc_collect_internal(0);
         if (ube_gc_test_allocation_failures != 0) {
             ube_gc_test_allocation_failures -= 1;
         } else {
@@ -1611,9 +1657,7 @@ int32_t ube_component_begin_load(void* value, int32_t kind) {
     item->object = value;
     item->kind = kind;
     item->state = 1;
-    struct ube_thread_local_state* thread_state = ube_tls_get(0);
-    item->load_error_revision = thread_state != NULL
-        ? thread_state->error.revision : 0u;
+    item->load_error_revision = ube_current_error_state()->revision;
     item->next = ube_components;
     ube_components = item;
     ube_gc_leave_lock();
@@ -1657,10 +1701,9 @@ int32_t ube_component_finish_load(void* value, int32_t succeeded) {
     struct ube_component_state** link = &ube_components;
     while (*link != NULL && (*link)->object != value) link = &(*link)->next;
     if (*link != NULL && (*link)->state == 1) {
-        struct ube_thread_local_state* thread_state = ube_tls_get(0);
-        const int hook_failed = succeeded && thread_state != NULL &&
-            thread_state->error.revision != (*link)->load_error_revision &&
-            thread_state->error.number != 0;
+        const struct ube_error_state* error = ube_current_error_state();
+        const int hook_failed = succeeded &&
+            error->revision != (*link)->load_error_revision && error->number != 0;
         if (succeeded && !hook_failed) {
             (*link)->state = 2;
             if (ube_active_event_sources == 0 &&
@@ -2805,7 +2848,7 @@ int32_t ube_gc_write_barrier(void* owner, void** slot, void* value) {
         ube_gc_leave_lock();
         return 0;
     }
-    *slot = value;
+    __atomic_store_n(slot, value, __ATOMIC_SEQ_CST);
     if (value_header != NULL) value_header->pending_publication = 0;
     ube_gc_leave_lock();
     return 1;
@@ -3603,6 +3646,414 @@ int32_t ube_array_ubound(const void* value) {
     return ((const struct ube_array*)value)->upper;
 }
 
+/* Managed value primitives. The compiler supplies exact target layouts; no
+   source type names or library algorithms are recognized here. */
+#define UBE_VALUE_MAX_COPY_FRAMES 65536u
+struct ube_value_transaction { struct ube_gc_header* allocations; };
+struct ube_value_copy_range {
+    unsigned char* destination;
+    const unsigned char* source;
+    const struct ube_value_layout* layout;
+    size_t count;
+#if UBE_VALUE_COPY_OBSERVED
+    int payload;
+#endif
+};
+struct ube_value_copy_work {
+    struct ube_value_copy_range local[64];
+    struct ube_value_copy_range* frames;
+    size_t capacity;
+};
+static void ube_value_work_init(struct ube_value_copy_work* work) {
+    work->frames = work->local;
+    work->capacity = 64;
+}
+static void ube_value_work_release(struct ube_value_copy_work* work) {
+    if (work->frames != work->local) free(work->frames);
+}
+
+static void* ube_value_allocate_workspace(size_t size) {
+    void* result = calloc(1, size == 0 ? 1 : size);
+    if (result == NULL) {
+        (void)ube_gc_collect_internal(0);
+        result = calloc(1, size == 0 ? 1 : size);
+    }
+    if (result == NULL) ube_err_set(7, "value-copy workspace allocation failed", "value storage");
+    return result;
+}
+
+static void ube_value_finish_transaction(struct ube_value_transaction* transaction, int commit) {
+    while (transaction->allocations != NULL) {
+        struct ube_gc_header* item = transaction->allocations;
+        transaction->allocations = item->transaction_next;
+        item->transaction_next = NULL;
+        if (commit) {
+            item->pending_publication = 0;
+        } else {
+            struct ube_gc_header** link = &ube_gc_allocations;
+            while (*link != NULL && *link != item) link = &(*link)->next;
+            if (*link == item) *link = item->next;
+            ube_gc_hash_remove(item);
+            ube_gc_live_bytes -= item->payload_size;
+            item->magic = 0;
+            if (item->monitor_initialized) DeleteCriticalSection(&item->monitor);
+            free(item);
+        }
+    }
+}
+
+static struct ube_array* ube_value_allocate_array(int32_t lower, int32_t upper,
+        const struct ube_value_layout* element, struct ube_value_transaction* transaction) {
+    if (element == NULL || element->size == 0 || upper < lower) {
+        ube_err_set(9, "invalid array bounds or element layout", "value storage");
+        return NULL;
+    }
+    const uint64_t count = (uint64_t)((int64_t)upper - lower + 1);
+    if (count > (SIZE_MAX - sizeof(struct ube_array)) / element->size) {
+        ube_err_set(6, "array storage size overflow", "value storage");
+        return NULL;
+    }
+    struct ube_array* result = ube_gc_allocate_untraced_pending(
+        sizeof(*result) + (size_t)count * element->size);
+    if (result == NULL) {
+        ube_err_set(7, "array storage allocation failed", "value storage");
+        return NULL;
+    }
+    result->lower = lower;
+    result->upper = upper;
+    result->element_size = element->size;
+    struct ube_gc_header* header = ube_gc_header_from_value(result);
+    header->element_layout = element;
+    header->element_count = (size_t)count;
+    header->transaction_next = transaction->allocations;
+    transaction->allocations = header;
+    return result;
+}
+
+static int ube_value_copy_scalar(void* destination, const void* source, size_t size) {
+    switch (size) {
+    case 1: __atomic_store_n((uint8_t*)destination, __atomic_load_n((const uint8_t*)source, __ATOMIC_SEQ_CST), __ATOMIC_SEQ_CST); return 1;
+    case 2: __atomic_store_n((uint16_t*)destination, __atomic_load_n((const uint16_t*)source, __ATOMIC_SEQ_CST), __ATOMIC_SEQ_CST); return 1;
+    case 4: __atomic_store_n((uint32_t*)destination, __atomic_load_n((const uint32_t*)source, __ATOMIC_SEQ_CST), __ATOMIC_SEQ_CST); return 1;
+    case 8: __atomic_store_n((uint64_t*)destination, __atomic_load_n((const uint64_t*)source, __ATOMIC_SEQ_CST), __ATOMIC_SEQ_CST); return 1;
+    default: ube_err_set(5, "unsupported scalar layout", "value storage"); return 0;
+    }
+}
+
+/* Iterative ranges bound workspace by value nesting, not array length. Newly
+   allocated storage remains pending until the complete value is published. */
+static int ube_value_walk(void* destination, const void* source,
+        const struct ube_value_layout* layout, size_t count, int independent,
+        struct ube_value_transaction* transaction, struct ube_value_copy_work* workspace
+        UBE_VALUE_PAYLOAD(int payload)) {
+    struct ube_value_copy_range* work = workspace->frames;
+    size_t capacity = workspace->capacity, depth = 1;
+    work[0] = (struct ube_value_copy_range){ destination, source, layout, count UBE_VALUE_PAYLOAD(payload) };
+    int success = 1;
+    while (depth != 0 && success) {
+        struct ube_value_copy_range* frame = &work[depth - 1];
+        if (frame->count == 0) { --depth; continue; }
+        unsigned char* to = frame->destination;
+        const unsigned char* from = frame->source;
+        const struct ube_value_layout* type = frame->layout;
+#if UBE_VALUE_COPY_OBSERVED
+        const int payload_copy = frame->payload;
+#endif
+        if (type == NULL || type->size == 0) goto invalid_layout;
+        frame->destination += type->size;
+        frame->source += type->size;
+        --frame->count;
+        size_t children = 0;
+        const struct ube_value_field* fields = NULL;
+        if (type->kind == 0) {
+            if (independent < 0) {
+                if (type->size != 1 && type->size != 2 && type->size != 4 && type->size != 8) goto invalid_layout;
+                continue;
+            }
+            success = ube_value_copy_scalar(to, from, type->size);
+            UBE_VALUE_OBSERVE_LEAF(type->size, success && payload_copy);
+            continue;
+        }
+        if (type->kind == 3 || (type->kind == 1 && independent <= 0)) {
+            if (type->size != sizeof(void*)) goto invalid_layout;
+            if (independent < 0) continue;
+            success = ube_value_copy_scalar(to, from, sizeof(void*));
+            UBE_VALUE_OBSERVE_LEAF(sizeof(void*), success && payload_copy);
+            continue;
+        }
+        if (type->kind == 1) {
+            if (type->size != sizeof(void*) || type->field_count != 1 || type->fields == NULL) goto invalid_layout;
+            const struct ube_array* old = __atomic_load_n((struct ube_array* const*)from, __ATOMIC_SEQ_CST);
+            if (old == NULL) { __atomic_store_n((void**)to, NULL, __ATOMIC_SEQ_CST); continue; }
+            const struct ube_value_layout* element = type->fields[0].layout;
+            if (element == NULL || old->element_size != element->size) goto invalid_layout;
+            if (depth == capacity) {
+                if (capacity >= UBE_VALUE_MAX_COPY_FRAMES) {
+                    ube_err_set(7, "value-copy nesting limit exceeded", "value storage");
+                    success = 0;
+                    break;
+                }
+                struct ube_value_copy_range* grown = ube_value_allocate_workspace(capacity * 2 * sizeof(*grown));
+                if (grown == NULL) { success = 0; break; }
+                memcpy(grown, work, depth * sizeof(*grown));
+                if (work != workspace->local) free(work);
+                work = grown;
+                capacity *= 2;
+            }
+            struct ube_array* copy = ube_value_allocate_array(old->lower, old->upper, element, transaction);
+            if (copy == NULL) { success = 0; break; }
+            __atomic_store_n((void**)to, copy, __ATOMIC_SEQ_CST);
+            /* One range describes every element, even for very large arrays. */
+            work[depth++] = (struct ube_value_copy_range){copy->data, old->data, element,
+                (size_t)((int64_t)old->upper - old->lower + 1) UBE_VALUE_PAYLOAD(1)};
+            continue;
+        } else if (type->kind == 2 && type->field_count >= 0 && type->fields != NULL) {
+            children = (size_t)type->field_count;
+            fields = type->fields;
+        } else goto invalid_layout;
+        if (children > UBE_VALUE_MAX_COPY_FRAMES - depth) {
+            ube_err_set(7, "value-copy nesting limit exceeded", "value storage");
+            success = 0;
+            break;
+        }
+        if (depth + children > capacity) {
+            size_t next = capacity;
+            while (next < depth + children) next *= 2;
+            struct ube_value_copy_range* grown = ube_value_allocate_workspace(next * sizeof(*grown));
+            if (grown == NULL) { success = 0; break; }
+            memcpy(grown, work, depth * sizeof(*grown));
+            if (work != workspace->local) free(work);
+            work = grown;
+            capacity = next;
+        }
+        if (fields == NULL) continue;
+        for (size_t field = 0; field < children; ++field) {
+            const struct ube_value_layout* child = fields[field].layout;
+            if (child == NULL || fields[field].offset > type->size || child->size > type->size - fields[field].offset) goto invalid_layout;
+            work[depth++] = (struct ube_value_copy_range){to + fields[field].offset,
+                from + fields[field].offset, child, 1 UBE_VALUE_PAYLOAD(payload_copy)};
+        }
+    }
+    workspace->frames = work;
+    workspace->capacity = capacity;
+    return success;
+invalid_layout:
+    workspace->frames = work;
+    workspace->capacity = capacity;
+    ube_err_set(5, "invalid value-copy layout", "value storage");
+    return 0;
+}
+
+int32_t ube_value_root_enter(void* root, void* value, const struct ube_value_layout* layout) {
+    if (layout == NULL || value == NULL) { ube_err_set(5, "invalid value root", "value storage"); return 0; }
+    if (layout->root_count == 0) return 1;
+    if (!ube_gc_root_enter_layout(root, value, layout->root_count, layout->root_offsets)) {
+        ube_err_set(7, "value root capacity exhausted", "value storage");
+        return 0;
+    }
+    return 1;
+}
+
+int32_t ube_value_snapshot(void* destination, const void* source, const struct ube_value_layout* layout) {
+    if (destination == NULL || source == NULL || layout == NULL) { ube_err_set(5, "invalid value snapshot", "value storage"); return 0; }
+    /* Rootless values contain only atomic scalars and process-lifetime legacy
+       String references. Independent decoder/value work needs no GC lock. */
+    if (layout->root_count != 0) ube_gc_enter_lock();
+    struct ube_value_copy_work work;
+    ube_value_work_init(&work);
+    /* Metadata is immutable. A no-read pass validates every inline leaf and
+       reserves all workspace before the first destination store. */
+    int result = ube_value_walk(destination, source, layout, 1, -1, NULL, &work UBE_VALUE_PAYLOAD(0));
+    if (result) result = ube_value_walk(destination, source, layout, 1, 0, NULL, &work UBE_VALUE_PAYLOAD(0));
+    ube_value_work_release(&work);
+    if (layout->root_count != 0) ube_gc_leave_lock();
+    return result;
+}
+
+/* Only compiler-private temporaries/fallbacks may be cleared this way. Managed
+   roots remain registered while their slots become neutral under the GC lock. */
+void ube_value_zero(void* destination, const struct ube_value_layout* layout) {
+    if (destination == NULL || layout == NULL) return;
+    if (layout->root_count != 0) ube_gc_enter_lock();
+    memset(destination, 0, layout->size);
+    if (layout->root_count != 0) ube_gc_leave_lock();
+}
+
+int32_t ube_value_read(void* private_destination, const void* source,
+        const struct ube_value_layout* layout) {
+    const int32_t success = ube_value_snapshot(private_destination, source, layout);
+    if (!success) ube_value_zero(private_destination, layout);
+    return success;
+}
+
+int32_t ube_value_assign(void* destination, const void* source, const struct ube_value_layout* layout) {
+    if (destination == NULL || source == NULL || layout == NULL) { ube_err_set(5, "invalid value assignment", "value storage"); return 0; }
+    if (destination == source) return 1;
+    if (layout->root_count == 0) return ube_value_snapshot(destination, source, layout);
+    ube_gc_enter_lock();
+    struct ube_gc_root source_root = {0}, destination_root = {0};
+    int success = ube_value_root_enter(&source_root, (void*)source, layout) &&
+        ube_value_root_enter(&destination_root, destination, layout);
+    if (success) {
+        int neutral = 1;
+        for (size_t slot = 0; slot < layout->root_count; ++slot) {
+            if (__atomic_load_n((void* const*)((const unsigned char*)source + layout->root_offsets[slot]), __ATOMIC_SEQ_CST) != NULL) {
+                neutral = 0;
+                break;
+            }
+        }
+        if (neutral) {
+            success = ube_value_snapshot(destination, source, layout);
+            (void)ube_gc_root_leave(&destination_root);
+            (void)ube_gc_root_leave(&source_root);
+            ube_gc_leave_lock();
+            return success;
+        }
+    }
+    struct ube_value_transaction transaction = {0};
+    struct ube_value_copy_work work;
+    ube_value_work_init(&work);
+    void* prepared = success ? ube_value_allocate_workspace(layout->size) : NULL;
+    if (prepared == NULL) success = 0;
+    if (success) success = ube_value_walk(prepared, source, layout, 1, 1, &transaction, &work UBE_VALUE_PAYLOAD(0));
+    /* Publication traverses a subset of the already validated layout using the
+       same workspace, so no allocation occurs after destination writes begin. */
+    if (success) success = ube_value_walk(destination, prepared, layout, 1, 0, NULL, &work UBE_VALUE_PAYLOAD(0));
+    ube_value_finish_transaction(&transaction, success);
+    free(prepared);
+    ube_value_work_release(&work);
+    (void)ube_gc_root_leave(&destination_root);
+    (void)ube_gc_root_leave(&source_root);
+    ube_gc_leave_lock();
+    return success;
+}
+
+int32_t ube_value_try_redim(void** slot, int32_t lower, int32_t upper,
+        const struct ube_value_layout* element, int32_t preserve) {
+    if (slot == NULL || element == NULL) { ube_err_set(5, "invalid array destination", "value storage"); return 0; }
+    ube_gc_enter_lock();
+    struct ube_gc_root old_root = {0};
+    if (!ube_gc_root_enter(&old_root, slot)) {
+        ube_err_set(7, "array root capacity exhausted", "value storage");
+        ube_gc_leave_lock();
+        return 0;
+    }
+    const struct ube_array* old = __atomic_load_n((struct ube_array* const*)slot, __ATOMIC_SEQ_CST);
+    struct ube_value_transaction transaction = {0};
+    struct ube_value_copy_work work;
+    ube_value_work_init(&work);
+    struct ube_array* result = ube_value_allocate_array(lower, upper, element, &transaction);
+    int success = result != NULL;
+    if (success && preserve && old != NULL) {
+        if (old->element_size != element->size) {
+            ube_err_set(5, "array element layout mismatch", "value storage");
+            success = 0;
+        } else {
+            const int32_t begin = lower > old->lower ? lower : old->lower;
+            const int32_t end = upper < old->upper ? upper : old->upper;
+            if (begin <= end) success = ube_value_walk(
+                result->data + (size_t)((int64_t)begin - lower) * element->size,
+                old->data + (size_t)((int64_t)begin - old->lower) * element->size,
+                element, (size_t)((int64_t)end - begin + 1), 1, &transaction, &work UBE_VALUE_PAYLOAD(1));
+        }
+    }
+    if (success) __atomic_store_n(slot, result, __ATOMIC_SEQ_CST);
+    ube_value_finish_transaction(&transaction, success);
+    ube_value_work_release(&work);
+    (void)ube_gc_root_leave(&old_root);
+    ube_gc_leave_lock();
+    return success;
+}
+
+int32_t ube_value_try_resize(void** slot, int32_t count,
+        const struct ube_value_layout* element, int32_t preserve) {
+    if (count < 0 || slot == NULL || element == NULL) { ube_err_set(5, "invalid array length", "value storage"); return 0; }
+    if (count != 0) return ube_value_try_redim(slot, 0, count - 1, element, preserve);
+    ube_gc_enter_lock();
+    __atomic_store_n(slot, NULL, __ATOMIC_SEQ_CST);
+    ube_gc_leave_lock();
+    return 1;
+}
+
+/* The caller roots keep_alive and fallback for the complete ByRef call scope.
+   An array replacement cannot invalidate an already borrowed element address. */
+void* ube_value_array_element(void* const* slot, int32_t index, void** keep_alive,
+        void* fallback, const struct ube_value_layout* element) {
+    if (slot == NULL || keep_alive == NULL || fallback == NULL || element == NULL) {
+        ube_err_set(5, "invalid array element request", "value storage");
+        return NULL;
+    }
+    ube_gc_enter_lock();
+    const struct ube_array* value = __atomic_load_n((struct ube_array* const*)slot, __ATOMIC_SEQ_CST);
+    __atomic_store_n(keep_alive, (void*)value, __ATOMIC_SEQ_CST);
+    void* result = fallback;
+    if (value != NULL && index >= value->lower && index <= value->upper && value->element_size == element->size) {
+        result = (unsigned char*)value->data + (size_t)((int64_t)index - value->lower) * value->element_size;
+    } else {
+        memset(fallback, 0, element->size);
+        ube_err_set(9, "array index outside its bounds", "value storage");
+    }
+    ube_gc_leave_lock();
+    return result;
+}
+
+int32_t ube_value_array_length(void* const* slot) {
+    if (slot == NULL) { ube_err_set(5, "invalid array reference", "value storage"); return 0; }
+    ube_gc_enter_lock();
+    const struct ube_array* value = __atomic_load_n((struct ube_array* const*)slot, __ATOMIC_SEQ_CST);
+    const int64_t count = value == NULL ? 0 : (int64_t)value->upper - value->lower + 1;
+    ube_gc_leave_lock();
+    if (count < 0 || count > INT32_MAX) { ube_err_set(6, "array length overflow", "value storage"); return 0; }
+    return (int32_t)count;
+}
+
+/* Compiler-only zero-based Byte payload spans. All validation precedes stores;
+   valid calls require no allocation or traversal metadata, even under OOM. */
+int32_t ube_value_copy_bytes(void* const* source, int32_t source_start,
+        void* const* destination, int32_t destination_start, int32_t count) {
+    if (source == NULL || destination == NULL || count < 0) {
+        ube_err_set(5, "invalid byte copy request", "value storage");
+        return 0;
+    }
+    ube_gc_enter_lock();
+    const struct ube_array* from = __atomic_load_n((struct ube_array* const*)source, __ATOMIC_SEQ_CST);
+    struct ube_array* to = __atomic_load_n((struct ube_array* const*)destination, __ATOMIC_SEQ_CST);
+    if ((from != NULL && from->element_size != 1) || (to != NULL && to->element_size != 1)) {
+        ube_gc_leave_lock();
+        ube_err_set(5, "byte copy requires Byte array storage", "value storage");
+        return 0;
+    }
+    const int64_t source_length = from == NULL ? 0 : (int64_t)from->upper - from->lower + 1;
+    const int64_t destination_length = to == NULL ? 0 : (int64_t)to->upper - to->lower + 1;
+    if (source_start < 0 || destination_start < 0 || source_start > source_length ||
+        destination_start > destination_length || count > source_length - source_start ||
+        count > destination_length - destination_start) {
+        ube_gc_leave_lock();
+        ube_err_set(9, "byte copy span outside array bounds", "value storage");
+        return 0;
+    }
+    if (from == to && destination_start > source_start) {
+        for (int32_t remaining = count; remaining != 0; --remaining) {
+            const size_t item = (size_t)remaining - 1;
+            const uint8_t value = __atomic_load_n(from->data + (size_t)source_start + item, __ATOMIC_SEQ_CST);
+            __atomic_store_n(to->data + (size_t)destination_start + item, value, __ATOMIC_SEQ_CST);
+            UBE_VALUE_OBSERVE_COPY(1);
+        }
+    } else {
+        for (int32_t item = 0; item < count; ++item) {
+            const uint8_t value = __atomic_load_n(from->data + (size_t)source_start + (size_t)item, __ATOMIC_SEQ_CST);
+            __atomic_store_n(to->data + (size_t)destination_start + (size_t)item, value, __ATOMIC_SEQ_CST);
+            UBE_VALUE_OBSERVE_COPY(1);
+        }
+    }
+    ube_gc_leave_lock();
+    return 1;
+}
+
+/* The initial host is Windows. OS entry and external-resource ownership stay
+   in the platform library; portable file progress/growth policy is UBE. */
+#include "../std-lib/src/win-lib/file_primitives.c"
+
 static char* ube_string_array_join_impl(void** value_reference, int32_t count,
                                         int managed) {
     if (count < 0) {
@@ -3686,43 +4137,67 @@ void ube_invalid_for_step(void) {
     exit(65);
 }
 
-static void ube_integer_error(const char* operation) {
-    fprintf(stderr, "UBE runtime: Long %s failed\n", operation);
-    exit(65);
+static int32_t ube_integer_error(int32_t number, const char* operation) {
+    ube_err_set(number, operation, "integer arithmetic");
+    return 0;
+}
+
+/* Compiler-generated narrowing: preserve signedness, avoid LLVM poison and
+   publish recoverable overflow without clearing an earlier Err on success. */
+int64_t ube_checked_narrow_i64(int64_t value, int32_t bits, int32_t is_unsigned) {
+    int64_t minimum = 0;
+    int64_t maximum = 0;
+    if (bits == 8 && is_unsigned == 1) {
+        maximum = UINT8_MAX;
+    } else if (bits == 16 && is_unsigned == 0) {
+        minimum = INT16_MIN;
+        maximum = INT16_MAX;
+    } else if (bits == 32 && is_unsigned == 0) {
+        minimum = INT32_MIN;
+        maximum = INT32_MAX;
+    } else {
+        ube_err_set(5, "invalid integer representation", "integer conversion");
+        return 0;
+    }
+    if (value < minimum || value > maximum) {
+        ube_err_set(6, "integer conversion overflow", "integer conversion");
+        return 0;
+    }
+    return value;
 }
 
 int32_t ube_checked_add_i32(int32_t left, int32_t right) {
     const int64_t result = (int64_t)left + right;
-    if (result < INT32_MIN || result > INT32_MAX) ube_integer_error("addition overflow");
+    if (result < INT32_MIN || result > INT32_MAX) return ube_integer_error(6, "addition overflow");
     return (int32_t)result;
 }
 
 int32_t ube_checked_sub_i32(int32_t left, int32_t right) {
     const int64_t result = (int64_t)left - right;
-    if (result < INT32_MIN || result > INT32_MAX) ube_integer_error("subtraction overflow");
+    if (result < INT32_MIN || result > INT32_MAX) return ube_integer_error(6, "subtraction overflow");
     return (int32_t)result;
 }
 
 int32_t ube_checked_mul_i32(int32_t left, int32_t right) {
     const int64_t result = (int64_t)left * right;
-    if (result < INT32_MIN || result > INT32_MAX) ube_integer_error("multiplication overflow");
+    if (result < INT32_MIN || result > INT32_MAX) return ube_integer_error(6, "multiplication overflow");
     return (int32_t)result;
 }
 
 int32_t ube_checked_div_i32(int32_t left, int32_t right) {
-    if (right == 0) ube_integer_error("division by zero");
-    if (left == INT32_MIN && right == -1) ube_integer_error("division overflow");
+    if (right == 0) return ube_integer_error(11, "division by zero");
+    if (left == INT32_MIN && right == -1) return ube_integer_error(6, "division overflow");
     return left / right;
 }
 
 int32_t ube_checked_mod_i32(int32_t left, int32_t right) {
-    if (right == 0) ube_integer_error("remainder division by zero");
+    if (right == 0) return ube_integer_error(11, "remainder division by zero");
     if (left == INT32_MIN && right == -1) return 0;
     return left % right;
 }
 
 int32_t ube_checked_neg_i32(int32_t value) {
-    if (value == INT32_MIN) ube_integer_error("negation overflow");
+    if (value == INT32_MIN) return ube_integer_error(6, "negation overflow");
     return -value;
 }
 

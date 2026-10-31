@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "required-behavior-not-qualified",
+  "copy": {"exit": 0, "stdout": "65\n", "stderr": ""},
+  "lifetime": {"allocations": 1000, "liveAfterCollection": 0},
+  "allocationRetry": {"exit": 0, "err": 77, "live": 0},
+  "allocationFailure": {"exit": 0, "err": 7, "live": 0},
+  "note": "A diagnostic reproduction is evidence of a gap, never a target acceptance pass."
+}

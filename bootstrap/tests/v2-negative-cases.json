@@ -1,0 +1,282 @@
+﻿[
+    {
+        "source":  "tests/unterminated_string.bas",
+        "diagnostic":  "(2,11): error UBE1004: unterminated string literal",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_main.bas",
+        "diagnostic":  "error UBE2100: duplicate procedure name: Main",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_function_result.bas",
+        "diagnostic":  "error UBE2003: Function must assign its result before returning",
+        "exit":  1
+    },
+    {
+        "source":  "tests/invalid_print_expression.bas",
+        "diagnostic":  "error UBE2220: expected expression",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_unicode_procedure.bas",
+        "diagnostic":  "error UBE2100: duplicate procedure name",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unterminated_procedure.bas",
+        "diagnostic":  "(1,1): error UBE2101: unterminated procedure declaration",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_unicode_type.bas",
+        "diagnostic":  "error UBE2110: duplicate Type name",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unterminated_type.bas",
+        "diagnostic":  "(1,1): error UBE2111: unterminated Type declaration",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_unicode_field.bas",
+        "diagnostic":  "error UBE2114: duplicate field name",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_field_type.bas",
+        "diagnostic":  "error UBE2116: Type field requires an explicit As type",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_unicode_parameter.bas",
+        "diagnostic":  "error UBE2121: duplicate parameter name",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_parameter_type.bas",
+        "diagnostic":  "error UBE2123: parameter requires an explicit As type",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_function_type.bas",
+        "diagnostic":  "error UBE2127: Function requires an explicit result type",
+        "exit":  1
+    },
+    {
+        "source":  "tests/main_with_parameter.bas",
+        "diagnostic":  "error UBE3003: Main must not have parameters",
+        "exit":  1
+    },
+    {
+        "source":  "tests/main_wrong_result.bas",
+        "diagnostic":  "error UBE3004: Function Main must return Long",
+        "exit":  1
+    },
+    {
+        "source":  "tests/intrinsic_main.bas",
+        "diagnostic":  "error UBE3002: Main cannot be Intrinsic",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_main.bas",
+        "diagnostic":  "error UBE3000: executable requires Sub Main() or Function Main() As Long",
+        "exit":  1
+    },
+    {
+        "source":  "tests/local_duplicates_parameter.bas",
+        "diagnostic":  "error UBE2201: local name duplicates a parameter",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_unicode_local.bas",
+        "diagnostic":  "error UBE2202: duplicate local name",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_local_type.bas",
+        "diagnostic":  "error UBE2204: local variable requires an explicit As type",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_initializer.bas",
+        "diagnostic":  "error UBE2206: local initializer requires an expression",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_call_target.bas",
+        "diagnostic":  "error UBE2210: expected procedure name after Call",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_assignment_value.bas",
+        "diagnostic":  "error UBE2211: assignment requires a value",
+        "exit":  1
+    },
+    {
+        "source":  "tests/undeclared_assignment.bas",
+        "diagnostic":  "error UBE3100: assignment target is not declared: Missing",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unknown_call.bas",
+        "diagnostic":  "error UBE3101: procedure is not declared: Missing",
+        "exit":  1
+    },
+    {
+        "source":  "tests/incomplete_binary_expression.bas",
+        "diagnostic":  "error UBE2220: expected expression",
+        "exit":  1
+    },
+    {
+        "source":  "tests/incomplete_call_argument.bas",
+        "diagnostic":  "error UBE2220: expected expression",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unknown_initializer_name.bas",
+        "diagnostic":  "error UBE3102: name is not declared: Missing",
+        "exit":  1
+    },
+    {
+        "source":  "tests/wrong_argument_count.bas",
+        "diagnostic":  "error UBE3103: argument count does not match callable",
+        "exit":  1
+    },
+    {
+        "source":  "tests/incompatible_initializer_type.bas",
+        "diagnostic":  "error UBE3201: local initializer type is not assignable",
+        "exit":  1
+    },
+    {
+        "source":  "tests/incompatible_operator_types.bas",
+        "diagnostic":  "error UBE3200: expression has incompatible or unresolved types",
+        "exit":  1
+    },
+    {
+        "source":  "tests/call_scalar.bas",
+        "diagnostic":  "error UBE3209: expression is not callable or indexable",
+        "exit":  1
+    },
+    {
+        "source":  "tests/invalid_unary_string.bas",
+        "diagnostic":  "error UBE3200: expression has incompatible or unresolved types",
+        "exit":  1
+    },
+    {
+        "source":  "tests/invalid_string_and.bas",
+        "diagnostic":  "error UBE3200: expression has incompatible or unresolved types",
+        "exit":  1
+    },
+    {
+        "source":  "tests/byref_literal.bas",
+        "diagnostic":  "error UBE3202: ByRef argument must be an addressable variable",
+        "exit":  1
+    },
+    {
+        "source":  "tests/incompatible_assignment.bas",
+        "diagnostic":  "error UBE3208: assigned value has an incompatible type",
+        "exit":  1
+    },
+    {
+        "source":  "tests/invalid_array_index.bas",
+        "diagnostic":  "error UBE3205: array index must be Long",
+        "exit":  1
+    },
+    {
+        "source":  "tests/if_missing_then.bas",
+        "diagnostic":  "error UBE2230: block If requires a condition followed by Then",
+        "exit":  1
+    },
+    {
+        "source":  "tests/orphan_else.bas",
+        "diagnostic":  "error UBE2232: Else has no matching block If",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_else.bas",
+        "diagnostic":  "error UBE2233: block If has more than one Else",
+        "exit":  1
+    },
+    {
+        "source":  "tests/mismatched_wend.bas",
+        "diagnostic":  "error UBE2234: Wend does not match the open structured statement",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unterminated_while.bas",
+        "diagnostic":  "error UBE2235: unterminated structured statement",
+        "exit":  1
+    },
+    {
+        "source":  "tests/invalid_if_condition.bas",
+        "diagnostic":  "error UBE3210: structured statement condition must be Boolean or integral",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unsupported_paramarray.bas",
+        "diagnostic":  "error UBE2128: ParamArray is not supported by this compiler generation",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unsupported_for.bas",
+        "diagnostic":  "error UBE2238: structured statement is reserved for UBE Compiler v3: For",
+        "exit":  1
+    },
+    {
+        "source":  "tests/bare_exit.bas",
+        "diagnostic":  "error UBE2216: Exit requires Sub, Function, or While",
+        "exit":  1
+    },
+    {
+        "source":  "tests/wrong_exit_kind.bas",
+        "diagnostic":  "error UBE2219: Exit Function is only valid inside a Function",
+        "exit":  1
+    },
+    {
+        "source":  "tests/orphan_exit_while.bas",
+        "diagnostic":  "error UBE2226: Exit While requires an enclosing While block",
+        "exit":  1
+    },
+    {
+        "source":  "tests/redim_scalar.bas",
+        "diagnostic":  "error UBE3211: ReDim target must be a dynamic array",
+        "exit":  1
+    },
+    {
+        "source":  "tests/redim_string_bound.bas",
+        "diagnostic":  "error UBE3212: ReDim upper bound must be Long",
+        "exit":  1
+    },
+    {
+        "source":  "tests/unknown_unused_type.bas",
+        "diagnostic":  "error UBE3214: unknown local type: MissingType",
+        "exit":  1
+    },
+    {
+        "source":  "tests/path_escape.UBE",
+        "diagnostic":  "error UBE5009: project Source path is empty, absolute, or escapes the project directory",
+        "exit":  1
+    },
+    {
+        "source":  "tests/multi_error.UBE",
+        "diagnostic":  "modules/multi_error_support.bas(2,10): error UBE3101: procedure is not declared: Missing",
+        "exit":  1
+    },
+    {
+        "source":  "tests/duplicate_normalized_source.UBE",
+        "diagnostic":  "error UBE5010: duplicate project Source after path normalization",
+        "exit":  1
+    },
+    {
+        "source":  "tests/missing_second_source.UBE",
+        "diagnostic":  "UBE runtime: cannot open for reading:",
+        "exit":  66
+    },
+    {
+        "source":  "tests/unknown_key.UBE",
+        "diagnostic":  "error UBE5007: unsupported project key: Mystery",
+        "exit":  1
+    }
+]

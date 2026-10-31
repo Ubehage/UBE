@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "scalarCount": 1112064,
+  "oneByteCount": 256,
+  "twoByteCount": 65536,
+  "randomCount": 50000,
+  "workers": 4,
+  "workerIterations": 10000,
+  "maxStateBytes": 32,
+  "allocationBudget": 0,
+  "corruptStateCount": 5,
+  "expectedStdout": "PASS scalars:1112064 single:256 pairs:65536 random:50000\nPASS state:copy/byval/reset/sticky/truncated/corrupt err:77\nPASS workers:4 iterations:10000 input:immutable errors:independent\nPASS work:11/176/2816/45056 bytes one-feed-per-byte\nPASS allocations:0 state:16:4\n",
+  "exit": 0
+}

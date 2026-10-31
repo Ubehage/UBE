@@ -41,6 +41,17 @@ of a bounded stage-zero/v2 bootstrap route are approved. Resume from
 `../compiler/UBE_Compiler_v3/Roadmap.md` and `../std-lib/ROADMAP.md`. References to
 old v3/v4 milestones below describe the archived lines.
 
+The fresh source reader/scanner and Unicode helpers pass the refreshed 501-check
+native gate. The bounded grammar consumer in
+`../compiler/UBE_Compiler_v3/PARSER-CONTRACT.md` is now implemented and independently
+qualified: 4049 native checks through both stages, 188 independent cases, all
+10412 real-root capacities, measured work/copy bounds and strict production CLI
+acceptance pass. Exact commands, identities and limits are in
+`../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`. It uses the measured
+linked-child nodes and explicit stacks. Semantic checking, conditional selection,
+deferred grammar and code generation remain separate. Resume from the fresh
+compiler roadmap; no successor implementation item is selected by this slice.
+
 The owner changed the immediate development order on 2026-10-30: establish a
 fresh UBECore in [`../std-lib/`](../std-lib/README.md), adding independently
 tested facilities as concrete compiler needs arise. The previous library is

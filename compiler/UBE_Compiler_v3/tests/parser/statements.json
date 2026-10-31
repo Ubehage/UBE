@@ -1,0 +1,203 @@
+{
+  "schema": "ube-parser-cases-1",
+  "cases": [
+    {
+      "name":"statement-assignment-before-call", "entry":"statement", "outcome":"syntax", "source":"a = b = c",
+      "rules":["assignment-statement","comparison-expression"],
+      "witnesses":[{"id":"root","text":"a = b = c"},{"id":"a","text":"a"},{"id":"equal","text":"b = c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape":["Assign","root",["Name","a"],["Equal","equal",["Name","b"],["Name","c"]]],
+      "semanticChecks":["Writable target, declared names and operand types require semantic validation."]
+    },
+    {
+      "name":"statement-call-keyword-parentheses", "entry":"statement", "outcome":"syntax", "source":"Call F(x)",
+      "rules":["call-statement","argument-list"],
+      "witnesses":[{"id":"root","text":"Call F(x)"},{"id":"f","text":"F"},{"id":"x","text":"x"}],
+      "shape":["CallKeyword","root",["Name","f"],["Name","x"]]
+    },
+    {
+      "name":"statement-bare-call-parenthesized-individual-argument", "entry":"statement", "outcome":"syntax", "source":"F (x)",
+      "rules":["call-statement","argument-list-no-parens","parenthesized-expression"],
+      "witnesses":[{"id":"root","text":"F (x)"},{"id":"f","text":"F"},{"id":"group","text":"(x)"},{"id":"x","text":"x"}],
+      "shape":["CallStatement","root",["Name","f"],["Group","group",["Name","x"]]],
+      "semanticChecks":["The individual argument retains its parentheses for later ByRef compatibility rules."]
+    },
+    {
+      "name":"statement-call-no-arguments", "entry":"statement", "outcome":"syntax", "source":"Call F",
+      "rules":["call-statement"], "witnesses":[{"id":"root","text":"Call F"},{"id":"f","text":"F"}],
+      "shape":["CallKeyword","root",["Name","f"]]
+    },
+    {
+      "name":"statement-explicit-empty-argument-list", "entry":"statement", "outcome":"syntax", "source":"Call F()",
+      "rules":["call-statement","argument-list"], "witnesses":[{"id":"root","text":"Call F()"},{"id":"f","text":"F"}],
+      "shape":["CallKeyword","root",["Name","f"]], "notes":"An empty list supplies zero arguments; it is not an omitted argument."
+    },
+    {
+      "name":"statement-bare-call-omitted-middle-slot", "entry":"statement", "outcome":"syntax", "source":"F a,,c",
+      "rules":["call-statement","argument-slot"],
+      "witnesses":[{"id":"root","text":"F a,,c"},{"id":"f","text":"F"},{"id":"a","text":"a"},{"id":"empty","text":",","occurrence":1,"at":"start","anchor":{"byte":4,"scalar":4,"line":1,"column":5}},{"id":"c","text":"c"}],
+      "shape":["CallStatement","root",["Name","f"],["Name","a"],["Omitted","empty"],["Name","c"]],
+      "semanticChecks":["Whether the omitted target parameter has a default is a binding check."]
+    },
+    {
+      "name":"statement-named-argument-not-colon-separator", "entry":"statement", "outcome":"syntax", "source":"F a := 1, b := 2",
+      "rules":["call-statement","named-argument"],
+      "witnesses":[{"id":"root","text":"F a := 1, b := 2"},{"id":"f","text":"F"},{"id":"arg1","text":"a := 1"},{"id":"a","text":"a"},{"id":"one","text":"1"},{"id":"arg2","text":"b := 2"},{"id":"b","text":"b"},{"id":"two","text":"2"}],
+      "shape":["CallStatement","root",["Name","f"],["NamedArgument","arg1",["Name","a"],["Literal","one"]],["NamedArgument","arg2",["Name","b"],["Literal","two"]]]
+    },
+    {
+      "name":"statement-member-keyword-call", "entry":"statement", "outcome":"syntax", "source":"Call obj.Print(x)",
+      "rules":["call-statement","member-access","member-name"],
+      "witnesses":[{"id":"root","text":"Call obj.Print(x)"},{"id":"member","text":"obj.Print"},{"id":"obj","text":"obj"},{"id":"print","text":"Print"},{"id":"x","text":"x"}],
+      "shape":["CallKeyword","root",["Member","member",["Name","obj"],["Name","print"]],["Name","x"]]
+    },
+    {
+      "name":"statement-set-assignment", "entry":"statement", "outcome":"syntax", "source":"Set target = source",
+      "rules":["assignment-statement"], "witnesses":[{"id":"root","text":"Set target = source"},{"id":"target","text":"target"},{"id":"source","text":"source"}],
+      "shape":["SetAssign","root",["Name","target"],["Name","source"]], "semanticChecks":["Reference compatibility is not a syntax result."]
+    },
+    {
+      "name":"statement-let-assignment", "entry":"statement", "outcome":"syntax", "source":"Let x = 1",
+      "rules":["assignment-statement"], "witnesses":[{"id":"root","text":"Let x = 1"},{"id":"x","text":"x"},{"id":"one","text":"1"}],
+      "shape":["LetAssign","root",["Name","x"],["Literal","one"]]
+    },
+    {
+      "name":"statement-structural-lvalue-not-writability", "entry":"statement", "outcome":"syntax", "source":"1 = 2",
+      "rules":["assignment-statement","lvalue","postfix-expression"], "witnesses":[{"id":"root","text":"1 = 2"},{"id":"one","text":"1"},{"id":"two","text":"2"}],
+      "shape":["Assign","root",["Literal","one"],["Literal","two"]], "semanticChecks":["Primary specification 3.8 rejects this nonassignable lvalue in semantic validation."]
+    },
+    {
+      "name":"statement-nearest-single-line-else", "entry":"statement", "outcome":"syntax", "source":"If a Then If b Then F Else G",
+      "rules":["single-line-if","call-statement"],
+      "witnesses":[{"id":"root","text":"If a Then If b Then F Else G"},{"id":"a","text":"a"},{"id":"inner","text":"If b Then F Else G"},{"id":"b","text":"b"},{"id":"f","text":"F"},{"id":"g","text":"G"}],
+      "shape":["IfLine","root",["Name","a"],["IfLine","inner",["Name","b"],["CallStatement","f",["Name","f"]],["CallStatement","g",["Name","g"]]]]
+    },
+    {
+      "name":"statement-block-if-else", "entry":"statement", "outcome":"syntax", "source":"If a Then\n F\nElse\n G\nEnd If",
+      "rules":["block-if","else-part","statement-block"],
+      "witnesses":[{"id":"root","text":"If a Then\n F\nElse\n G\nEnd If"},{"id":"a","text":"a"},{"id":"f","text":"F"},{"id":"else","text":"Else\n G"},{"id":"g","text":"G"}],
+      "shape":["IfBlock","root",["Name","a"],["Block","f",["CallStatement","f",["Name","f"]]],["Else","else",["Block","g",["CallStatement","g",["Name","g"]]]]]
+    },
+    {
+      "name":"statement-comment-after-then-selects-block", "entry":"statement", "outcome":"syntax", "source":"If Ready Then Rem note\nx = 1\nEnd If",
+      "rules":["block-if","then-separator","comment"],
+      "witnesses":[{"id":"root","text":"If Ready Then Rem note\nx = 1\nEnd If"},{"id":"ready","text":"Ready"},{"id":"body","text":"x = 1"},{"id":"x","text":"x"},{"id":"one","text":"1"}],
+      "shape":["IfBlock","root",["Name","ready"],["Block","body",["Assign","body",["Name","x"],["Literal","one"]]]]
+    },
+    {
+      "name":"statement-while-exit", "entry":"statement", "outcome":"syntax", "source":"While Ready\n Exit While\nWend",
+      "rules":["while-statement","exit-statement"],
+      "witnesses":[{"id":"root","text":"While Ready\n Exit While\nWend"},{"id":"ready","text":"Ready"},{"id":"exit","text":"Exit While"}],
+      "shape":["While","root",["Name","ready"],["Block","exit",["Exit","exit"]]]
+    },
+    {
+      "name":"statement-with-leading-dot", "entry":"statement", "outcome":"syntax", "source":"With obj\n .Type = x\nEnd With",
+      "rules":["with-statement","leading-dot-expression","assignment-statement"],
+      "witnesses":[{"id":"root","text":"With obj\n .Type = x\nEnd With"},{"id":"obj","text":"obj"},{"id":"body","text":".Type = x"},{"id":"target","text":".Type"},{"id":"type","text":"Type"},{"id":"x","text":"x"}],
+      "shape":["With","root",["Name","obj"],["Block","body",["Assign","body",["LeadingMember","target",["Name","type"]],["Name","x"]]]],
+      "notes":"The leading member binds to the innermost With; no implicit runtime receiver representation is selected here."
+    },
+    {
+      "name":"statement-nested-with-leading-member-association", "entry":"statement", "outcome":"syntax", "source":"With outer\n With inner\n .Type = x\n End With\nEnd With",
+      "rules":["with-statement","leading-dot-expression","statement-block"],
+      "witnesses":[{"id":"root","text":"With outer\n With inner\n .Type = x\n End With\nEnd With"},{"id":"outer","text":"outer"},{"id":"inner-block","text":"With inner\n .Type = x\n End With"},{"id":"inner","text":"inner"},{"id":"body","text":".Type = x"},{"id":"target","text":".Type"},{"id":"type","text":"Type"},{"id":"x","text":"x"}],
+      "shape":["With","root",["Name","outer"],["Block","inner-block",["With","inner-block",["Name","inner"],["Block","body",["Assign","body",["LeadingMember","target",["Name","type"]],["Name","x"]]]]]],
+      "semanticChecks":["The leading member retains its association with the innermost With; actual receiver evaluation, retention and member binding require later validation."]
+    },
+    {
+      "name":"statement-continuation-keeps-expression-spacing", "entry":"statement", "outcome":"syntax", "source":"x = a _\r\n + b",
+      "rules":["assignment-statement","explicit-continuation","additive-expression"],
+      "witnesses":[{"id":"root","text":"x = a _\r\n + b"},{"id":"x","text":"x"},{"id":"rhs","text":"a _\r\n + b"},{"id":"a","text":"a"},{"id":"b","text":"b","anchor":{"byte":12,"scalar":12,"line":2,"column":4}}],
+      "shape":["Assign","root",["Name","x"],["Add","rhs",["Name","a"],["Name","b"]]]
+    },
+    {
+      "name":"statement-trailing-colon", "entry":"statement", "outcome":"syntax", "source":"x=1:",
+      "rules":["statement-line"], "witnesses":[{"id":"root","text":"x=1:"},{"id":"assign","text":"x=1"},{"id":"x","text":"x"},{"id":"one","text":"1"}],
+      "shape":["StatementList","root",["Assign","assign",["Name","x"],["Literal","one"]]]
+    },
+    {
+      "name":"statement-simple-print", "entry":"statement", "outcome":"syntax", "source":"Print Value",
+      "rules":["print-statement","print-item"], "witnesses":[{"id":"root","text":"Print Value"},{"id":"value","text":"Value"}],
+      "shape":["Print","root",["Name","value"]]
+    },
+    {
+      "name":"statement-bare-call-list-parentheses-rejected", "entry":"statement", "outcome":"reject", "source":"F(x)",
+      "rules":["call-statement"], "witnesses":[{"id":"open","text":"("}], "diagnostic":{"kind":"InvalidCallSyntax","witness":"open"}
+    },
+    {
+      "name":"statement-call-keyword-needs-parentheses-for-arguments", "entry":"statement", "outcome":"reject", "source":"Call F x",
+      "rules":["call-statement"], "witnesses":[{"id":"x","text":"x"}], "diagnostic":{"kind":"ExpectedToken","witness":"x"}
+    },
+    {
+      "name":"statement-colon-inside-argument-not-separator", "entry":"statement", "outcome":"reject", "source":"Call F(a: b)",
+      "rules":["argument-list"], "witnesses":[{"id":"colon","text":":"}], "diagnostic":{"kind":"ExpectedToken","witness":"colon"}
+    },
+    {
+      "name":"statement-comparison-chain-rhs", "entry":"statement", "outcome":"reject", "source":"a = b = c = d",
+      "rules":["comparison-expression","assignment-statement"], "witnesses":[{"id":"third","text":"=","occurrence":2}], "diagnostic":{"kind":"UnexpectedToken","witness":"third"}
+    },
+    {
+      "name":"statement-double-colon-not-empty-statement", "entry":"statement", "outcome":"reject", "source":"x=1::y=2",
+      "rules":["statement-line"], "witnesses":[{"id":"second","text":":","occurrence":1}], "diagnostic":{"kind":"UnexpectedToken","witness":"second"}
+    },
+    {
+      "name":"statement-missing-if-then", "entry":"statement", "outcome":"reject", "source":"If Ready F",
+      "rules":["single-line-if","block-if"], "witnesses":[{"id":"f","text":"F"}], "diagnostic":{"kind":"ExpectedToken","witness":"f"}
+    },
+    {
+      "name":"statement-unterminated-while-eof", "entry":"statement", "outcome":"reject", "source":"While Ready\n F",
+      "rules":["while-statement"], "witnesses":[{"id":"eof","text":"","at":"eof","anchor":{"byte":14,"scalar":14,"line":2,"column":3}}], "diagnostic":{"kind":"UnterminatedBlock","witness":"eof"}
+    },
+    {
+      "name":"statement-procedure-terminator-does-not-close-if", "entry":"statement", "outcome":"reject", "source":"If Ready Then\n F\nEnd Function",
+      "rules":["block-if"], "witnesses":[{"id":"end","text":"End Function"}], "diagnostic":{"kind":"UnexpectedTerminator","witness":"end"}
+    },
+    {
+      "name":"statement-missing-assignment-expression", "entry":"statement", "outcome":"reject", "source":"x =",
+      "rules":["assignment-statement"], "witnesses":[{"id":"eof","text":"","at":"eof"}], "diagnostic":{"kind":"ExpectedExpression","witness":"eof"}
+    },
+    {
+      "name":"statement-identifier-label-only", "entry":"statement", "outcome":"syntax", "source":"Work:",
+      "rules":["label-declaration","line-label"], "witnesses":[{"id":"root","text":"Work:"}], "shape":["Label","root"]
+    },
+    {
+      "name":"statement-line-start-label-precedes-call-separator", "entry":"statement", "outcome":"syntax", "source":"Work: F",
+      "rules":["statement-line","line-label","call-statement"], "witnesses":[{"id":"root","text":"Work: F"},{"id":"label","text":"Work:"},{"id":"f","text":"F"}],
+      "shape":["StatementList","root",["Label","label"],["CallStatement","f",["Name","f"]]],
+      "notes":"The first consumer chooses a line-start identifier-colon as a label, retaining the written label rather than inventing a zero-argument call."
+    },
+    {
+      "name":"statement-goto-label-reference", "entry":"statement", "outcome":"syntax", "source":"GoTo Work",
+      "rules":["goto-statement","label-reference"], "witnesses":[{"id":"root","text":"GoTo Work"},{"id":"target","text":"Work"}], "shape":["Goto","root"],
+      "semanticChecks":["Target existence, procedure ownership and legal control-flow transfer are later checks."]
+    },
+    {
+      "name":"statement-return-phrase-not-function-result", "entry":"statement", "outcome":"syntax", "source":"Return",
+      "rules":["goto-statement"], "witnesses":[{"id":"root","text":"Return"}], "shape":["Return","root"],
+      "semanticChecks":["Return is the legacy GoSub return phrase, not a value-return expression; legality requires later control-flow validation."]
+    },
+    {
+      "name":"statement-standalone-end-future-control", "entry":"statement", "outcome":"deferred", "source":"End",
+      "rules":["end-statement"], "witnesses":[{"id":"end","text":"End"}], "deferredReason":"Standalone process termination is outside the first consumer; compound End terminators retain their structural roles."
+    },
+    {
+      "name":"statement-gosub-future-control", "entry":"statement", "outcome":"deferred", "source":"GoSub Work",
+      "rules":["goto-statement"], "witnesses":[{"id":"gosub","text":"GoSub"}], "deferredReason":"The first consumer defers GoSub/computed branches and their control-flow obligations; this is not a syntax rejection."
+    },
+    {
+      "name":"statement-conditional-directive-needs-selected-input", "entry":"statement", "outcome":"deferred", "source":"#If Flag Then\n F\n#End If",
+      "rules":["statement-line"], "witnesses":[{"id":"directive","text":"#If"}], "deferredReason":"Conditional compilation must select logical lines before core statement parsing; this definition does not evaluate Flag."
+    },
+    {
+      "name":"statement-file-number-context", "entry":"statement", "outcome":"deferred", "source":"Print #1, #2026-10-30#",
+      "rules":["print-statement","date-literal"], "witnesses":[{"id":"file","text":"#1"},{"id":"date","text":"#2026-10-30#"}], "deferredReason":"Full classic I/O statement grammar needs file-number and expression-date contexts; the first consumer supports only simple Print expression."
+    },
+    {
+      "name":"statement-for-loop-future-family", "entry":"statement", "outcome":"deferred", "source":"For i = 0 To 2\n F\nNext i",
+      "rules":["for-statement"], "witnesses":[{"id":"for","text":"For"}], "deferredReason":"For/Next is valid language syntax outside the first bounded consumer; it is not classified as malformed source."
+    },
+    {
+      "name":"statement-error-handling-future-family", "entry":"statement", "outcome":"deferred", "source":"On Error GoTo Handler",
+      "rules":["error-statement"], "witnesses":[{"id":"on","text":"On Error"}], "deferredReason":"Classic error-handling syntax and handler validation are not in this consumer."
+    }
+  ]
+}

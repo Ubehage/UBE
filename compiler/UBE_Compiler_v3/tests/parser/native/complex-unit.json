@@ -1,0 +1,41 @@
+{
+  "schema":"ube-parser-native-cases-1",
+  "cases":[{
+    "name":"native-unit-declarations-parameters-if-while-with",
+    "entry":"unit","outcome":"syntax",
+    "source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Complex\"\nConst Limit As Long = 3\nSub Work(ByVal InputValue As Long)\n    Dim Count As Long = InputValue\n    If Count < Limit Then\n        While Count < Limit\n            Count = Count + 1\n        Wend\n    Else\n        With InputValue\n            Print .Value\n        End With\n    End If\nEnd Sub\n",
+    "witnesses":[
+      {"id":"unit","text":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Complex\"\nConst Limit As Long = 3\nSub Work(ByVal InputValue As Long)\n    Dim Count As Long = InputValue\n    If Count < Limit Then\n        While Count < Limit\n            Count = Count + 1\n        Wend\n    Else\n        With InputValue\n            Print .Value\n        End With\n    End If\nEnd Sub\n"},
+      {"id":"native","text":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Complex\"\n"},
+      {"id":"const","text":"Const Limit As Long = 3"},
+      {"id":"procedure","text":"Sub Work(ByVal InputValue As Long)\n    Dim Count As Long = InputValue\n    If Count < Limit Then\n        While Count < Limit\n            Count = Count + 1\n        Wend\n    Else\n        With InputValue\n            Print .Value\n        End With\n    End If\nEnd Sub"},
+      {"id":"header","text":"Sub Work(ByVal InputValue As Long)"},
+      {"id":"name","text":"Work"},
+      {"id":"parameters","text":"(ByVal InputValue As Long)"},
+      {"id":"parameter","text":"ByVal InputValue As Long"},
+      {"id":"body","text":"    Dim Count As Long = InputValue\n    If Count < Limit Then\n        While Count < Limit\n            Count = Count + 1\n        Wend\n    Else\n        With InputValue\n            Print .Value\n        End With\n    End If\n"},
+      {"id":"local","text":"Dim Count As Long = InputValue"},
+      {"id":"if","text":"If Count < Limit Then\n        While Count < Limit\n            Count = Count + 1\n        Wend\n    Else\n        With InputValue\n            Print .Value\n        End With\n    End If"},
+      {"id":"condition","text":"Count < Limit"},
+      {"id":"count","text":"Count","occurrence":1},
+      {"id":"limit","text":"Limit","occurrence":1},
+      {"id":"while","text":"While Count < Limit\n            Count = Count + 1\n        Wend"},
+      {"id":"while-condition","text":"Count < Limit","occurrence":1},
+      {"id":"while-count","text":"Count","occurrence":2},
+      {"id":"while-limit","text":"Limit","occurrence":2},
+      {"id":"assignment","text":"Count = Count + 1"},
+      {"id":"target","text":"Count","occurrence":3},
+      {"id":"sum","text":"Count + 1"},
+      {"id":"operand","text":"Count","occurrence":4},
+      {"id":"one","text":"1","occurrence":1},
+      {"id":"else","text":"Else\n        With InputValue\n            Print .Value\n        End With"},
+      {"id":"with","text":"With InputValue\n            Print .Value\n        End With"},
+      {"id":"receiver","text":"InputValue","occurrence":2},
+      {"id":"print","text":"Print .Value"},
+      {"id":"leading","text":".Value"},
+      {"id":"member","text":"Value","occurrence":3},
+      {"id":"end","text":"End Sub"}
+    ],
+    "shape":["Module","unit",["Header","native"],["ConstantDecl","const"],["Procedure","procedure",["Header","header",["Name","name"],["Parameters","parameters",["Parameter","parameter"]]],["Block","body",["VariableDecl","local"],["IfBlock","if",["Less","condition",["Name","count"],["Name","limit"]],["Block","while",["While","while",["Less","while-condition",["Name","while-count"],["Name","while-limit"]],["Block","assignment",["Assign","assignment",["Name","target"],["Add","sum",["Name","operand"],["Literal","one"]]]]]],["Else","else",["Block","with",["With","with",["Name","receiver"],["Block","print",["Print","print",["LeadingMember","leading",["Name","member"]]]]]]]]],["EndMarker","end"]]]
+  }]
+}

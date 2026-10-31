@@ -1,0 +1,20 @@
+{
+  "positive": [
+    { "source": "scalars.bas", "stdout": "255\n-32768\n255\n255\n32767\n128\n255\n-32768\n-1\n", "exit": 0, "irPatterns": ["alloca i8", "alloca i16", "define i8", "define i16"] },
+    { "source": "byte-array.bas", "stdout": "65\n0\n255\n128\n0\n", "exit": 0, "irPatterns": ["@ube_value_try_redim", "load atomic i8, ptr [^\\r\\n]+ seq_cst, align 1", "store atomic i8 [^\\r\\n]+ seq_cst, align 1"] },
+    { "source": "array-copy.bas", "stdout": "65\n255\n255\n0\n", "exit": 0 },
+    { "source": "array-byval.bas", "stdout": "88\n0\n65\n", "exit": 0 },
+    { "source": "record-array-copy.bas", "stdout": "65\n66\n", "exit": 0 },
+    { "source": "integer-arithmetic.bas", "stdout": "300\n100\n20000\n2\n0\n-100\n510\n255\n-255\n255\n-256\n-2147483648\n0\n0\n0\n0\n-32768\n32767\n0\n", "exit": 0 }
+  ],
+  "negative": [
+    { "source": "constant-byte-overflow.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "constant-integer-overflow.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "byref-width.bas", "diagnostic": "ByRef argument type must exactly match the parameter" },
+    { "source": "constant-expression-overflow.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "constant-call-overflow.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "constant-result-overflow.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "constant-division-zero.bas", "diagnostic": "constant is outside the destination integer range" },
+    { "source": "recursive-copy.bas", "diagnostic": "error UBE3221: recursive inline value layout is not supported; use an array edge" }
+  ]
+}

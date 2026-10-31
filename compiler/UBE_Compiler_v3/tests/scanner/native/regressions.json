@@ -1,0 +1,19 @@
+{
+  "schema": "ube-scanner-native-regressions-1",
+  "tokenCases": [
+    {"name":"rem-after-then","source":"If x Then Rem note","pieces":[["Keyword","If"],["HSpace"," "],["Identifier","x"],["HSpace"," "],["Keyword","Then"],["HSpace"," "],["RemComment","Rem note"],["Newline","",true],["Eof",""]]},
+    {"name":"rem-after-else","source":"If x Then y=1 Else Rem note","pieces":[["Keyword","If"],["HSpace"," "],["Identifier","x"],["HSpace"," "],["Keyword","Then"],["HSpace"," "],["Identifier","y"],["Symbol","="],["Integer","1"],["HSpace"," "],["Keyword","Else"],["HSpace"," "],["RemComment","Rem note"],["Newline","",true],["Eof",""]]},
+    {"name":"member-then-does-not-open-statement","source":"obj.Then Rem note","pieces":[["Identifier","obj"],["Symbol","."],["Keyword","Then"],["HSpace"," "],["Keyword","Rem"],["HSpace"," "],["Identifier","note"],["Newline","",true],["Eof",""]]},
+    {"name":"member-else-does-not-open-statement","source":"obj!Else Rem note","pieces":[["Identifier","obj"],["Symbol","!"],["Keyword","Else"],["HSpace"," "],["Keyword","Rem"],["HSpace"," "],["Identifier","note"],["Newline","",true],["Eof",""]]},
+    {"name":"parenthesized-then-does-not-open-statement","source":"F(Then Rem note)","pieces":[["Identifier","F"],["Symbol","("],["Keyword","Then"],["HSpace"," "],["Keyword","Rem"],["HSpace"," "],["Identifier","note"],["Symbol",")"],["Newline","",true],["Eof",""]]}
+  ],
+  "cases": [
+    {"name":"spaced-qualified-reserved-attribute","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute Work . UBE_Future = True\n","expected":{"format":"reject","diagnostic":"UnknownReservedAttribute","anchor":{"raw":"Work . UBE_Future","occurrence":1}}},
+    {"name":"bracketed-qualified-reserved-attribute","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute [Work].UBE_Future = True\n","expected":{"format":"reject","diagnostic":"UnknownReservedAttribute","anchor":{"raw":"[Work].UBE_Future","occurrence":1}}},
+    {"name":"continued-expression-is-not-attribute-line","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nx = 1 _\n Attribute UBE_Name = \"Other\"\n","expected":{"format":"native","kind":"MODULE","identity":"Main","spans":[{"role":"identity","raw":"\"Main\"","occurrence":1}]}},
+    {"name":"bracketed-attribute-target-with-ordinary-name","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute [UBE_Helper] . Description = \"x\"\n","expected":{"format":"native","kind":"MODULE","identity":"Main","spans":[{"role":"identity","raw":"\"Main\"","occurrence":1},{"role":"metadata","raw":"Attribute [UBE_Helper] . Description = \"x\"\n","occurrence":1}]}},
+    {"name":"bracketed-qualified-known-primitive","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute [PackOctet] . UBE_Primitive = \"Value.Pack\"\n","expected":{"format":"native","kind":"MODULE","identity":"Main","spans":[{"role":"identity","raw":"\"Main\"","occurrence":1},{"role":"metadata","raw":"Attribute [PackOctet] . UBE_Primitive = \"Value.Pack\"\n","occurrence":1}]}},
+    {"name":"reserved-bare-source-identity","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Sub\"\n","expected":{"format":"reject","diagnostic":"InvalidSourceIdentity","anchor":{"raw":"\"Sub\"","occurrence":1}}},
+    {"name":"reserved-bracketed-source-identity","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"[Sub]\"\n","expected":{"format":"native","kind":"MODULE","identity":"[Sub]","spans":[{"role":"identity","raw":"\"[Sub]\"","occurrence":1}]}}
+  ]
+}

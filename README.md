@@ -84,15 +84,20 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-**Compiler reset — Rebuilding the standard library and Compiler v3.**
+**Working native bootstrap, tested UBECore foundations, and a qualified bounded parser.**
 
-We are rebuilding UBE's foundations, starting with UBECore, the standard
-library. Compiler v3 will grow alongside it, with a focus on speed,
-reliability, and multithreaded compilation.
+The fresh Compiler v3 preserves exact source input, scans it, and parses the
+first bounded grammar slice. UBECore's byte storage, UTF-8, Unicode and file-input
+foundations are implemented and tested.
+
+Compiler v3 still needs semantic checking and code generation before it can
+compile programs. The existing source-built v2 remains its bootstrap tool.
 
 **UBE is under active development and is not ready for production use.**
 
-See the [workplan](Workplan.md) for development details.
+See the [workplan](Workplan.md) for development details and the
+[parser evidence](compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md) for the
+current test results and supported limits.
 
 ## First public-release goals
 

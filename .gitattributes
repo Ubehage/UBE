@@ -2,3 +2,9 @@
 # every host, independently of the checkout's core.autocrlf setting.
 archive/source-library/** -text
 compiler/archived/** -text
+
+# Keep official data, generated tables and hash-pinned regression captures exact.
+std-lib/data/unicode/** -text
+std-lib/src/portable/Unicode.bas -text
+compiler/UBE_Compiler_v3/ScannerWords.bas -text
+compiler/UBE_Compiler_v3/tests/parser/cli/diagnostic-oom/before-*.json -text

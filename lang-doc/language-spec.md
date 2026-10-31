@@ -41,6 +41,10 @@ metadata is preserved for tools but has no core-language execution semantics.
 This includes nameless `BEGIN ... END` class metadata,
 `BeginProperty ... EndProperty` designer groups, and contiguous member
 `Attribute` lines emitted beneath procedure/property headers.
+The explicit `UBE_Primitive` binding attribute on an intrinsic declaration is
+compiler metadata, not designer metadata; its narrowly defined meaning is in
+section 6.2. Ordinary procedure/property and imported designer attributes retain
+their existing inert meaning.
 
 New native source files begin with `UBE SOURCE 1` and their source kind, then
 declare `Attribute UBE_Name`. Legacy `VERSION` and `Attribute VB_Name` headers
@@ -237,13 +241,46 @@ No other underlying type is legal. Enum values otherwise participate in
 assignment, conversion, comparison, arithmetic, and bitwise operations as the
 underlying integer type.
 
-A custom `Type` contains at least one field. A field has an explicit type,
+An ordinary field-only `Type` contains at least one field. A field has an explicit type,
 optional array shape, no initializer, and no `As New`, visibility, Static,
 WithEvents, hook, or executable behavior. Fields initialize in declaration
 order to their type's neutral value. Enum members are unique constants; an
 explicit member value may use only constants and earlier visible Enum members,
 and an omitted value is zero for the first member or the checked preceding
 value plus one thereafter. Duplicate numeric Enum values are legal.
+
+### 4.1 Opaque native values
+
+The owner-authorized addition adopted on 2026-10-30 permits a distinct native
+value type with a declared representation, using the existing `As` convention:
+
+```vb
+Type Octet As Byte
+End Type
+```
+
+This form has no ordinary fields or executable members. Its payload cannot be
+accessed through field syntax or aliased as its storage type. Its declared name
+is nominal: neither the representation nor a different native declaration
+implicitly converts to it. Neutral initialization and independent value copying
+are synthesized from the representation. Same-declaration `=` and `<>` compare
+representation values; ordering, arithmetic and formatting require explicitly
+named ordinary procedures. Implicit Print formatting and Boolean condition
+conversion are rejected. It adds no operator-overloading rules, lifetime callbacks or raw
+address facility.
+
+The representation must have compiler-supported layout, neutral/copy semantics
+and root information. The qualified initial representations are Byte, Integer
+and Long; unsupported, managed, nested-native and recursive representations
+diagnose until their additional contracts are defined and proved. This does
+not imply support for representing String, Decimal, Date or Variant.
+
+The initial native ABI is a one-component value aggregate containing the
+representation. ByVal arguments/results pass that aggregate; exact-type ByRef
+aliases caller storage. Byte representation has size/alignment 1/1, Integer
+2/2 and Long 4/4 on the qualified initial target. No heap box or runtime
+type-name dispatch implements the value. This internal ABI does not specify
+foreign export representation. See section 6.2 for explicit pack/unpack binding.
 
 ## 5. Procedures, names, and modules
 
@@ -549,6 +586,117 @@ algorithms, conversions, collection logic, and most datatype operations—belong
 in the separately compiled standard-library source. Intrinsics are reserved
 for irreducible facilities such as primitive memory operations, target
 instructions, allocation hooks, and LLVM-facing operations.
+
+For an opaque native value, explicit primitive metadata supplies the two
+representation operations; it never selects an operation from a type or
+procedure spelling:
+
+```vb
+Intrinsic Function PackOctet(ByVal Storage As Byte) As Octet
+Attribute PackOctet.UBE_Primitive = "Value.Pack"
+End Function
+
+Intrinsic Function UnpackOctet(ByVal Value As Octet) As Byte
+Attribute UnpackOctet.UBE_Primitive = "Value.Unpack"
+End Function
+```
+
+The attribute target must identify its enclosing declaration and its value must
+be one string literal. For Pack/Unpack, the binding must be in the native type's
+declaring module; native declarations and their binding headers/terminators cannot span
+source modules. Attribute/target
+names and the qualified role identifiers in the string follow the language's
+case-insensitive identifier matching. A declaration has at most one binding;
+each native type has at most one Pack and one Unpack declaration per compilation.
+Pack is a Function with exactly one ByVal representation parameter and the
+native result type. Unpack has exactly one ByVal native parameter and the exact
+representation result type. No executable UBE body is permitted. Unknown roles,
+bad signatures/targets, duplicate/conflicting bindings and unsupported
+representations are compile-time errors; they cannot fall back to arbitrary
+external symbols. Other retained metadata gains no primitive meaning.
+
+A native type may be neutral-initialized/copied/compared without declaring
+either conversion operation. Infallible pack/unpack preserve Err. Checked
+primitive conversions at their parameter/result boundaries keep the existing
+constant-diagnostic and runtime neutral-result/Err rules. A library's explicit
+Try operation may return a fresh Boolean status without consulting stale Err;
+its documented ordinary result is distinct from language conversion failure.
+Fallible managed-storage hooks are a separate approved addition below; they do
+not extend the scalar-only Value.Pack/Value.Unpack representation contract or
+introduce a general foreign failure-status ABI.
+
+The owner-approved bootstrap storage roles use the same intrinsic attribute
+syntax and exact declaration-target validation. The names below are role
+identifiers, not procedure names. In this signature table `T` denotes one
+concrete supported array element type, identical at both copy parameters; it
+does not add generic source syntax.
+
+| Role | Required Function signature |
+|---|---|
+| `Array.Length` | `(ByRef Values() As T) As Long` |
+| `Array.TryResize` | `(ByRef Values() As T, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean` |
+| `Memory.Collect` | `() As Long` |
+| `Array.TryCopy` | `(ByRef Destination() As T, ByRef Source() As T) As Boolean` |
+| `Memory.CopyBytes` | `(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean` |
+
+For example, an intrinsic named `ByteStorageLength` can bind
+`Attribute ByteStorageLength.UBE_Primitive = "Array.Length"`; spelling the
+procedure differently preserves that binding. An intrinsic declaration,
+attribute and matching terminator must stay within one source module. Unknown
+roles, duplicate/conflicting attributes, mismatched targets and incorrect
+result/parameter types or passing modes diagnose before code generation.
+
+Length returns the physical element count, including zero for a default array.
+TryResize requests a zero-based element count; Preserve copies the intersecting
+index range and new elements are neutral. For an already zero-based source,
+this retains its existing prefix. TryCopy creates an independent value copy.
+Both return fresh Boolean status, prepare the replacement before publication
+and preserve the old destination on failure. Ordinary allocation failure
+requests collection and one retry, then returns False with Err 7. Success
+preserves incoming Err; status is not inferred from Err.
+
+CopyBytes uses zero-based offsets from each array's first stored payload byte,
+independently of its language lower bound. It validates the complete spans
+before writing, handles overlap as movement of the original input, and
+allocates nothing. Zero count permits an offset at the array's end, including
+neutral empty arrays. Invalid argument/count/element storage returns False with
+Err 5; invalid starts/spans return False with Err 9; failure preserves the
+destination. Successful copying preserves Err. Memory.Collect requests full
+synchronous collection and returns the cleanup-work status described by the
+managed-memory contract.
+
+These are bounded bootstrap bindings: v2 uses one-dimensional arrays and
+signed Long index/count arguments. They do not redefine the complete language's
+array index/rank contract. Ordinary Byte arrays and finite array-containing
+records have independent assignment, ByVal and result semantics with precise
+roots and safe managed publication. This proof does not qualify builtin String,
+objects or managed opaque representations. A failed operation does not imply
+an abort or rollback of later user statements; the ordinary section 9 error
+rules continue to apply. Exact acceptance and limits are recorded in
+[`../std-lib/MANAGED-STORAGE-EVIDENCE.md`](../std-lib/MANAGED-STORAGE-EVIDENCE.md).
+
+The source-input bootstrap extension uses the same validated attribute mechanism
+for these host operations. Procedure spelling is arbitrary; the exact concrete
+signature and passing modes are required:
+
+| Role | Required Function signature |
+|---|---|
+| `File.TryOpen` | `(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean` |
+| `File.TryRead` | `(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean` |
+| `File.TryClose` | `(ByRef Token As Long, ByRef Failure As Long) As Boolean` |
+| `Process.TryArgument` | `(ByVal Index As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean` |
+| `Error.Set` | `(ByVal Number As Long) As Boolean` |
+
+These bounded roles transport counted UTF-8 paths/arguments and uninterpreted
+file bytes, rather than source text in builtin String. Tokens are validated
+external-resource identities, not addresses; copying a token does not duplicate
+its resource. Explicit close and fresh failure status are required. A failed
+close retains ownership unless release actually completed. Error.Set records a
+positive recoverable error and returns False; a nonpositive number records Err 5.
+It is not a language-level Raise/control-transfer operation. Success preserves
+Err. Exact limits, failure codes, alias restrictions and the temporary Windows
+adapter removal condition are in
+[`../std-lib/FILE-BYTES-CONTRACT.md`](../std-lib/FILE-BYTES-CONTRACT.md).
 
 ## 7. Variable access hooks
 

@@ -1,0 +1,9 @@
+{
+  "schema": "ube-byte-buffer-oracles-1",
+  "cases": [
+    { "name": "basics", "exit": 0, "stdout": "PASS byte buffer basics\n", "stderr": "" },
+    { "name": "overlap", "exit": 0, "stdout": "PASS byte buffer overlap\n", "stderr": "" },
+    { "name": "rejections", "exit": 0, "stdout": "PASS byte buffer rejections\n", "stderr": "" },
+    { "name": "utf8", "exit": 0, "stdout": "PASS byte buffer utf8\n", "stderr": "" }
+  ]
+}

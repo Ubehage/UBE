@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "target": "x86_64-w64-windows-gnu",
+  "cases": [
+    { "name": "scalar-calls", "source": "scalar-calls.bas", "group": "subset", "expect": "native", "stdout": "41\n7\n9\n", "exit": 0 },
+    { "name": "record-fields", "source": "record-fields.bas", "group": "subset", "expect": "native", "stdout": "0\n0\n12\n34\n", "exit": 0 },
+    { "name": "array-preserve", "source": "array-preserve.bas", "group": "subset", "expect": "native", "stdout": "0\n17\n29\n0\n", "exit": 0 },
+    { "name": "unknown-type", "source": "unknown-type.bas", "group": "subset", "expect": "reject" },
+    { "name": "byref-rvalue", "source": "byref-rvalue.bas", "group": "subset", "expect": "reject" },
+    { "name": "truncated-procedure", "source": "truncated-procedure.bas", "group": "subset", "expect": "reject" },
+    { "name": "integer-storage", "source": "integer-storage.bas", "group": "target-probe", "expect": "native", "stdout": "", "exit": 0, "irPattern": "alloca i16(?:,|\\s)", "obligation": "Integer storage is signed 16-bit, not silently Long." },
+    { "name": "byte-storage", "source": "byte-storage.bas", "group": "target-probe", "expect": "native", "stdout": "", "exit": 0, "irPattern": "alloca i8(?:,|\\s)", "obligation": "Byte has an 8-bit storage primitive." },
+    { "name": "record-value-copy", "source": "record-value-copy.bas", "group": "target-probe", "expect": "native", "stdout": "7\n9\n", "exit": 0, "obligation": "Record assignment and ByVal preserve independent scalar values." },
+    { "name": "embedded-zero", "source": "embedded-zero.bas", "group": "target-probe", "expect": "native", "stdout": "3\n", "exit": 0, "obligation": "String construction preserves an embedded zero; it cannot be assumed suitable for raw byte storage otherwise." },
+    { "name": "unknown-intrinsic", "source": "unknown-intrinsic.bas", "group": "target-probe", "expect": "reject", "diagnosticPattern": "intrinsic.*(not implemented|unsupported|unknown)|unknown.*intrinsic|unsupported.*intrinsic", "obligation": "Unknown primitive declarations must be rejected before native linking." }
+  ]
+}

@@ -61,6 +61,22 @@ The stage-zero/v2 route is a candidate, not a newly verified build chain.
 Existing unsupported features are not silently accepted to reach a milestone.
 
 Archived v3 preview names and existing `bootstrap/out/ube-v3-*` products belong
-to the old implementation. The fresh line has no compiler binary or release
-identity yet. Its build/output records must distinguish exact source and tool
-identities when implementation begins. Do not overwrite archived previews.
+to the old implementation. The fresh line now has a qualified source-ingestion
+executable, but no public compiler release identity. Its build/output records
+distinguish exact source/tool identities and supported scope. Scanner/native
+envelope recognition now passes the 501-check current-source gate; its limits
+and exact proof identities are in `SCANNER-EVIDENCE.md`. A successful scan still
+reports source checking unavailable; parsing/code generation remain later work.
+Do not overwrite archived previews.
+
+## Measured first grammar consumer
+
+`PARSER-CONTRACT.md` freezes acceptance before implementation.
+`PARSER-PROBE-EVIDENCE.md` records the native comparison and selects private
+indexed linked-child nodes with explicit operator/operand and control stacks.
+Results borrow original source views and publish their complete owned arrays,
+root/count metadata and source identity together. The recursive probe cannot
+satisfy the shared mixed-depth limit; it is not the production strategy.
+The test-only command stream is an oracle bridge, not a required production
+intermediate or public ABI. Implement the contracted grammar next, retaining
+the qualified ownership, resource and measured-cost obligations.

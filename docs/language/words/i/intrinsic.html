@@ -6,4 +6,41 @@
 <h2>Syntax</h2><pre><code>[visibility] Intrinsic Function name(parameters) As type
 End Function</code></pre><h2>Example</h2><pre><code>Public Intrinsic Function StringLength(ByRef Value As String) As LongLong
 End Function</code></pre><h3>Expected result</h3><p>The declaration names an operation that must be supported for the selected target.</p><h2>Important rules</h2><p>An intrinsic declaration has no UBE body. Missing target support is a compile-time error.</p>
+<h2>Native value operations</h2>
+<p>Explicit attributes bind representation operations without relying on the procedure's spelling. Pack takes exactly one ByVal storage value and returns the native value. Unpack takes exactly one ByVal native value and returns its storage type. The following complete native-source example prints <code>255</code>.</p>
+<pre><code id="native-value-example">UBE SOURCE 1 MODULE
+Attribute UBE_Name = "NativeValues"
+
+Type Octet As Byte
+End Type
+
+Intrinsic Function PackOctet(ByVal Storage As Byte) As Octet
+Attribute PackOctet.UBE_Primitive = "Value.Pack"
+End Function
+
+Intrinsic Function UnpackOctet(ByVal Value As Octet) As Byte
+Attribute UnpackOctet.UBE_Primitive = "Value.Unpack"
+End Function
+
+Sub Main()
+    Dim Value As Octet = PackOctet(255)
+    Print UnpackOctet(Value)
+End Sub</code></pre>
+<p>The mechanism is tested in source-built v2 using its documented bare-module Bootstrap Profile. The full native header above is the specified source envelope; v2's test input omits those first two header lines. No UBECore API named Octet is published by this example.</p>
+<p>Role and attribute names match without regard to case. Incorrect signatures, targets, conflicting bindings and unsupported representations are compile-time errors. Pack/unpack preserve Err; checked argument conversions retain ordinary neutral-result/Err behavior. Neither operation gives raw address access or allocates a heap box.</p>
+<h2>Array storage operations</h2>
+<p>The current source-built v2 bootstrap also tests explicit storage roles for ordinary arrays and records containing arrays. Each declaration has an attribute naming its role, followed by End Function. Procedure names are your choice; a matching name alone never enables an operation. These bindings use one-dimensional arrays and signed Long counts and positions. Value.Pack and Value.Unpack still support only the qualified scalar representations.</p>
+<table><thead><tr><th>Role string</th><th>Required declaration, shown for Byte storage</th></tr></thead><tbody>
+<tr><td><code>Array.Length</code></td><td><code>Function StorageLength(ByRef Values() As Byte) As Long</code></td></tr>
+<tr><td><code>Array.TryResize</code></td><td><code>Function TryResizeStorage(ByRef Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean</code></td></tr>
+<tr><td><code>Memory.Collect</code></td><td><code>Function CollectStorage() As Long</code></td></tr>
+<tr><td><code>Array.TryCopy</code></td><td><code>Function TryCopyStorage(ByRef Destination() As Byte, ByRef Source() As Byte) As Boolean</code></td></tr>
+<tr><td><code>Memory.CopyBytes</code></td><td><code>Function TryCopyRange(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean</code></td></tr>
+</tbody></table>
+<p>Prefix each header with Intrinsic. For example, StorageLength uses <code>Attribute StorageLength.UBE_Primitive = "Array.Length"</code>. Length, resize and whole-array copy can use another supported concrete element type; both copy parameters must have exactly the same element type. CopyBytes always uses Byte arrays. The declaration, attribute and terminator stay in the same source module. Incorrect signatures or passing modes diagnose before code generation.</p>
+<p>Length is zero for a default array. Resize uses a zero-based element count; Preserve retains values at indices present in both old and new bounds, and new elements are zero. For an already zero-based source this retains its existing prefix. Resize and whole-array copy return a fresh Boolean, preserve the old destination on allocation failure, and report Err 7 after collection and one unsuccessful retry. Success preserves an earlier Err. Use the returned status for each operation.</p>
+<p>CopyBytes uses zero-based payload offsets regardless of the array's language lower bound. It validates the entire range, handles overlap from the original input, and allocates nothing. A zero count is valid at the end of an array. Invalid arguments or ranges return False without changing the destination and report Err 5 or 9. Collect requests synchronous collection and returns the cleanup-work status described in <a href="../../../library/memory.html" data-doc-path="library/memory.html">Managed memory</a>.</p>
+<h2>Counted host input</h2>
+<p>The source-input bootstrap additionally binds File.TryOpen, File.TryRead, File.TryClose, Process.TryArgument and Error.Set through the same explicit attribute mechanism. Paths and arguments use counted UTF-8 Byte arrays; source files are uninterpreted bytes. A copied file token does not duplicate resource ownership. Close explicitly on completion, failure and cancellation. Fresh Boolean status controls success; successful operations preserve Err. Exact declarations are in the checked-in UBECore FileBytes module.</p>
+<p>These tests establish a bounded bootstrap surface, not full builtin String, object, managed opaque-type or foreign-ABI support. A failed operation does not automatically abort later user statements. For ordinary owned storage and byte-file declarations, see the <a href="../../../library/index.html" data-doc-path="library/index.html">UBECore source APIs</a>.</p>
 <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="intptr.html" data-doc-path="language/words/i/intptr.html">← Previous: IntPtr</a><a href="is.html" data-doc-path="language/words/i/is.html">Next: Is →</a></nav><footer class="article-footer">Article ID: language.word.intrinsic · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

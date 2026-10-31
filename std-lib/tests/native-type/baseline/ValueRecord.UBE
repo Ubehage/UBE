@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "ValueRecordProof"
+Kind = "Exe"
+Startup = "Main"
+Source = "Main.bas"
+Source = "ValueRecord.bas"

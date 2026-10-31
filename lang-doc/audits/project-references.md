@@ -58,9 +58,13 @@ Reference = "../Drawing/Drawing.UBE"
 ```
 
 Each value is a project-relative path to a `.UBE` manifest whose `Kind` is
-`Library`. It uses the same quoting, normalization, tree-containment, case,
-duplicate-path, missing-file, and controlled-diagnostic rules as `Source` and
-`Project`. An executable is not a legal reference. A project may not reference
+`Library`. It uses the same quoting, case, duplicate-path, missing-file and
+controlled-diagnostic rules as other explicit project inputs. A relative
+reference may traverse parent directories to reach the sibling libraries shown
+above; each referenced manifest's sources must remain inside its own directory.
+Absolute reference paths are invalid and no search path is inferred. This
+distinction resolves the earlier ambiguous tree-containment wording.
+An executable is not a legal reference. A project may not reference
 itself, and the complete directed reference graph must be acyclic.
 
 The referenced manifest, rather than the filename or directory name, supplies

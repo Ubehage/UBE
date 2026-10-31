@@ -3,6 +3,7 @@ positive/core-statements.bas,positive,accept,accept,"Declarations, labels, branc
 positive/properties.cls,positive,accept,accept,"Grouped Get and Let property accessors"
 positive/events-and-threads.cls,positive,accept,n/a,"Events, WithEvents, RaiseEvent, CallNew, and SyncLock"
 positive/legacy-layout.frm,positive,accept,n/a,"Legacy designer and attribute layout accepted as compatibility input"
+positive/native-values.bas,positive,accept,accept,"Opaque native representation and explicit intrinsic operation attributes"
 negative/headerless.bas,negative,reject,n/a,"Full UBE source requires a native or legacy file header"
 negative/mismatched-terminator.bas,negative,reject,n/a,"A block terminator must match its opener"
 negative/property-let-without-parameters.cls,negative,reject,n/a,"Property Let requires its setter parameter list"

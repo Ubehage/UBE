@@ -1,5 +1,6 @@
 (**
-  UBE 1.0 frozen core grammar
+  UBE 1.0 core grammar, including the owner-authorized native-value addition
+  adopted on 2026-10-30. Existing field-only Type syntax is unchanged.
 
   Notation is ISO/IEC 14977-style EBNF:
     = definition ;       , concatenation
@@ -127,8 +128,9 @@ as-clause           = "As", spacing1, type-name ;
 result-as-clause    = as-clause, [ array-rank ] ;
 as-new-clause       = "As", spacing1, [ "New", spacing1 ], type-name ;
 
-type-declaration    = "Type", spacing1, identifier, line-end,
-                      type-member, { type-member },
+type-declaration    = "Type", spacing1, identifier,
+                      ( line-end, type-member, { type-member }
+                      | spacing1, "As", spacing1, type-name, line-end ),
                       spacing, "End", spacing1, "Type" ;
 type-member         = spacing, type-field, line-end ;
 type-field          = identifier,
@@ -182,6 +184,7 @@ property-modifiers  = [ visibility, spacing1 ], [ "Default", spacing1 ],
                       [ "Static", spacing1 ] ;
 intrinsic-declaration = [ visibility, spacing1 ], "Intrinsic", spacing1,
                         ( sub-header | function-header ), line-end,
+                        [ member-attribute-block ],
                         spacing, "End", spacing1,
                         ( "Sub" | "Function" ), line-end ;
 member-attribute-block = attribute-line, { attribute-line } ;

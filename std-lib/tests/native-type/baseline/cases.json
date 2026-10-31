@@ -1,0 +1,13 @@
+{
+  "native": {
+    "project": "ValueRecord.UBE",
+    "stdout": "layout:1:1\n0\n255\n128\n7\n8\n-1\n0\n255\n-1\n0\n0\n0\n0\n255\nerr:77\n",
+    "exit": 0,
+    "size": 1,
+    "alignment": 1
+  },
+  "negative": [
+    { "source": "wrong-type.bas", "diagnostic": "assigned value has an incompatible type" },
+    { "source": "wrong-byref.bas", "diagnostic": "ByRef argument type must exactly match the parameter" }
+  ]
+}

@@ -94,6 +94,13 @@ operation returns its neutral result and records an out-of-memory error when
 execution can safely continue. Partially constructed values are unwound and
 their initialized managed fields released.
 
+If tracing workspace cannot be allocated, an incomplete mark pass must not
+finalize or sweep objects. It clears partial marks, releases collection state
+and retains the heap for a later attempt. Explicit collection records an
+out-of-memory error; opportunistic collection during allocation recovery does
+not replace an existing error if the allocation retry succeeds. First-error
+publication uses fixed thread-local storage and requires no heap allocation.
+
 If the program cannot allocate the minimum bookkeeping required to preserve
 memory safety or report a recoverable result, linked support enters the
 controlled noninteractive fatal-failure path. It emits a bounded diagnostic

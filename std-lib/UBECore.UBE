@@ -2,3 +2,8 @@ UBE-Project 1
 Name = "UBECore"
 Kind = "Library"
 Source = "src/portable/LibraryIdentity.bas"
+Source = "src/portable/Utf8.bas"
+Source = "src/portable/ByteBuffer.bas"
+Source = "src/portable/FileBytes.bas"
+Source = "src/portable/Unicode.bas"
+Source = "src/portable/Utf8Cursor.bas"

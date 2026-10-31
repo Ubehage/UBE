@@ -1,0 +1,162 @@
+﻿{
+    "schema":  "ube-parser-diagnostic-oom-probe-1",
+    "controlPassed":  true,
+    "reproducedFatalFailure":  true,
+    "helperSymbol":  "ube.p102",
+    "inputs":  [
+                   {
+                       "path":  "C:\\Program Files\\LLVM\\bin\\clang.exe",
+                       "bytes":  109566464,
+                       "sha256":  "F3425B2BFF01BC401C84AF6E5E180629182FAFC2EB35CF971A3E50C9CF13F263"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-cli\\fae6905ceb794d0483b3f9818c8ba4af\\report.json",
+                       "bytes":  371173,
+                       "sha256":  "138B89962E20A91F5EF11BCB0B99117739C027257D453D25D2A617DB4E90ED19"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-cli\\fae6905ceb794d0483b3f9818c8ba4af\\stage2.ll",
+                       "bytes":  4145535,
+                       "sha256":  "55476CFCFD3A583F81B638D069FBFF23A6929BB72FA6F85C5CBA1AA901D36C95"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\adapted.ll",
+                       "bytes":  4145685,
+                       "sha256":  "FDB1F129D78A05B7997EF8B69F9FAE4E6E3015F36FA4CAAB0BE3234DFFB8C8A4"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\allocation-probe.h",
+                       "bytes":  292,
+                       "sha256":  "5DDA48FEFF6A3A638C017ACFAC152DBCBEE8BC53B34565B34C98529EF12BEB68"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\check.ps1",
+                       "bytes":  5087,
+                       "sha256":  "937E4E3B7981B43C6B221BE4110E58209F14B04BA41F15D2B68F878AFEE5B0E9"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.c",
+                       "bytes":  2159,
+                       "sha256":  "D7385ACD29396E0C5310D3AA3D7329605CB2D82264443C5AAE03ABCB862E3A6B"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.exe",
+                       "bytes":  632320,
+                       "sha256":  "01FB26D83DB5B4ADF8F60B0E403B9A53D0191EB123EE20DE93528AF3732E1CB1"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\runtime.c",
+                       "bytes":  125,
+                       "sha256":  "FEE4921F3B3A60E7EAA364DA33C537DF01E002572057DF8EC1FD59BE761591A8"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\runtime.o",
+                       "bytes":  143664,
+                       "sha256":  "8E3CAF6E156893CAABF8A00D8B4F917C4D4F5D67257B1FD5EA4675320B09A2DB"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\v2\\ff1bc5cd822f4991ab1a681488011907\\bootstrap_unicode_runtime.o",
+                       "bytes":  28346,
+                       "sha256":  "AB41E49C6E1375AC878F588FF88DC7DB43A7018CAD8F3F811DE811F7C245EDFD"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\compiler\\UBE_Compiler_v3\\Main.bas",
+                       "bytes":  11879,
+                       "sha256":  "6221705FDA7E87BF6AA74C0B4A8DD647455410FBDEA53FD4B6913C8020075A60"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\runtime\\bootstrap_runtime.c",
+                       "bytes":  189166,
+                       "sha256":  "DB8119BB70E7DA722F55A6CA4A4E2B881BE128696595B79F8D012063E9AE1109"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\runtime\\value_storage.h",
+                       "bytes":  4561,
+                       "sha256":  "C1A8F0723A412FD1C0411412A0DD7C42426128B3A9F4CBA7E7786DD0F78A2B92"
+                   },
+                   {
+                       "path":  "C:\\Users\\Ubehage\\vscodium\\UBE\\std-lib\\src\\win-lib\\file_primitives.c",
+                       "bytes":  15251,
+                       "sha256":  "E154F83514AB6C2B2879062C41EC1F96BCE5D4D0CE3228C88A4EA9AD280FFC9C"
+                   }
+               ],
+    "commands":  [
+                     {
+                         "file":  "C:\\Program Files\\LLVM\\bin\\clang.exe",
+                         "arguments":  [
+                                           "--target=x86_64-w64-windows-gnu",
+                                           "-O2",
+                                           "-std=c11",
+                                           "-Wall",
+                                           "-Wextra",
+                                           "-Werror",
+                                           "-include",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\allocation-probe.h",
+                                           "-c",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\runtime.c",
+                                           "-o",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\runtime.o"
+                                       ],
+                         "exit":  0,
+                         "timedOut":  false,
+                         "elapsedMs":  833,
+                         "sampledPeakWorkingSetBytes":  95866880,
+                         "stdout":  "",
+                         "stderr":  ""
+                     },
+                     {
+                         "file":  "C:\\Program Files\\LLVM\\bin\\clang.exe",
+                         "arguments":  [
+                                           "--target=x86_64-w64-windows-gnu",
+                                           "-O2",
+                                           "-std=c11",
+                                           "-Wall",
+                                           "-Wextra",
+                                           "-Werror",
+                                           "-x",
+                                           "ir",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\adapted.ll",
+                                           "-x",
+                                           "c",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.c",
+                                           "-x",
+                                           "none",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\runtime.o",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\v2\\ff1bc5cd822f4991ab1a681488011907\\bootstrap_unicode_runtime.o",
+                                           "-o",
+                                           "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.exe"
+                                       ],
+                         "exit":  0,
+                         "timedOut":  false,
+                         "elapsedMs":  3457,
+                         "sampledPeakWorkingSetBytes":  13946880,
+                         "stdout":  "",
+                         "stderr":  ""
+                     },
+                     {
+                         "file":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.exe",
+                         "arguments":  [
+                                           "control"
+                                       ],
+                         "exit":  0,
+                         "timedOut":  false,
+                         "elapsedMs":  105,
+                         "sampledPeakWorkingSetBytes":  0,
+                         "stdout":  "source(1,1): error UBE1210: insufficient syntax storage at byte 0\nPASS actual syntax diagnostic helper returned with Err7\n",
+                         "stderr":  "MEASURE denied malloc:0 calloc:0 realloc:0\n"
+                     },
+                     {
+                         "file":  "C:\\Users\\Ubehage\\vscodium\\UBE\\bootstrap\\out\\parser-diagnostic-oom\\probe.exe",
+                         "arguments":  [
+                                           "deny"
+                                       ],
+                         "exit":  70,
+                         "timedOut":  false,
+                         "elapsedMs":  58,
+                         "sampledPeakWorkingSetBytes":  0,
+                         "stdout":  "",
+                         "stderr":  "UBE runtime: out of memory while allocating a string\nMEASURE denied malloc:1 calloc:0 realloc:0\n"
+                     }
+                 ],
+    "scope":  "Test-only exported wrapper invokes the unchanged actual production PrintSourceSyntaxFailure body. The intact runtime is rebuilt with macros intercepting all runtime malloc/calloc/realloc calls. Empty qualified source, Kind5 and seeded Err7. Source/body identity, exact signature and layouts are pinned."
+}

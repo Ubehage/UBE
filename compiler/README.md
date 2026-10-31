@@ -3,8 +3,13 @@
 [`UBE_Compiler_v3/`](UBE_Compiler_v3/README.md) is the fresh active compiler,
 named by the owner on 2026-10-30. It starts with the shared
 [`UBECore`](../std-lib/README.md) foundation, library-defined native datatype
-mechanisms and a tested bounded bootstrap route. It currently contains design
-and workplans only; there is no production compiler source or executable yet.
+mechanisms and a tested bounded bootstrap route. Its native source reader,
+scanner and source-header recognizer pass the refreshed 501-check gate. Its
+bounded production parser also passes independent native/CLI qualification;
+see [the parser evidence](UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md). It still
+reports semantic checking unavailable after successful syntax; code generation
+is not implemented. Current acceptance and next work are recorded
+in [`UBE_Compiler_v3/Progress.md`](UBE_Compiler_v3/Progress.md).
 
 [`archived/`](archived/README.md) preserves the previous v3/v4 source, plans,
 tests and v3 release previews. Historical names, source hashes and build output

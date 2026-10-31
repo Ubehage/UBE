@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Preserves metadata found in exported classic VB source files.">
+  <meta name="description" content="Carries source metadata and explicit native value compiler bindings.">
   <title>Attribute — UBE documentation</title>
   <link rel="stylesheet" href="../../../assets/css/tokens.css">
   <link rel="stylesheet" href="../../../assets/css/base.css">
@@ -16,8 +16,8 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/a/index.html">A</a> / Attribute</nav>
     <h1>Attribute</h1>
-    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">VB source metadata</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
-    <p class="lede">Preserves metadata found in exported classic VB source files.</p>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Declaration metadata</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+    <p class="lede">Carries source metadata, including explicit compiler bindings for native value operations.</p>
     <h2>Syntax</h2>
     <pre><code>Attribute qualifiedName = value [, value]</code></pre>
     <h2>Example</h2>
@@ -30,6 +30,9 @@ End Sub</code></pre>
     <p>Hello</p>
     <h2>Important rules</h2>
     <p>Attribute lines are module metadata, not executable statements. Unknown attributes are retained by tooling; names beginning VB_ are compatibility metadata.</p>
+    <h2>Native value bindings</h2>
+    <p>On an <code>Intrinsic Function</code>, <code>Attribute ProcedureName.UBE_Primitive = "Value.Pack"</code> or <code>"Value.Unpack"</code> binds a native value to its declared representation. Names and role identifiers match without regard to case. The target and exact signature are checked. Other designer attributes remain inert; they cannot turn an ordinary procedure into an intrinsic.</p>
+    <p>This form is tested in the current v2 Bootstrap Profile for Byte, Integer and Long representations. See <a href="../i/intrinsic.html" data-doc-path="language/words/i/intrinsic.html">Intrinsic</a> for a complete example.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/atomicobject.html" data-doc-path="language/words/a/atomicobject.html">← Previous: AtomicObject</a><a href="../b/base.html" data-doc-path="language/words/b/base.html">Next: Base →</a></nav>
     <footer class="article-footer">Article ID: language.word.attribute · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
   </main>

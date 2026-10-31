@@ -1,0 +1,1607 @@
+{
+    "schema":  "ube-parser-cases-1",
+    "cases":  [
+                  {
+                      "name":  "unit-empty-module",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n",
+                      "rules":  [
+                                    "program",
+                                    "native-source-header",
+                                    "module-body"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-options-and-ordinary-metadata",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nOption Explicit On\nOption Compare Binary\nAttribute Description = \"ordinary metadata\"\n",
+                      "rules":  [
+                                    "module-item",
+                                    "option-statement",
+                                    "attribute-line"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nOption Explicit On\nOption Compare Binary\nAttribute Description = \"ordinary metadata\"\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "explicit",
+                                            "text":  "Option Explicit On"
+                                        },
+                                        {
+                                            "id":  "compare",
+                                            "text":  "Option Compare Binary"
+                                        },
+                                        {
+                                            "id":  "description",
+                                            "text":  "Attribute Description = \"ordinary metadata\""
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Option",
+                                        "explicit"
+                                    ],
+                                    [
+                                        "Option",
+                                        "compare"
+                                    ],
+                                    [
+                                        "Attribute",
+                                        "description"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-module-variables-and-type-characters",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nDim Buffer() As Byte\nPublic Counter As Long\nPrivate Enabled As Boolean\nGlobal Total\u0026\n",
+                      "rules":  [
+                                    "declaration",
+                                    "explicit-variable-declaration",
+                                    "variable-item",
+                                    "typed-name",
+                                    "array-rank"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nDim Buffer() As Byte\nPublic Counter As Long\nPrivate Enabled As Boolean\nGlobal Total\u0026\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "buffer",
+                                            "text":  "Dim Buffer() As Byte"
+                                        },
+                                        {
+                                            "id":  "counter",
+                                            "text":  "Public Counter As Long"
+                                        },
+                                        {
+                                            "id":  "enabled",
+                                            "text":  "Private Enabled As Boolean"
+                                        },
+                                        {
+                                            "id":  "total",
+                                            "text":  "Global Total\u0026"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "VariableDecl",
+                                        "buffer"
+                                    ],
+                                    [
+                                        "VariableDecl",
+                                        "counter"
+                                    ],
+                                    [
+                                        "VariableDecl",
+                                        "enabled"
+                                    ],
+                                    [
+                                        "VariableDecl",
+                                        "total"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-record-fields-and-array-shapes",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType Packet\n    Bytes() As Byte\n    Grid(1 To 2, 0 To 3) As Long\n    Ready As Boolean\nEnd Type\n",
+                      "rules":  [
+                                    "type-declaration",
+                                    "type-field",
+                                    "array-specifier",
+                                    "array-bounds"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType Packet\n    Bytes() As Byte\n    Grid(1 To 2, 0 To 3) As Long\n    Ready As Boolean\nEnd Type\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "record",
+                                            "text":  "Type Packet\n    Bytes() As Byte\n    Grid(1 To 2, 0 To 3) As Long\n    Ready As Boolean\nEnd Type"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Packet"
+                                        },
+                                        {
+                                            "id":  "bytes",
+                                            "text":  "Bytes() As Byte"
+                                        },
+                                        {
+                                            "id":  "grid",
+                                            "text":  "Grid(1 To 2, 0 To 3) As Long"
+                                        },
+                                        {
+                                            "id":  "ready",
+                                            "text":  "Ready As Boolean"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Type"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "RecordType",
+                                        "record",
+                                        [
+                                            "Name",
+                                            "name"
+                                        ],
+                                        [
+                                            "Field",
+                                            "bytes"
+                                        ],
+                                        [
+                                            "Field",
+                                            "grid"
+                                        ],
+                                        [
+                                            "Field",
+                                            "ready"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Bounds, element type and arbitrary-rank language semantics are separate from the current bootstrap storage subset."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-native-value-and-intrinsic-metadata",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType Octet As Byte\nEnd Type\nIntrinsic Function PackOctet(ByVal Storage As Byte) As Octet\n    Attribute PackOctet.UBE_Primitive = \"Value.Pack\"\nEnd Function\n",
+                      "rules":  [
+                                    "type-declaration",
+                                    "intrinsic-declaration",
+                                    "function-header",
+                                    "member-attribute-block",
+                                    "parameter-list"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType Octet As Byte\nEnd Type\nIntrinsic Function PackOctet(ByVal Storage As Byte) As Octet\n    Attribute PackOctet.UBE_Primitive = \"Value.Pack\"\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "native",
+                                            "text":  "Type Octet As Byte\nEnd Type"
+                                        },
+                                        {
+                                            "id":  "native-name",
+                                            "text":  "Octet"
+                                        },
+                                        {
+                                            "id":  "representation",
+                                            "text":  "Byte"
+                                        },
+                                        {
+                                            "id":  "end-type",
+                                            "text":  "End Type"
+                                        },
+                                        {
+                                            "id":  "intrinsic",
+                                            "text":  "Intrinsic Function PackOctet(ByVal Storage As Byte) As Octet\n    Attribute PackOctet.UBE_Primitive = \"Value.Pack\"\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Intrinsic Function PackOctet(ByVal Storage As Byte) As Octet"
+                                        },
+                                        {
+                                            "id":  "pack-name",
+                                            "text":  "PackOctet"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "(ByVal Storage As Byte)"
+                                        },
+                                        {
+                                            "id":  "storage",
+                                            "text":  "ByVal Storage As Byte"
+                                        },
+                                        {
+                                            "id":  "result",
+                                            "text":  "As Octet"
+                                        },
+                                        {
+                                            "id":  "attribute",
+                                            "text":  "Attribute PackOctet.UBE_Primitive = \"Value.Pack\""
+                                        },
+                                        {
+                                            "id":  "end-function",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "NativeType",
+                                        "native",
+                                        [
+                                            "Name",
+                                            "native-name"
+                                        ],
+                                        [
+                                            "TypeName",
+                                            "representation"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end-type"
+                                        ]
+                                    ],
+                                    [
+                                        "IntrinsicProcedure",
+                                        "intrinsic",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "pack-name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params",
+                                                [
+                                                    "Parameter",
+                                                    "storage"
+                                                ]
+                                            ],
+                                            [
+                                                "ResultType",
+                                                "result"
+                                            ]
+                                        ],
+                                        [
+                                            "Attribute",
+                                            "attribute"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end-function"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Resolve the representation and validate the enclosing declaration, exact Pack signature and same-module binding authority separately."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-function-parameter-modes-and-result",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Inspect(Value As Long, ByVal Flag As Boolean, ByRef Bytes() As Byte) As Long\nEnd Function\n",
+                      "rules":  [
+                                    "sub-function-declaration",
+                                    "function-header",
+                                    "parameter",
+                                    "result-as-clause"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Inspect(Value As Long, ByVal Flag As Boolean, ByRef Bytes() As Byte) As Long\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Function Inspect(Value As Long, ByVal Flag As Boolean, ByRef Bytes() As Byte) As Long\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Function Inspect(Value As Long, ByVal Flag As Boolean, ByRef Bytes() As Byte) As Long"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Inspect"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "(Value As Long, ByVal Flag As Boolean, ByRef Bytes() As Byte)"
+                                        },
+                                        {
+                                            "id":  "default-ref",
+                                            "text":  "Value As Long"
+                                        },
+                                        {
+                                            "id":  "byval",
+                                            "text":  "ByVal Flag As Boolean"
+                                        },
+                                        {
+                                            "id":  "array-ref",
+                                            "text":  "ByRef Bytes() As Byte"
+                                        },
+                                        {
+                                            "id":  "result",
+                                            "text":  "As Long",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Function",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params",
+                                                [
+                                                    "Parameter",
+                                                    "default-ref"
+                                                ],
+                                                [
+                                                    "Parameter",
+                                                    "byval"
+                                                ],
+                                                [
+                                                    "Parameter",
+                                                    "array-ref"
+                                                ]
+                                            ],
+                                            [
+                                                "ResultType",
+                                                "result"
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "An omitted passing modifier denotes ByRef; alias exactness and value-copy behavior are later call semantics."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-array-result-and-multirank-parameter",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Matrix(ByRef InputValues(,) As Long) As Byte()\nEnd Function\n",
+                      "rules":  [
+                                    "function-header",
+                                    "parameter",
+                                    "array-rank",
+                                    "result-as-clause"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Matrix(ByRef InputValues(,) As Long) As Byte()\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Function Matrix(ByRef InputValues(,) As Long) As Byte()\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Function Matrix(ByRef InputValues(,) As Long) As Byte()"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Matrix"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "(ByRef InputValues(,) As Long)"
+                                        },
+                                        {
+                                            "id":  "param",
+                                            "text":  "ByRef InputValues(,) As Long"
+                                        },
+                                        {
+                                            "id":  "result",
+                                            "text":  "As Byte()"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Function",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params",
+                                                [
+                                                    "Parameter",
+                                                    "param"
+                                                ]
+                                            ],
+                                            [
+                                                "ResultType",
+                                                "result"
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Preserve the comma-bearing parameter rank phrase and the result () phrase; numeric rank, supported representation and ABI remain unresolved here."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-local-dim-static-const-and-assignment",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Work()\n    Dim Count As Long = 0\n    Static Retained As Long = 1\n    Const Limit As Long = 3\n    Count = Limit\nEnd Sub\n",
+                      "rules":  [
+                                    "sub-function-declaration",
+                                    "local-declaration",
+                                    "explicit-variable-declaration",
+                                    "const-declaration",
+                                    "assignment-statement"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Work()\n    Dim Count As Long = 0\n    Static Retained As Long = 1\n    Const Limit As Long = 3\n    Count = Limit\nEnd Sub\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Sub Work()\n    Dim Count As Long = 0\n    Static Retained As Long = 1\n    Const Limit As Long = 3\n    Count = Limit\nEnd Sub"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Sub Work()"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Work"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "()"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "    Dim Count As Long = 0\n    Static Retained As Long = 1\n    Const Limit As Long = 3\n    Count = Limit\n"
+                                        },
+                                        {
+                                            "id":  "dim",
+                                            "text":  "Dim Count As Long = 0"
+                                        },
+                                        {
+                                            "id":  "static",
+                                            "text":  "Static Retained As Long = 1"
+                                        },
+                                        {
+                                            "id":  "const",
+                                            "text":  "Const Limit As Long = 3"
+                                        },
+                                        {
+                                            "id":  "assign",
+                                            "text":  "Count = Limit"
+                                        },
+                                        {
+                                            "id":  "target",
+                                            "text":  "Count",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "value",
+                                            "text":  "Limit",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Sub"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params"
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block",
+                                            [
+                                                "VariableDecl",
+                                                "dim"
+                                            ],
+                                            [
+                                                "VariableDecl",
+                                                "static"
+                                            ],
+                                            [
+                                                "ConstantDecl",
+                                                "const"
+                                            ],
+                                            [
+                                                "Assign",
+                                                "assign",
+                                                [
+                                                    "Name",
+                                                    "target"
+                                                ],
+                                                [
+                                                    "Name",
+                                                    "value"
+                                                ]
+                                            ]
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-bracketed-name-and-member-attribute",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nPrivate Sub [Σave]()\n    Attribute [Σave].Description = \"retained metadata\"\nEnd Sub\n",
+                      "rules":  [
+                                    "sub-function-modifiers",
+                                    "sub-header",
+                                    "bracketed-identifier",
+                                    "member-attribute-block"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nPrivate Sub [Σave]()\n    Attribute [Σave].Description = \"retained metadata\"\nEnd Sub\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Private Sub [Σave]()\n    Attribute [Σave].Description = \"retained metadata\"\nEnd Sub"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Private Sub [Σave]()"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "[Σave]"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "()"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Sub",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "attribute",
+                                            "text":  "Attribute [Σave].Description = \"retained metadata\""
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Sub"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params"
+                                            ]
+                                        ],
+                                        [
+                                            "Attribute",
+                                            "attribute"
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Ordinary procedure metadata is retained and does not become executable primitive metadata."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-untyped-parameter-and-result-are-policy-errors",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Untyped(Value)\nEnd Function\n",
+                      "rules":  [
+                                    "function-header",
+                                    "parameter"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Untyped(Value)\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Function Untyped(Value)\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Function Untyped(Value)"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Untyped"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "(Value)"
+                                        },
+                                        {
+                                            "id":  "parameter",
+                                            "text":  "Value"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Function",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params",
+                                                [
+                                                    "Parameter",
+                                                    "parameter"
+                                                ]
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Reject missing explicit parameter type under language-spec section 5, despite the optional EBNF As clause.",
+                                             "Reject missing explicit function result type; implicit Variant is not a UBE mode."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-nonconstant-const-is-policy-error",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nConst Limit As Long = ReadValue()\nFunction ReadValue() As Long\nEnd Function\n",
+                      "rules":  [
+                                    "const-declaration",
+                                    "constant-expression",
+                                    "function-header"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nConst Limit As Long = ReadValue()\nFunction ReadValue() As Long\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "const",
+                                            "text":  "Const Limit As Long = ReadValue()"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Function ReadValue() As Long\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Function ReadValue() As Long"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "ReadValue",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "()",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "result",
+                                            "text":  "As Long",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Function",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "ConstantDecl",
+                                        "const"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params"
+                                            ],
+                                            [
+                                                "ResultType",
+                                                "result"
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "An ordinary procedure invocation is structurally an expression but cannot supply the required compile-time constant."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-option-explicit-off-is-policy-error",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nOption Explicit Off\n",
+                      "rules":  [
+                                    "option-statement"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nOption Explicit Off\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "option",
+                                            "text":  "Option Explicit Off"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Option",
+                                        "option"
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Option Explicit Off is a compile-time error in every build mode; syntax admission does not disable explicit typing."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-procedure-terminator-kind-is-policy-error",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Work()\nEnd Function\n",
+                      "rules":  [
+                                    "sub-function-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Work()\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Sub Work()\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Sub Work()"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Work"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "()"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Function",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params"
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Reject the incompatible procedure terminator under language-spec section 3 rule 8; EBNF admits either Sub or Function end keyword structurally."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-optional-and-paramarray-policy-errors",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Gather(Optional First As Long, Required As Long, ParamArray Values(,) As Long)\nEnd Sub\n",
+                      "rules":  [
+                                    "parameter-list",
+                                    "parameter",
+                                    "array-rank"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub Gather(Optional First As Long, Required As Long, ParamArray Values(,) As Long)\nEnd Sub\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "procedure",
+                                            "text":  "Sub Gather(Optional First As Long, Required As Long, ParamArray Values(,) As Long)\nEnd Sub"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Sub Gather(Optional First As Long, Required As Long, ParamArray Values(,) As Long)"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "Gather"
+                                        },
+                                        {
+                                            "id":  "params",
+                                            "text":  "(Optional First As Long, Required As Long, ParamArray Values(,) As Long)"
+                                        },
+                                        {
+                                            "id":  "first",
+                                            "text":  "Optional First As Long"
+                                        },
+                                        {
+                                            "id":  "required",
+                                            "text":  "Required As Long"
+                                        },
+                                        {
+                                            "id":  "variadic",
+                                            "text":  "ParamArray Values(,) As Long"
+                                        },
+                                        {
+                                            "id":  "block",
+                                            "text":  "End Sub",
+                                            "at":  "start"
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Sub"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "Procedure",
+                                        "procedure",
+                                        [
+                                            "Header",
+                                            "header",
+                                            [
+                                                "Name",
+                                                "name"
+                                            ],
+                                            [
+                                                "Parameters",
+                                                "params",
+                                                [
+                                                    "Parameter",
+                                                    "first"
+                                                ],
+                                                [
+                                                    "Parameter",
+                                                    "required"
+                                                ],
+                                                [
+                                                    "Parameter",
+                                                    "variadic"
+                                                ]
+                                            ]
+                                        ],
+                                        [
+                                            "Block",
+                                            "block"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Optional requires a constant default and required ordinary parameters cannot follow Optional.",
+                                             "ParamArray must be final, one-dimensional and explicitly As Variant; this spelling fails its rank and element-type policy."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-native-representation-and-binding-policy-errors",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType RecursiveValue As RecursiveValue\nEnd Type\nIntrinsic Function Bind(ByVal Value As Long) As Long\nAttribute Other.UBE_Primitive = \"Array.UnknownRole\"\nEnd Function\n",
+                      "rules":  [
+                                    "type-declaration",
+                                    "intrinsic-declaration",
+                                    "attribute-line"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType RecursiveValue As RecursiveValue\nEnd Type\nIntrinsic Function Bind(ByVal Value As Long) As Long\nAttribute Other.UBE_Primitive = \"Array.UnknownRole\"\nEnd Function\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "native",
+                                            "text":  "Type RecursiveValue As RecursiveValue\nEnd Type"
+                                        },
+                                        {
+                                            "id":  "name",
+                                            "text":  "RecursiveValue"
+                                        },
+                                        {
+                                            "id":  "representation",
+                                            "text":  "RecursiveValue",
+                                            "occurrence":  1
+                                        },
+                                        {
+                                            "id":  "end-type",
+                                            "text":  "End Type"
+                                        },
+                                        {
+                                            "id":  "intrinsic",
+                                            "text":  "Intrinsic Function Bind(ByVal Value As Long) As Long\nAttribute Other.UBE_Primitive = \"Array.UnknownRole\"\nEnd Function"
+                                        },
+                                        {
+                                            "id":  "header",
+                                            "text":  "Intrinsic Function Bind(ByVal Value As Long) As Long"
+                                        },
+                                        {
+                                            "id":  "attribute",
+                                            "text":  "Attribute Other.UBE_Primitive = \"Array.UnknownRole\""
+                                        },
+                                        {
+                                            "id":  "end",
+                                            "text":  "End Function"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "NativeType",
+                                        "native",
+                                        [
+                                            "Name",
+                                            "name"
+                                        ],
+                                        [
+                                            "TypeName",
+                                            "representation"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end-type"
+                                        ]
+                                    ],
+                                    [
+                                        "IntrinsicProcedure",
+                                        "intrinsic",
+                                        [
+                                            "Header",
+                                            "header"
+                                        ],
+                                        [
+                                            "Attribute",
+                                            "attribute"
+                                        ],
+                                        [
+                                            "EndMarker",
+                                            "end"
+                                        ]
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "Recursive or unsupported native representations are rejected after syntax recognition.",
+                                             "Validate unknown primitive role, nonmatching attribute target and exact role signature separately; never fall back to an external symbol."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-public-dim-is-policy-error",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nPublic Dim Value As Long\n",
+                      "rules":  [
+                                    "declaration",
+                                    "explicit-variable-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "unit",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nPublic Dim Value As Long\n"
+                                        },
+                                        {
+                                            "id":  "native-header",
+                                            "text":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n"
+                                        },
+                                        {
+                                            "id":  "decl",
+                                            "text":  "Public Dim Value As Long"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "unit",
+                                    [
+                                        "Header",
+                                        "native-header"
+                                    ],
+                                    [
+                                        "VariableDecl",
+                                        "decl"
+                                    ]
+                                ],
+                      "semanticChecks":  [
+                                             "The EBNF declaration prefix admits this phrase, but language-spec section 5 prohibits combining Dim with visibility."
+                                         ]
+                  },
+                  {
+                      "name":  "unit-empty-ordinary-record-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType EmptyRecord\nEnd Type\n",
+                      "rules":  [
+                                    "type-declaration",
+                                    "type-member"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "End Type"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedIdentifier",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-native-type-cannot-have-fields",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nType Value As Byte\n    Payload As Byte\nEnd Type\n",
+                      "rules":  [
+                                    "type-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "Payload"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-parameter-bounds-not-rank-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub ReadValues(ByRef Values(10) As Long)\nEnd Sub\n",
+                      "rules":  [
+                                    "parameter",
+                                    "array-rank"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "10"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-trailing-parameter-comma-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub ReadValues(ByVal Value As Long,)\nEnd Sub\n",
+                      "rules":  [
+                                    "parameter-list",
+                                    "parameter"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  ")"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedIdentifier",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-missing-procedure-end-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nFunction Missing() As Long\n    Missing = 1\n",
+                      "rules":  [
+                                    "sub-function-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "missing",
+                                            "text":  "",
+                                            "at":  "eof"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "UnterminatedBlock",
+                                         "witness":  "missing"
+                                     }
+                  },
+                  {
+                      "name":  "unit-intrinsic-body-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nIntrinsic Function Size(ByRef Values() As Byte) As Long\nAttribute Size.UBE_Primitive = \"Array.Length\"\n    Size = 1\nEnd Function\n",
+                      "rules":  [
+                                    "intrinsic-declaration",
+                                    "member-attribute-block"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "Size = 1"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "UnexpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-missing-as-type-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nSub ReadValues()\n    Dim Value As\nEnd Sub\n",
+                      "rules":  [
+                                    "local-declaration",
+                                    "as-clause",
+                                    "type-name"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "missing",
+                                            "text":  "\n",
+                                            "occurrence":  3
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "missing"
+                                     }
+                  },
+                  {
+                      "name":  "unit-stray-terminator-rejected",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nEnd If\n",
+                      "rules":  [
+                                    "module-body",
+                                    "module-item"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "End If"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "UnexpectedTerminator",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-enum-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nEnum Choice As Long\n    First = 1\nEnd Enum\n",
+                      "rules":  [
+                                    "enum-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "Enum Choice As Long"
+                                        }
+                                    ],
+                      "deferredReason":  "Enum declaration syntax and member-value policy are outside the first native MODULE consumer; this is not classified as invalid UBE."
+                  },
+                  {
+                      "name":  "unit-external-declare-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nDeclare Function ForeignCall Lib \"host\" (ByVal Value As Long) As Long\n",
+                      "rules":  [
+                                    "external-declaration"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "Declare Function ForeignCall Lib \"host\" (ByVal Value As Long) As Long"
+                                        }
+                                    ],
+                      "deferredReason":  "External Declare and foreign ABI contracts are outside this bounded consumer."
+                  },
+                  {
+                      "name":  "unit-property-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\nProperty Get Value() As Long\nEnd Property\n",
+                      "rules":  [
+                                    "property-declaration",
+                                    "property-get-header"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "Property Get Value() As Long"
+                                        }
+                                    ],
+                      "deferredReason":  "Property accessor groups and their contextual/semantic contracts are deferred as a separate grammar family."
+                  },
+                  {
+                      "name":  "unit-conditional-before-selection-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n#If FLAG Then\nSub Work()\nEnd Sub\n#End If\n",
+                      "rules":  [
+                                    "program",
+                                    "module-body"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "#If FLAG Then"
+                                        }
+                                    ],
+                      "deferredReason":  "Core syntax consumes the selected conditional-compilation stream; branch selection and inactive-text recovery are not defined by this unit consumer."
+                  },
+                  {
+                      "name":  "unit-nonmodule-native-kind-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"ParserClass\"\n",
+                      "rules":  [
+                                    "native-source-header",
+                                    "source-kind"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "CLASS"
+                                        }
+                                    ],
+                      "deferredReason":  "Native CLASS/FORM/CONTROL body policy and full legacy/designer grammar are outside the first native MODULE consumer."
+                  },
+                  {
+                      "name":  "unit-inactive-unclosed-string-deferred",
+                      "entry":  "unit",
+                      "outcome":  "deferred",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"ParserUnit\"\n#If False Then\nDim Broken As String = \"unterminated\n#End If\nSub Work()\nEnd Sub\n",
+                      "rules":  [
+                                    "program",
+                                    "module-body"
+                                ],
+                      "witnesses":  [
+                                        {
+                                            "id":  "family",
+                                            "text":  "#If False Then"
+                                        },
+                                        {
+                                            "id":  "inactive-quote",
+                                            "text":  "\"unterminated"
+                                        }
+                                    ],
+                      "deferredReason":  "A future conditional-compilation consumer must select/recover inactive text without requiring the present whole-file raw scanner to accept its unclosed quote first. This definition neither implements that recovery nor admits the inactive text as core syntax."
+                  }
+              ]
+}

@@ -1,0 +1,33 @@
+﻿{
+    "schema":  "ube-unicode-data-1",
+    "version":  "18.0.0",
+    "retrievedUtc":  "2026-10-30T20:07:42.8631073Z",
+    "retrieval":  "Bounded HTTPS curl download from Unicode.org. Exact received bytes retained. ReadMe states final data for Unicode 18.0.0.",
+    "license":  "Unicode License V3; LICENSE.txt",
+    "files":  [
+                  {
+                      "name":  "CaseFolding.txt",
+                      "url":  "https://www.unicode.org/Public/18.0.0/ucd/CaseFolding.txt",
+                      "bytes":  88776,
+                      "sha256":  "A004797658A457BEC4DC11683E39F69249EA3B595B752DBEA6721C4C9F587B0D"
+                  },
+                  {
+                      "name":  "DerivedGeneralCategory.txt",
+                      "url":  "https://www.unicode.org/Public/18.0.0/ucd/extracted/DerivedGeneralCategory.txt",
+                      "bytes":  282143,
+                      "sha256":  "D6B151D2D40EE9B1876D26F417980F45FFAE47B6055CCF7203CB31F07A030F94"
+                  },
+                  {
+                      "name":  "ReadMe.txt",
+                      "url":  "https://www.unicode.org/Public/18.0.0/ucd/ReadMe.txt",
+                      "bytes":  729,
+                      "sha256":  "B0EA442F29DEE90584AACD3665A6E1CE87FFC917A4D31F34E1916D2D6F7F9205"
+                  },
+                  {
+                      "name":  "LICENSE.txt",
+                      "url":  "https://www.unicode.org/license.txt",
+                      "bytes":  1995,
+                      "sha256":  "E7A93B009565CFCE55919A381437AC4DB883E9DA2126FA28B91D12732BC53D96"
+                  }
+              ]
+}

@@ -1,0 +1,305 @@
+{
+    "schema":  "ube-parser-native-cases-1",
+    "cases":  [
+                  {
+                      "name":  "unit-version-one-leading-zero",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 01 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "whole",
+                                            "text":  "UBE SOURCE 01 MODULE\nAttribute UBE_Name = \"Version\"\n"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "whole",
+                                    [
+                                        "Header",
+                                        "whole"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-version-one-multiple-leading-zeros",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 0001 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "whole",
+                                            "text":  "UBE SOURCE 0001 MODULE\nAttribute UBE_Name = \"Version\"\n"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "whole",
+                                    [
+                                        "Header",
+                                        "whole"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-version-one-long-leading-zero-prefix",
+                      "entry":  "unit",
+                      "outcome":  "syntax",
+                      "source":  "UBE SOURCE 0000000000000000000000000000000000000000000000000001 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "whole",
+                                            "text":  "UBE SOURCE 0000000000000000000000000000000000000000000000000001 MODULE\nAttribute UBE_Name = \"Version\"\n"
+                                        }
+                                    ],
+                      "shape":  [
+                                    "Module",
+                                    "whole",
+                                    [
+                                        "Header",
+                                        "whole"
+                                    ]
+                                ]
+                  },
+                  {
+                      "name":  "unit-version-reject-zero",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 0 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "0"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-two",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 2 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "2"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-leading-zero-two",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 0002 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "0002"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-hexadecimal",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE \u0026H1 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "\u0026H1"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-octal",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE \u0026O1 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "\u0026O1"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-integer-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1% MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "1%"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-long-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1\u0026 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "1\u0026"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-longlong-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1^ MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "1^"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-decimal-real",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1.0 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "1.0"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-exponent-real",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1E0 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "1E0"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-single-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1! MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "!"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-double-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1# MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "#"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-currency-suffix",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE 1@ MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "@"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-positive-sign",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE +1 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "+"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  },
+                  {
+                      "name":  "unit-version-reject-negative-sign",
+                      "entry":  "unit",
+                      "outcome":  "reject",
+                      "source":  "UBE SOURCE -1 MODULE\nAttribute UBE_Name = \"Version\"\n",
+                      "witnesses":  [
+                                        {
+                                            "id":  "bad",
+                                            "text":  "-"
+                                        }
+                                    ],
+                      "diagnostic":  {
+                                         "kind":  "ExpectedToken",
+                                         "witness":  "bad"
+                                     }
+                  }
+              ]
+}

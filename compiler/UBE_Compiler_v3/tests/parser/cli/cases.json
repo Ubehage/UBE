@@ -1,0 +1,192 @@
+{
+    "schema":  "ube-parser-cli-cases-1",
+    "cases":  [
+                  {
+                      "name":  "date-candidate-rejects-physical-continuation",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    x = #2026 _\n-10-30#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1202: expected token (next lines: line, column, byte)\n4\n14\n75\n"
+                  },
+                  {
+                      "name":  "print-date-candidate",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    Print #2026-10-30#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "print-date-fraction-closing-hash-token-boundary",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    Print #2026-10-30T12:30:10.125#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "statement-date-fraction-closing-hash-token-boundary",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    x = #2026-10-30T12:30:10.125#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "statement-date-candidate",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    x = #2026-10-30#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "statement-date-calendar-validation-remains-later",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    x = #2026-99-99#\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "valid-module",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
+                      "name":  "missing-operand-unicode-bom-crlf",
+                      "extension":  ".bas",
+                      "source":  "﻿UBE SOURCE 1 MODULE\r\nAttribute UBE_Name = \"CliCase\"\r\nSub Main()\r\n    x = 𐐀 +\r\nEnd Sub\r\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1201: expected expression (next lines: line, column, byte)\n4\n12\n82\n"
+                  },
+                  {
+                      "name":  "reserved-declaration-name",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nDim Type As Long\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1204: expected identifier (next lines: line, column, byte)\n3\n5\n55\n"
+                  },
+                  {
+                      "name":  "for-family-deferred",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\nFor i = 0 To 2\nPrint i\nNext i\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n4\n1\n62\n"
+                  },
+                  {
+                      "name":  "property-family-deferred",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nProperty Get Value() As Long\nEnd Property\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n3\n1\n51\n"
+                  },
+                  {
+                      "name":  "native-class-deferred",
+                      "extension":  ".cls",
+                      "source":  "UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"CliCase\"\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n1\n14\n13\n"
+                  },
+                  {
+                      "name":  "legacy-module-deferred",
+                      "extension":  ".bas",
+                      "source":  "Attribute VB_Name = \"CliCase\"\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n1\n1\n0\n"
+                  },
+                  {
+                      "name":  "conditional-before-inactive-malformed-quote",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\n#If False Then\nDim Broken As String = \"unterminated\n#End If\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n3\n1\n51\n"
+                  },
+                  {
+                      "name":  "conditional-before-inactive-reserved-attribute",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\n#If False Then\nAttribute UBE_Future = True\n#End If\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n3\n1\n51\n"
+                  },
+                  {
+                      "name":  "conditional-before-statement",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\n#If Flag Then\nSub Main()\nEnd Sub\n#End If\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)\n3\n1\n51\n"
+                  },
+                  {
+                      "name":  "lexical-error-preserved",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\n    x = \"bad\nEnd Sub\n",
+                      "exit":  1,
+                      "stdout":  "source(4,9): error UBE1100: unterminated string at byte 70\n"
+                  },
+                  {
+                      "name":  "unknown-reserved-attribute-preserved",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nAttribute UBE_Future = True\n",
+                      "exit":  1,
+                      "stdout":  "source(3,11): error UBE1100: unknown reserved source attribute at byte 61\n"
+                  },
+                  {
+                      "name":  "missing-header-preserved",
+                      "extension":  ".bas",
+                      "source":  "Option Explicit On\n",
+                      "exit":  1,
+                      "stdout":  "source(1,1): error UBE1100: missing source header at byte 0\n"
+                  },
+                  {
+                      "name":  "extension-kind-preserved",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"CliCase\"\n",
+                      "exit":  1,
+                      "stdout":  "source(1,14): error UBE1100: source kind does not match the file extension at byte 13\n"
+                  },
+                  {
+                      "name":  "invalid-utf8-scalar-position-preserved",
+                      "extension":  ".bas",
+                      "bytes":  [
+                                    195,
+                                    169,
+                                    10,
+                                    65,
+                                    226,
+                                    65
+                                ],
+                      "exit":  1,
+                      "stdout":  "source(2,2): error UBE1005: invalid UTF-8 at byte 4\n"
+                  },
+                  {
+                      "name":  "isolated-cr-position-preserved",
+                      "extension":  ".bas",
+                      "bytes":  [
+                                    195,
+                                    169,
+                                    13
+                                ],
+                      "exit":  1,
+                      "stdout":  "source(1,2): error UBE1006: isolated carriage return at byte 2\n"
+                  }
+              ],
+    "productionSources":  [
+                              "compiler/UBE_Compiler_v3/SourceInput.bas",
+                              "compiler/UBE_Compiler_v3/SourceFile.bas",
+                              "compiler/UBE_Compiler_v3/ScannerWords.bas",
+                              "compiler/UBE_Compiler_v3/SourceScanner.bas",
+                              "compiler/UBE_Compiler_v3/SourceEnvelope.bas",
+                              "compiler/UBE_Compiler_v3/SyntaxTree.bas",
+                              "compiler/UBE_Compiler_v3/SyntaxExpressions.bas",
+                              "compiler/UBE_Compiler_v3/SyntaxGrammar.bas",
+                              "compiler/UBE_Compiler_v3/SourceSyntax.bas",
+                              "compiler/UBE_Compiler_v3/Main.bas",
+                              "std-lib/src/portable/LibraryIdentity.bas",
+                              "std-lib/src/portable/Utf8.bas",
+                              "std-lib/src/portable/ByteBuffer.bas",
+                              "std-lib/src/portable/FileBytes.bas",
+                              "std-lib/src/portable/Unicode.bas",
+                              "std-lib/src/portable/Utf8Cursor.bas"
+                          ],
+    "productionExpected":  {
+                               "exit":  1,
+                               "stdout":  "error UBE1012: source checking is not implemented\n"
+                           }
+}

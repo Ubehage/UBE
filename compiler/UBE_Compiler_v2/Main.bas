@@ -47,6 +47,8 @@ End Type
 
 Type SourceFile
     SourceId As Long
+    PackageId As Long
+    ModuleName As String
     FilePath As String
     Contents As String
     CombinedStart As Long
@@ -75,6 +77,7 @@ Type SyntaxNode
     RightNode As Long
     OperatorToken As Long
     ResolvedType As Long
+    NextProcedureNode As Long
 End Type
 
 Type ProcedureDeclarationSyntax
@@ -86,6 +89,11 @@ Type ProcedureDeclarationSyntax
     FirstParameter As Long
     ParameterCount As Long
     ReturnTypeToken As Long
+    ResultIsDynamicArray As Long
+    PrimitiveRole As Long
+    PrimitiveNativeType As Long
+    FirstNode As Long
+    LastNode As Long
 End Type
 
 Type ParameterSyntax
@@ -141,7 +149,249 @@ Type LlvmEmitterState
     CurrentTerminated As Long
 End Type
 
+Sub EmitIntegerConversion(ByVal FromType As Long, ByVal ToType As Long, ByRef Operand As String, ByRef Chunks() As String, ByRef Count As Long, ByRef Capacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String)
+    If FromType = ToType Then
+        Exit Sub
+    End If
+    If IsIntegralOrBooleanType(FromType) = 0 Or IsIntegralOrBooleanType(ToType) = 0 Or ToType = 1 Then
+        State.Failed = 1
+        Exit Sub
+    End If
+    Dim FromLlvm As String = ""
+    Dim ToLlvm As String = ""
+    Call LlvmTypeName(FromType, FromLlvm)
+    Call LlvmTypeName(ToType, ToLlvm)
+    Dim WideOperand As String = Operand
+    If FromType <> 5 Then
+        Call NextLlvmRegister(State, WideOperand)
+        Dim ExtendOpcode As String = "sext"
+        If FromType = 7 Then
+            ExtendOpcode = "zext"
+        End If
+        Call AppendText(Chunks, Count, Capacity, "  " & WideOperand & " = " & ExtendOpcode & " " & FromLlvm & " " & Operand & " to i64" & NewLine)
+    End If
+    If ToType = 5 Then
+        Operand = WideOperand
+        Exit Sub
+    End If
+    Dim NeedsCheck As Long = 0
+    Dim Bits As String = "32"
+    Dim UnsignedFlag As String = "0"
+    If ToType = 7 Then
+        NeedsCheck = 1
+        Bits = "8"
+        UnsignedFlag = "1"
+    End If
+    If ToType = 4 Then
+        Bits = "16"
+        If FromType <> 7 Then
+            NeedsCheck = 1
+        End If
+    End If
+    If ToType = 2 And FromType = 5 Then
+        NeedsCheck = 1
+    End If
+    If NeedsCheck <> 0 Then
+        Dim CheckedOperand As String = ""
+        Call NextLlvmRegister(State, CheckedOperand)
+        Call AppendText(Chunks, Count, Capacity, "  " & CheckedOperand & " = call i64 @ube_checked_narrow_i64(i64 " & WideOperand & ", i32 " & Bits & ", i32 " & UnsignedFlag & ")" & NewLine)
+        WideOperand = CheckedOperand
+    End If
+    Call NextLlvmRegister(State, Operand)
+    Call AppendText(Chunks, Count, Capacity, "  " & Operand & " = trunc i64 " & WideOperand & " to " & ToLlvm & NewLine)
+End Sub
+
+Function EvaluateIntegerConstant(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Value As Long) As Long
+    ' 0 = runtime-dependent, 1 = exact Long constant, 2 = invalid constant.
+    Dim Kind As Long = Nodes(NodeIndex).NodeKind
+    If Kind = 10 Then
+        Dim LiteralText As String = Tokens(Nodes(NodeIndex).SourceToken).Spelling
+        Dim Index As Long = 0
+        Value = 0
+        While Index < StringLength(LiteralText)
+            Dim Digit As Long = StringByteAt(LiteralText, Index) - 48
+            If Digit < 0 Or Digit > 9 Then
+                EvaluateIntegerConstant = 2
+                Exit Function
+            End If
+            If Value > (2147483647 - Digit) \ 10 Then
+                EvaluateIntegerConstant = 2
+                Exit Function
+            End If
+            Value = Value * 10 + Digit
+            Index = Index + 1
+        Wend
+        EvaluateIntegerConstant = 1
+        Exit Function
+    End If
+    If Kind <> 15 And Kind <> 16 Then
+        EvaluateIntegerConstant = 0
+        Exit Function
+    End If
+    Dim Left As Long = 0
+    Dim LeftStatus As Long = EvaluateIntegerConstant(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Left)
+    Dim OperatorText As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
+    If Kind = 16 Then
+        If OperatorText = "-" And Nodes(Nodes(NodeIndex).LeftNode).NodeKind = 10 Then
+            If Tokens(Nodes(Nodes(NodeIndex).LeftNode).SourceToken).Spelling = "2147483648" Then
+                Value = -2147483647 - 1
+                EvaluateIntegerConstant = 1
+                Exit Function
+            End If
+        End If
+        If LeftStatus <> 1 Then
+            EvaluateIntegerConstant = LeftStatus
+            Exit Function
+        End If
+        Value = Left
+        If OperatorText = "-" Then
+            If Left = -2147483647 - 1 Then
+                EvaluateIntegerConstant = 2
+                Exit Function
+            End If
+            Value = -Left
+        End If
+        If EqualsKeyword(OperatorText, "Not") <> 0 Then
+            Value = Not Left
+        End If
+        EvaluateIntegerConstant = 1
+        Exit Function
+    End If
+    Dim Right As Long = 0
+    Dim RightStatus As Long = EvaluateIntegerConstant(Tokens, Nodes, Nodes(NodeIndex).RightNode, Right)
+    If LeftStatus = 0 Or RightStatus = 0 Then
+        EvaluateIntegerConstant = 0
+        Exit Function
+    End If
+    If LeftStatus = 2 Or RightStatus = 2 Then
+        EvaluateIntegerConstant = 2
+        Exit Function
+    End If
+    Dim Maximum As Long = 2147483647
+    Dim Minimum As Long = -2147483647 - 1
+    Dim Invalid As Long = 0
+    If OperatorText = "+" Then
+        If Right > 0 Then
+            If Left > Maximum - Right Then
+                Invalid = 1
+            End If
+        Else
+            If Left < Minimum - Right Then
+                Invalid = 1
+            End If
+        End If
+        If Invalid = 0 Then
+            Value = Left + Right
+        End If
+    Else
+        If OperatorText = "-" Then
+            If Right < 0 Then
+                If Left > Maximum + Right Then
+                    Invalid = 1
+                End If
+            Else
+                If Left < Minimum + Right Then
+                    Invalid = 1
+                End If
+            End If
+            If Invalid = 0 Then
+                Value = Left - Right
+            End If
+        Else
+            If OperatorText = "*" Then
+                If Left > 0 And Right > 0 Then
+                    If Left > Maximum \ Right Then
+                        Invalid = 1
+                    End If
+                End If
+                If Left > 0 And Right < 0 Then
+                    If Right < Minimum \ Left Then
+                        Invalid = 1
+                    End If
+                End If
+                If Left < 0 And Right > 0 Then
+                    If Left < Minimum \ Right Then
+                        Invalid = 1
+                    End If
+                End If
+                If Left < 0 And Right < 0 Then
+                    If Left < Maximum \ Right Then
+                        Invalid = 1
+                    End If
+                End If
+                If Invalid = 0 Then
+                    Value = Left * Right
+                End If
+            Else
+                If OperatorText = "\" Or EqualsKeyword(OperatorText, "Mod") <> 0 Then
+                    If Right = 0 Then
+                        Invalid = 1
+                    Else
+                        If Left = Minimum And Right = -1 Then
+                            If OperatorText = "\" Then
+                                Invalid = 1
+                            End If
+                            Value = 0
+                        Else
+                            If OperatorText = "\" Then
+                                Value = Left \ Right
+                            End If
+                            If EqualsKeyword(OperatorText, "Mod") <> 0 Then
+                                Value = Left Mod Right
+                            End If
+                        End If
+                    End If
+                Else
+                    EvaluateIntegerConstant = 0
+                    Exit Function
+                End If
+            End If
+        End If
+    End If
+    EvaluateIntegerConstant = 1
+    If Invalid <> 0 Then
+        EvaluateIntegerConstant = 2
+    End If
+End Function
+
+Function ValidateIntegerConstant(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByVal DestinationType As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateIntegerConstant = 1
+    If DestinationType <> 2 And DestinationType <> 4 And DestinationType <> 7 Then
+        Exit Function
+    End If
+    Dim Value As Long = 0
+    Dim Status As Long = EvaluateIntegerConstant(Tokens, Nodes, NodeIndex, Value)
+    Dim Invalid As Long = 0
+    If Status = 2 Then
+        Invalid = 1
+    End If
+    If Status = 1 Then
+        If DestinationType = 7 Then
+            If Value < 0 Or Value > 255 Then
+                Invalid = 1
+            End If
+        End If
+        If DestinationType = 4 Then
+            If Value < -32768 Or Value > 32767 Then
+                Invalid = 1
+            End If
+        End If
+    End If
+    If Invalid <> 0 Then
+        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3220", Tokens(Nodes(NodeIndex).SourceToken).StartByte, Tokens(Nodes(NodeIndex).SourceToken).ByteLength, "constant is outside the destination integer range or has invalid arithmetic")
+        ValidateIntegerConstant = 0
+    End If
+End Function
+
 Sub LlvmTypeName(ByVal TypeId As Long, ByRef Result As String)
+    If TypeId = 7 Then
+        Result = "i8"
+        Exit Sub
+    End If
+    If TypeId = 4 Then
+        Result = "i16"
+        Exit Sub
+    End If
     If TypeId >= 100000 Then
         Result = "ptr"
         Exit Sub
@@ -149,7 +399,7 @@ Sub LlvmTypeName(ByVal TypeId As Long, ByRef Result As String)
     If TypeId = 1 Then
         Result = "i1"
     Else
-        If TypeId = 2 Or TypeId = 4 Then
+        If TypeId = 2 Then
             Result = "i32"
         Else
             If TypeId = 3 Then
@@ -198,9 +448,9 @@ Sub EmitSimpleStatement(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
             If State.Failed <> 0 Then
                 Exit Sub
             End If
-            Dim InitializerLlvmType As String = ""
-            Call LlvmTypeName(InitializerTypeId, InitializerLlvmType)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  store " & InitializerLlvmType & " " & InitializerOperand & ", ptr %local." & LongToString(DeclarationLocal) & NewLine)
+            Call EmitIntegerConversion(InitializerTypeId, DeclaredTypeId(Tokens, Locals(DeclarationLocal).TypeToken, Locals(DeclarationLocal).IsDynamicArray, Types, TypeCount), InitializerOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            InitializerTypeId = DeclaredTypeId(Tokens, Locals(DeclarationLocal).TypeToken, Locals(DeclarationLocal).IsDynamicArray, Types, TypeCount)
+            Call EmitValueStore(InitializerTypeId, "%local." & LongToString(DeclarationLocal), InitializerOperand, Locals(DeclarationLocal).InitializerNode, Body, BodyCount, BodyCapacity, State, NewLine)
         End If
         Exit Sub
     End If
@@ -217,9 +467,8 @@ Sub EmitSimpleStatement(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         If State.Failed <> 0 Then
             Exit Sub
         End If
-        Dim AssignmentLlvmType As String = ""
-        Call LlvmTypeName(AssignmentTypeId, AssignmentLlvmType)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  store " & AssignmentLlvmType & " " & AssignmentOperand & ", ptr " & AssignmentAddress & NewLine)
+        Call EmitIntegerConversion(AssignmentValueType, AssignmentTypeId, AssignmentOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+        Call EmitValueStore(AssignmentTypeId, AssignmentAddress, AssignmentOperand, Statements(StatementIndex).ValueNode, Body, BodyCount, BodyCapacity, State, NewLine)
         Exit Sub
     End If
     If Kind = 2 Then
@@ -234,6 +483,10 @@ Sub EmitSimpleStatement(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         Call EmitExpression(Tokens, Nodes, Statements(StatementIndex).ValueNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, PrintOperand, PrintTypeId)
         If State.Failed <> 0 Then
             Exit Sub
+        End If
+        If PrintTypeId = 1 Or PrintTypeId = 4 Or PrintTypeId = 7 Then
+            Call EmitIntegerConversion(PrintTypeId, 2, PrintOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            PrintTypeId = 2
         End If
         If PrintTypeId = 3 Then
             Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_string(ptr " & PrintOperand & ")" & NewLine)
@@ -256,26 +509,16 @@ Sub EmitSimpleStatement(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         If State.Failed <> 0 Then
             Exit Sub
         End If
-        Dim OldHandle As String = ""
-        Call NextLlvmRegister(State, OldHandle)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & OldHandle & " = load ptr, ptr " & ArrayAddress & NewLine)
         Dim ElementTypeId As Long = ArrayTypeId - 100000
-        Dim ElementSize As String = "4"
-        If ElementTypeId = 3 Or ElementTypeId = 5 Or ElementTypeId >= 100000 Then
-            ElementSize = "8"
-        Else
-            If ElementTypeId >= 1000 Then
-                ElementSize = "ptrtoint (ptr getelementptr (%ube.type." & LongToString(ElementTypeId - 1000) & ", ptr null, i32 1) to i64)"
-            End If
-        End If
-        Dim PreserveFlag As String = "false"
+        Dim ElementLayout As String = ""
+        Call ValueLayoutSymbol(ElementTypeId, ElementLayout)
+        Dim PreserveFlag As String = "0"
         If Statements(StatementIndex).Flags <> 0 Then
-            PreserveFlag = "true"
+            PreserveFlag = "1"
         End If
         Dim NewHandle As String = ""
         Call NextLlvmRegister(State, NewHandle)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & NewHandle & " = call ptr @ube_array_redim(ptr " & OldHandle & ", i32 0, i32 " & UpperOperand & ", i64 " & ElementSize & ", i1 " & PreserveFlag & ")" & NewLine)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  store ptr " & NewHandle & ", ptr " & ArrayAddress & NewLine)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & NewHandle & " = call i32 @ube_value_try_redim(ptr " & ArrayAddress & ", i32 0, i32 " & UpperOperand & ", ptr " & ElementLayout & ", i32 " & PreserveFlag & ")" & NewLine)
         Exit Sub
     End If
     State.Failed = 1
@@ -290,88 +533,111 @@ Sub ProcedureLlvmSymbol(ByVal ProcedureIndex As Long, ByRef Result As String)
     Result = "@ube.p" & LongToString(ProcedureIndex)
 End Sub
 
-Sub IntrinsicLlvmSymbol(ByVal IntrinsicName As String, ByRef Result As String)
+Sub IntrinsicLlvmSymbol(ByVal IntrinsicName As String, ByRef Result As String, ByRef Signature As String)
+    ' Private ABI shape: result type ID, colon, then v/r + exact parameter IDs.
+    Signature = ""
     If EqualsIdentifier(IntrinsicName, "StringLength") <> 0 Then
+        Signature = "2:v3"
         Result = "@ube_string_length"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "StringByteAt") <> 0 Then
+        Signature = "2:v3,v2"
         Result = "@ube_string_byte_at"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "StringSlice") <> 0 Then
+        Signature = "3:v3,v2,v2"
         Result = "@ube_string_slice"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "StringIndexOf") <> 0 Then
+        Signature = "2:v3,v3,v2"
         Result = "@ube_string_index_of"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "StringFromByte") <> 0 Then
+        Signature = "3:v2"
         Result = "@ube_string_from_byte"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "LongToString") <> 0 Then
+        Signature = "3:v2"
         Result = "@ube_long_to_string"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CommandArgumentCount") <> 0 Then
+        Signature = "2:"
         Result = "@ube_command_argument_count"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CommandArgument") <> 0 Then
+        Signature = "3:v2"
         Result = "@ube_command_argument"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "ReadAllText") <> 0 Then
+        Signature = "3:v3"
         Result = "@ube_read_all_text"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "WriteAllText") <> 0 Then
+        Signature = "2:v3,v3"
         Result = "@ube_write_all_text"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "StringArrayJoin") <> 0 Then
+        Signature = "3:r100003,v2"
         Result = "@ube_string_array_join"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerRunTool") <> 0 Then
+        Signature = "2:v3,r100003,v2"
         Result = "@ube_compiler_run_tool"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerDeleteFile") <> 0 Then
+        Signature = "2:v3"
         Result = "@ube_compiler_delete_file"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerMonotonicMilliseconds") <> 0 Then
+        Signature = "2:"
         Result = "@ube_compiler_monotonic_milliseconds"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerProcessCpuMilliseconds") <> 0 Then
+        Signature = "2:"
         Result = "@ube_compiler_process_cpu_milliseconds"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerPeakWorkingSetKilobytes") <> 0 Then
+        Signature = "2:"
         Result = "@ube_compiler_peak_working_set_kilobytes"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerValidateResource") <> 0 Then
+        Signature = "2:v3"
         Result = "@ube_compiler_validate_resource"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerResourceLlvmEscape") <> 0 Then
+        Signature = "3:v3"
         Result = "@ube_compiler_resource_llvm_escape"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "CompilerValidateLibraryBundle") <> 0 Then
+        Signature = "2:v3,v3,v3,v3"
         Result = "@ube_compiler_validate_library_bundle"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "UnicodeIsLetter") <> 0 Then
+        Signature = "2:v2"
         Result = "@ube_unicode_is_letter"
         Exit Sub
     End If
     If EqualsIdentifier(IntrinsicName, "UnicodeSimpleFoldCodePoint") <> 0 Then
+        Signature = "2:v2"
         Result = "@ube_unicode_simple_fold_code_point"
         Exit Sub
     End If
@@ -507,6 +773,10 @@ Type TypeDeclarationSyntax
     EndToken As Long
     FirstField As Long
     FieldCount As Long
+    RepresentationToken As Long
+    RepresentationType As Long
+    RootCount As Long
+    HasArrayStorage As Long
 End Type
 
 Type FieldDeclarationSyntax
@@ -514,6 +784,7 @@ Type FieldDeclarationSyntax
     NameToken As Long
     TypeToken As Long
     IsDynamicArray As Long
+    ResolvedType As Long
 End Type
 
 Function AppendFieldDeclaration(ByRef Fields() As FieldDeclarationSyntax, ByRef Count As Long, ByRef Capacity As Long, ByVal OwnerType As Long, ByVal NameToken As Long, ByVal TypeToken As Long, ByVal IsDynamicArray As Long) As Long
@@ -569,6 +840,8 @@ Function AppendTypeDeclaration(ByRef Declarations() As TypeDeclarationSyntax, By
     Declarations(Count).EndToken = EndToken
     Declarations(Count).FirstField = -1
     Declarations(Count).FieldCount = 0
+    Declarations(Count).RepresentationToken = -1
+    Declarations(Count).RepresentationType = 0
     AppendTypeDeclaration = Count
     Count = Count + 1
 End Function
@@ -601,6 +874,11 @@ Function AppendProcedureDeclaration(ByRef Procedures() As ProcedureDeclarationSy
     Procedures(Count).FirstParameter = -1
     Procedures(Count).ParameterCount = 0
     Procedures(Count).ReturnTypeToken = -1
+    Procedures(Count).ResultIsDynamicArray = 0
+    Procedures(Count).PrimitiveRole = 0
+    Procedures(Count).PrimitiveNativeType = -1
+    Procedures(Count).FirstNode = -1
+    Procedures(Count).LastNode = -1
     AppendProcedureDeclaration = Count
     Count = Count + 1
 End Function
@@ -631,6 +909,7 @@ Function AppendSyntaxNode(ByRef Nodes() As SyntaxNode, ByRef Count As Long, ByRe
     Nodes(Count).RightNode = RightNode
     Nodes(Count).OperatorToken = OperatorToken
     Nodes(Count).ResolvedType = 0
+    Nodes(Count).NextProcedureNode = -1
     AppendSyntaxNode = Count
     Count = Count + 1
 End Function
@@ -798,21 +1077,22 @@ Sub ReportDiagnostics(ByRef Source As SourceFile, ByRef Diagnostics() As Diagnos
     Wend
 End Sub
 
+Function FindSourceIndex(ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByVal StartByte As Long) As Long
+    Dim Index As Long = 0
+    While Index < SourceCount
+        If StartByte >= Sources(Index).CombinedStart And StartByte <= Sources(Index).CombinedStart + Sources(Index).ByteLength Then
+            FindSourceIndex = Index
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    FindSourceIndex = -1
+End Function
+
 Sub ReportProjectDiagnostics(ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef Diagnostics() As Diagnostic, ByVal Count As Long)
     Dim Index As Long = 0
     While Index < Count
-        Dim SourceIndex As Long = 0
-        Dim MatchIndex As Long = -1
-        While SourceIndex < SourceCount
-            Dim RangeEnd As Long = Sources(SourceIndex).CombinedStart + Sources(SourceIndex).ByteLength
-            If Diagnostics(Index).StartByte >= Sources(SourceIndex).CombinedStart Then
-                If Diagnostics(Index).StartByte <= RangeEnd Then
-                    MatchIndex = SourceIndex
-                    Exit While
-                End If
-            End If
-            SourceIndex = SourceIndex + 1
-        Wend
+        Dim MatchIndex As Long = FindSourceIndex(Sources, SourceCount, Diagnostics(Index).StartByte)
         If MatchIndex < 0 Then
             MatchIndex = SourceCount - 1
         End If
@@ -1524,6 +1804,95 @@ Function ParseGeneralExpression(ByRef Tokens() As Token, ByVal EndExclusive As L
     ParseGeneralExpression = LeftExpression
 End Function
 
+Function PrimitiveBindingRole(ByVal BindingName As String) As Long
+    PrimitiveBindingRole = 0
+    If EqualsIdentifier(BindingName, "Value.Pack") <> 0 Then
+        PrimitiveBindingRole = 1
+    End If
+    If EqualsIdentifier(BindingName, "Value.Unpack") <> 0 Then
+        PrimitiveBindingRole = 2
+    End If
+    If EqualsIdentifier(BindingName, "Array.Length") <> 0 Then
+        PrimitiveBindingRole = 3
+    End If
+    If EqualsIdentifier(BindingName, "Array.TryResize") <> 0 Then
+        PrimitiveBindingRole = 4
+    End If
+    If EqualsIdentifier(BindingName, "Memory.Collect") <> 0 Then
+        PrimitiveBindingRole = 5
+    End If
+    If EqualsIdentifier(BindingName, "Array.TryCopy") <> 0 Then
+        PrimitiveBindingRole = 6
+    End If
+    If EqualsIdentifier(BindingName, "Memory.CopyBytes") <> 0 Then
+        PrimitiveBindingRole = 7
+    End If
+    If EqualsIdentifier(BindingName, "File.TryOpen") <> 0 Then
+        PrimitiveBindingRole = 8
+    End If
+    If EqualsIdentifier(BindingName, "File.TryRead") <> 0 Then
+        PrimitiveBindingRole = 9
+    End If
+    If EqualsIdentifier(BindingName, "File.TryClose") <> 0 Then
+        PrimitiveBindingRole = 10
+    End If
+    If EqualsIdentifier(BindingName, "Process.TryArgument") <> 0 Then
+        PrimitiveBindingRole = 11
+    End If
+    If EqualsIdentifier(BindingName, "Error.Set") <> 0 Then
+        PrimitiveBindingRole = 12
+    End If
+End Function
+
+Function ParsePrimitiveAttributes(ByRef Tokens() As Token, ByVal FirstToken As Long, ByVal EndToken As Long, ByVal NameToken As Long, ByRef Role As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    Role = 0
+    Dim Cursor As Long = FirstToken
+    While Cursor < EndToken
+        If Tokens(Cursor).TokenKind = 4 Or Tokens(Cursor).TokenKind = 9 Then
+            Cursor = Cursor + 1
+        Else
+            If EqualsKeyword(Tokens(Cursor).Spelling, "Attribute") = 0 Or Cursor + 5 >= EndToken Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(Cursor).StartByte, Tokens(Cursor).ByteLength, "intrinsic binding has no executable body; expected Attribute or End")
+                ParsePrimitiveAttributes = 0
+                Exit Function
+            End If
+            If Tokens(Cursor + 1).TokenKind <> 1 Or Tokens(Cursor + 2).Spelling <> "." Or Tokens(Cursor + 3).TokenKind <> 1 Or Tokens(Cursor + 4).Spelling <> "=" Or Tokens(Cursor + 5).TokenKind <> 3 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(Cursor).StartByte, Tokens(Cursor).ByteLength, "invalid intrinsic attribute; expected a named string attribute")
+                ParsePrimitiveAttributes = 0
+                Exit Function
+            End If
+            If EqualsIdentifier(Tokens(Cursor + 3).Spelling, "UBE_Primitive") <> 0 Then
+                If EqualsIdentifier(Tokens(Cursor + 1).Spelling, Tokens(NameToken).Spelling) = 0 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(Cursor).StartByte, Tokens(Cursor).ByteLength, "primitive attribute target must name its intrinsic declaration")
+                    ParsePrimitiveAttributes = 0
+                    Exit Function
+                End If
+                If Role <> 0 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(Cursor).StartByte, Tokens(Cursor).ByteLength, "intrinsic has duplicate or conflicting primitive bindings")
+                    ParsePrimitiveAttributes = 0
+                    Exit Function
+                End If
+                Role = PrimitiveBindingRole(Tokens(Cursor + 5).Decoded)
+                If Role = 0 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(Cursor + 5).StartByte, Tokens(Cursor + 5).ByteLength, "unknown primitive binding role")
+                    ParsePrimitiveAttributes = 0
+                    Exit Function
+                End If
+            End If
+            Cursor = Cursor + 6
+            If Cursor < EndToken And Tokens(Cursor).TokenKind = 9 Then
+                Cursor = Cursor + 1
+            End If
+            If Cursor >= EndToken Or Tokens(Cursor).TokenKind <> 4 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3230", Tokens(NameToken).StartByte, Tokens(NameToken).ByteLength, "intrinsic attribute must occupy one complete line")
+                ParsePrimitiveAttributes = 0
+                Exit Function
+            End If
+        End If
+    Wend
+    ParsePrimitiveAttributes = 1
+End Function
+
 Function ParseProcedureDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByRef ProcedureCount As Long, ByRef ProcedureCapacity As Long, ByRef Parameters() As ParameterSyntax, ByRef ParameterCount As Long, ByRef ParameterCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     Dim Index As Long = 0
     While Index + 1 < TokenCount
@@ -1679,6 +2048,12 @@ Function ParseProcedureDeclarations(ByRef Tokens() As Token, ByVal TokenCount As
                 End If
                 Procedures(DeclarationIndex).ReturnTypeToken = HeaderCursor
                 HeaderCursor = HeaderCursor + 1
+                If HeaderCursor + 1 < DeclarationEnd Then
+                    If Tokens(HeaderCursor).TokenKind = 5 And Tokens(HeaderCursor + 1).TokenKind = 6 Then
+                        Procedures(DeclarationIndex).ResultIsDynamicArray = 1
+                        HeaderCursor = HeaderCursor + 2
+                    End If
+                End If
             End If
             If HeaderCursor < DeclarationEnd And Tokens(HeaderCursor).TokenKind = 9 Then
                 HeaderCursor = HeaderCursor + 1
@@ -1687,6 +2062,14 @@ Function ParseProcedureDeclarations(ByRef Tokens() As Token, ByVal TokenCount As
                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2129", Tokens(Index).StartByte, Tokens(Index).ByteLength, "unexpected token in procedure header")
                 ParseProcedureDeclarations = 0
                 Exit Function
+            End If
+            If IntrinsicFlag <> 0 Then
+                Dim ParsedRole As Long = 0
+                If ParsePrimitiveAttributes(Tokens, HeaderCursor + 1, DeclarationEnd - 1, Index + 1, ParsedRole, Diagnostics, DiagnosticCount) = 0 Then
+                    ParseProcedureDeclarations = 0
+                    Exit Function
+                End If
+                Procedures(DeclarationIndex).PrimitiveRole = ParsedRole
             End If
             Index = DeclarationEnd
         End If
@@ -1732,6 +2115,32 @@ Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long
             End If
             Declarations(DeclarationIndex).FirstField = FieldCount
             Dim FieldCursor As Long = Index + 2
+            If FieldCursor < DeclarationEnd - 1 And EqualsKeyword(Tokens(FieldCursor).Spelling, "As") <> 0 Then
+                FieldCursor = FieldCursor + 1
+                If FieldCursor >= DeclarationEnd - 1 Or Tokens(FieldCursor).TokenKind <> 1 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3231", Tokens(Index).StartByte, Tokens(Index).ByteLength, "native Type requires a primitive representation")
+                    ParseTypeDeclarations = 0
+                    Exit Function
+                End If
+                Declarations(DeclarationIndex).RepresentationToken = FieldCursor
+                FieldCursor = FieldCursor + 1
+                If FieldCursor < DeclarationEnd - 1 And Tokens(FieldCursor).TokenKind = 9 Then
+                    FieldCursor = FieldCursor + 1
+                End If
+                If FieldCursor >= DeclarationEnd - 1 Or Tokens(FieldCursor).TokenKind <> 4 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3231", Tokens(Index).StartByte, Tokens(Index).ByteLength, "native Type header requires a complete line")
+                    ParseTypeDeclarations = 0
+                    Exit Function
+                End If
+                While FieldCursor < DeclarationEnd - 1
+                    If Tokens(FieldCursor).TokenKind <> 4 And Tokens(FieldCursor).TokenKind <> 9 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3231", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "native Type representation cannot declare fields or executable members")
+                        ParseTypeDeclarations = 0
+                        Exit Function
+                    End If
+                    FieldCursor = FieldCursor + 1
+                Wend
+            End If
             While FieldCursor < DeclarationEnd - 1
                 If Tokens(FieldCursor).TokenKind = 4 Or Tokens(FieldCursor).TokenKind = 9 Then
                     FieldCursor = FieldCursor + 1
@@ -1794,6 +2203,11 @@ Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long
                     Wend
                 End If
             Wend
+            If Declarations(DeclarationIndex).RepresentationToken < 0 And Declarations(DeclarationIndex).FieldCount = 0 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2113", Tokens(Index).StartByte, Tokens(Index).ByteLength, "ordinary Type requires at least one field")
+                ParseTypeDeclarations = 0
+                Exit Function
+            End If
             Index = DeclarationEnd
         End If
         Index = Index + 1
@@ -1836,7 +2250,7 @@ Function ResolveEntryProcedure(ByRef Tokens() As Token, ByRef Procedures() As Pr
             ResolveEntryProcedure = 0
             Exit Function
         End If
-        If EqualsIdentifier(Tokens(Procedures(EntryProcedure).ReturnTypeToken).Spelling, "Long") = 0 Then
+        If EqualsIdentifier(Tokens(Procedures(EntryProcedure).ReturnTypeToken).Spelling, "Long") = 0 Or Procedures(EntryProcedure).ResultIsDynamicArray <> 0 Then
             Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3004", Tokens(Procedures(EntryProcedure).ReturnTypeToken).StartByte, Tokens(Procedures(EntryProcedure).ReturnTypeToken).ByteLength, "Function Main must return Long")
             ResolveEntryProcedure = 0
             Exit Function
@@ -2335,6 +2749,112 @@ Function AnalyzeBasicStatements(ByRef Tokens() As Token, ByRef Procedures() As P
     AnalyzeBasicStatements = 1
 End Function
 
+Function ExpressionDepthLimit() As Long
+    ExpressionDepthLimit = 128
+End Function
+
+Function ValidateExpressionNesting(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    Dim Limit As Long = ExpressionDepthLimit()
+    Dim Parentheses As Long = 0
+    Dim UnaryRun As Long = 0
+    Dim Index As Long = 0
+    While Index < TokenCount
+        Dim Spelling As String = Tokens(Index).Spelling
+        If Spelling = "(" Then
+            Parentheses = Parentheses + 1
+        End If
+        If Spelling = ")" And Parentheses > 0 Then
+            Parentheses = Parentheses - 1
+        End If
+        If Spelling = "+" Or Spelling = "-" Or EqualsKeyword(Spelling, "Not") <> 0 Then
+            UnaryRun = UnaryRun + 1
+        Else
+            UnaryRun = 0
+        End If
+        If Parentheses > Limit Or UnaryRun >= Limit Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3222", Tokens(Index).StartByte, Tokens(Index).ByteLength, "expression exceeds the bootstrap depth limit")
+            ValidateExpressionNesting = 0
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    ValidateExpressionNesting = 1
+End Function
+
+Function ValidateExpressionDepth(ByRef Nodes() As SyntaxNode, ByVal NodeCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateExpressionDepth = 1
+    If NodeCount = 0 Then
+        Exit Function
+    End If
+    Dim Limit As Long = ExpressionDepthLimit()
+    Dim Colors() As Long
+    Dim Heights() As Long
+    Dim WalkNodes() As Long
+    Dim WalkEdges() As Long
+    ReDim Colors(NodeCount - 1)
+    ReDim Heights(NodeCount - 1)
+    ReDim WalkNodes(Limit - 1)
+    ReDim WalkEdges(Limit - 1)
+    Dim Root As Long = 0
+    While Root < NodeCount
+        If Colors(Root) = 0 Then
+            Dim Depth As Long = 0
+            WalkNodes(0) = Root
+            WalkEdges(0) = 0
+            Colors(Root) = 1
+            While Depth >= 0
+                Dim CurrentNode As Long = WalkNodes(Depth)
+                If WalkEdges(Depth) < 2 Then
+                    Dim Child As Long = Nodes(CurrentNode).LeftNode
+                    If WalkEdges(Depth) = 1 Then
+                        Child = Nodes(CurrentNode).RightNode
+                    End If
+                    WalkEdges(Depth) = WalkEdges(Depth) + 1
+                    If Child >= NodeCount Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3222", 0, 0, "invalid bootstrap expression graph")
+                        ValidateExpressionDepth = 0
+                        Exit Function
+                    End If
+                    If Child >= 0 Then
+                        If Colors(Child) = 1 Or Depth >= Limit - 1 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3222", 0, 0, "expression exceeds the bootstrap depth limit")
+                            ValidateExpressionDepth = 0
+                            Exit Function
+                        End If
+                        If Colors(Child) = 0 Then
+                            Depth = Depth + 1
+                            WalkNodes(Depth) = Child
+                            WalkEdges(Depth) = 0
+                            Colors(Child) = 1
+                        End If
+                    End If
+                Else
+                    Dim Height As Long = 1
+                    Dim LeftChild As Long = Nodes(CurrentNode).LeftNode
+                    Dim RightChild As Long = Nodes(CurrentNode).RightNode
+                    If LeftChild >= 0 Then
+                        Height = Heights(LeftChild) + 1
+                    End If
+                    If RightChild >= 0 Then
+                        If Heights(RightChild) >= Height Then
+                            Height = Heights(RightChild) + 1
+                        End If
+                    End If
+                    If Height > Limit Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3222", 0, 0, "expression exceeds the bootstrap depth limit")
+                        ValidateExpressionDepth = 0
+                        Exit Function
+                    End If
+                    Heights(CurrentNode) = Height
+                    Colors(CurrentNode) = 2
+                    Depth = Depth - 1
+                End If
+            Wend
+        End If
+        Root = Root + 1
+    Wend
+End Function
+
 Function ParseStoredExpressions(ByRef Tokens() As Token, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Statements() As StatementSyntax, ByVal StatementCount As Long, ByRef Nodes() As SyntaxNode, ByRef NodeCount As Long, ByRef NodeCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     Dim LocalIndex As Long = 0
     While LocalIndex < LocalCount
@@ -2565,6 +3085,14 @@ End Function
 Function DeclaredTypeId(ByRef Tokens() As Token, ByVal TypeToken As Long, ByVal IsDynamicArray As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long) As Long
     Dim TypeName As String = Tokens(TypeToken).Spelling
     Dim Result As Long = 0
+    If EqualsIdentifier(TypeName, "Byte") <> 0 Then
+        Result = 7
+        If IsDynamicArray <> 0 Then
+            Result = Result + 100000
+        End If
+        DeclaredTypeId = Result
+        Exit Function
+    End If
     If EqualsIdentifier(TypeName, "Boolean") <> 0 Then
         Result = 1
     Else
@@ -2603,13 +3131,527 @@ Function DeclaredTypeId(ByRef Tokens() As Token, ByVal TypeToken As Long, ByVal 
     DeclaredTypeId = Result
 End Function
 
+Function ValidateNativeValues(ByRef Tokens() As Token, ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    Dim Index As Long = 0
+    While Index < TypeCount
+        If Types(Index).RepresentationToken >= 0 Then
+            Dim DeclarationSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Types(Index).HeaderToken).StartByte)
+            If DeclarationSource < 0 Or DeclarationSource <> FindSourceIndex(Sources, SourceCount, Tokens(Types(Index).EndToken).StartByte) Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3231", Tokens(Types(Index).NameToken).StartByte, Tokens(Types(Index).NameToken).ByteLength, "native Type declaration cannot span modules")
+                ValidateNativeValues = 0
+                Exit Function
+            End If
+            Dim StorageType As Long = DeclaredTypeId(Tokens, Types(Index).RepresentationToken, 0, Types, TypeCount)
+            If DeclaredTypeId(Tokens, Types(Index).NameToken, 0, Types, TypeCount) <> 1000 + Index Or (StorageType <> 2 And StorageType <> 4 And StorageType <> 7) Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3231", Tokens(Types(Index).NameToken).StartByte, Tokens(Types(Index).NameToken).ByteLength, "native Type needs a distinct name and a supported primitive representation: Byte, Integer or Long")
+                ValidateNativeValues = 0
+                Exit Function
+            End If
+            Types(Index).RepresentationType = StorageType
+        End If
+        Index = Index + 1
+    Wend
+    Index = 0
+    While Index < ProcedureCount
+        If Procedures(Index).IsIntrinsic <> 0 Then
+            Dim Role As Long = Procedures(Index).PrimitiveRole
+            If Role >= 3 Then
+                If ValidateStorageBinding(Tokens, Procedures, Index, Parameters, Types, TypeCount, Diagnostics, DiagnosticCount) = 0 Then
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                If FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).HeaderToken).StartByte) <> FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).EndToken).StartByte) Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "storage primitive binding cannot cross source modules")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+            Else
+            If Role = 0 Then
+                Dim ExistingSymbol As String = ""
+                Dim ExpectedSignature As String = ""
+                Call IntrinsicLlvmSymbol(Tokens(Procedures(Index).NameToken).Spelling, ExistingSymbol, ExpectedSignature)
+                If ExistingSymbol = "" Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "intrinsic has no implementation binding")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                Dim ActualResult As Long = 0
+                If Procedures(Index).ProcedureKind = 2 Then
+                    ActualResult = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
+                End If
+                Dim ActualSignature As String = LongToString(ActualResult) & ":"
+                Dim SignatureParameter As Long = Procedures(Index).FirstParameter
+                Dim SignatureEnd As Long = SignatureParameter + Procedures(Index).ParameterCount
+                While SignatureParameter < SignatureEnd
+                    If SignatureParameter > Procedures(Index).FirstParameter Then
+                        ActualSignature = ActualSignature & ","
+                    End If
+                    If Parameters(SignatureParameter).PassingMode = 2 Then
+                        ActualSignature = ActualSignature & "v"
+                    Else
+                        ActualSignature = ActualSignature & "r"
+                    End If
+                    ActualSignature = ActualSignature & LongToString(DeclaredTypeId(Tokens, Parameters(SignatureParameter).TypeToken, Parameters(SignatureParameter).IsDynamicArray, Types, TypeCount))
+                    SignatureParameter = SignatureParameter + 1
+                Wend
+                If ActualSignature <> ExpectedSignature Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "bootstrap intrinsic signature does not match its registered implementation")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+            Else
+                If Procedures(Index).ProcedureKind <> 2 Or Procedures(Index).ParameterCount <> 1 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "native primitive binding requires a Function with one exact ByVal parameter")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                Dim ParameterIndex As Long = Procedures(Index).FirstParameter
+                Dim ArgumentType As Long = DeclaredTypeId(Tokens, Parameters(ParameterIndex).TypeToken, Parameters(ParameterIndex).IsDynamicArray, Types, TypeCount)
+                Dim ResultType As Long = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
+                Dim NativeType As Long = ResultType - 1000
+                Dim OtherType As Long = ArgumentType
+                If Role = 2 Then
+                    NativeType = ArgumentType - 1000
+                    OtherType = ResultType
+                End If
+                If NativeType < 0 Or NativeType >= TypeCount Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "primitive binding requires an exact native Type and its representation")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                If Types(NativeType).RepresentationType = 0 Or Types(NativeType).RepresentationType <> OtherType Or Parameters(ParameterIndex).PassingMode <> 2 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "primitive binding signature must use exact native and representation types, ByVal")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                Procedures(Index).PrimitiveNativeType = NativeType
+                Dim TypeSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Types(NativeType).HeaderToken).StartByte)
+                Dim BindingSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).HeaderToken).StartByte)
+                If TypeSource < 0 Or TypeSource <> BindingSource Or BindingSource <> FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).EndToken).StartByte) Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "native primitive bindings belong to the type's declaring module")
+                    ValidateNativeValues = 0
+                    Exit Function
+                End If
+                Dim Previous As Long = 0
+                While Previous < Index
+                    If Procedures(Previous).PrimitiveRole = Role And Procedures(Previous).PrimitiveNativeType = NativeType Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "native Type already has this primitive binding role")
+                        ValidateNativeValues = 0
+                        Exit Function
+                    End If
+                    Previous = Previous + 1
+                Wend
+            End If
+            End If
+        End If
+        Index = Index + 1
+    Wend
+    ValidateNativeValues = 1
+End Function
+
+Function ValidateStorageBinding(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal Index As Long, ByRef Parameters() As ParameterSyntax, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateStorageBinding = 0
+    Dim Role As Long = Procedures(Index).PrimitiveRole
+    Dim ResultType As Long = 0
+    If Procedures(Index).ProcedureKind = 2 Then
+        ResultType = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
+    End If
+    Dim Valid As Long = 0
+    If Role >= 8 Then
+        ValidateStorageBinding = ValidateHostBinding(Tokens, Procedures, Index, Parameters, Types, TypeCount, Diagnostics, DiagnosticCount)
+        Exit Function
+    End If
+    If Role = 6 Or Role = 7 Then
+        Dim StorageFirst As Long = Procedures(Index).FirstParameter
+        If Role = 6 And ResultType = 1 And Procedures(Index).ParameterCount = 2 Then
+            Dim CopyArrayType As Long = DeclaredTypeId(Tokens, Parameters(StorageFirst).TypeToken, Parameters(StorageFirst).IsDynamicArray, Types, TypeCount)
+            If CopyArrayType >= 100000 And Parameters(StorageFirst).PassingMode <> 2 And Parameters(StorageFirst + 1).PassingMode <> 2 And DeclaredTypeId(Tokens, Parameters(StorageFirst + 1).TypeToken, Parameters(StorageFirst + 1).IsDynamicArray, Types, TypeCount) = CopyArrayType Then
+                Valid = 1
+            End If
+        End If
+        If Role = 7 And ResultType = 1 And Procedures(Index).ParameterCount = 5 Then
+            Valid = 1
+            Dim StoragePart As Long = 0
+            While StoragePart < 5
+                Dim StorageParameter As Long = StorageFirst + StoragePart
+                Dim StorageParameterType As Long = DeclaredTypeId(Tokens, Parameters(StorageParameter).TypeToken, Parameters(StorageParameter).IsDynamicArray, Types, TypeCount)
+                If StoragePart = 0 Or StoragePart = 2 Then
+                    If StorageParameterType <> 100007 Or Parameters(StorageParameter).PassingMode = 2 Then
+                        Valid = 0
+                    End If
+                Else
+                    If StorageParameterType <> 2 Or Parameters(StorageParameter).PassingMode <> 2 Then
+                        Valid = 0
+                    End If
+                End If
+                StoragePart = StoragePart + 1
+            Wend
+        End If
+    Else
+    If Role = 5 Then
+        If ResultType = 2 And Procedures(Index).ParameterCount = 0 Then
+            Valid = 1
+        End If
+    Else
+        Dim RequiredCount As Long = 1
+        Dim RequiredResult As Long = 2
+        If Role = 4 Then
+            RequiredCount = 3
+            RequiredResult = 1
+        End If
+        If ResultType = RequiredResult And Procedures(Index).ParameterCount = RequiredCount Then
+            Dim First As Long = Procedures(Index).FirstParameter
+            Dim ArrayType As Long = DeclaredTypeId(Tokens, Parameters(First).TypeToken, Parameters(First).IsDynamicArray, Types, TypeCount)
+            If ArrayType >= 100000 And Parameters(First).PassingMode <> 2 Then
+                Valid = 1
+                If Role = 4 Then
+                    If Parameters(First + 1).PassingMode <> 2 Or Parameters(First + 2).PassingMode <> 2 Or DeclaredTypeId(Tokens, Parameters(First + 1).TypeToken, Parameters(First + 1).IsDynamicArray, Types, TypeCount) <> 2 Or DeclaredTypeId(Tokens, Parameters(First + 2).TypeToken, Parameters(First + 2).IsDynamicArray, Types, TypeCount) <> 1 Then
+                        Valid = 0
+                    End If
+                End If
+            End If
+        End If
+    End If
+    End If
+    If Valid = 0 Then
+        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "storage primitive binding has an incompatible parameter or result signature")
+        Exit Function
+    End If
+    ValidateStorageBinding = 1
+End Function
+
+Function ValidateHostBinding(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal Index As Long, ByRef Parameters() As ParameterSyntax, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateHostBinding = 0
+    Dim Role As Long = Procedures(Index).PrimitiveRole
+    Dim ExpectedSignature As String = ""
+    If Role = 8 Then
+        ExpectedSignature = "1:r100007,v2,r2,r2,r2"
+    End If
+    If Role = 9 Then
+        ExpectedSignature = "1:v2,r100007,v2,v2,r2,r2"
+    End If
+    If Role = 10 Then
+        ExpectedSignature = "1:r2,r2"
+    End If
+    If Role = 11 Then
+        ExpectedSignature = "1:v2,r100007,r2"
+    End If
+    If Role = 12 Then
+        ExpectedSignature = "1:v2"
+    End If
+    Dim ResultType As Long = 0
+    If Procedures(Index).ProcedureKind = 2 Then
+        ResultType = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
+    End If
+    Dim ActualSignature As String = LongToString(ResultType) & ":"
+    Dim ParameterIndex As Long = Procedures(Index).FirstParameter
+    Dim ParameterEnd As Long = ParameterIndex + Procedures(Index).ParameterCount
+    While ParameterIndex < ParameterEnd
+        If ParameterIndex > Procedures(Index).FirstParameter Then
+            ActualSignature = ActualSignature & ","
+        End If
+        If Parameters(ParameterIndex).PassingMode = 2 Then
+            ActualSignature = ActualSignature & "v"
+        Else
+            ActualSignature = ActualSignature & "r"
+        End If
+        ActualSignature = ActualSignature & LongToString(DeclaredTypeId(Tokens, Parameters(ParameterIndex).TypeToken, Parameters(ParameterIndex).IsDynamicArray, Types, TypeCount))
+        ParameterIndex = ParameterIndex + 1
+    Wend
+    If ExpectedSignature = "" Or ActualSignature <> ExpectedSignature Then
+        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3232", Tokens(Procedures(Index).NameToken).StartByte, Tokens(Procedures(Index).NameToken).ByteLength, "host primitive binding has an incompatible parameter or result signature")
+        Exit Function
+    End If
+    ValidateHostBinding = 1
+End Function
+
+Sub HostPrimitiveLlvmSymbol(ByVal Role As Long, ByRef Symbol As String)
+    Symbol = ""
+    If Role = 8 Then
+        Symbol = "ube_file_try_open"
+    End If
+    If Role = 9 Then
+        Symbol = "ube_file_try_read"
+    End If
+    If Role = 10 Then
+        Symbol = "ube_file_try_close"
+    End If
+    If Role = 11 Then
+        Symbol = "ube_process_try_argument"
+    End If
+    If Role = 12 Then
+        Symbol = "ube_error_set_number"
+    End If
+End Sub
+
 Function IsNumericType(ByVal TypeId As Long) As Long
-    If TypeId = 2 Or TypeId = 4 Or TypeId = 5 Or TypeId = 6 Then
+    If TypeId = 2 Or TypeId = 4 Or TypeId = 5 Or TypeId = 6 Or TypeId = 7 Then
         IsNumericType = 1
     Else
         IsNumericType = 0
     End If
 End Function
+
+Function ContainsArrayStorage(ByRef Tokens() As Token, ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax) As Long
+    ContainsArrayStorage = 0
+    If TypeId >= 100000 Then
+        ContainsArrayStorage = 1
+        Exit Function
+    End If
+    If TypeId < 1000 Then
+        Exit Function
+    End If
+    If TypeId < 1000 + TypeCount Then
+        ContainsArrayStorage = Types(TypeId - 1000).HasArrayStorage
+    End If
+End Function
+
+Function PrepareValueLayouts(ByRef Tokens() As Token, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    PrepareValueLayouts = 1
+    Dim FieldIndex As Long = 0
+    While FieldIndex < FieldCount
+        Fields(FieldIndex).ResolvedType = DeclaredTypeId(Tokens, Fields(FieldIndex).TypeToken, Fields(FieldIndex).IsDynamicArray, Types, TypeCount)
+        FieldIndex = FieldIndex + 1
+    Wend
+    If TypeCount = 0 Then
+        Exit Function
+    End If
+    Dim States() As Long
+    Dim Records() As Long
+    Dim Cursors() As Long
+    ReDim States(TypeCount - 1)
+    ReDim Records(TypeCount - 1)
+    ReDim Cursors(TypeCount - 1)
+    Dim Start As Long = 0
+    While Start < TypeCount
+        Types(Start).RootCount = 0
+        Types(Start).HasArrayStorage = 0
+        Start = Start + 1
+    Wend
+    Start = 0
+    While Start < TypeCount
+        Dim Depth As Long = -1
+        If States(Start) = 0 Then
+            Depth = 0
+            Records(0) = Start
+            Cursors(0) = Types(Start).FirstField
+            States(Start) = 1
+        End If
+        While Depth >= 0
+            Dim RecordIndex As Long = Records(Depth)
+            FieldIndex = Cursors(Depth)
+            If Types(RecordIndex).RepresentationType <> 0 Or FieldIndex >= Types(RecordIndex).FirstField + Types(RecordIndex).FieldCount Then
+                States(RecordIndex) = 2
+                Depth = Depth - 1
+            Else
+                Dim FieldType As Long = Fields(FieldIndex).ResolvedType
+                Dim Roots As Long = 0
+                Dim OwnsArray As Long = 0
+                If FieldType >= 100000 Then
+                    Roots = 1
+                    If FieldType >= 100000 Then
+                        OwnsArray = 1
+                    End If
+                Else
+                    If FieldType >= 1000 Then
+                        Dim Child As Long = FieldType - 1000
+                        If States(Child) = 1 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3221", Tokens(Fields(FieldIndex).TypeToken).StartByte, Tokens(Fields(FieldIndex).TypeToken).ByteLength, "recursive inline value layout is not supported; use an array edge")
+                            PrepareValueLayouts = 0
+                            Exit Function
+                        End If
+                        If States(Child) = 0 Then
+                            Depth = Depth + 1
+                            Records(Depth) = Child
+                            Cursors(Depth) = Types(Child).FirstField
+                            States(Child) = 1
+                        Else
+                            Roots = Types(Child).RootCount
+                            OwnsArray = Types(Child).HasArrayStorage
+                        End If
+                    End If
+                End If
+                If Records(Depth) = RecordIndex Then
+                    Types(RecordIndex).RootCount = Types(RecordIndex).RootCount + Roots
+                    If Types(RecordIndex).RootCount > 65536 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3221", Tokens(Types(RecordIndex).NameToken).StartByte, Tokens(Types(RecordIndex).NameToken).ByteLength, "value layout exceeds the managed-reference limit")
+                        PrepareValueLayouts = 0
+                        Exit Function
+                    End If
+                    If OwnsArray <> 0 Then
+                        Types(RecordIndex).HasArrayStorage = 1
+                    End If
+                    Cursors(Depth) = FieldIndex + 1
+                End If
+            End If
+        Wend
+        Start = Start + 1
+    Wend
+End Function
+
+Sub ValueLayoutSymbol(ByVal TypeId As Long, ByRef Symbol As String)
+    Symbol = "@ube.value." & LongToString(TypeId)
+End Sub
+
+Function ValueRootCount(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long) As Long
+    ValueRootCount = 0
+    If TypeId >= 100000 Then
+        ValueRootCount = 1
+    Else
+        If TypeId >= 1000 And TypeId < 1000 + TypeCount Then
+            ValueRootCount = Types(TypeId - 1000).RootCount
+        End If
+    End If
+End Function
+
+Sub IndexProcedureNodes(ByRef Nodes() As SyntaxNode, ByVal NodeCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long)
+    Dim ProcedureIndex As Long = 0
+    While ProcedureIndex < ProcedureCount
+        Procedures(ProcedureIndex).FirstNode = -1
+        Procedures(ProcedureIndex).LastNode = -1
+        ProcedureIndex = ProcedureIndex + 1
+    Wend
+    Dim NodeIndex As Long = 0
+    While NodeIndex < NodeCount
+        Nodes(NodeIndex).NextProcedureNode = -1
+        Dim Low As Long = 0
+        Dim High As Long = ProcedureCount - 1
+        Dim Owner As Long = -1
+        While Low <= High
+            Dim Middle As Long = Low + (High - Low) \ 2
+            If Nodes(NodeIndex).SourceToken < Procedures(Middle).HeaderToken Then
+                High = Middle - 1
+            Else
+                If Nodes(NodeIndex).SourceToken > Procedures(Middle).EndToken Then
+                    Low = Middle + 1
+                Else
+                    Owner = Middle
+                    Exit While
+                End If
+            End If
+        Wend
+        If Owner >= 0 Then
+            If Procedures(Owner).LastNode >= 0 Then
+                Nodes(Procedures(Owner).LastNode).NextProcedureNode = NodeIndex
+            Else
+                Procedures(Owner).FirstNode = NodeIndex
+            End If
+            Procedures(Owner).LastNode = NodeIndex
+        End If
+        NodeIndex = NodeIndex + 1
+    Wend
+End Sub
+
+Sub EmitValueRootOffsets(ByVal TypeIndex As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Dim RecordStack() As Long
+    Dim FieldStack() As Long
+    Dim Paths() As String
+    ReDim RecordStack(TypeCount)
+    ReDim FieldStack(TypeCount)
+    ReDim Paths(TypeCount)
+    Dim Depth As Long = 0
+    RecordStack(0) = TypeIndex
+    FieldStack(0) = Types(TypeIndex).FirstField
+    Paths(0) = "i32 0"
+    Dim OffsetText As String = ""
+    While Depth >= 0
+        Dim RecordIndex As Long = RecordStack(Depth)
+        Dim FieldIndex As Long = FieldStack(Depth)
+        If FieldIndex >= Types(RecordIndex).FirstField + Types(RecordIndex).FieldCount Then
+            Depth = Depth - 1
+        Else
+            FieldStack(Depth) = FieldIndex + 1
+            Dim FieldType As Long = Fields(FieldIndex).ResolvedType
+            Dim FieldPath As String = Paths(Depth) & ", i32 " & LongToString(FieldIndex - Types(RecordIndex).FirstField)
+            If FieldType >= 100000 Then
+                If OffsetText <> "" Then
+                    OffsetText = OffsetText & ", "
+                End If
+                OffsetText = OffsetText & "i64 ptrtoint (ptr getelementptr (%ube.type." & LongToString(TypeIndex) & ", ptr null, " & FieldPath & ") to i64)"
+            Else
+                If ValueRootCount(FieldType, Types, TypeCount) > 0 Then
+                    Depth = Depth + 1
+                    RecordStack(Depth) = FieldType - 1000
+                    FieldStack(Depth) = Types(FieldType - 1000).FirstField
+                    Paths(Depth) = FieldPath
+                End If
+            End If
+        End If
+    Wend
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "@ube.roots." & LongToString(1000 + TypeIndex) & " = private constant [" & LongToString(Types(TypeIndex).RootCount) & " x i64] [" & OffsetText & "]" & NewLine)
+End Sub
+
+Sub EmitValueLayout(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Dim LlvmType As String = ""
+    Call LlvmTypeName(TypeId, LlvmType)
+    Dim Kind As Long = 0
+    Dim FieldCount As Long = 0
+    Dim FieldsPointer As String = "null"
+    Dim RootsPointer As String = "null"
+    Dim Roots As Long = ValueRootCount(TypeId, Types, TypeCount)
+    Dim LayoutSymbol As String = ""
+    Call ValueLayoutSymbol(TypeId, LayoutSymbol)
+    If TypeId = 3 Then
+        Kind = 3
+    End If
+    If TypeId >= 100000 Then
+        Kind = 1
+        FieldCount = 1
+        FieldsPointer = "@ube.fields." & LongToString(TypeId)
+        RootsPointer = "@ube.roots." & LongToString(TypeId)
+        Dim ElementLayout As String = ""
+        Call ValueLayoutSymbol(TypeId - 100000, ElementLayout)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, FieldsPointer & " = private constant [1 x %ube.value.field] [%ube.value.field { i64 0, ptr " & ElementLayout & " }]" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, RootsPointer & " = private constant [1 x i64] [i64 0]" & NewLine)
+    Else
+        If TypeId >= 1000 Then
+            Dim TypeIndex As Long = TypeId - 1000
+            If Types(TypeIndex).RepresentationType = 0 Then
+                Kind = 2
+                FieldCount = Types(TypeIndex).FieldCount
+                If FieldCount > 0 Then
+                    FieldsPointer = "@ube.fields." & LongToString(TypeId)
+                    Dim FieldText As String = ""
+                    Dim FieldIndex As Long = Types(TypeIndex).FirstField
+                    While FieldIndex < Types(TypeIndex).FirstField + FieldCount
+                        If FieldText <> "" Then
+                            FieldText = FieldText & ", "
+                        End If
+                        Dim Offset As String = "ptrtoint (ptr getelementptr (" & LlvmType & ", ptr null, i32 0, i32 " & LongToString(FieldIndex - Types(TypeIndex).FirstField) & ") to i64)"
+                        Dim FieldLayout As String = ""
+                        Call ValueLayoutSymbol(Fields(FieldIndex).ResolvedType, FieldLayout)
+                        FieldText = FieldText & "%ube.value.field { i64 " & Offset & ", ptr " & FieldLayout & " }"
+                        FieldIndex = FieldIndex + 1
+                    Wend
+                    Call AppendText(Chunks, ChunkCount, ChunkCapacity, FieldsPointer & " = private constant [" & LongToString(FieldCount) & " x %ube.value.field] [" & FieldText & "]" & NewLine)
+                End If
+                If Roots > 0 Then
+                    RootsPointer = "@ube.roots." & LongToString(TypeId)
+                    Call EmitValueRootOffsets(TypeIndex, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+                End If
+            End If
+        End If
+    End If
+    Dim Size As String = "ptrtoint (ptr getelementptr (" & LlvmType & ", ptr null, i32 1) to i64)"
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, LayoutSymbol & " = private constant %ube.value.layout { i64 " & Size & ", i32 " & LongToString(Kind) & ", i32 " & LongToString(FieldCount) & ", ptr " & FieldsPointer & ", i64 " & LongToString(Roots) & ", ptr " & RootsPointer & " }" & NewLine)
+End Sub
+
+Sub EmitValueLayouts(ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "%ube.value.field = type { i64, ptr }" & NewLine & "%ube.value.layout = type { i64, i32, i32, ptr, i64, ptr }" & NewLine)
+    Dim TypeId As Long = 1
+    While TypeId <= 7
+        Call EmitValueLayout(TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        Call EmitValueLayout(100000 + TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        TypeId = TypeId + 1
+    Wend
+    TypeId = 1000
+    While TypeId < 1000 + TypeCount
+        Call EmitValueLayout(TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        Call EmitValueLayout(100000 + TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        TypeId = TypeId + 1
+    Wend
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, NewLine)
+End Sub
 
 Function ValidateDeclaredTypes(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByVal ParameterCount As Long, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     Dim Index As Long = 0
@@ -2642,7 +3684,7 @@ Function ValidateDeclaredTypes(ByRef Tokens() As Token, ByRef Procedures() As Pr
     Index = 0
     While Index < ProcedureCount
         If Procedures(Index).ProcedureKind = 2 Then
-            If DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, 0, Types, TypeCount) = 0 Then
+            If DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount) = 0 Then
                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3216", Tokens(Procedures(Index).ReturnTypeToken).StartByte, Tokens(Procedures(Index).ReturnTypeToken).ByteLength, "unknown function result type: " & Tokens(Procedures(Index).ReturnTypeToken).Spelling)
                 ValidateDeclaredTypes = 0
                 Exit Function
@@ -2654,7 +3696,7 @@ Function ValidateDeclaredTypes(ByRef Tokens() As Token, ByRef Procedures() As Pr
 End Function
 
 Function IsIntegralOrBooleanType(ByVal TypeId As Long) As Long
-    If TypeId = 1 Or TypeId = 2 Or TypeId = 4 Or TypeId = 5 Then
+    If TypeId = 1 Or TypeId = 2 Or TypeId = 4 Or TypeId = 5 Or TypeId = 7 Then
         IsIntegralOrBooleanType = 1
     Else
         IsIntegralOrBooleanType = 0
@@ -2662,6 +3704,12 @@ Function IsIntegralOrBooleanType(ByVal TypeId As Long) As Long
 End Function
 
 Function CommonNumericType(ByVal LeftType As Long, ByVal RightType As Long) As Long
+    If LeftType = 7 Then
+        LeftType = 4
+    End If
+    If RightType = 7 Then
+        RightType = 4
+    End If
     If IsNumericType(LeftType) = 0 Or IsNumericType(RightType) = 0 Then
         CommonNumericType = 0
         Exit Function
@@ -2703,7 +3751,7 @@ Function FindVariableType(ByRef Tokens() As Token, ByRef Procedures() As Procedu
     Wend
     If Procedures(Owner).ProcedureKind = 2 Then
         If EqualsIdentifier(Tokens(Procedures(Owner).NameToken).Spelling, Tokens(NameToken).Spelling) <> 0 Then
-            FindVariableType = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, 0, Types, TypeCount)
+            FindVariableType = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, Procedures(Owner).ResultIsDynamicArray, Types, TypeCount)
             Exit Function
         End If
     End If
@@ -2726,6 +3774,8 @@ Function IsAddressableExpression(ByRef Tokens() As Token, ByRef Nodes() As Synta
             IsAddressableExpression = ExpressionNameIsVariable(Tokens, Procedures, Parameters, Locals, LocalCount, Owner, Nodes(AddressedBase).SourceToken)
             Exit Function
         End If
+        IsAddressableExpression = IsAddressableExpression(Tokens, Nodes, AddressedBase, Procedures, Parameters, Locals, LocalCount, Owner)
+        Exit Function
     End If
     IsAddressableExpression = 0
 End Function
@@ -2759,6 +3809,7 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                         Dim TypedCalleeToken As Long = Nodes(TypedCallee).SourceToken
                         Dim VariableType As Long = FindVariableType(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, TypedCalleeToken)
                         If VariableType >= 100000 Then
+                            Nodes(TypedCallee).ResolvedType = VariableType
                             Result = VariableType - 100000
                             IndexedArray = 1
                         Else
@@ -2766,7 +3817,7 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                             ResolvedProcedure = TypedProcedure
                             If TypedProcedure >= 0 Then
                                 If Procedures(TypedProcedure).ProcedureKind = 2 Then
-                                    Result = DeclaredTypeId(Tokens, Procedures(TypedProcedure).ReturnTypeToken, 0, Types, TypeCount)
+                                    Result = DeclaredTypeId(Tokens, Procedures(TypedProcedure).ReturnTypeToken, Procedures(TypedProcedure).ResultIsDynamicArray, Types, TypeCount)
                                 End If
                             Else
                                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3209", Tokens(TypedCalleeToken).StartByte, Tokens(TypedCalleeToken).ByteLength, "expression is not callable or indexable")
@@ -2775,9 +3826,15 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                             End If
                         End If
                     Else
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3209", Tokens(Nodes(TypedCallee).SourceToken).StartByte, Tokens(Nodes(TypedCallee).SourceToken).ByteLength, "expression is not callable or indexable")
-                        ResolveExpressionType = 0
-                        Exit Function
+                        Dim ReceiverType As Long = ResolveExpressionType(Tokens, Nodes, TypedCallee, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
+                        If ReceiverType >= 100000 Then
+                            Result = ReceiverType - 100000
+                            IndexedArray = 1
+                        Else
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3209", Tokens(Nodes(TypedCallee).SourceToken).StartByte, Tokens(Nodes(TypedCallee).SourceToken).ByteLength, "expression is not callable or indexable")
+                            ResolveExpressionType = 0
+                            Exit Function
+                        End If
                     End If
                     Dim TypedArgumentLink As Long = Nodes(NodeIndex).RightNode
                     Dim TypedArgumentIndex As Long = 0
@@ -2808,6 +3865,10 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                                     Exit Function
                                 End If
                             Else
+                                If ValidateIntegerConstant(Tokens, Nodes, TypedArgumentNode, TypedParameterType, Diagnostics, DiagnosticCount) = 0 Then
+                                    ResolveExpressionType = 0
+                                    Exit Function
+                                End If
                                 If TypedArgumentType <> TypedParameterType And (IsNumericType(TypedArgumentType) = 0 Or IsNumericType(TypedParameterType) = 0) Then
                                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3204", Tokens(Nodes(TypedArgumentNode).SourceToken).StartByte, Tokens(Nodes(TypedArgumentNode).SourceToken).ByteLength, "argument type is not assignable to parameter")
                                     ResolveExpressionType = 0
@@ -2846,10 +3907,16 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                             If UnaryOperator = "+" Or UnaryOperator = "-" Then
                                 If IsNumericType(UnaryType) <> 0 Then
                                     Result = UnaryType
+                                    If UnaryType = 7 Then
+                                        Result = 4
+                                    End If
                                 End If
                             Else
                                 If EqualsKeyword(UnaryOperator, "Not") <> 0 And IsIntegralOrBooleanType(UnaryType) <> 0 Then
                                     Result = UnaryType
+                                    If UnaryType = 7 Then
+                                        Result = 4
+                                    End If
                                 End If
                             End If
                         Else
@@ -2860,6 +3927,15 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                                 If TypedOperator = "=" Or TypedOperator = "<>" Or TypedOperator = "<" Or TypedOperator = ">" Or TypedOperator = "<=" Or TypedOperator = ">=" Then
                                     If LeftType = RightType Or (IsNumericType(LeftType) <> 0 And IsNumericType(RightType) <> 0) Then
                                         Result = 1
+                                        If LeftType >= 1000 Then
+                                            If LeftType >= 1000 + TypeCount Then
+                                                Result = 0
+                                            Else
+                                                If Types(LeftType - 1000).RepresentationType = 0 Or (TypedOperator <> "=" And TypedOperator <> "<>") Then
+                                                    Result = 0
+                                                End If
+                                            End If
+                                        End If
                                     End If
                                 Else
                                     If TypedOperator = "&" Then
@@ -2870,6 +3946,9 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                                         If EqualsKeyword(TypedOperator, "And") <> 0 Or EqualsKeyword(TypedOperator, "Or") <> 0 Then
                                             If LeftType = RightType And IsIntegralOrBooleanType(LeftType) <> 0 Then
                                                 Result = LeftType
+                                                If LeftType = 7 Then
+                                                    Result = 4
+                                                End If
                                             End If
                                         Else
                                             Result = CommonNumericType(LeftType, RightType)
@@ -2888,6 +3967,12 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
         ResolveExpressionType = 0
         Exit Function
     End If
+    If Kind = 15 Or Kind = 16 Then
+        If ValidateIntegerConstant(Tokens, Nodes, NodeIndex, Result, Diagnostics, DiagnosticCount) = 0 Then
+            ResolveExpressionType = 0
+            Exit Function
+        End If
+    End If
     Nodes(NodeIndex).ResolvedType = Result
     ResolveExpressionType = Result
 End Function
@@ -2898,8 +3983,14 @@ Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As Syntax
         If Locals(LocalIndex).InitializerNode >= 0 Then
             Dim InitializerType As Long = ResolveExpressionType(Tokens, Nodes, Locals(LocalIndex).InitializerNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Locals(LocalIndex).OwnerProcedure, Diagnostics, DiagnosticCount)
             Dim LocalType As Long = DeclaredTypeId(Tokens, Locals(LocalIndex).TypeToken, Locals(LocalIndex).IsDynamicArray, Types, TypeCount)
-            If InitializerType = 0 Or LocalType = 0 Or InitializerType <> LocalType Then
+            If InitializerType = 0 Or LocalType = 0 Or (InitializerType <> LocalType And (IsNumericType(InitializerType) = 0 Or IsNumericType(LocalType) = 0)) Then
                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3201", Tokens(Locals(LocalIndex).NameToken).StartByte, Tokens(Locals(LocalIndex).NameToken).ByteLength, "local initializer type is not assignable")
+                AnalyzeExpressionTypes = 0
+                Exit Function
+            End If
+        End If
+        If Locals(LocalIndex).InitializerNode >= 0 Then
+            If ValidateIntegerConstant(Tokens, Nodes, Locals(LocalIndex).InitializerNode, DeclaredTypeId(Tokens, Locals(LocalIndex).TypeToken, Locals(LocalIndex).IsDynamicArray, Types, TypeCount), Diagnostics, DiagnosticCount) = 0 Then
                 AnalyzeExpressionTypes = 0
                 Exit Function
             End If
@@ -2917,6 +4008,11 @@ Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As Syntax
                     Exit Function
                 End If
             End If
+            If Statements(StatementIndex).StatementKind = 3 And StatementValueType >= 1000 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3233", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "Print requires a scalar value or an explicit native representation conversion")
+                AnalyzeExpressionTypes = 0
+                Exit Function
+            End If
             If Statements(StatementIndex).StatementKind = 1 Then
                 If Statements(StatementIndex).TargetNode < 0 Then
                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3206", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "assignment target was not parsed")
@@ -2931,6 +4027,18 @@ Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As Syntax
                 Dim StatementTargetType As Long = ResolveExpressionType(Tokens, Nodes, Statements(StatementIndex).TargetNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Statements(StatementIndex).OwnerProcedure, Diagnostics, DiagnosticCount)
                 If StatementTargetType = 0 Or StatementValueType = 0 Or (StatementTargetType <> StatementValueType And (IsNumericType(StatementTargetType) = 0 Or IsNumericType(StatementValueType) = 0)) Then
                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3208", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "assigned value has an incompatible type")
+                    AnalyzeExpressionTypes = 0
+                    Exit Function
+                End If
+            End If
+            If Statements(StatementIndex).StatementKind = 1 Then
+                If ValidateIntegerConstant(Tokens, Nodes, Statements(StatementIndex).ValueNode, StatementTargetType, Diagnostics, DiagnosticCount) = 0 Then
+                    AnalyzeExpressionTypes = 0
+                    Exit Function
+                End If
+            End If
+            If Statements(StatementIndex).StatementKind = 3 Then
+                If ValidateIntegerConstant(Tokens, Nodes, Statements(StatementIndex).ValueNode, StatementValueType, Diagnostics, DiagnosticCount) = 0 Then
                     AnalyzeExpressionTypes = 0
                     Exit Function
                 End If
@@ -3095,6 +4203,11 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
         Dim TypeLine As String = "%ube.type." & LongToString(TypeIndex) & " = type { "
         Dim FieldIndex As Long = Types(TypeIndex).FirstField
         Dim FieldEnd As Long = FieldIndex + Types(TypeIndex).FieldCount
+        If Types(TypeIndex).RepresentationType <> 0 Then
+            Dim RepresentationLlvm As String = ""
+            Call LlvmTypeName(Types(TypeIndex).RepresentationType, RepresentationLlvm)
+            TypeLine = TypeLine & RepresentationLlvm
+        End If
         While FieldIndex < FieldEnd
             If FieldIndex > Types(TypeIndex).FirstField Then
                 TypeLine = TypeLine & ", "
@@ -3133,6 +4246,11 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_runtime_set_args(i32, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_command_argument_count()" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_command_argument(i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_open(ptr, i32, ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_read(i32, ptr, i32, i32, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_close(ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_process_try_argument(i32, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_error_set_number(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_read_all_text(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_write_all_text(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_array_join(ptr, i32)" & NewLine)
@@ -3147,10 +4265,23 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_is_letter(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_unicode_simple_fold_code_point(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_redim(ptr, i32, i32, i64, i1)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_narrow_i64(i64, i32, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_array_release(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_element(ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_lbound(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_ubound(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_snapshot(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_read(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_value_zero(ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_assign(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_root_enter(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_root_leave(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_try_redim(ptr, i32, i32, ptr, i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_try_resize(ptr, i32, ptr, i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_array_length(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_copy_bytes(ptr, i32, ptr, i32, i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_value_array_element(ptr, i32, ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_collect()" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @puts(ptr)" & NewLine & NewLine)
 End Sub
 
@@ -3184,22 +4315,95 @@ Sub EmitNameAddress(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDecl
     Wend
     If Procedures(Owner).ProcedureKind = 2 Then
         If EqualsIdentifier(Tokens(Procedures(Owner).NameToken).Spelling, Tokens(NameToken).Spelling) <> 0 Then
-            TypeId = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, 0, Types, TypeCount)
+            TypeId = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, Procedures(Owner).ResultIsDynamicArray, Types, TypeCount)
             Address = "%result"
         End If
     End If
 End Sub
 
-Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDeclarationSyntax, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByVal ProcedureIndex As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+Sub EmitValueSlot(ByVal Slot As String, ByVal TypeId As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Dim LlvmType As String = ""
+    Call LlvmTypeName(TypeId, LlvmType)
+    Dim Initial As String = "zeroinitializer"
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %" & Slot & " = alloca " & LlvmType & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store " & LlvmType & " " & Initial & ", ptr %" & Slot & NewLine)
+End Sub
+
+Sub EmitValueRoot(ByVal Slot As String, ByVal TypeId As Long, ByVal Address As String, ByVal Operation As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    If ValueRootCount(TypeId, Types, TypeCount) = 0 Then
+        Exit Sub
+    End If
+    If Operation = 0 Then
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %root." & Slot & " = alloca [32 x i8], align 8" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store [32 x i8] zeroinitializer, ptr %root." & Slot & ", align 8" & NewLine)
+    Else
+        If Operation = 1 Then
+            Dim LayoutSymbol As String = ""
+            Call ValueLayoutSymbol(TypeId, LayoutSymbol)
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %root.status." & Slot & " = call i32 @ube_value_root_enter(ptr %root." & Slot & ", ptr " & Address & ", ptr " & LayoutSymbol & ")" & NewLine)
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %root.ok." & Slot & " = icmp ne i32 %root.status." & Slot & ", 0" & NewLine)
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %root.ok." & Slot & ", label %root.ready." & Slot & ", label %proc.exit" & NewLine & "root.ready." & Slot & ":" & NewLine)
+        Else
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  call i32 @ube_gc_root_leave(ptr %root." & Slot & ")" & NewLine)
+        End If
+    End If
+End Sub
+
+Sub EmitProcedureRoots(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByRef Procedures() As ProcedureDeclarationSyntax, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByVal Owner As Long, ByVal Operation As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Dim ParameterIndex As Long = Procedures(Owner).FirstParameter
+    While ParameterIndex < Procedures(Owner).FirstParameter + Procedures(Owner).ParameterCount
+        Dim ParameterType As Long = DeclaredTypeId(Tokens, Parameters(ParameterIndex).TypeToken, Parameters(ParameterIndex).IsDynamicArray, Types, TypeCount)
+        Dim ParameterSlot As String = "arg." & LongToString(ParameterIndex)
+        If Parameters(ParameterIndex).PassingMode = 2 Then
+            ParameterSlot = "param." & LongToString(ParameterIndex)
+            Call EmitValueRoot("incoming." & LongToString(ParameterIndex), ParameterType, "%incoming." & LongToString(ParameterIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
+        Call EmitValueRoot(ParameterSlot, ParameterType, "%" & ParameterSlot, Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        ParameterIndex = ParameterIndex + 1
+    Wend
+    If Procedures(Owner).ProcedureKind = 2 Then
+        Dim ResultType As Long = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, Procedures(Owner).ResultIsDynamicArray, Types, TypeCount)
+        Call EmitValueRoot("result", ResultType, "%result", Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+    End If
+    Dim LocalIndex As Long = 0
+    While LocalIndex < LocalCount
+        If Locals(LocalIndex).OwnerProcedure = Owner Then
+            Dim LocalType As Long = DeclaredTypeId(Tokens, Locals(LocalIndex).TypeToken, Locals(LocalIndex).IsDynamicArray, Types, TypeCount)
+            Call EmitValueRoot("local." & LongToString(LocalIndex), LocalType, "%local." & LongToString(LocalIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
+        LocalIndex = LocalIndex + 1
+    Wend
+    Dim NodeIndex As Long = Procedures(Owner).FirstNode
+    While NodeIndex >= 0
+        If Nodes(NodeIndex).ResolvedType >= 1000 Then
+            Call EmitValueRoot("value." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, "%value." & LongToString(NodeIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
+        If Nodes(NodeIndex).NodeKind = 13 And Nodes(NodeIndex).LeftNode >= 0 Then
+            Dim ArrayType As Long = Nodes(Nodes(NodeIndex).LeftNode).ResolvedType
+            If ArrayType >= 100000 Then
+                Call EmitValueRoot("borrow." & LongToString(NodeIndex), ArrayType, "%borrow." & LongToString(NodeIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+                Call EmitValueRoot("fallback." & LongToString(NodeIndex), ArrayType - 100000, "%fallback." & LongToString(NodeIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+            End If
+        End If
+        NodeIndex = Nodes(NodeIndex).NextProcedureNode
+    Wend
+End Sub
+
+Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByRef Procedures() As ProcedureDeclarationSyntax, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByVal ProcedureIndex As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
     Dim ReturnTypeId As Long = 0
     Dim ReturnLlvmType As String = "void"
     If Procedures(ProcedureIndex).ProcedureKind = 2 Then
-        ReturnTypeId = DeclaredTypeId(Tokens, Procedures(ProcedureIndex).ReturnTypeToken, 0, Types, TypeCount)
+        ReturnTypeId = DeclaredTypeId(Tokens, Procedures(ProcedureIndex).ReturnTypeToken, Procedures(ProcedureIndex).ResultIsDynamicArray, Types, TypeCount)
         Call LlvmTypeName(ReturnTypeId, ReturnLlvmType)
     End If
     Dim Symbol As String = ""
     Call ProcedureLlvmSymbol(ProcedureIndex, Symbol)
-    Dim Header As String = "define " & ReturnLlvmType & " " & Symbol & "("
+    Dim ResultIsManaged As Long = ValueRootCount(ReturnTypeId, Types, TypeCount)
+    Dim AbiReturnType As String = ReturnLlvmType
+    If ResultIsManaged > 0 Then
+        AbiReturnType = "void"
+    End If
+    Dim Header As String = "define " & AbiReturnType & " " & Symbol & "("
     Dim ParameterIndex As Long = Procedures(ProcedureIndex).FirstParameter
     Dim ParameterEnd As Long = ParameterIndex + Procedures(ProcedureIndex).ParameterCount
     While ParameterIndex < ParameterEnd
@@ -3216,7 +4420,23 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Procedures() As Procedure
         Header = Header & ParameterLlvmType & " %arg." & LongToString(ParameterIndex)
         ParameterIndex = ParameterIndex + 1
     Wend
+    If ResultIsManaged > 0 Then
+        If Procedures(ProcedureIndex).ParameterCount > 0 Then
+            Header = Header & ", "
+        End If
+        Header = Header & "ptr %result.out"
+    End If
+    Dim IsSourceEntry As Long = EqualsIdentifier(Tokens(Procedures(ProcedureIndex).NameToken).Spelling, "Main")
+    If IsSourceEntry <> 0 Then
+        If Procedures(ProcedureIndex).ParameterCount > 0 Or ResultIsManaged > 0 Then
+            Header = Header & ", "
+        End If
+        Header = Header & "ptr %entry.admitted"
+    End If
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, Header & ") {" & NewLine & "entry:" & NewLine)
+    If ResultIsManaged > 0 Then
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %result.ready = alloca i1" & NewLine & "  store i1 false, ptr %result.ready" & NewLine)
+    End If
     ParameterIndex = Procedures(ProcedureIndex).FirstParameter
     While ParameterIndex < ParameterEnd
         If Parameters(ParameterIndex).PassingMode = 2 Then
@@ -3224,7 +4444,13 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Procedures() As Procedure
             Dim ByValLlvmType As String = ""
             Call LlvmTypeName(ByValTypeId, ByValLlvmType)
             Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %param." & LongToString(ParameterIndex) & " = alloca " & ByValLlvmType & NewLine)
-            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store " & ByValLlvmType & " %arg." & LongToString(ParameterIndex) & ", ptr %param." & LongToString(ParameterIndex) & NewLine)
+            If ValueRootCount(ByValTypeId, Types, TypeCount) > 0 Then
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store " & ByValLlvmType & " zeroinitializer, ptr %param." & LongToString(ParameterIndex) & NewLine)
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %incoming." & LongToString(ParameterIndex) & " = alloca " & ByValLlvmType & NewLine)
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store " & ByValLlvmType & " %arg." & LongToString(ParameterIndex) & ", ptr %incoming." & LongToString(ParameterIndex) & NewLine)
+            Else
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store " & ByValLlvmType & " %arg." & LongToString(ParameterIndex) & ", ptr %param." & LongToString(ParameterIndex) & NewLine)
+            End If
         End If
         ParameterIndex = ParameterIndex + 1
     Wend
@@ -3259,6 +4485,46 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Procedures() As Procedure
         End If
         LocalIndex = LocalIndex + 1
     Wend
+    Dim NodeIndex As Long = Procedures(ProcedureIndex).FirstNode
+    While NodeIndex >= 0
+        If Nodes(NodeIndex).ResolvedType >= 1000 Then
+            Call EmitValueSlot("value." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
+            Call EmitValueSlot("scratch." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
+        If Nodes(NodeIndex).NodeKind = 13 And Nodes(NodeIndex).LeftNode >= 0 Then
+            Dim ArrayType As Long = Nodes(Nodes(NodeIndex).LeftNode).ResolvedType
+            If ArrayType >= 100000 Then
+                Call EmitValueSlot("borrow." & LongToString(NodeIndex), ArrayType, Chunks, ChunkCount, ChunkCapacity, NewLine)
+                Call EmitValueSlot("fallback." & LongToString(NodeIndex), ArrayType - 100000, Chunks, ChunkCount, ChunkCapacity, NewLine)
+            End If
+        End If
+        NodeIndex = Nodes(NodeIndex).NextProcedureNode
+    Wend
+    Call EmitProcedureRoots(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, ProcedureIndex, 0, Chunks, ChunkCount, ChunkCapacity, NewLine)
+    Call EmitProcedureRoots(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, ProcedureIndex, 1, Chunks, ChunkCount, ChunkCapacity, NewLine)
+    ParameterIndex = Procedures(ProcedureIndex).FirstParameter
+    While ParameterIndex < ParameterEnd
+        If Parameters(ParameterIndex).PassingMode = 2 Then
+            Dim CopyType As Long = DeclaredTypeId(Tokens, Parameters(ParameterIndex).TypeToken, Parameters(ParameterIndex).IsDynamicArray, Types, TypeCount)
+            If ValueRootCount(CopyType, Types, TypeCount) > 0 Then
+                Dim CopySuffix As String = LongToString(ParameterIndex)
+                Dim CopyLayout As String = ""
+                Call ValueLayoutSymbol(CopyType, CopyLayout)
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %parameter.status." & CopySuffix & " = call i32 @ube_value_assign(ptr %param." & CopySuffix & ", ptr %incoming." & CopySuffix & ", ptr " & CopyLayout & ")" & NewLine)
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %parameter.ok." & CopySuffix & " = icmp ne i32 %parameter.status." & CopySuffix & ", 0" & NewLine)
+                Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %parameter.ok." & CopySuffix & ", label %parameter.ready." & CopySuffix & ", label %proc.exit" & NewLine & "parameter.ready." & CopySuffix & ":" & NewLine)
+            End If
+        End If
+        ParameterIndex = ParameterIndex + 1
+    Wend
+    If ResultIsManaged > 0 Then
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store i1 true, ptr %result.ready" & NewLine)
+    End If
+    If IsSourceEntry <> 0 Then
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %entry.has.observer = icmp ne ptr %entry.admitted, null" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %entry.has.observer, label %entry.admit, label %entry.body" & NewLine & "entry.admit:" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store i1 true, ptr %entry.admitted" & NewLine & "  br label %entry.body" & NewLine & "entry.body:" & NewLine)
+    End If
 End Sub
 
 Sub EmitStringConstant(ByVal Value As String, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String)
@@ -3288,13 +4554,15 @@ Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
     End If
     If Kind = 13 Then
         Dim CalleeNode As Long = Nodes(NodeIndex).LeftNode
-        If Nodes(CalleeNode).NodeKind <> 12 Then
-            State.Failed = 1
-            Exit Sub
-        End If
         Dim ArrayAddress As String = ""
         Dim ArrayTypeId As Long = 0
-        Call EmitNameAddress(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, Nodes(CalleeNode).SourceToken, ArrayAddress, ArrayTypeId)
+        If IsAddressableExpression(Tokens, Nodes, CalleeNode, Procedures, Parameters, Locals, LocalCount, Owner) <> 0 Then
+            Call EmitLvalueAddress(Tokens, Nodes, CalleeNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, ArrayAddress, ArrayTypeId)
+        Else
+            Dim ArrayValue As String = ""
+            Call EmitExpression(Tokens, Nodes, CalleeNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, ArrayValue, ArrayTypeId)
+            ArrayAddress = "%value." & LongToString(CalleeNode)
+        End If
         If ArrayAddress = "" Or ArrayTypeId < 100000 Then
             State.Failed = 1
             Exit Sub
@@ -3310,18 +4578,25 @@ Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
         If State.Failed <> 0 Then
             Exit Sub
         End If
-        Dim Handle As String = ""
-        Call NextLlvmRegister(State, Handle)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Handle & " = load ptr, ptr " & ArrayAddress & NewLine)
+        Call EmitIntegerConversion(IndexTypeId, 2, IndexOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+        Dim ElementLayout As String = ""
+        Call ValueLayoutSymbol(ArrayTypeId - 100000, ElementLayout)
         Call NextLlvmRegister(State, Address)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Address & " = call ptr @ube_array_element(ptr " & Handle & ", i32 " & IndexOperand & ")" & NewLine)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Address & " = call ptr @ube_value_array_element(ptr " & ArrayAddress & ", i32 " & IndexOperand & ", ptr %borrow." & LongToString(NodeIndex) & ", ptr %fallback." & LongToString(NodeIndex) & ", ptr " & ElementLayout & ")" & NewLine)
         TypeId = ArrayTypeId - 100000
         Exit Sub
     End If
     If Kind = 14 Then
         Dim BaseAddress As String = ""
         Dim BaseTypeId As Long = 0
-        Call EmitLvalueAddress(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseAddress, BaseTypeId)
+        Dim BaseNode As Long = Nodes(NodeIndex).LeftNode
+        If IsAddressableExpression(Tokens, Nodes, BaseNode, Procedures, Parameters, Locals, LocalCount, Owner) <> 0 Then
+            Call EmitLvalueAddress(Tokens, Nodes, BaseNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseAddress, BaseTypeId)
+        Else
+            Dim BaseValue As String = ""
+            Call EmitExpression(Tokens, Nodes, BaseNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseValue, BaseTypeId)
+            BaseAddress = "%value." & LongToString(BaseNode)
+        End If
         If State.Failed <> 0 Or BaseTypeId < 1000 Or BaseTypeId >= 100000 Then
             State.Failed = 1
             Exit Sub
@@ -3346,7 +4621,105 @@ Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
     State.Failed = 1
 End Sub
 
+Function ScalarStorageAlignment(ByVal TypeId As Long) As Long
+    ScalarStorageAlignment = 8
+    If TypeId = 1 Or TypeId = 7 Then
+        ScalarStorageAlignment = 1
+    End If
+    If TypeId = 4 Then
+        ScalarStorageAlignment = 2
+    End If
+    If TypeId = 2 Then
+        ScalarStorageAlignment = 4
+    End If
+End Function
+
+Sub EmitValueLoad(ByVal TypeId As Long, ByVal Address As String, ByVal NodeIndex As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String)
+    Dim LlvmType As String = ""
+    Call LlvmTypeName(TypeId, LlvmType)
+    Dim LoadAddress As String = Address
+    If TypeId >= 1000 Then
+        Dim Layout As String = ""
+        Call ValueLayoutSymbol(TypeId, Layout)
+        Dim Status As String = ""
+        Call NextLlvmRegister(State, Status)
+        LoadAddress = "%value." & LongToString(NodeIndex)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Status & " = call i32 @ube_value_read(ptr " & LoadAddress & ", ptr " & Address & ", ptr " & Layout & ")" & NewLine)
+        Call NextLlvmRegister(State, Operand)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load " & LlvmType & ", ptr " & LoadAddress & NewLine)
+        Exit Sub
+    End If
+    Call NextLlvmRegister(State, Operand)
+    If TypeId = 1 Then
+        Dim BooleanByte As String = Operand
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & BooleanByte & " = load atomic i8, ptr " & Address & " seq_cst, align 1" & NewLine)
+        Call NextLlvmRegister(State, Operand)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp ne i8 " & BooleanByte & ", 0" & NewLine)
+    Else
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load atomic " & LlvmType & ", ptr " & Address & " seq_cst, align " & LongToString(ScalarStorageAlignment(TypeId)) & NewLine)
+    End If
+End Sub
+
+Sub EmitValueStore(ByVal TypeId As Long, ByVal Address As String, ByVal Operand As String, ByVal SourceNode As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String)
+    Dim LlvmType As String = ""
+    Call LlvmTypeName(TypeId, LlvmType)
+    If TypeId >= 1000 Then
+        Dim Layout As String = ""
+        Call ValueLayoutSymbol(TypeId, Layout)
+        Dim Status As String = ""
+        Call NextLlvmRegister(State, Status)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Status & " = call i32 @ube_value_assign(ptr " & Address & ", ptr %value." & LongToString(SourceNode) & ", ptr " & Layout & ")" & NewLine)
+        Exit Sub
+    End If
+    If TypeId = 1 Then
+        Dim BooleanByte As String = ""
+        Call NextLlvmRegister(State, BooleanByte)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & BooleanByte & " = zext i1 " & Operand & " to i8" & NewLine)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  store atomic i8 " & BooleanByte & ", ptr " & Address & " seq_cst, align 1" & NewLine)
+    Else
+        Call AppendText(Body, BodyCount, BodyCapacity, "  store atomic " & LlvmType & " " & Operand & ", ptr " & Address & " seq_cst, align " & LongToString(ScalarStorageAlignment(TypeId)) & NewLine)
+    End If
+End Sub
+
 Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
+    If NodeIndex < 0 Then
+        State.Failed = 1
+        Exit Sub
+    End If
+    TypeId = Nodes(NodeIndex).ResolvedType
+    Dim AddressableValue As Long = 0
+    If TypeId >= 1000 Then
+        If Nodes(NodeIndex).NodeKind = 12 Or Nodes(NodeIndex).NodeKind = 14 Then
+            AddressableValue = 1
+        End If
+        If Nodes(NodeIndex).NodeKind = 13 Then
+            If Nodes(Nodes(NodeIndex).LeftNode).ResolvedType >= 100000 Then
+                AddressableValue = 1
+            End If
+        End If
+    End If
+    If AddressableValue <> 0 Then
+        Dim Address As String = ""
+        Call EmitLvalueAddress(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Address, TypeId)
+        If State.Failed <> 0 Then
+            Exit Sub
+        End If
+        Call EmitValueLoad(TypeId, Address, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+        Exit Sub
+    End If
+    Call EmitExpressionCore(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Operand, TypeId)
+    If State.Failed <> 0 Then
+        Exit Sub
+    End If
+    If TypeId >= 1000 Then
+        Dim AggregateType As String = ""
+        Call LlvmTypeName(TypeId, AggregateType)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  store " & AggregateType & " " & Operand & ", ptr %scratch." & LongToString(NodeIndex) & NewLine)
+        Call EmitValueLoad(TypeId, "%scratch." & LongToString(NodeIndex), NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+    End If
+End Sub
+
+Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
     Operand = ""
     TypeId = 0
     If NodeIndex < 0 Then
@@ -3355,6 +4728,13 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
     End If
     Dim Kind As Long = Nodes(NodeIndex).NodeKind
     TypeId = Nodes(NodeIndex).ResolvedType
+    If TypeId = 2 Or TypeId = 4 Or TypeId = 7 Then
+        Dim ConstantValue As Long = 0
+        If EvaluateIntegerConstant(Tokens, Nodes, NodeIndex, ConstantValue) = 1 Then
+            Operand = LongToString(ConstantValue)
+            Exit Sub
+        End If
+    End If
     If Kind = 10 Then
         Operand = Tokens(Nodes(NodeIndex).SourceToken).Spelling
         Exit Sub
@@ -3381,10 +4761,7 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
             State.Failed = 1
             Exit Sub
         End If
-        Dim ValueType As String = ""
-        Call LlvmTypeName(TypeId, ValueType)
-        Call NextLlvmRegister(State, Operand)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load " & ValueType & ", ptr " & Address & NewLine)
+        Call EmitValueLoad(TypeId, Address, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
         Exit Sub
     End If
     If Kind = 14 Then
@@ -3393,32 +4770,25 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
         If State.Failed <> 0 Then
             Exit Sub
         End If
-        Dim MemberLlvmType As String = ""
-        Call LlvmTypeName(TypeId, MemberLlvmType)
-        Call NextLlvmRegister(State, Operand)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load " & MemberLlvmType & ", ptr " & MemberAddress & NewLine)
+        Call EmitValueLoad(TypeId, MemberAddress, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
         Exit Sub
     End If
     If Kind = 13 Then
         Dim CallCalleeNode As Long = Nodes(NodeIndex).LeftNode
-        If Nodes(CallCalleeNode).NodeKind <> 12 Then
-            State.Failed = 1
-            Exit Sub
-        End If
-        Dim CallNameToken As Long = Nodes(CallCalleeNode).SourceToken
-        Dim CallVariableType As Long = FindVariableType(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, CallNameToken)
-        If CallVariableType >= 100000 Then
+        If Nodes(CallCalleeNode).ResolvedType >= 100000 Then
             Dim ElementAddress As String = ""
             Call EmitLvalueAddress(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, ElementAddress, TypeId)
             If State.Failed <> 0 Then
                 Exit Sub
             End If
-            Dim ElementLlvmType As String = ""
-            Call LlvmTypeName(TypeId, ElementLlvmType)
-            Call NextLlvmRegister(State, Operand)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load " & ElementLlvmType & ", ptr " & ElementAddress & NewLine)
+            Call EmitValueLoad(TypeId, ElementAddress, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
             Exit Sub
         End If
+        If Nodes(CallCalleeNode).NodeKind <> 12 Then
+            State.Failed = 1
+            Exit Sub
+        End If
+        Dim CallNameToken As Long = Nodes(CallCalleeNode).SourceToken
         Dim CalledProcedure As Long = FindProcedureByToken(Tokens, Procedures, ProcedureCount, CallNameToken)
         If CalledProcedure < 0 Then
             State.Failed = 1
@@ -3426,15 +4796,21 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
         End If
         Dim CallSymbol As String = ""
         If Procedures(CalledProcedure).IsIntrinsic <> 0 Then
-            Call IntrinsicLlvmSymbol(Tokens(Procedures(CalledProcedure).NameToken).Spelling, CallSymbol)
+            Dim BoundSignature As String = ""
+            Call IntrinsicLlvmSymbol(Tokens(Procedures(CalledProcedure).NameToken).Spelling, CallSymbol, BoundSignature)
         Else
             Call ProcedureLlvmSymbol(CalledProcedure, CallSymbol)
         End If
-        If CallSymbol = "" Then
+        If CallSymbol = "" And Procedures(CalledProcedure).PrimitiveRole = 0 Then
             State.Failed = 1
             Exit Sub
         End If
         Dim Arguments As String = ""
+        Dim BoundArrayAddress As String = ""
+        Dim BoundCount As String = ""
+        Dim BoundPreserve As String = ""
+        Dim BoundDestinationStart As String = ""
+        Dim BoundByteCount As String = ""
         Dim CallArgumentLink As Long = Nodes(NodeIndex).RightNode
         Dim CallArgumentIndex As Long = 0
         While CallArgumentLink >= 0
@@ -3460,19 +4836,128 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
                 If State.Failed <> 0 Then
                     Exit Sub
                 End If
+                Dim ExpectedArgumentType As Long = DeclaredTypeId(Tokens, Parameters(CalledParameter).TypeToken, Parameters(CalledParameter).IsDynamicArray, Types, TypeCount)
+                Call EmitIntegerConversion(CallArgumentType, ExpectedArgumentType, CallArgumentOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                CallArgumentType = ExpectedArgumentType
                 Dim CallArgumentLlvmType As String = ""
                 Call LlvmTypeName(CallArgumentType, CallArgumentLlvmType)
                 Arguments = Arguments & CallArgumentLlvmType & " " & CallArgumentOperand
             End If
+            If Procedures(CalledProcedure).PrimitiveRole >= 3 Then
+                If CallArgumentIndex = 0 Then
+                    BoundArrayAddress = CallArgumentOperand
+                End If
+                If CallArgumentIndex = 1 Then
+                    BoundCount = CallArgumentOperand
+                End If
+                If CallArgumentIndex = 2 Then
+                    BoundPreserve = CallArgumentOperand
+                End If
+                If CallArgumentIndex = 3 Then
+                    BoundDestinationStart = CallArgumentOperand
+                End If
+                If CallArgumentIndex = 4 Then
+                    BoundByteCount = CallArgumentOperand
+                End If
+            End If
             CallArgumentIndex = CallArgumentIndex + 1
             CallArgumentLink = Nodes(CallArgumentLink).RightNode
         Wend
+        If Procedures(CalledProcedure).PrimitiveRole >= 8 Then
+            Call HostPrimitiveLlvmSymbol(Procedures(CalledProcedure).PrimitiveRole, CallSymbol)
+            If CallSymbol = "" Then
+                State.Failed = 1
+                Exit Sub
+            End If
+            Dim HostStatus As String = ""
+            Call NextLlvmRegister(State, HostStatus)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & HostStatus & " = call i32 @" & CallSymbol & "(" & Arguments & ")" & NewLine)
+            Call NextLlvmRegister(State, Operand)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp ne i32 " & HostStatus & ", 0" & NewLine)
+            TypeId = 1
+            Exit Sub
+        End If
+        If Procedures(CalledProcedure).PrimitiveRole >= 3 Then
+            Call NextLlvmRegister(State, Operand)
+            TypeId = 2
+            If Procedures(CalledProcedure).PrimitiveRole = 3 Then
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_value_array_length(ptr " & BoundArrayAddress & ")" & NewLine)
+            End If
+            If Procedures(CalledProcedure).PrimitiveRole = 4 Then
+                Dim BoundElementLayout As String = ""
+                Dim BoundArrayType As Long = DeclaredTypeId(Tokens, Parameters(Procedures(CalledProcedure).FirstParameter).TypeToken, 1, Types, TypeCount)
+                Call ValueLayoutSymbol(BoundArrayType - 100000, BoundElementLayout)
+                Dim WidePreserve As String = Operand
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & WidePreserve & " = zext i1 " & BoundPreserve & " to i32" & NewLine)
+                Dim ResizeStatus As String = ""
+                Call NextLlvmRegister(State, ResizeStatus)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & ResizeStatus & " = call i32 @ube_value_try_resize(ptr " & BoundArrayAddress & ", i32 " & BoundCount & ", ptr " & BoundElementLayout & ", i32 " & WidePreserve & ")" & NewLine)
+                Call NextLlvmRegister(State, Operand)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp ne i32 " & ResizeStatus & ", 0" & NewLine)
+                TypeId = 1
+            End If
+            If Procedures(CalledProcedure).PrimitiveRole = 5 Then
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_gc_collect()" & NewLine)
+            End If
+            If Procedures(CalledProcedure).PrimitiveRole = 6 Or Procedures(CalledProcedure).PrimitiveRole = 7 Then
+                Dim CopyStatus As String = Operand
+                If Procedures(CalledProcedure).PrimitiveRole = 6 Then
+                    Dim CopyLayout As String = ""
+                    Call ValueLayoutSymbol(DeclaredTypeId(Tokens, Parameters(Procedures(CalledProcedure).FirstParameter).TypeToken, 1, Types, TypeCount), CopyLayout)
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  " & CopyStatus & " = call i32 @ube_value_assign(ptr " & BoundArrayAddress & ", ptr " & BoundCount & ", ptr " & CopyLayout & ")" & NewLine)
+                Else
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  " & CopyStatus & " = call i32 @ube_value_copy_bytes(ptr " & BoundArrayAddress & ", i32 " & BoundCount & ", ptr " & BoundPreserve & ", i32 " & BoundDestinationStart & ", i32 " & BoundByteCount & ")" & NewLine)
+                End If
+                Call NextLlvmRegister(State, Operand)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp ne i32 " & CopyStatus & ", 0" & NewLine)
+                TypeId = 1
+            End If
+            Exit Sub
+        End If
+        If Procedures(CalledProcedure).PrimitiveRole <> 0 Then
+            Dim NativeIndex As Long = Procedures(CalledProcedure).PrimitiveNativeType
+            If NativeIndex < 0 Or NativeIndex >= TypeCount Or CallArgumentIndex <> 1 Then
+                State.Failed = 1
+                Exit Sub
+            End If
+            Dim NativeLlvmType As String = ""
+            Call LlvmTypeName(1000 + NativeIndex, NativeLlvmType)
+            Call NextLlvmRegister(State, Operand)
+            If Procedures(CalledProcedure).PrimitiveRole = 1 Then
+                Dim StorageLlvmType As String = ""
+                Call LlvmTypeName(Types(NativeIndex).RepresentationType, StorageLlvmType)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = insertvalue " & NativeLlvmType & " zeroinitializer, " & StorageLlvmType & " " & CallArgumentOperand & ", 0" & NewLine)
+                TypeId = 1000 + NativeIndex
+            Else
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = extractvalue " & NativeLlvmType & " " & CallArgumentOperand & ", 0" & NewLine)
+                TypeId = Types(NativeIndex).RepresentationType
+            End If
+            Exit Sub
+        End If
+        If Procedures(CalledProcedure).IsIntrinsic = 0 And EqualsIdentifier(Tokens(Procedures(CalledProcedure).NameToken).Spelling, "Main") <> 0 Then
+            If Arguments <> "" Then
+                Arguments = Arguments & ", "
+            End If
+            Arguments = Arguments & "ptr null"
+        End If
         If Procedures(CalledProcedure).ProcedureKind = 2 Then
-            TypeId = DeclaredTypeId(Tokens, Procedures(CalledProcedure).ReturnTypeToken, 0, Types, TypeCount)
+            TypeId = DeclaredTypeId(Tokens, Procedures(CalledProcedure).ReturnTypeToken, Procedures(CalledProcedure).ResultIsDynamicArray, Types, TypeCount)
             Dim CallReturnLlvmType As String = ""
             Call LlvmTypeName(TypeId, CallReturnLlvmType)
             Call NextLlvmRegister(State, Operand)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call " & CallReturnLlvmType & " " & CallSymbol & "(" & Arguments & ")" & NewLine)
+            If ContainsArrayStorage(Tokens, TypeId, Types, TypeCount, Fields) <> 0 Then
+                Dim ResultLayout As String = ""
+                Call ValueLayoutSymbol(TypeId, ResultLayout)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_value_zero(ptr %value." & LongToString(NodeIndex) & ", ptr " & ResultLayout & ")" & NewLine)
+                If Arguments <> "" Then
+                    Arguments = Arguments & ", "
+                End If
+                Arguments = Arguments & "ptr %value." & LongToString(NodeIndex)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  call void " & CallSymbol & "(" & Arguments & ")" & NewLine)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load " & CallReturnLlvmType & ", ptr %value." & LongToString(NodeIndex) & NewLine)
+            Else
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call " & CallReturnLlvmType & " " & CallSymbol & "(" & Arguments & ")" & NewLine)
+            End If
         Else
             TypeId = 0
             Operand = ""
@@ -3490,15 +4975,19 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
         Dim UnaryOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
         If UnaryOperator = "+" Then
             Operand = UnaryOperand
-            TypeId = UnaryTypeId
+            Call EmitIntegerConversion(UnaryTypeId, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
             Exit Sub
         End If
+        Call EmitIntegerConversion(UnaryTypeId, TypeId, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+        UnaryTypeId = TypeId
         Dim UnaryLlvmType As String = ""
         Call LlvmTypeName(UnaryTypeId, UnaryLlvmType)
         Call NextLlvmRegister(State, Operand)
         If UnaryOperator = "-" Then
             If UnaryTypeId = 2 Or UnaryTypeId = 4 Then
+                Call EmitIntegerConversion(UnaryTypeId, 2, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
                 Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_neg_i32(i32 " & UnaryOperand & ")" & NewLine)
+                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
             Else
                 Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = sub " & UnaryLlvmType & " 0, " & UnaryOperand & NewLine)
             End If
@@ -3533,6 +5022,31 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
         If BinaryOperator = "&" Then
             Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call ptr @ube_string_concat(ptr " & LeftOperand & ", ptr " & RightOperand & ")" & NewLine)
             Exit Sub
+        End If
+        If LeftTypeId >= 1000 And LeftTypeId < 1000 + TypeCount Then
+            If Types(LeftTypeId - 1000).RepresentationType = 0 Or LeftTypeId <> RightTypeId Or (BinaryOperator <> "=" And BinaryOperator <> "<>") Then
+                State.Failed = 1
+                Exit Sub
+            End If
+            Dim CompareAggregate As String = ""
+            Call LlvmTypeName(LeftTypeId, CompareAggregate)
+            Dim LeftScalar As String = ""
+            Dim RightScalar As String = ""
+            Call NextLlvmRegister(State, LeftScalar)
+            Call NextLlvmRegister(State, RightScalar)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & LeftScalar & " = extractvalue " & CompareAggregate & " " & LeftOperand & ", 0" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & RightScalar & " = extractvalue " & CompareAggregate & " " & RightOperand & ", 0" & NewLine)
+            RightTypeId = Types(LeftTypeId - 1000).RepresentationType
+            LeftTypeId = RightTypeId
+            LeftOperand = LeftScalar
+            RightOperand = RightScalar
+        End If
+        If IsNumericType(LeftTypeId) <> 0 And IsNumericType(RightTypeId) <> 0 Then
+            Dim PromotedType As Long = CommonNumericType(LeftTypeId, RightTypeId)
+            Call EmitIntegerConversion(LeftTypeId, PromotedType, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            Call EmitIntegerConversion(RightTypeId, PromotedType, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            LeftTypeId = PromotedType
+            RightTypeId = PromotedType
         End If
         If EqualsKeyword(BinaryOperator, "And") <> 0 Or EqualsKeyword(BinaryOperator, "Or") <> 0 Then
             Dim LogicOpcode As String = "and"
@@ -3598,7 +5112,10 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
                 ArithmeticHelper = "mod"
             End If
             If ArithmeticHelper <> "" Then
+                Call EmitIntegerConversion(LeftTypeId, 2, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call EmitIntegerConversion(RightTypeId, 2, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
                 Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_" & ArithmeticHelper & "_i32(i32 " & LeftOperand & ", i32 " & RightOperand & ")" & NewLine)
+                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
                 Exit Sub
             End If
         End If
@@ -3609,7 +5126,7 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
 End Sub
 
 Sub EmitStructuredProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByRef Statements() As StatementSyntax, ByVal StatementCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String)
-    Call EmitProcedureHeader(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, Body, BodyCount, BodyCapacity, NewLine)
+    Call EmitProcedureHeader(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, Body, BodyCount, BodyCapacity, NewLine)
     State.CurrentTerminated = 0
     Dim BlockKinds() As Long
     Dim BlockConditionLabels() As String
@@ -3769,20 +5286,33 @@ Sub EmitStructuredProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As Syntax
     Call AppendText(Body, BodyCount, BodyCapacity, "proc.exit:" & NewLine)
     State.CurrentTerminated = 0
     If Procedures(Owner).ProcedureKind = 2 Then
-        Dim ReturnTypeId As Long = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, 0, Types, TypeCount)
+        Dim ReturnTypeId As Long = DeclaredTypeId(Tokens, Procedures(Owner).ReturnTypeToken, Procedures(Owner).ResultIsDynamicArray, Types, TypeCount)
         Dim ReturnLlvmType As String = ""
         Call LlvmTypeName(ReturnTypeId, ReturnLlvmType)
-        Dim ReturnOperand As String = ""
-        Call NextLlvmRegister(State, ReturnOperand)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  " & ReturnOperand & " = load " & ReturnLlvmType & ", ptr %result" & NewLine)
-        Call AppendText(Body, BodyCount, BodyCapacity, "  ret " & ReturnLlvmType & " " & ReturnOperand & NewLine & "}" & NewLine & NewLine)
+        If ValueRootCount(ReturnTypeId, Types, TypeCount) > 0 Then
+            Dim ReturnLayout As String = ""
+            Call ValueLayoutSymbol(ReturnTypeId, ReturnLayout)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  %result.can.publish = load i1, ptr %result.ready" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  br i1 %result.can.publish, label %result.publish, label %result.cleanup" & NewLine & "result.publish:" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  call i32 @ube_value_assign(ptr %result.out, ptr %result, ptr " & ReturnLayout & ")" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  br label %result.cleanup" & NewLine & "result.cleanup:" & NewLine)
+            Call EmitProcedureRoots(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, 2, Body, BodyCount, BodyCapacity, NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  ret void" & NewLine & "}" & NewLine & NewLine)
+        Else
+            Dim ReturnOperand As String = ""
+            Call NextLlvmRegister(State, ReturnOperand)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & ReturnOperand & " = load " & ReturnLlvmType & ", ptr %result" & NewLine)
+            Call EmitProcedureRoots(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, 2, Body, BodyCount, BodyCapacity, NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  ret " & ReturnLlvmType & " " & ReturnOperand & NewLine & "}" & NewLine & NewLine)
+        End If
     Else
+        Call EmitProcedureRoots(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, 2, Body, BodyCount, BodyCapacity, NewLine)
         Call AppendText(Body, BodyCount, BodyCapacity, "  ret void" & NewLine & "}" & NewLine & NewLine)
     End If
 End Sub
 
 Sub EmitEntryProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByRef Statements() As StatementSyntax, ByVal StatementCount As Long, ByVal EntryProcedureIndex As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String)
-    Call EmitProcedureHeader(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, EntryProcedureIndex, Body, BodyCount, BodyCapacity, NewLine)
+    Call EmitProcedureHeader(Tokens, Nodes, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, EntryProcedureIndex, Body, BodyCount, BodyCapacity, NewLine)
     Dim StatementIndex As Long = 0
     While StatementIndex < StatementCount
         If Statements(StatementIndex).OwnerProcedure = EntryProcedureIndex Then
@@ -3810,6 +5340,8 @@ Sub EmitEntryProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode,
                     If State.Failed <> 0 Then
                         Exit Sub
                     End If
+                    Call EmitIntegerConversion(InitializerTypeId, DeclaredTypeId(Tokens, Locals(DeclarationLocal).TypeToken, Locals(DeclarationLocal).IsDynamicArray, Types, TypeCount), InitializerOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                    InitializerTypeId = DeclaredTypeId(Tokens, Locals(DeclarationLocal).TypeToken, Locals(DeclarationLocal).IsDynamicArray, Types, TypeCount)
                     Dim InitializerLlvmType As String = ""
                     Call LlvmTypeName(InitializerTypeId, InitializerLlvmType)
                     Call AppendText(Body, BodyCount, BodyCapacity, "  store " & InitializerLlvmType & " " & InitializerOperand & ", ptr %local." & LongToString(DeclarationLocal) & NewLine)
@@ -3828,6 +5360,7 @@ Sub EmitEntryProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode,
                     If State.Failed <> 0 Then
                         Exit Sub
                     End If
+                    Call EmitIntegerConversion(AssignmentValueType, AssignmentTypeId, AssignmentOperand, Body, BodyCount, BodyCapacity, State, NewLine)
                     Dim AssignmentLlvmType As String = ""
                     Call LlvmTypeName(AssignmentTypeId, AssignmentLlvmType)
                     Call AppendText(Body, BodyCount, BodyCapacity, "  store " & AssignmentLlvmType & " " & AssignmentOperand & ", ptr " & AssignmentAddress & NewLine)
@@ -3846,6 +5379,10 @@ Sub EmitEntryProcedureBody(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode,
                             Call EmitExpression(Tokens, Nodes, Statements(StatementIndex).ValueNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, EntryProcedureIndex, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, PrintOperand, PrintTypeId)
                             If State.Failed <> 0 Then
                                 Exit Sub
+                            End If
+                            If PrintTypeId = 1 Or PrintTypeId = 4 Or PrintTypeId = 7 Then
+                                Call EmitIntegerConversion(PrintTypeId, 2, PrintOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                                PrintTypeId = 2
                             End If
                             If PrintTypeId = 3 Then
                                 Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_string(ptr " & PrintOperand & ")" & NewLine)
@@ -4054,40 +5591,500 @@ Function NormalizeProjectSourcePath(ByVal Value As String, ByRef Normalized As S
     NormalizeProjectSourcePath = 1
 End Function
 
-Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ErrorMessage As String) As Long
+' Validates one bare identifier using the existing Unicode lexer contract.
+Function IsBootstrapIdentity(ByVal Value As String) As Long
+    IsBootstrapIdentity = 0
+    Dim Length As Long = StringLength(Value)
+    If Length = 0 Or Length > 255 Then
+        Exit Function
+    End If
+    Dim Index As Long = IdentifierStartLength(Value, 0, Length)
+    If Index = 0 Then
+        Exit Function
+    End If
+    While Index < Length
+        Dim Width As Long = IdentifierPartLength(Value, Index, Length)
+        If Width = 0 Then
+            Exit Function
+        End If
+        Index = Index + Width
+    Wend
+    IsBootstrapIdentity = 1
+End Function
+
+Function DecodeProjectValue(ByVal RawValue As String, ByRef Value As String) As Long
+    DecodeProjectValue = 0
+    Value = ""
+    Dim Length As Long = StringLength(RawValue)
+    If Length < 2 Then
+        Exit Function
+    End If
+    If StringByteAt(RawValue, 0) <> 34 Or StringByteAt(RawValue, Length - 1) <> 34 Then
+        Exit Function
+    End If
+    Dim Index As Long = 1
+    While Index < Length - 1
+        Dim Current As Long = StringByteAt(RawValue, Index)
+        If Current < 32 Then
+            Exit Function
+        End If
+        If Current = 34 Then
+            Index = Index + 1
+            If Index >= Length - 1 Then
+                Exit Function
+            End If
+            If StringByteAt(RawValue, Index) <> 34 Then
+                Exit Function
+            End If
+        End If
+        Value = Value & StringFromByte(Current)
+        Index = Index + 1
+    Wend
+    DecodeProjectValue = 1
+End Function
+
+' Lexical normalization retains explicit parent segments for relative roots;
+' references never discover directories or consult an environment search path.
+Function NormalizeBootstrapPath(ByVal Value As String, ByRef Result As String) As Long
+    NormalizeBootstrapPath = 0
+    Result = ""
+    Dim Length As Long = StringLength(Value)
+    If Length = 0 Or Length > 4096 Then
+        Exit Function
+    End If
+    Dim Segments() As String
+    ReDim Segments(255)
+    Dim Count As Long = 0
+    Dim Start As Long = 0
+    Dim Index As Long = 0
+    Dim Prefix As String = ""
+    If StringByteAt(Value, 0) = 47 Or StringByteAt(Value, 0) = 92 Then
+        Prefix = "/"
+        Start = 1
+        Index = 1
+    End If
+    While Index <= Length
+        Dim Separator As Long = 0
+        If Index = Length Then
+            Separator = 1
+        Else
+            If StringByteAt(Value, Index) = 47 Or StringByteAt(Value, Index) = 92 Then
+                Separator = 1
+            End If
+        End If
+        If Separator <> 0 Then
+            Dim Part As String = StringSlice(Value, Start, Index - Start)
+            If StringLength(Part) = 0 Then
+                Exit Function
+            End If
+            If Part = ".." Then
+                If Count > 0 Then
+                    If Segments(Count - 1) <> ".." And StringIndexOf(Segments(Count - 1), ":", 0) < 0 Then
+                        Count = Count - 1
+                    Else
+                        If Count >= 256 Then
+                            Exit Function
+                        End If
+                        Segments(Count) = Part
+                        Count = Count + 1
+                    End If
+                Else
+                    If Prefix <> "" Then
+                        Exit Function
+                    End If
+                    Segments(Count) = Part
+                    Count = Count + 1
+                End If
+            Else
+                If Part <> "." Then
+                    If Count >= 256 Then
+                        Exit Function
+                    End If
+                    Segments(Count) = Part
+                    Count = Count + 1
+                End If
+            End If
+            Start = Index + 1
+        End If
+        Index = Index + 1
+    Wend
+    Result = Prefix
+    Index = 0
+    While Index < Count
+        If Index > 0 Then
+            Result = Result & "/"
+        End If
+        Result = Result & Segments(Index)
+        Index = Index + 1
+    Wend
+    If StringLength(Result) = 0 Then
+        Exit Function
+    End If
+    NormalizeBootstrapPath = 1
+End Function
+
+Function ResolveBootstrapReference(ByVal ProjectPath As String, ByVal RelativePath As String, ByRef Result As String) As Long
+    ResolveBootstrapReference = 0
+    Dim Length As Long = StringLength(RelativePath)
+    If Length < 4 Or Length > 4096 Then
+        Exit Function
+    End If
+    If StringByteAt(RelativePath, 0) = 47 Or StringByteAt(RelativePath, 0) = 92 Or StringIndexOf(RelativePath, ":", 0) >= 0 Then
+        Exit Function
+    End If
+    If EqualsIdentifier(StringSlice(RelativePath, Length - 4, 4), ".UBE") = 0 Then
+        Exit Function
+    End If
+    Dim Separator As Long = StringLength(ProjectPath) - 1
+    While Separator >= 0
+        If StringByteAt(ProjectPath, Separator) = 47 Or StringByteAt(ProjectPath, Separator) = 92 Then
+            Exit While
+        End If
+        Separator = Separator - 1
+    Wend
+    ResolveBootstrapReference = NormalizeBootstrapPath(StringSlice(ProjectPath, 0, Separator + 1) & RelativePath, Result)
+End Function
+
+Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef SourcePackages() As Long, ByRef PackageNames() As String, ByRef PackageCount As Long, ByRef ErrorMessage As String) As Long
+    ResolveSourceInput = 0
     SourceCount = 0
-    ErrorMessage = ""
-    Dim InputLength As Long = StringLength(InputPath)
-    If InputLength >= 4 Then
-        Dim InputSuffix As String = StringSlice(InputPath, InputLength - 4, 4)
-        If EqualsIdentifier(InputSuffix, ".UBG") <> 0 Or EqualsIdentifier(InputSuffix, ".UBR") <> 0 Then
-            ErrorMessage = "error UBE5000: project groups and resource sidecars are not compiler source inputs"
-            ResolveSourceInput = 0
-            Exit Function
-        End If
-        If EqualsIdentifier(InputSuffix, ".UBE") = 0 Then
-            Call AppendText(SourcePaths, SourceCount, SourceCapacity, InputPath)
-            ResolveSourceInput = 1
-            Exit Function
-        End If
-    Else
+    PackageCount = 1
+    ReDim SourcePackages(4351)
+    ReDim PackageNames(16)
+    Dim Length As Long = StringLength(InputPath)
+    If Length < 4 Then
         Call AppendText(SourcePaths, SourceCount, SourceCapacity, InputPath)
         ResolveSourceInput = 1
         Exit Function
     End If
+    Dim Suffix As String = StringSlice(InputPath, Length - 4, 4)
+    If EqualsIdentifier(Suffix, ".UBG") <> 0 Or EqualsIdentifier(Suffix, ".UBR") <> 0 Then
+        ErrorMessage = "error UBE5000: project groups and resource sidecars are not compiler source inputs"
+        Exit Function
+    End If
+    If EqualsIdentifier(Suffix, ".UBE") = 0 Then
+        If EqualsIdentifier(Suffix, ".bas") = 0 Then
+            ErrorMessage = "error UBE5000: bootstrap source inputs must be .bas or .UBE files"
+            Exit Function
+        End If
+        Call AppendText(SourcePaths, SourceCount, SourceCapacity, InputPath)
+        ResolveSourceInput = 1
+        Exit Function
+    End If
+    Dim ProjectPath As String = ""
+    If NormalizeBootstrapPath(InputPath, ProjectPath) = 0 Then
+        ErrorMessage = "error UBE5012: invalid or excessive project path"
+        Exit Function
+    End If
+    Dim References() As String
+    Dim ReferenceCount As Long = 0
+    Dim ReferenceCapacity As Long = 0
+    Dim PackageName As String = ""
+    If ReadBootstrapProject(ProjectPath, 0, PackageName, References, ReferenceCount, ReferenceCapacity, SourcePaths, SourceCount, SourceCapacity, ErrorMessage) = 0 Then
+        Exit Function
+    End If
+    PackageNames(0) = PackageName
+    Dim Paths() As String
+    ReDim Paths(16)
+    Paths(0) = ProjectPath
+    Dim Index As Long = 0
+    While Index < ReferenceCount
+        Dim ReferencePath As String = References(Index)
+        Dim Existing As Long = 0
+        While Existing < PackageCount
+            If EqualsIdentifier(Paths(Existing), ReferencePath) <> 0 Then
+                ErrorMessage = "error UBE5013: self-reference, cycle, or duplicate normalized Reference path"
+                Exit Function
+            End If
+            Existing = Existing + 1
+        Wend
+        Paths(PackageCount) = ReferencePath
+        Dim Nested() As String
+        Dim NestedCount As Long = 0
+        Dim NestedCapacity As Long = 0
+        Dim FirstSource As Long = SourceCount
+        If ReadBootstrapProject(ReferencePath, 1, PackageName, Nested, NestedCount, NestedCapacity, SourcePaths, SourceCount, SourceCapacity, ErrorMessage) = 0 Then
+            Exit Function
+        End If
+        PackageNames(PackageCount) = PackageName
+        Existing = 0
+        While Existing < PackageCount
+            If EqualsIdentifier(PackageNames(Existing), PackageNames(PackageCount)) <> 0 Then
+                ErrorMessage = "error UBE5014: duplicate folded project package Name"
+                Exit Function
+            End If
+            Existing = Existing + 1
+        Wend
+        While FirstSource < SourceCount
+            SourcePackages(FirstSource) = PackageCount
+            FirstSource = FirstSource + 1
+        Wend
+        PackageCount = PackageCount + 1
+        Index = Index + 1
+    Wend
+    ResolveSourceInput = 1
+End Function
+
+Function BootstrapTextStartsWith(ByVal Value As String, ByVal Prefix As String) As Long
+    BootstrapTextStartsWith = 0
+    If StringLength(Value) >= StringLength(Prefix) Then
+        BootstrapTextStartsWith = EqualsIdentifier(StringSlice(Value, 0, StringLength(Prefix)), Prefix)
+    End If
+End Function
+
+' A BOM is a permitted initial encoding signature, not part of header text.
+' Callers keep the original bytes and offsets; only their header cursor moves.
+Function Utf8HeaderStart(ByVal Contents As String) As Long
+    Utf8HeaderStart = 0
+    If StringLength(Contents) >= 3 Then
+        If StringByteAt(Contents, 0) = 239 And StringByteAt(Contents, 1) = 187 And StringByteAt(Contents, 2) = 191 Then
+            Utf8HeaderStart = 3
+        End If
+    End If
+End Function
+
+Function ValidateBootstrapEnvelope(ByVal Contents As String, ByVal RequireNative As Long, ByRef ModuleName As String, ByRef ErrorMessage As String) As Long
+    ValidateBootstrapEnvelope = 0
+    ModuleName = ""
+    Dim Cursor As Long = Utf8HeaderStart(Contents)
+    Dim Length As Long = StringLength(Contents)
+    Dim EnvelopeState As Long = 0
+    While Cursor < Length
+        Dim LineEnd As Long = StringIndexOf(Contents, StringFromByte(10), Cursor)
+        If LineEnd < 0 Then
+            LineEnd = Length
+        End If
+        Dim EnvelopeLine As String = ""
+        Call TrimManifestText(StringSlice(Contents, Cursor, LineEnd - Cursor), EnvelopeLine)
+        If StringLength(EnvelopeLine) > 0 Then
+            If StringByteAt(EnvelopeLine, 0) <> 39 Then
+                If EnvelopeState = 0 Then
+                    If EqualsIdentifier(EnvelopeLine, "UBE SOURCE 1 MODULE") <> 0 Then
+                        EnvelopeState = 1
+                    Else
+                        ' Existing bare bootstrap diagnostics may begin with
+                        ' the continuation of an intrinsic binding. Let its
+                        ' established metadata/ownership validator diagnose it;
+                        ' a referenced native package still requires its header.
+                        Dim BootstrapMetadata As Long = 0
+                        If RequireNative = 0 And BootstrapTextStartsWith(EnvelopeLine, "Attribute") <> 0 Then
+                            Dim AttributeEquals As Long = StringIndexOf(EnvelopeLine, "=", 0)
+                            If AttributeEquals > 0 Then
+                                Dim AttributeKey As String = ""
+                                Call TrimManifestText(StringSlice(EnvelopeLine, 0, AttributeEquals), AttributeKey)
+                                Dim AttributeKeyLength As Long = StringLength(AttributeKey)
+                                If AttributeKeyLength >= 14 Then
+                                    BootstrapMetadata = EqualsIdentifier(StringSlice(AttributeKey, AttributeKeyLength - 14, 14), ".UBE_Primitive")
+                                End If
+                            End If
+                        End If
+                        If RequireNative <> 0 Or BootstrapTextStartsWith(EnvelopeLine, "UBE ") <> 0 Or EqualsIdentifier(EnvelopeLine, "UBE") <> 0 Or BootstrapTextStartsWith(EnvelopeLine, "Attribute") <> 0 And BootstrapMetadata = 0 Then
+                            ErrorMessage = "error UBE5020: native source requires UBE SOURCE 1 MODULE and UBE_Name"
+                            Exit Function
+                        End If
+                        ValidateBootstrapEnvelope = 1
+                        Exit Function
+                    End If
+                Else
+                    If EnvelopeState = 1 Then
+                        Dim EqualsIndex As Long = StringIndexOf(EnvelopeLine, "=", 0)
+                        If EqualsIndex < 1 Then
+                            ErrorMessage = "error UBE5021: native source requires one valid Attribute UBE_Name"
+                            Exit Function
+                        End If
+                        Dim Key As String = ""
+                        Call TrimManifestText(StringSlice(EnvelopeLine, 0, EqualsIndex), Key)
+                        Dim RawName As String = ""
+                        Call TrimManifestText(StringSlice(EnvelopeLine, EqualsIndex + 1, StringLength(EnvelopeLine) - EqualsIndex - 1), RawName)
+                        If EqualsIndex < 1 Or EqualsIdentifier(Key, "Attribute UBE_Name") = 0 Or DecodeProjectValue(RawName, ModuleName) = 0 Or IsBootstrapIdentity(ModuleName) = 0 Then
+                            ErrorMessage = "error UBE5021: native source requires one valid Attribute UBE_Name"
+                            Exit Function
+                        End If
+                        EnvelopeState = 2
+                    Else
+                        If BootstrapTextStartsWith(EnvelopeLine, "UBE ") <> 0 Or EqualsIdentifier(EnvelopeLine, "UBE") <> 0 Or BootstrapTextStartsWith(EnvelopeLine, "Attribute UBE_") <> 0 Then
+                            ErrorMessage = "error UBE5022: duplicate native header or unknown reserved module attribute"
+                            Exit Function
+                        End If
+                    End If
+                End If
+            End If
+        End If
+        Cursor = LineEnd + 1
+    Wend
+    If EnvelopeState = 1 Or RequireNative <> 0 And EnvelopeState <> 2 Then
+        ErrorMessage = "error UBE5021: native source requires one valid Attribute UBE_Name"
+        Exit Function
+    End If
+    ValidateBootstrapEnvelope = 1
+End Function
+
+' Runs after the existing native ownership/signature checks, preserving their
+' specific diagnostics while guarding remaining cross-module declarations.
+Function ValidateSourceDeclarationBoundaries(ByRef Tokens() As Token, ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateSourceDeclarationBoundaries = 0
+    Dim Index As Long = 0
+    While Index < ProcedureCount
+        If FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).HeaderToken).StartByte) <> FindSourceIndex(Sources, SourceCount, Tokens(Procedures(Index).EndToken).StartByte) Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5029", Tokens(Procedures(Index).HeaderToken).StartByte, Tokens(Procedures(Index).HeaderToken).ByteLength, "procedure declaration cannot cross source-module boundaries")
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    Index = 0
+    While Index < TypeCount
+        If FindSourceIndex(Sources, SourceCount, Tokens(Types(Index).HeaderToken).StartByte) <> FindSourceIndex(Sources, SourceCount, Tokens(Types(Index).EndToken).StartByte) Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5029", Tokens(Types(Index).HeaderToken).StartByte, Tokens(Types(Index).HeaderToken).ByteLength, "type declaration cannot cross source-module boundaries")
+            Exit Function
+        End If
+        Index = Index + 1
+    Wend
+    ValidateSourceDeclarationBoundaries = 1
+End Function
+
+' Source references deliberately expose a closed Public-only subset. Reject
+' unsupported syntax before the old global lookup can grant extra visibility.
+Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef PackageNames() As String, ByVal PackageCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ValidateBootstrapPackages = 0
+    Dim Index As Long = 0
+    Dim InProcedure As Long = 0
+    Dim InType As Long = 0
+    While Index < TokenCount
+        Dim SourceIndex As Long = FindSourceIndex(Sources, SourceCount, Tokens(Index).StartByte)
+        Dim PackageId As Long = 0
+        If SourceIndex >= 0 Then
+            PackageId = Sources(SourceIndex).PackageId
+        Else
+            If Tokens(Index).TokenKind = 1 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5028", Tokens(Index).StartByte, Tokens(Index).ByteLength, "declaration token is outside its source module")
+                Exit Function
+            End If
+        End If
+        Dim LineStart As Long = 0
+        If Index = 0 Then
+            LineStart = 1
+        Else
+            If Tokens(Index - 1).TokenKind = 4 Then
+                LineStart = 1
+            End If
+        End If
+        If PackageCount > 1 And Tokens(Index).TokenKind = 1 Then
+            If Index + 1 < TokenCount Then
+                If Tokens(Index + 1).Spelling = "." Then
+                    Dim NameIndex As Long = 0
+                    While NameIndex < PackageCount
+                        If EqualsIdentifier(Tokens(Index).Spelling, PackageNames(NameIndex)) <> 0 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5026", Tokens(Index).StartByte, Tokens(Index).ByteLength, "package/module qualification is outside the direct-reference bootstrap subset")
+                            Exit Function
+                        End If
+                        NameIndex = NameIndex + 1
+                    Wend
+                    NameIndex = 0
+                    While NameIndex < SourceCount
+                        If StringLength(Sources(NameIndex).ModuleName) > 0 And EqualsIdentifier(Tokens(Index).Spelling, Sources(NameIndex).ModuleName) <> 0 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5026", Tokens(Index).StartByte, Tokens(Index).ByteLength, "package/module qualification is outside the direct-reference bootstrap subset")
+                            Exit Function
+                        End If
+                        NameIndex = NameIndex + 1
+                    Wend
+                End If
+            End If
+        End If
+        If PackageId > 0 And Tokens(Index).TokenKind = 1 Then
+            Dim Word As String = Tokens(Index).Spelling
+            If LineStart <> 0 Then
+                If EqualsKeyword(Word, "Private") <> 0 Or EqualsKeyword(Word, "Friend") <> 0 Or EqualsKeyword(Word, "Global") <> 0 Or EqualsKeyword(Word, "Option") <> 0 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5023", Tokens(Index).StartByte, Tokens(Index).ByteLength, "referenced packages require the Public-only bootstrap declaration subset")
+                    Exit Function
+                End If
+                Dim HeaderIndex As Long = Index
+                If EqualsKeyword(Word, "Public") <> 0 Then
+                    HeaderIndex = HeaderIndex + 1
+                End If
+                If HeaderIndex < TokenCount Then
+                    If EqualsKeyword(Tokens(HeaderIndex).Spelling, "Intrinsic") <> 0 Then
+                        HeaderIndex = HeaderIndex + 1
+                    End If
+                End If
+                Dim HeaderWord As String = Tokens(HeaderIndex).Spelling
+                If InProcedure = 0 And InType = 0 Then
+                    If EqualsKeyword(HeaderWord, "Sub") <> 0 Or EqualsKeyword(HeaderWord, "Function") <> 0 Then
+                        InProcedure = 1
+                    Else
+                        If EqualsKeyword(HeaderWord, "Type") <> 0 Then
+                            InType = 1
+                        Else
+                            If EqualsKeyword(Word, "UBE") = 0 And EqualsKeyword(Word, "Attribute") = 0 Then
+                                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5023", Tokens(Index).StartByte, Tokens(Index).ByteLength, "unsupported top-level declaration in referenced package")
+                                Exit Function
+                            End If
+                        End If
+                    End If
+                Else
+                    If EqualsKeyword(Word, "End") <> 0 And Index + 1 < TokenCount Then
+                        If EqualsKeyword(Tokens(Index + 1).Spelling, "Sub") <> 0 Or EqualsKeyword(Tokens(Index + 1).Spelling, "Function") <> 0 Then
+                            InProcedure = 0
+                        End If
+                        If EqualsKeyword(Tokens(Index + 1).Spelling, "Type") <> 0 Then
+                            InType = 0
+                        End If
+                    End If
+                End If
+            End If
+            Dim DeclarationIndex As Long = 0
+            While DeclarationIndex < ProcedureCount
+                If EqualsIdentifier(Word, Tokens(Procedures(DeclarationIndex).NameToken).Spelling) <> 0 Then
+                    Dim DeclarationSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Procedures(DeclarationIndex).NameToken).StartByte)
+                    If Sources(DeclarationSource).PackageId <> PackageId Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5024", Tokens(Index).StartByte, Tokens(Index).ByteLength, "referenced library cannot name executable or independent-library declarations in this bootstrap subset")
+                        Exit Function
+                    End If
+                    If EqualsKeyword(Word, "Main") <> 0 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5025", Tokens(Index).StartByte, Tokens(Index).ByteLength, "Main must belong to the executable package")
+                        Exit Function
+                    End If
+                End If
+                DeclarationIndex = DeclarationIndex + 1
+            Wend
+            DeclarationIndex = 0
+            While DeclarationIndex < TypeCount
+                If EqualsIdentifier(Word, Tokens(Types(DeclarationIndex).NameToken).Spelling) <> 0 Then
+                    Dim TypeSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Types(DeclarationIndex).NameToken).StartByte)
+                    If Sources(TypeSource).PackageId <> PackageId Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5024", Tokens(Index).StartByte, Tokens(Index).ByteLength, "referenced library cannot name executable or independent-library declarations in this bootstrap subset")
+                        Exit Function
+                    End If
+                End If
+                DeclarationIndex = DeclarationIndex + 1
+            Wend
+        End If
+        Index = Index + 1
+    Wend
+    ValidateBootstrapPackages = 1
+End Function
+
+Function ReadBootstrapProject(ByVal InputPath As String, ByVal IsLibrary As Long, ByRef ProjectName As String, ByRef ReferencePaths() As String, ByRef ReferenceCount As Long, ByRef ReferenceCapacity As Long, ByRef SourcePaths() As String, ByRef SourceCount As Long, ByRef SourceCapacity As Long, ByRef ErrorMessage As String) As Long
+    ErrorMessage = ""
+    Dim InputLength As Long = StringLength(InputPath)
     Dim ManifestText As String = ReadAllText(InputPath)
+    If StringLength(ManifestText) > 1048576 Then
+        ErrorMessage = "error UBE5011: project manifest exceeds the 1048576-byte bootstrap limit"
+        ReadBootstrapProject = 0
+        Exit Function
+    End If
     Dim InvalidManifestByte As Long = -1
     If ValidateUtf8(ManifestText, InvalidManifestByte) = 0 Then
         ErrorMessage = "error UBE5001: project manifest is not valid UTF-8"
-        ResolveSourceInput = 0
+        ReadBootstrapProject = 0
         Exit Function
     End If
-    Dim Cursor As Long = 0
+    Dim Cursor As Long = Utf8HeaderStart(ManifestText)
     Dim ManifestLength As Long = StringLength(ManifestText)
     Dim LineNumber As Long = 0
     Dim SawHeader As Long = 0
     Dim SawName As Long = 0
     Dim SawKind As Long = 0
+    Dim SawStartup As Long = 0
     Dim SourceRelatives() As String
     Dim SourceRelativeCount As Long = 0
     Dim SourceRelativeCapacity As Long = 0
@@ -4105,7 +6102,7 @@ Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As St
                 If SawHeader = 0 Then
                     If ManifestLine <> "UBE-Project 1" Then
                         ErrorMessage = "error UBE5002: project manifest must begin with UBE-Project 1"
-                        ResolveSourceInput = 0
+                        ReadBootstrapProject = 0
                         Exit Function
                     End If
                     SawHeader = 1
@@ -4113,40 +6110,41 @@ Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As St
                     Dim EqualsIndex As Long = StringIndexOf(ManifestLine, "=", 0)
                     If EqualsIndex < 1 Then
                         ErrorMessage = "error UBE5003: malformed project manifest entry on line " & LongToString(LineNumber)
-                        ResolveSourceInput = 0
+                        ReadBootstrapProject = 0
                         Exit Function
                     End If
                     Dim Key As String = ""
                     Dim RawValue As String = ""
                     Call TrimManifestText(StringSlice(ManifestLine, 0, EqualsIndex), Key)
                     Call TrimManifestText(StringSlice(ManifestLine, EqualsIndex + 1, StringLength(ManifestLine) - EqualsIndex - 1), RawValue)
-                    Dim ValueLength As Long = StringLength(RawValue)
-                    Dim QuotedValue As Long = 0
-                    If ValueLength >= 2 Then
-                        If StringByteAt(RawValue, 0) = 34 Then
-                            If StringByteAt(RawValue, ValueLength - 1) = 34 Then
-                                QuotedValue = 1
-                            End If
-                        End If
-                    End If
-                    If QuotedValue = 0 Then
+                    Dim EntryValue As String = ""
+                    If DecodeProjectValue(RawValue, EntryValue) = 0 Then
                         ErrorMessage = "error UBE5004: project values must be quoted on line " & LongToString(LineNumber)
-                        ResolveSourceInput = 0
+                        ReadBootstrapProject = 0
                         Exit Function
                     End If
-                    Dim EntryValue As String = StringSlice(RawValue, 1, ValueLength - 2)
                     If EqualsIdentifier(Key, "Name") <> 0 Then
                         If SawName <> 0 Then
                             ErrorMessage = "error UBE5005: duplicate project Name"
-                            ResolveSourceInput = 0
+                            ReadBootstrapProject = 0
                             Exit Function
                         End If
+                        If IsBootstrapIdentity(EntryValue) = 0 Then
+                            ErrorMessage = "error UBE5015: project Name must be a valid bootstrap identifier"
+                            ReadBootstrapProject = 0
+                            Exit Function
+                        End If
+                        ProjectName = EntryValue
                         SawName = 1
                     Else
                         If EqualsIdentifier(Key, "Kind") <> 0 Then
-                            If SawKind <> 0 Or EqualsIdentifier(EntryValue, "Exe") = 0 Then
-                                ErrorMessage = "error UBE5006: project Kind must be one Exe entry"
-                                ResolveSourceInput = 0
+                            Dim ExpectedKind As String = "Exe"
+                            If IsLibrary <> 0 Then
+                                ExpectedKind = "Library"
+                            End If
+                            If SawKind <> 0 Or EqualsIdentifier(EntryValue, ExpectedKind) = 0 Then
+                                ErrorMessage = "error UBE5006: project Kind must match the executable or referenced Library role"
+                                ReadBootstrapProject = 0
                                 Exit Function
                             End If
                             SawKind = 1
@@ -4155,24 +6153,51 @@ Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As St
                                 Dim NormalizedSource As String = ""
                                 If NormalizeProjectSourcePath(EntryValue, NormalizedSource) = 0 Then
                                     ErrorMessage = "error UBE5009: project Source path is empty, absolute, or escapes the project directory"
-                                    ResolveSourceInput = 0
+                                    ReadBootstrapProject = 0
                                     Exit Function
                                 End If
                                 Dim ExistingSource As Long = 0
                                 While ExistingSource < SourceRelativeCount
                                     If EqualsIdentifier(SourceRelatives(ExistingSource), NormalizedSource) <> 0 Then
                                         ErrorMessage = "error UBE5010: duplicate project Source after path normalization: " & EntryValue
-                                        ResolveSourceInput = 0
+                                        ReadBootstrapProject = 0
                                         Exit Function
                                     End If
                                     ExistingSource = ExistingSource + 1
                                 Wend
+                                If SourceRelativeCount >= 256 Then
+                                    ErrorMessage = "error UBE5016: project exceeds the 256-source bootstrap limit"
+                                    ReadBootstrapProject = 0
+                                    Exit Function
+                                End If
                                 Call AppendText(SourceRelatives, SourceRelativeCount, SourceRelativeCapacity, NormalizedSource)
                             Else
-                                If EqualsIdentifier(Key, "Startup") = 0 Then
-                                    ErrorMessage = "error UBE5007: unsupported project key: " & Key
-                                    ResolveSourceInput = 0
-                                    Exit Function
+                                If EqualsIdentifier(Key, "Startup") <> 0 Then
+                                    If IsLibrary <> 0 Or SawStartup <> 0 Or EqualsIdentifier(EntryValue, "Main") = 0 Then
+                                        ErrorMessage = "error UBE5017: Exe requires one Startup Main; Library forbids Startup"
+                                        ReadBootstrapProject = 0
+                                        Exit Function
+                                    End If
+                                    SawStartup = 1
+                                Else
+                                    If EqualsIdentifier(Key, "Reference") <> 0 Then
+                                        If IsLibrary <> 0 Then
+                                            ErrorMessage = "error UBE5018: nested source references and dependency cycles are outside the direct-reference bootstrap subset"
+                                            ReadBootstrapProject = 0
+                                            Exit Function
+                                        End If
+                                        Dim ReferencePath As String = ""
+                                        If ReferenceCount >= 16 Or ResolveBootstrapReference(InputPath, EntryValue, ReferencePath) = 0 Then
+                                            ErrorMessage = "error UBE5019: Reference requires a relative .UBE path and at most 16 direct libraries"
+                                            ReadBootstrapProject = 0
+                                            Exit Function
+                                        End If
+                                        Call AppendText(ReferencePaths, ReferenceCount, ReferenceCapacity, ReferencePath)
+                                    Else
+                                        ErrorMessage = "error UBE5007: unsupported project key: " & Key
+                                        ReadBootstrapProject = 0
+                                        Exit Function
+                                    End If
                                 End If
                             End If
                         End If
@@ -4187,7 +6212,12 @@ Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As St
     Wend
     If SawHeader = 0 Or SawName = 0 Or SawKind = 0 Or SourceRelativeCount = 0 Then
         ErrorMessage = "error UBE5008: project requires Name, Kind, and at least one Source"
-        ResolveSourceInput = 0
+        ReadBootstrapProject = 0
+        Exit Function
+    End If
+    If IsLibrary = 0 And SawStartup = 0 Then
+        ErrorMessage = "error UBE5017: Exe requires one Startup Main; Library forbids Startup"
+        ReadBootstrapProject = 0
         Exit Function
     End If
     Dim Separator As Long = InputLength - 1
@@ -4207,7 +6237,7 @@ Function ResolveSourceInput(ByVal InputPath As String, ByRef SourcePaths() As St
         Call AppendText(SourcePaths, SourceCount, SourceCapacity, ProjectDirectory & SourceRelatives(SourceIndex))
         SourceIndex = SourceIndex + 1
     Wend
-    ResolveSourceInput = 1
+    ReadBootstrapProject = 1
 End Function
 
 Function Main() As Long
@@ -4222,7 +6252,10 @@ Function Main() As Long
     Dim SourcePathCount As Long = 0
     Dim SourcePathCapacity As Long = 0
     Dim InputError As String = ""
-    If ResolveSourceInput(InputPath, SourcePaths, SourcePathCount, SourcePathCapacity, InputError) = 0 Then
+    Dim SourcePackages() As Long
+    Dim PackageNames() As String
+    Dim PackageCount As Long = 0
+    If ResolveSourceInput(InputPath, SourcePaths, SourcePathCount, SourcePathCapacity, SourcePackages, PackageNames, PackageCount, InputError) = 0 Then
         Print InputPath & "(1,1): " & InputError
         Main = 1
         Exit Function
@@ -4237,6 +6270,7 @@ Function Main() As Long
     Dim LoadIndex As Long = 0
     While LoadIndex < SourcePathCount
         Sources(LoadIndex).SourceId = LoadIndex + 1
+        Sources(LoadIndex).PackageId = SourcePackages(LoadIndex)
         Sources(LoadIndex).FilePath = SourcePaths(LoadIndex)
         Sources(LoadIndex).Contents = ReadAllText(SourcePaths(LoadIndex))
         Sources(LoadIndex).CombinedStart = CombinedLength
@@ -4255,6 +6289,28 @@ Function Main() As Long
             Main = 1
             Exit Function
         End If
+        Dim RequireNative As Long = 0
+        If PackageCount > 1 Then
+            RequireNative = 1
+        End If
+        Dim ModuleName As String = ""
+        If ValidateBootstrapEnvelope(Sources(LoadIndex).Contents, RequireNative, ModuleName, InputError) = 0 Then
+            Print Sources(LoadIndex).FilePath & "(1,1): " & InputError
+            Main = 1
+            Exit Function
+        End If
+        Sources(LoadIndex).ModuleName = ModuleName
+        Dim PreviousModule As Long = 0
+        While PreviousModule < LoadIndex
+            If Sources(PreviousModule).PackageId = Sources(LoadIndex).PackageId And StringLength(Sources(LoadIndex).ModuleName) > 0 Then
+                If EqualsIdentifier(Sources(PreviousModule).ModuleName, Sources(LoadIndex).ModuleName) <> 0 Then
+                    Print Sources(LoadIndex).FilePath & "(1,1): error UBE5027: duplicate folded module identity in package"
+                    Main = 1
+                    Exit Function
+                End If
+            End If
+            PreviousModule = PreviousModule + 1
+        Wend
         Call AppendText(SourceChunks, SourceChunkCount, SourceChunkCapacity, Sources(LoadIndex).Contents)
         Call AppendText(SourceChunks, SourceChunkCount, SourceChunkCapacity, StringFromByte(10))
         CombinedLength = CombinedLength + Sources(LoadIndex).ByteLength + 1
@@ -4275,6 +6331,11 @@ Function Main() As Long
     Dim DiagnosticCount As Long = 0
     Dim LexResult As Long = LexSource(SourceText, Tokens, TokenCount, TokenCapacity, Diagnostics, DiagnosticCount)
     If LexResult <> 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
+    If ValidateExpressionNesting(Tokens, TokenCount, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
         Main = 1
         Exit Function
@@ -4304,6 +6365,11 @@ Function Main() As Long
         Main = 1
         Exit Function
     End If
+    If ValidateBootstrapPackages(Tokens, TokenCount, Sources, SourcePathCount, PackageNames, PackageCount, TypeDeclarations, TypeDeclarationCount, Procedures, ProcedureCount, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
     Dim EntryProcedureIndex As Long = -1
     If ResolveEntryProcedure(Tokens, Procedures, ProcedureCount, EntryProcedureIndex, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
@@ -4319,6 +6385,21 @@ Function Main() As Long
         Exit Function
     End If
     If ValidateDeclaredTypes(Tokens, Procedures, ProcedureCount, Parameters, ParameterCount, LocalDeclarations, LocalDeclarationCount, TypeDeclarations, TypeDeclarationCount, FieldDeclarations, FieldDeclarationCount, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
+    If ValidateNativeValues(Tokens, Sources, SourcePathCount, TypeDeclarations, TypeDeclarationCount, Procedures, ProcedureCount, Parameters, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
+    If ValidateSourceDeclarationBoundaries(Tokens, Sources, SourcePathCount, TypeDeclarations, TypeDeclarationCount, Procedures, ProcedureCount, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
+    If PrepareValueLayouts(Tokens, TypeDeclarations, TypeDeclarationCount, FieldDeclarations, FieldDeclarationCount, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
         Main = 1
         Exit Function
@@ -4341,6 +6422,11 @@ Function Main() As Long
         Main = 1
         Exit Function
     End If
+    If ValidateExpressionDepth(SyntaxNodes, SyntaxNodeCount, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
     If AnalyzeStoredExpressions(Tokens, SyntaxNodes, Procedures, ProcedureCount, Parameters, LocalDeclarations, LocalDeclarationCount, Statements, StatementCount, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
         Main = 1
@@ -4351,6 +6437,7 @@ Function Main() As Long
         Main = 1
         Exit Function
     End If
+    Call IndexProcedureNodes(SyntaxNodes, SyntaxNodeCount, Procedures, ProcedureCount)
     If ValidateProcedureResults(Tokens, SyntaxNodes, Procedures, ProcedureCount, Statements, StatementCount, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
         Main = 1
@@ -4374,6 +6461,7 @@ Function Main() As Long
     Dim ResultChunkCount As Long = 0
     Dim ResultChunkCapacity As Long = 0
     Call EmitProgramPreamble(Tokens, TypeDeclarations, TypeDeclarationCount, FieldDeclarations, ResultChunks, ResultChunkCount, ResultChunkCapacity, NewLine)
+    Call EmitValueLayouts(TypeDeclarations, TypeDeclarationCount, FieldDeclarations, ResultChunks, ResultChunkCount, ResultChunkCapacity, NewLine)
     Dim GlobalChunks() As String
     Dim GlobalChunkCount As Long = 0
     Dim GlobalChunkCapacity As Long = 0
@@ -4403,19 +6491,28 @@ Function Main() As Long
         Main = 1
         Exit Function
     End If
+    Dim EntryFailureOperand As String = ""
+    Call EmitStringConstant("UBE runtime: cannot enter Main: managed root or argument admission failed; release roots or memory and retry.", GlobalChunks, GlobalChunkCount, GlobalChunkCapacity, EmitterState, NewLine, EntryFailureOperand)
     If GlobalChunkCount > 0 Then
         Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, StringArrayJoin(GlobalChunks, GlobalChunkCount) & NewLine)
     End If
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, StringArrayJoin(BodyChunks, BodyChunkCount))
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "define i32 @main(i32 %argc, ptr %argv) {" & NewLine & "entry:" & NewLine)
+    Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  %entry.admitted = alloca i1" & NewLine & "  store i1 false, ptr %entry.admitted" & NewLine)
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call void @ube_runtime_set_args(i32 %argc, ptr %argv)" & NewLine)
     Dim EntrySymbol As String = ""
     Call ProcedureLlvmSymbol(EntryProcedureIndex, EntrySymbol)
     If Procedures(EntryProcedureIndex).ProcedureKind = 2 Then
-        Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  %exit.code = call i32 " & EntrySymbol & "()" & NewLine)
+        Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  %exit.code = call i32 " & EntrySymbol & "(ptr %entry.admitted)" & NewLine)
+    Else
+        Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call void " & EntrySymbol & "(ptr %entry.admitted)" & NewLine)
+    End If
+    Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  %entry.did.admit = load i1, ptr %entry.admitted" & NewLine)
+    Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  br i1 %entry.did.admit, label %entry.complete, label %entry.failure" & NewLine & "entry.failure:" & NewLine)
+    Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call i32 @puts(ptr " & EntryFailureOperand & ")" & NewLine & "  ret i32 70" & NewLine & "entry.complete:" & NewLine)
+    If Procedures(EntryProcedureIndex).ProcedureKind = 2 Then
         Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  ret i32 %exit.code" & NewLine & "}" & NewLine)
     Else
-        Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call void " & EntrySymbol & "()" & NewLine)
         Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  ret i32 0" & NewLine & "}" & NewLine)
     End If
     Dim ResultText As String = StringArrayJoin(ResultChunks, ResultChunkCount)

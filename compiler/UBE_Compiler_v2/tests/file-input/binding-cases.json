@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {"name":"open-byval-path","role":"File.TryOpen","header":"Intrinsic Function Bound(ByVal Path() As Byte, ByVal Limit As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-non-byte-path","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Integer, ByVal Limit As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-byref-limit","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByRef Limit As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-integer-limit","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByVal Limit As Integer, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-byval-token","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByVal Limit As Long, ByVal Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-byval-length","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByVal Limit As Long, ByRef Token As Long, ByVal Length As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-byval-failure","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByVal Limit As Long, ByRef Token As Long, ByRef Length As Long, ByVal Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"open-array-result","role":"File.TryOpen","header":"Intrinsic Function Bound(ByRef Path() As Byte, ByVal Limit As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean()","diagnostic":"UBE3232"},
+    {"name":"read-byref-token","role":"File.TryRead","header":"Intrinsic Function Bound(ByRef Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-byval-destination","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByVal Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-non-byte-destination","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Long, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-byref-start","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Byte, ByRef Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-integer-count","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Integer, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-byval-read-count","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByVal ReadCount As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-missing-failure","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"read-long-result","role":"File.TryRead","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Long","diagnostic":"UBE3232"},
+    {"name":"close-byval-token","role":"File.TryClose","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"close-integer-failure","role":"File.TryClose","header":"Intrinsic Function Bound(ByRef Token As Long, ByRef Failure As Integer) As Boolean","diagnostic":"UBE3232"},
+    {"name":"close-missing-failure","role":"File.TryClose","header":"Intrinsic Function Bound(ByRef Token As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"argument-byref-index","role":"Process.TryArgument","header":"Intrinsic Function Bound(ByRef Index As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"argument-byval-result","role":"Process.TryArgument","header":"Intrinsic Function Bound(ByVal Index As Long, ByVal Result() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"argument-scalar-result","role":"Process.TryArgument","header":"Intrinsic Function Bound(ByVal Index As Long, ByRef Result As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"argument-byval-failure","role":"Process.TryArgument","header":"Intrinsic Function Bound(ByVal Index As Long, ByRef Result() As Byte, ByVal Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"error-byref-number","role":"Error.Set","header":"Intrinsic Function Bound(ByRef Number As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"error-integer-number","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Integer) As Boolean","diagnostic":"UBE3232"},
+    {"name":"error-long-result","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Long) As Long","diagnostic":"UBE3232"},
+    {"name":"error-extra-argument","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Long, ByVal Extra As Long) As Boolean","diagnostic":"UBE3232"}
+  ]
+}

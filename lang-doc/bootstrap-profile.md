@@ -4,6 +4,49 @@
 **Language definition:** 0.3  
 **Initial target:** x86-64 Windows GNU ABI
 
+## Current foundation additions - 2026-10-30
+
+The current source-built v2 is qualified separately from the historical RP5
+coverage below. It implements nominal opaque `Type Name As StorageType` values
+for Byte, Integer and Long, with one-component aggregate ABI, synthesized zero/
+copy/calls/results, equality/inequality and explicit Value.Pack/Value.Unpack
+intrinsic attributes. Payload fields, implicit representation conversion,
+ordering, invalid bindings and unsupported representations diagnose.
+`std-lib/tools/check-native-type.ps1` checks independent native/layout/Err/IR
+and rejection oracles through both source-built v2 stages. Bare test modules
+remain the documented bootstrap source exception; project/package/foreign ABI,
+general namespaces/module privacy, managed representations and full record equality are not
+qualified by this addition. Stage zero does not acquire this syntax; v2's own
+source stays in the existing stage-zero subset.
+Binding authority is enforced from the existing source-module provenance:
+only the native type's defining module can attach Pack/Unpack implementations.
+V2 uses its flat declaration universe and local procedure attribute targets;
+this does not claim full qualified-namespace lookup or private procedure access.
+
+The owner subsequently approved managed storage and extending v2 as needed for
+bootstrap. Ordinary Byte arrays and finite array-containing records now pass
+independent assignment/ByVal/result, exact layout, nested-root, borrowed-element,
+scope cleanup, allocation retry/failure and stale-Err tests through both stages.
+The recorded source gate passes 276 assertions; this includes the retained
+rootless decoder's eight assertions and zero measured allocations. Indices and
+counts are signed Long; arrays remain one-dimensional. Inline record cycles,
+malformed binding declarations and array-valued Main diagnose before LLVM.
+
+Explicit attributes additionally bind Array.Length, Array.TryResize,
+Memory.Collect, Array.TryCopy and Memory.CopyBytes. Exact signatures and
+failure/ownership rules are in
+[`../std-lib/MANAGED-STORAGE-EVIDENCE.md`](../std-lib/MANAGED-STORAGE-EVIDENCE.md).
+This uses the existing intrinsic-attribute syntax, not new grammar. Value.Pack/
+Value.Unpack remain scalar-only. Builtin String, objects, managed opaque native
+representations, foreign ABI and the full Library source envelope are not
+qualified by this ordinary Byte/record proof. Failure concerns one operation;
+no implicit transaction or procedure-abort rule is introduced.
+
+The current build command is `bootstrap/build-v2.ps1`; its exact identities and
+evidence are in `../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md` and
+`../std-lib/tests/native-type/`. The historical table below retains its original
+scope and must not be read as verification of the reset v3.
+
 The UBE Bootstrap Profile is the deliberately bounded subset of UBE used to
 write the first compiler in UBE. It is not a separate language: every profile
 program is an ordinary UBE program, and profile restrictions disappear as the
@@ -17,6 +60,26 @@ This document records two things independently:
 
 Agents must update these tables when support changes. A feature is “native”
 only after a generated executable has been run in an automated test.
+
+## Source-input bootstrap extension
+
+The first fresh-v3 consumer additionally requires bounded direct source Library
+references, native MODULE envelope/identity and Startup validation, recoverable
+raw-byte reading, Unicode command arguments and explicit error recording.
+The exact roles are File.TryOpen, File.TryRead, File.TryClose,
+Process.TryArgument and Error.Set; all use the existing validated intrinsic
+attribute syntax. Contracts:
+`../std-lib/FILE-BYTES-CONTRACT.md` and
+`../compiler/UBE_Compiler_v2/tests/source-reference/CONTRACT.md`.
+The active consumer contract is
+`../compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md`.
+This is not general package lookup, standalone shared-library output, source
+language checking or a new String implementation. Qualification results are
+recorded separately from the historical profile below.
+
+The current combined source gate passes 470 checks. Exact source/tool/artifact
+identities, native entry-admission behavior, source-input results and measured
+limits are in `../compiler/UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.
 
 ## Current native subset
 

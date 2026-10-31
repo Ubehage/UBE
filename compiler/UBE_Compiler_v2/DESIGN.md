@@ -11,9 +11,9 @@ develop and compile v3.
 
 V3 is UBE's first public-release target. Classes, project structures, complete
 language coverage, production optimization, and debugging facilities belong
-there unless a feature is strictly required to compile v3. Once the v2
-transition gate is verified, v2 is preserved rather than grown toward the
-public product independently.
+there. The owner explicitly authorized extending v2 as necessary for bootstrap,
+including managed array/record support required by fresh UBECore storage.
+This does not make v2 the public product or replace the existing architecture.
 
 ## Bootstrap constraints
 
@@ -85,7 +85,102 @@ both binaries and its output, diagnostics, artifacts, and exit codes compared.
 
 ## Evolution boundary
 
+For the owner-authorized current foundation repairs, see `FOUNDATION-PLAN.md`.
+The existing internal type identifiers are retained; Byte uses previously unused
+identifier 7. LLVM storage is i8 unsigned for Byte and i16 signed for Integer.
+Ordinary UBE procedures perform semantic validation, constant evaluation and
+conversion lowering; no type behavior is imported from archived compiler code.
+
+Compiler-generated narrowing uses this private program-support ABI:
+`i64 @ube_checked_narrow_i64(i64 value, i32 bits, i32 is_unsigned)`.
+Supported destinations are (8,1), (16,0) and (32,0). Success returns the exact
+value and leaves Err unchanged. Out-of-range input returns zero with Err 6;
+invalid representation arguments return zero with Err 5. The compiler truncates
+only the checked result. This ABI is not a public UBE intrinsic declaration.
+Existing checked i32 arithmetic now returns neutral zero with Err 6 for overflow
+or Err 11 for zero division; it does not terminate the process. Independent C
+regressions check these failure paths and preservation of stale Err on success.
+There is no claim of a complete per-call failure-status or structured-error ABI.
+
+ExpressionDepthLimit centralizes the bootstrap expression-depth bound (128).
+Token preflight bounds parentheses and unary runs before parsing. An iterative
+colored graph walk checks syntax-node depth/cycles before recursive semantic
+analysis and constant evaluation. Oversized expressions diagnose UBE3222 and
+publish no LLVM, instead of consuming the native stack. The recursive
+value-layout prerequisite check also uses an explicit work stack.
+
 V2 becomes the preserved bootstrap compiler only after the multi-module and
 stage-one/stage-two gates pass. V1 and stage zero remain preserved and tested.
 V3 is the next intentional generation and the first public-release target; it
 must be developed and compiled using v2.
+
+## Opaque scalar native values
+
+The owner delegated the next foundation mechanism's design decisions on
+2026-10-30. `Type Name As StorageType` records a representation separately from
+ordinary record fields. Byte, Integer and Long lower to one-component native
+aggregates with neutral zero and value copying; their hidden payload is not a
+source field. Intrinsic declarations record a validated Pack/Unpack role and
+native type identity. The binding's exact signature and declaring source module
+are checked before lowering. Pack/Unpack emit LLVM insertvalue/extractvalue;
+equality compares the extracted scalar. Procedure spelling is not native
+dispatch authority. Existing bootstrap intrinsics retain their registered ABI
+only when the entire declared signature matches that registration.
+
+Source provenance supplies the binding ownership check; it does not implement
+general namespaces or module privacy. Unsupported representation families,
+implicit scalar coercions, ordering, arithmetic and Print/condition conversion
+diagnose. Managed opaque representations and foreign ABI remain unqualified. Exact contract
+and proof: `../../std-lib/NATIVE-TYPE-PROPOSAL.md` and
+`../../std-lib/tests/native-type/NATIVE-EVIDENCE.md`.
+
+## Managed ordinary arrays and records
+
+The approved managed-storage work derives precise reference offsets from the
+existing type graph. Array slots are traced references; finite records derive
+their offsets from their fields. Inline record cycles diagnose. Compiler-owned
+roots cover local, parameter, result, temporary and borrowed-owner locations
+before safe points and leave on every procedure exit. A borrowed array element
+keeps the old owning array rooted even if its holder is replaced during a call.
+
+Assignment, ByVal preparation and result boundaries synthesize independent
+copies from runtime value descriptors. New values are prepared while the old
+destination/source remain rooted, then published only after a complete copy.
+Managed results use a compiler-private hidden output holder; this is not a
+foreign ABI. Scalar/reference accesses and managed bulk stores preserve the
+specified nontearing/reference-safety properties. User code still synchronizes
+shared mutable values.
+
+One-dimensional indexing/counts use signed Long in this bootstrap subset.
+Invalid access returns rooted neutral fallback storage and Err 9. Allocation
+collects/retries once, then reports ordinary failure with Err 7 while preserving
+the destination. Success preserves stale Err. A failed operation does not
+implicitly abort subsequent user statements or wrap them in a transaction.
+
+The existing intrinsic-attribute syntax binds Array.Length, Array.TryResize,
+Memory.Collect, Array.TryCopy and Memory.CopyBytes by exact declaration role,
+type and passing-mode checks. Names remain arbitrary; no raw user address or
+foreign-symbol escape is added. Byte growth and validation algorithms remain
+ordinary UBECore code. Exact signatures, recorded 276-assertion gate and limits:
+`../../std-lib/MANAGED-STORAGE-EVIDENCE.md`. Builtin String, objects and managed
+opaque native representations are not qualified by this Byte/record proof.
+
+## Source input and executable admission
+
+The first fresh-v3 consumer uses bounded independent direct source libraries,
+with package/module identities retained during validation. Unsupported lookup,
+visibility and nested-reference cases diagnose rather than becoming accidental
+flat global access. `tests/source-reference/CONTRACT.md` defines the subset.
+
+File.TryOpen, File.TryRead, File.TryClose, Process.TryArgument and Error.Set use
+the same explicit signature-checked intrinsic mechanism as storage bindings.
+`../../std-lib/FILE-BYTES-CONTRACT.md` isolates the OS/token lifetime boundary;
+ordinary compiler source policy remains UBE.
+
+Native entry owns a false admission slot, passed as a hidden pointer to the
+source Main only. After root/ByVal preparation, Main marks it true when nonnull.
+Ordinary UBE calls to Main pass null and preserve neutral procedure failure
+semantics. The native wrapper observes its fresh slot and returns a controlled
+error if admission failed, independently of stale Err. Partial roots unwind
+through the existing common exit. Exact native/capacity/cleanup results and the
+470-check gate are in `../UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.

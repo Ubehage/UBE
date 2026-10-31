@@ -88,8 +88,12 @@ loads the startup form's default identity, and then invokes source `Main`.
 `StartupForm` is invalid in a Library project.
 
 `Reference` is an ordered, repeatable path to another `Kind = "Library"`
-`.UBE` source manifest. The path follows the same normalization, containment,
-duplicate, and missing-file rules as other project paths; no registry,
+`.UBE` source manifest. Unlike a `Source` path, this explicit relative path may
+use parent segments to name a sibling library (for example,
+`../PaintCore/PaintCore.UBE`, as in the project-reference audit). It is normalized
+relative to the referring manifest; each library's own `Source` entries remain
+contained in that library's manifest directory. Absolute reference paths,
+duplicate normalized references and missing manifests are errors; no registry,
 environment, network, or undeclared search path is consulted. References must
 be acyclic, cannot name the current project, and cannot resolve to two packages
 with the same folded `Name`.

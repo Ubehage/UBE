@@ -12,7 +12,76 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
-## Current priority — 2026-10-30
+## Current priority — 2026-10-31
+
+The first UBECore byte/text foundation is implemented and independently tested:
+an incremental UTF-8 decoder and owned ByteBuffer with geometric growth,
+failure-atomic operations and independent snapshots. The owner approved the
+managed-storage scope and permits extending v2 as necessary for bootstrap.
+`bootstrap/build-v2.ps1` now passes 501 grouped assertions, retaining the earlier
+foundation gates and adding the fresh scanner/envelope consumer and exhaustive
+Unicode qualification. Current runtime/bootstrap and production-parser results
+are in `compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`; representation probes
+remain in `compiler/UBE_Compiler_v3/PARSER-PROBE-EVIDENCE.md`. The earlier
+scanner snapshot remains in `compiler/UBE_Compiler_v3/SCANNER-EVIDENCE.md`.
+
+Completed: implement the smallest compiler source-ingestion consumer of these APIs.
+`compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md` defines exact byte preservation,
+streaming UTF-8/newline validation, scalar positions and independent publication.
+The minimal fresh source and manifest pass independent native, failure, cleanup,
+position and actual cost oracles through both source-built stages. Necessary
+bootstrap prerequisites include recoverable byte-file/Unicode argument primitives
+and bounded direct source-library references with envelope validation.
+Source policy and diagnostics remain compiler responsibilities. Full shared
+Library output, builtin String and language checking remain unqualified. No
+archived implementation or restored compiler is required.
+
+Completed next: define scanner/native-or-legacy envelope acceptance over exact
+source snapshots. `compiler/UBE_Compiler_v3/SCANNER-CONTRACT.md` and its 102
+hand-authored vectors/174 word roles pass 2286 data-consistency assertions.
+This established the independent definition before production implementation.
+Its historical readiness probes remain in the scanner evidence.
+
+Completed: implement that defined consumer in UBE, with narrow reserved-name
+renames, official pinned Unicode 18 data, ordinary UBE lookup/cursor helpers,
+exact token/envelope spans, controlled diagnostics and failure-atomic results.
+Both source-built stages pass native fixtures, real root/allocator failures,
+cleanup, four private-worker comparisons and measured scanner copy/work budgets.
+The complete gate passes 501 assertions; the scanner's observed executable
+executes 2274484 native assertions per stage. Legacy recognition and raw date/
+directive tokens do not establish their full grammar or semantics. `--check`
+still reports checking unavailable after a successful scan.
+
+Completed: define the first grammar consumer over qualified token/envelope views.
+`compiler/UBE_Compiler_v3/PARSER-CONTRACT.md` has 116 hand-authored cases covering
+grouping, source spans, structural rejection, later semantic obligations and
+explicit deferred families. The definition gate passes 11969 new consistency
+assertions and 16 negative controls; a separate identity audit preserves the
+existing 501-check native cohort. That definition did not qualify an
+implementation. Exact results and limits are in
+`compiler/UBE_Compiler_v3/PARSER-EVIDENCE.md`.
+
+Completed: focused native UBE storage/traversal probes pass 3828 assertions through
+both accepted source-built stages. The measured choice is linked-child nodes and
+explicit stacks. Persistent allocator denial exposed and fixed recoverable GC
+tracing/first-error publication; the complete fresh source gate passes 501 grouped
+checks with stronger recovery regressions. Exact identities, costs, tradeoffs and
+limits are in `compiler/UBE_Compiler_v3/PARSER-PROBE-EVIDENCE.md`.
+
+Completed: implement and independently qualify the bounded production grammar
+consumer in `compiler/UBE_Compiler_v3/PARSER-CONTRACT.md`, using that representation,
+borrowed source/token views, private pending nodes and atomic complete-result
+publication. Native acceptance covers the full frozen syntax/rejection/deferred
+cohort while preserving ownership, diagnostics, budgets, cleanup and measured
+work/copy obligations. No UBECore API expansion was needed.
+The refreshed bootstrap passes all 501 checks. The unrestricted parser gate
+passes 4049 grouped checks through both source-built stages, all 188 independent
+cases, 10412 actual root capacities and 102 cost rows, including complete failure
+retention and cleanup. Strict CLI acceptance passes 82 cases and 54 diagnostic
+controls; the rebuilt local executable passes all 41 process oracles. Exact
+commands, hashes, limits and handoff are in
+`compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`. No generic collection or worker
+scheduler was added. The next bounded contract is not selected by this checklist.
 
 The owner chose to establish a fresh UBECore in `std-lib/` before further
 compiler feature expansion. Grow the library with concrete compiler needs;
@@ -39,15 +108,27 @@ from `compiler/UBE_Compiler_v3/Progress.md` and `std-lib/ROADMAP.md`.
   from implemented or frozen APIs. Its documentary gate covers 175 reference
   function/alias names and 73 historical private intrinsic names; detailed
   component-member/signature/value reconciliation remains explicitly open.
-- [ ] Select and test the bounded bootstrap tool/subset and define the first
+- [x] Select and test the bounded bootstrap tool/subset and define the first
   library contracts before implementation. Resume from `std-lib/ROADMAP.md`.
+  The shared ledger and independent cases are in `std-lib/FOUNDATION.md`.
+  The source-built seed and two restored v2 artifacts pass all 18 diagnostic-
+  subset checks, but nine target probes fail. Exact results/provenance are in
+  `std-lib/FOUNDATION-EVIDENCE.md`. The subsequent v2 and native-value goals
+  resolve the scalar prerequisites. The approved managed extension and byte/text
+  body qualification now pass the combined 296-assertion gate; initial failed
+  probes remain historical evidence rather than acceptance results.
+- [x] Complete the owner's bounded usable-v2 prerequisite: current-source build,
+  fixed point and 130 independent acceptance assertions, with exact provenance
+  and a maintained compile helper. No archived implementation was imported.
 - [x] Archive previous v3/v4 and their preview/history material, preserve exact
   original bytes for 367 files, and establish the fresh v3 design/workplan.
 - [x] Record the owner's native-datatype and temporary-bootstrap decisions;
-  exact mechanisms, syntax and signatures remain to be specified and proven.
+  adopt and prove opaque scalar representation, explicit binding, zero/copy,
+  equality and rejection behavior under delegated design authority.
 
 Structural setup and archive-integrity checks do not constitute compiler or
-library execution verification. The new UBECore has not been compiled.
+library execution verification. Library module bodies now have independent
+execution proofs; a full native Library project build remains unqualified.
 
 ## Preserved compiler checkpoint
 

@@ -1,0 +1,51 @@
+{
+  "schema":"ube-expression-probe-oracles-1",
+  "scope":"Explicit arithmetic/group/prefix/Not/Boolean/comparison subset; omitted names are not grammar rejection claims.",
+  "syntaxCases":[
+    "additive-binds-less-tightly-than-multiplication",
+    "integer-division-binds-more-tightly-than-multiplication",
+    "modulus-binds-more-tightly-than-integer-division",
+    "power-binds-more-tightly-than-unary-negative",
+    "power-associates-to-the-right",
+    "power-allows-unary-negative-right-operand",
+    "subtraction-associates-to-the-left",
+    "division-and-multiplication-share-left-associative-level",
+    "addition-binds-more-tightly-than-concatenation",
+    "concatenation-binds-more-tightly-than-comparison",
+    "comparison-binds-more-tightly-than-not",
+    "and-binds-more-tightly-than-or",
+    "orelse-and-or-share-left-associative-level",
+    "andalso-and-and-share-left-associative-level",
+    "imp-eqv-xor-or-precedence",
+    "parenthesized-group-overrides-default-precedence",
+    "bracketed-reserved-spelling-remains-a-name",
+    "is-not-pair-is-one-negated-identity-relation",
+    "isnot-word-has-same-negated-identity-shape",
+    "real-with-point-and-decimal-suffix-is-one-literal",
+    "negative-integer-has-separate-unary-sign",
+    "supplementary-letter-uses-scalar-not-utf16-column",
+    "not-has-required-spacing-before-grouped-operand"
+  ],
+  "rejectCases":[
+    "comparison-does-not-chain",
+    "adjacent-integer-power-suffix-is-not-an-operator",
+    "integer-only-f-does-not-become-real-suffix",
+    "missing-binary-right-operand-anchors-at-original-eof",
+    "reserved-word-is-not-a-bare-expression-name",
+    "not-without-required-spacing-is-not-silently-widened"
+  ],
+  "extraCases":[
+    {"name":"probe-boolean-literals","source":"True And Not False","witnesses":[{"id":"all","text":"True And Not False"},{"id":"true","text":"True"},{"id":"not","text":"Not False"},{"id":"false","text":"False"}],"shape":["And","all",["Literal","true"],["Not","not",["Literal","false"]]]},
+    {"name":"probe-quoted-zero-preserves-source-view","source":"\"a\u0000b\"","witnesses":[{"id":"all","text":"\"a\u0000b\""}],"shape":["Literal","all"]},
+    {"name":"probe-bom-continued-unicode","source":"\ufeff\t\u03b1 + _ 'tail\r\n \u03b2","witnesses":[{"id":"all","text":"\u03b1 + _ 'tail\r\n \u03b2"},{"id":"a","text":"\u03b1"},{"id":"b","text":"\u03b2"}],"shape":["Add","all",["Name","a"],["Name","b"]]},
+    {"name":"probe-unclosed-group","source":"(a","witnesses":[{"id":"eof","text":"","at":"eof"}],"diagnostic":{"kind":"ExpectedToken","witness":"eof"}},
+    {"name":"probe-empty-group-missing-expression","source":"()","witnesses":[{"id":"close","text":")"}],"diagnostic":{"kind":"ExpectedExpression","witness":"close"}},
+    {"name":"probe-expression-does-not-consume-second-line","source":"a\nb","witnesses":[{"id":"b","text":"b"}],"diagnostic":{"kind":"UnexpectedToken","witness":"b"}},
+    {"name":"probe-illegal-not-after-addition","source":"a + Not b","witnesses":[{"id":"not","text":"Not"}],"diagnostic":{"kind":"ExpectedExpression","witness":"not"}},
+    {"name":"probe-illegal-not-after-comparison","source":"a < Not b","witnesses":[{"id":"not","text":"Not"}],"diagnostic":{"kind":"ExpectedExpression","witness":"not"}},
+    {"name":"probe-illegal-not-after-negative-prefix","source":"-Not a","witnesses":[{"id":"not","text":"Not"}],"diagnostic":{"kind":"ExpectedExpression","witness":"not"}},
+    {"name":"probe-grouped-not-after-addition","source":"a + (Not b)","witnesses":[{"id":"all","text":"a + (Not b)"},{"id":"a","text":"a"},{"id":"group","text":"(Not b)"},{"id":"not","text":"Not b"},{"id":"b","text":"b"}],"shape":["Add","all",["Name","a"],["Group","group",["Not","not",["Name","b"]]]]},
+    {"name":"probe-negative-after-not","source":"Not -a","witnesses":[{"id":"all","text":"Not -a"},{"id":"negative","text":"-a"},{"id":"a","text":"a"}],"shape":["Not","all",["Negative","negative",["Name","a"]]]},
+    {"name":"probe-not-after-and","source":"a And Not b","witnesses":[{"id":"all","text":"a And Not b"},{"id":"a","text":"a"},{"id":"not","text":"Not b"},{"id":"b","text":"b"}],"shape":["And","all",["Name","a"],["Not","not",["Name","b"]]]}
+  ]
+}

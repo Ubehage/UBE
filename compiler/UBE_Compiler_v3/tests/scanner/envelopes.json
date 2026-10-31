@@ -1,0 +1,265 @@
+{
+  "schema": "ube-scanner-envelope-oracles-1",
+  "comments": [
+    "Independent hand-authored source-envelope expectations; these do not assert complete source parsing, binding, code generation, or package validation.",
+    "Legacy grammar alternatives without VB_Name have no identity in these expectations; no filename or designer-name fallback is specified.",
+    "Package identity collisions, mixed native/legacy identity metadata, legacy VERSION-kind/extension agreement, and designer-root/identity agreement are not classified here.",
+    "Spans and anchors designate exact original source substrings. Occurrences are one-based. An EOF anchor designates the original byte end, including any initial BOM in byte offsets.",
+    "Diagnostic labels are this consumer contract's classifications; the normative language defines required rejection behavior rather than these label spellings."
+  ],
+  "cases": [
+    {
+      "name": "native-module-lf",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers", "lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-class",
+      "extension": ".cls",
+      "source": "UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"Customer\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "native", "kind": "CLASS", "identity": "Customer", "spans": [{"role": "kind", "raw": "CLASS", "occurrence": 1}, {"role": "identity", "raw": "\"Customer\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-form",
+      "extension": ".frm",
+      "source": "UBE SOURCE 1 FORM\nAttribute UBE_Name = \"EditorWindow\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "native", "kind": "FORM", "identity": "EditorWindow", "spans": [{"role": "kind", "raw": "FORM", "occurrence": 1}, {"role": "identity", "raw": "\"EditorWindow\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-control",
+      "extension": ".ctl",
+      "source": "UBE SOURCE 1 CONTROL\nAttribute UBE_Name = \"ColorPicker\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "native", "kind": "CONTROL", "identity": "ColorPicker", "spans": [{"role": "kind", "raw": "CONTROL", "occurrence": 1}, {"role": "identity", "raw": "\"ColorPicker\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-case-insensitive-header-and-extension",
+      "extension": ".BaS",
+      "source": "ube source 1 module\nattribute ube_name = \"mAiN\"\n",
+      "authority": ["lang-doc/project-files.md", "lang-doc/language-spec.md#2-source-and-lexical-rules", "lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "mAiN", "spans": [{"role": "kind", "raw": "module", "occurrence": 1}, {"role": "identity", "raw": "\"mAiN\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-initial-bom-unicode-name",
+      "extension": ".bas",
+      "source": "\ufeffUBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Måne\"\n",
+      "authority": ["lang-doc/language-spec.md#2-source-and-lexical-rules", "compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md#source-policy-and-positions"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Måne", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Måne\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-crlf",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\r\nAttribute UBE_Name = \"Main\"\r\n",
+      "authority": ["lang-doc/language-spec.md#2-source-and-lexical-rules", "compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md#source-policy-and-positions"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-eof-without-physical-newline",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"",
+      "authority": ["lang-doc/language-spec.md#2-source-and-lexical-rules", "compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md#source-policy-and-positions"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-leading-horizontal-space",
+      "extension": ".bas",
+      "source": " \tUBE SOURCE 1 MODULE\n\tAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-explicit-continuations",
+      "extension": ".bas",
+      "source": " _\n UBE SOURCE _\n 1 MODULE\nAttribute _\n UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#2-source-and-lexical-rules"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-header-trailing-comments",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE ' container\nAttribute UBE_Name = \"Main\" ' identity\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "native", "kind": "MODULE", "identity": "Main", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"Main\"", "occurrence": 1}]}
+    },
+    {
+      "name": "native-designer-preserved",
+      "extension": ".frm",
+      "source": "UBE SOURCE 1 FORM\nAttribute UBE_Name = \"Canvas\"\nBegin UI.Window Canvas\n Caption = \"A: B\"\nEnd\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "native", "kind": "FORM", "identity": "Canvas", "spans": [{"role": "kind", "raw": "FORM", "occurrence": 1}, {"role": "identity", "raw": "\"Canvas\"", "occurrence": 1}, {"role": "metadata", "raw": "Begin UI.Window Canvas\n Caption = \"A: B\"\nEnd\n", "occurrence": 1}]}
+    },
+    {
+      "name": "native-unsupported-version",
+      "extension": ".bas",
+      "source": "UBE SOURCE 2 MODULE\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "reject", "diagnostic": "UnsupportedSourceVersion", "anchor": {"raw": "2", "occurrence": 1}}
+    },
+    {
+      "name": "native-extension-kind-mismatch",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "reject", "diagnostic": "SourceKindMismatch", "anchor": {"raw": "CLASS", "occurrence": 1}}
+    },
+    {
+      "name": "native-missing-identity-at-eof",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers", "lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceIdentity", "anchor": {"eof": true}}
+    },
+    {
+      "name": "native-identity-cannot-skip-blank-line",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\n\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceIdentity", "anchor": {"raw": "\n", "occurrence": 2}}
+    },
+    {
+      "name": "native-identity-cannot-skip-comment-line",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\n' intervening line\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceIdentity", "anchor": {"raw": "'", "occurrence": 1}}
+    },
+    {
+      "name": "native-duplicate-identical-identity",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/v3-language-definition.md#20-native-source-identity"],
+      "expected": {"format": "reject", "diagnostic": "DuplicateSourceIdentity", "anchor": {"raw": "UBE_Name", "occurrence": 2}}
+    },
+    {
+      "name": "native-duplicate-folded-attribute-name",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute ube_name = \"Other\"\n",
+      "authority": ["lang-doc/v3-language-definition.md#20-native-source-identity", "lang-doc/language-spec.md#2-source-and-lexical-rules"],
+      "expected": {"format": "reject", "diagnostic": "DuplicateSourceIdentity", "anchor": {"raw": "ube_name", "occurrence": 1}}
+    },
+    {
+      "name": "native-unknown-reserved-module-attribute",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute UBE_Future = True\n",
+      "authority": ["lang-doc/language-spec.md#5-procedures-names-and-modules", "lang-doc/project-files.md#native-source-headers"],
+      "expected": {"format": "reject", "diagnostic": "UnknownReservedAttribute", "anchor": {"raw": "UBE_Future", "occurrence": 1}}
+    },
+    {
+      "name": "native-unknown-reserved-member-attribute",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nSub Work()\nAttribute Work.UBE_Future = True\nEnd Sub\n",
+      "authority": ["lang-doc/language-spec.md#5-procedures-names-and-modules", "lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "UnknownReservedAttribute", "anchor": {"raw": "Work.UBE_Future", "occurrence": 1}}
+    },
+    {
+      "name": "native-known-primitive-attribute-recognized",
+      "extension": ".bas",
+      "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"NativeValues\"\nIntrinsic Function PackOctet(ByVal Storage As Byte) As Octet\nAttribute PackOctet.UBE_Primitive = \"Value.Pack\"\nEnd Function\n",
+      "authority": ["lang-doc/language-spec.md#62-inlining-and-compiler-implementation", "lang-doc/grammar/ube.ebnf"],
+      "comments": "notclassifiedhere: Native datatype declarations, intrinsic target/signature/role binding and complete body semantics. The known reserved attribute must not be mistaken for an unknown attribute or assigned inert designer semantics.",
+      "expected": {"format": "native", "kind": "MODULE", "identity": "NativeValues", "spans": [{"role": "kind", "raw": "MODULE", "occurrence": 1}, {"role": "identity", "raw": "\"NativeValues\"", "occurrence": 1}, {"role": "metadata", "raw": "Attribute PackOctet.UBE_Primitive = \"Value.Pack\"\n", "occurrence": 1}]}
+    },
+    {
+      "name": "native-leading-blank-line-rejected",
+      "extension": ".bas",
+      "source": "\nUBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceHeader", "anchor": {"raw": "\n", "occurrence": 1}}
+    },
+    {
+      "name": "native-leading-comment-line-rejected",
+      "extension": ".bas",
+      "source": "' preamble\nUBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceHeader", "anchor": {"raw": "'", "occurrence": 1}}
+    },
+    {
+      "name": "headerless-full-source-rejected",
+      "extension": ".bas",
+      "source": "Option Explicit On\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/grammar/fixtures/expectations.csv", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "reject", "diagnostic": "MissingSourceHeader", "anchor": {"raw": "Option", "occurrence": 1}}
+    },
+    {
+      "name": "legacy-name-attribute-only",
+      "extension": ".bas",
+      "source": "Attribute VB_Name = \"LegacyMath\"\n",
+      "authority": ["lang-doc/project-files.md#native-source-headers", "lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "legacy", "identity": "LegacyMath", "spans": [{"role": "identity", "raw": "\"LegacyMath\"", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-version-only-no-identity",
+      "extension": ".frm",
+      "source": "VERSION 5.00\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "legacy", "spans": [{"role": "metadata", "raw": "VERSION 5.00\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-object-only-no-identity",
+      "extension": ".ctl",
+      "source": "Object = \"{SYNTHETIC-CONTROL}\"; \"Example.ocx\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "legacy", "spans": [{"role": "metadata", "raw": "Object = \"{SYNTHETIC-CONTROL}\"; \"Example.ocx\"\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-reference-only-no-identity",
+      "extension": ".bas",
+      "source": "Reference = *\\G{SYNTHETIC-LIBRARY}#1.0#0#example.dll#Example\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "legacy", "spans": [{"role": "metadata", "raw": "Reference = *\\G{SYNTHETIC-LIBRARY}#1.0#0#example.dll#Example\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-designer-only-no-identity",
+      "extension": ".frm",
+      "source": "Begin VB.Form Display\n Caption = \"Display\"\nEnd\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "legacy", "spans": [{"role": "metadata", "raw": "Begin VB.Form Display\n Caption = \"Display\"\nEnd\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-nameless-class-block-no-identity",
+      "extension": ".cls",
+      "source": "BEGIN\n MultiUse = -1\nEND\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "legacy", "spans": [{"role": "metadata", "raw": "BEGIN\n MultiUse = -1\nEND\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-class-and-unknown-legacy-attribute-preserved",
+      "extension": ".cls",
+      "source": "VERSION 1.0 CLASS\nBEGIN\n MultiUse = -1\nEND\nAttribute VB_Name = \"Ledger\"\nAttribute VB_Future = \"retained\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#5-procedures-names-and-modules"],
+      "expected": {"format": "legacy", "identity": "Ledger", "spans": [{"role": "identity", "raw": "\"Ledger\"", "occurrence": 1}, {"role": "metadata", "raw": "BEGIN\n MultiUse = -1\nEND\n", "occurrence": 1}, {"role": "metadata", "raw": "Attribute VB_Future = \"retained\"\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-nested-designer-property-groups",
+      "extension": ".frm",
+      "source": "VERSION 5.00\nBegin VB.Form Display\n Begin VB.CommandButton AcceptButton\n  Caption = \"Accept\"\n End\n BeginProperty Font\n  Name = \"Example Sans\"\n  BeginProperty Details\n   Weight = 400\n  EndProperty\n EndProperty\nEnd\nAttribute VB_Name = \"Display\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "legacy", "identity": "Display", "spans": [{"role": "identity", "raw": "\"Display\"", "occurrence": 1}, {"role": "metadata", "raw": "Begin VB.CommandButton AcceptButton\n  Caption = \"Accept\"\n End\n", "occurrence": 1}, {"role": "metadata", "raw": "BeginProperty Font\n  Name = \"Example Sans\"\n  BeginProperty Details\n   Weight = 400\n  EndProperty\n EndProperty\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-contiguous-member-attributes",
+      "extension": ".cls",
+      "source": "Attribute VB_Name = \"Counter\"\nPublic Property Get Value() As Long\nAttribute Value.VB_Description = \"Counter value\"\nAttribute Value.VB_UserMemId = 0\nEnd Property\n",
+      "authority": ["lang-doc/grammar/ube.ebnf", "lang-doc/language-spec.md#1-scope-and-compatibility"],
+      "expected": {"format": "legacy", "identity": "Counter", "spans": [{"role": "identity", "raw": "\"Counter\"", "occurrence": 1}, {"role": "metadata", "raw": "Attribute Value.VB_Description = \"Counter value\"\nAttribute Value.VB_UserMemId = 0\n", "occurrence": 1}]}
+    },
+    {
+      "name": "legacy-repeated-prefix-fragments-preserved",
+      "extension": ".ctl",
+      "source": "VERSION 5.00 USERCONTROL\nObject = \"one\"\nReference = \"library\"\nObject = \"two\"\nAttribute VB_Name = \"Widget\"\n",
+      "authority": ["lang-doc/grammar/ube.ebnf"],
+      "expected": {"format": "legacy", "identity": "Widget", "spans": [{"role": "identity", "raw": "\"Widget\"", "occurrence": 1}, {"role": "metadata", "raw": "VERSION 5.00 USERCONTROL\nObject = \"one\"\nReference = \"library\"\nObject = \"two\"\n", "occurrence": 1}]}
+    }
+    ,
+    {"name":"native-format-leading-zero","extension":".bas","source":"UBE SOURCE 01 MODULE\nAttribute UBE_Name = \"Main\"\n","authority":["lang-doc/grammar/ube.ebnf"],"expected":{"format":"native","kind":"MODULE","identity":"Main","canonicalVersion":1,"spans":[{"role":"version","raw":"01","occurrence":1},{"role":"kind","raw":"MODULE","occurrence":1},{"role":"identity","raw":"\"Main\"","occurrence":1}]},"basis":"numeric source-format spelling closure in SCANNER-CONTRACT.md"},
+    {"name":"native-bracketed-name","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"[My Name]\"\n","authority":["lang-doc/project-files.md#native-source-headers","lang-doc/grammar/ube.ebnf"],"expected":{"format":"native","kind":"MODULE","identity":"[My Name]","canonicalIdentity":"My Name","spans":[{"role":"kind","raw":"MODULE","occurrence":1},{"role":"identity","raw":"\"[My Name]\"","occurrence":1}]},"basis":"identity uses ordinary identifier spelling; delegated contract closure"},
+    {"name":"native-empty-identity","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"\"\n","authority":["lang-doc/project-files.md#native-source-headers"],"expected":{"format":"reject","diagnostic":"InvalidSourceIdentity","anchor":{"raw":"\"\"","occurrence":1}}},
+    {"name":"native-huge-format-version","extension":".bas","source":"UBE SOURCE 99999999999999999999999999999999999999999999999999 MODULE\nAttribute UBE_Name = \"Main\"\n","authority":["lang-doc/project-files.md#native-source-headers"],"expected":{"format":"reject","diagnostic":"UnsupportedSourceVersion","anchor":{"raw":"99999999999999999999999999999999999999999999999999","occurrence":1}}}
+    ,
+    {"name":"attribute-target-prefix-is-not-attribute-name","extension":".bas","source":"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\nAttribute UBE_Helper.Description = \"retained\"\n","authority":["lang-doc/language-spec.md#1-scope-and-compatibility","lang-doc/grammar/ube.ebnf"],"expected":{"format":"native","kind":"MODULE","identity":"Main","spans":[{"role":"kind","raw":"MODULE","occurrence":1},{"role":"identity","raw":"\"Main\"","occurrence":1},{"role":"metadata","raw":"Attribute UBE_Helper.Description = \"retained\"\n","occurrence":1}]},"laterCheck":"target existence/applicability is not envelope recognition"}
+  ]
+}

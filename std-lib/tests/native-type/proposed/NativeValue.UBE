@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "NativeValueProof"
+Kind = "Exe"
+Startup = "Main"
+Source = "Main.bas"
+Source = "ValueType.bas"

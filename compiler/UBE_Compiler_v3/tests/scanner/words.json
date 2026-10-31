@@ -1,0 +1,1271 @@
+{
+    "schema":  "ube-scanner-word-catalog-1",
+    "status":  "acceptance contract; no production scanner is implemented",
+    "authority":  [
+                      "lang-doc/language-spec.md#2-source-and-lexical-rules",
+                      "lang-doc/language-spec.md#1-scope-and-compatibility",
+                      "lang-doc/grammar/ube.ebnf"
+                  ],
+    "policy":  "Alphabetic structural grammar terminals plus literal words/Rem. Preserve documented reserved/contextual classification, with primary native-header exceptions. Ordinary callable eligibility is separate and never makes a reserved declaration name legal. No A-F digit or numeric suffix is globally reserved.",
+    "words":  [
+                  {
+                      "word":  "access",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/access.html"
+                  },
+                  {
+                      "word":  "addressof",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/addressof.html"
+                  },
+                  {
+                      "word":  "alias",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/alias.html"
+                  },
+                  {
+                      "word":  "and",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/and.html"
+                  },
+                  {
+                      "word":  "andalso",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "any",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/any.html"
+                  },
+                  {
+                      "word":  "append",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/append.html"
+                  },
+                  {
+                      "word":  "as",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/as.html"
+                  },
+                  {
+                      "word":  "asm",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/asm.html"
+                  },
+                  {
+                      "word":  "attribute",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/a/attribute.html"
+                  },
+                  {
+                      "word":  "base",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/base.html"
+                  },
+                  {
+                      "word":  "begin",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/begin.html"
+                  },
+                  {
+                      "word":  "beginproperty",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "binary",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/binary.html"
+                  },
+                  {
+                      "word":  "boolean",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/boolean.html"
+                  },
+                  {
+                      "word":  "byref",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/byref.html"
+                  },
+                  {
+                      "word":  "byte",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/byte.html"
+                  },
+                  {
+                      "word":  "bytecode",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/bytecode.html"
+                  },
+                  {
+                      "word":  "byval",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/b/byval.html"
+                  },
+                  {
+                      "word":  "call",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/call.html"
+                  },
+                  {
+                      "word":  "callnew",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "case",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/case.html"
+                  },
+                  {
+                      "word":  "chdir",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/chdir.html"
+                  },
+                  {
+                      "word":  "chdrive",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/chdrive.html"
+                  },
+                  {
+                      "word":  "class",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "close",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/close.html"
+                  },
+                  {
+                      "word":  "compare",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/compare.html"
+                  },
+                  {
+                      "word":  "const",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/const.html"
+                  },
+                  {
+                      "word":  "control",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "currency",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/c/currency.html"
+                  },
+                  {
+                      "word":  "database",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/database.html"
+                  },
+                  {
+                      "word":  "date",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/d/date.html"
+                  },
+                  {
+                      "word":  "decimal",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/decimal.html"
+                  },
+                  {
+                      "word":  "declare",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/declare.html"
+                  },
+                  {
+                      "word":  "default",
+                      "role":  "contextual",
+                      "context":  "documented contextual grammar word",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/default.html"
+                  },
+                  {
+                      "word":  "defbool",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defbyte",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defcur",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defdate",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defdbl",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defint",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "deflng",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defobj",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defsng",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defstr",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "defvar",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "dim",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/dim.html"
+                  },
+                  {
+                      "word":  "do",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/do.html"
+                  },
+                  {
+                      "word":  "double",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/d/double.html"
+                  },
+                  {
+                      "word":  "each",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/each.html"
+                  },
+                  {
+                      "word":  "else",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/else.html"
+                  },
+                  {
+                      "word":  "elseif",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/elseif.html"
+                  },
+                  {
+                      "word":  "empty",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/empty.html"
+                  },
+                  {
+                      "word":  "end",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/end.html"
+                  },
+                  {
+                      "word":  "endproperty",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "enum",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/enum.html"
+                  },
+                  {
+                      "word":  "eqv",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/eqv.html"
+                  },
+                  {
+                      "word":  "erase",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/erase.html"
+                  },
+                  {
+                      "word":  "error",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/e/error.html"
+                  },
+                  {
+                      "word":  "event",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/event.html"
+                  },
+                  {
+                      "word":  "exit",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/exit.html"
+                  },
+                  {
+                      "word":  "explicit",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/e/explicit.html"
+                  },
+                  {
+                      "word":  "export",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "false",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/false.html"
+                  },
+                  {
+                      "word":  "filecopy",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/filecopy.html"
+                  },
+                  {
+                      "word":  "for",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/for.html"
+                  },
+                  {
+                      "word":  "forceinline",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/forceinline.html"
+                  },
+                  {
+                      "word":  "form",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "friend",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/friend.html"
+                  },
+                  {
+                      "word":  "function",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/f/function.html"
+                  },
+                  {
+                      "word":  "get",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/g/get.html"
+                  },
+                  {
+                      "word":  "global",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/g/global.html"
+                  },
+                  {
+                      "word":  "gosub",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/g/gosub.html"
+                  },
+                  {
+                      "word":  "goto",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/g/goto.html"
+                  },
+                  {
+                      "word":  "if",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/if.html"
+                  },
+                  {
+                      "word":  "imp",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/imp.html"
+                  },
+                  {
+                      "word":  "implements",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/implements.html"
+                  },
+                  {
+                      "word":  "in",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/in.html"
+                  },
+                  {
+                      "word":  "inline",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/inline.html"
+                  },
+                  {
+                      "word":  "input",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/i/input.html"
+                  },
+                  {
+                      "word":  "integer",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/integer.html"
+                  },
+                  {
+                      "word":  "interface",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "intptr",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/intptr.html"
+                  },
+                  {
+                      "word":  "intrinsic",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/intrinsic.html"
+                  },
+                  {
+                      "word":  "is",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/i/is.html"
+                  },
+                  {
+                      "word":  "isnot",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "kill",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/k/kill.html"
+                  },
+                  {
+                      "word":  "len",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/l/len.html"
+                  },
+                  {
+                      "word":  "let",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/let.html"
+                  },
+                  {
+                      "word":  "lib",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/lib.html"
+                  },
+                  {
+                      "word":  "like",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/like.html"
+                  },
+                  {
+                      "word":  "line",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/line.html"
+                  },
+                  {
+                      "word":  "load",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/load.html"
+                  },
+                  {
+                      "word":  "lock",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/lock.html"
+                  },
+                  {
+                      "word":  "long",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/long.html"
+                  },
+                  {
+                      "word":  "longlong",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/longlong.html"
+                  },
+                  {
+                      "word":  "loop",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/loop.html"
+                  },
+                  {
+                      "word":  "lset",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/l/lset.html"
+                  },
+                  {
+                      "word":  "me",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "mid",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/m/mid.html"
+                  },
+                  {
+                      "word":  "mkdir",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/m/mkdir.html"
+                  },
+                  {
+                      "word":  "mod",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/m/mod.html"
+                  },
+                  {
+                      "word":  "module",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "name",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/name.html"
+                  },
+                  {
+                      "word":  "new",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/new.html"
+                  },
+                  {
+                      "word":  "next",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/next.html"
+                  },
+                  {
+                      "word":  "not",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/not.html"
+                  },
+                  {
+                      "word":  "nothing",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/nothing.html"
+                  },
+                  {
+                      "word":  "null",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/n/null.html"
+                  },
+                  {
+                      "word":  "object",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/object.html"
+                  },
+                  {
+                      "word":  "off",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/off.html"
+                  },
+                  {
+                      "word":  "on",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/on.html"
+                  },
+                  {
+                      "word":  "open",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/open.html"
+                  },
+                  {
+                      "word":  "option",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/option.html"
+                  },
+                  {
+                      "word":  "optional",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/optional.html"
+                  },
+                  {
+                      "word":  "or",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/or.html"
+                  },
+                  {
+                      "word":  "orelse",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "output",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/o/output.html"
+                  },
+                  {
+                      "word":  "page",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/page.html"
+                  },
+                  {
+                      "word":  "paramarray",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/paramarray.html"
+                  },
+                  {
+                      "word":  "preserve",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/preserve.html"
+                  },
+                  {
+                      "word":  "print",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/print.html"
+                  },
+                  {
+                      "word":  "private",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/private.html"
+                  },
+                  {
+                      "word":  "property",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/property.html"
+                  },
+                  {
+                      "word":  "public",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/public.html"
+                  },
+                  {
+                      "word":  "put",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/p/put.html"
+                  },
+                  {
+                      "word":  "raiseevent",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/raiseevent.html"
+                  },
+                  {
+                      "word":  "random",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/random.html"
+                  },
+                  {
+                      "word":  "read",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/read.html"
+                  },
+                  {
+                      "word":  "redim",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/redim.html"
+                  },
+                  {
+                      "word":  "reference",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/reference.html"
+                  },
+                  {
+                      "word":  "rem",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/rem.html"
+                  },
+                  {
+                      "word":  "resume",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/resume.html"
+                  },
+                  {
+                      "word":  "return",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/return.html"
+                  },
+                  {
+                      "word":  "rmdir",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/rmdir.html"
+                  },
+                  {
+                      "word":  "rset",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/r/rset.html"
+                  },
+                  {
+                      "word":  "savepicture",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/savepicture.html"
+                  },
+                  {
+                      "word":  "seek",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/s/seek.html"
+                  },
+                  {
+                      "word":  "select",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/select.html"
+                  },
+                  {
+                      "word":  "set",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/set.html"
+                  },
+                  {
+                      "word":  "shared",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/shared.html"
+                  },
+                  {
+                      "word":  "single",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/single.html"
+                  },
+                  {
+                      "word":  "source",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "spc",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/s/spc.html"
+                  },
+                  {
+                      "word":  "static",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/static.html"
+                  },
+                  {
+                      "word":  "step",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/step.html"
+                  },
+                  {
+                      "word":  "stop",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/stop.html"
+                  },
+                  {
+                      "word":  "string",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/s/string.html"
+                  },
+                  {
+                      "word":  "sub",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/s/sub.html"
+                  },
+                  {
+                      "word":  "synclock",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "tab",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  true,
+                      "basis":  "docs/language/words/t/tab.html"
+                  },
+                  {
+                      "word":  "text",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/t/text.html"
+                  },
+                  {
+                      "word":  "then",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/t/then.html"
+                  },
+                  {
+                      "word":  "to",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/t/to.html"
+                  },
+                  {
+                      "word":  "true",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/t/true.html"
+                  },
+                  {
+                      "word":  "type",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/t/type.html"
+                  },
+                  {
+                      "word":  "typeof",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "ube",
+                      "role":  "contextual",
+                      "context":  "native source header/kind or other required grammar context",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "lang-doc/language-spec.md section 2"
+                  },
+                  {
+                      "word":  "ube_name",
+                      "role":  "attribute",
+                      "context":  "reserved source identity attribute name",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "uintptr",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/u/uintptr.html"
+                  },
+                  {
+                      "word":  "unload",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/u/unload.html"
+                  },
+                  {
+                      "word":  "unlock",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "until",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/u/until.html"
+                  },
+                  {
+                      "word":  "usercontrol",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/u/usercontrol.html"
+                  },
+                  {
+                      "word":  "variable",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/v/variable.html"
+                  },
+                  {
+                      "word":  "variant",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/v/variant.html"
+                  },
+                  {
+                      "word":  "version",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/v/version.html"
+                  },
+                  {
+                      "word":  "wend",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/w/wend.html"
+                  },
+                  {
+                      "word":  "while",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/w/while.html"
+                  },
+                  {
+                      "word":  "width",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "with",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/w/with.html"
+                  },
+                  {
+                      "word":  "withevents",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "normative grammar vocabulary"
+                  },
+                  {
+                      "word":  "write",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/w/write.html"
+                  },
+                  {
+                      "word":  "xor",
+                      "role":  "reserved",
+                      "context":  "structural grammar",
+                      "ordinaryCallEligible":  false,
+                      "basis":  "docs/language/words/x/xor.html"
+                  }
+              ],
+    "ordinaryNames":  [
+                          "Abs",
+                          "Beep",
+                          "DoEvents",
+                          "Randomize",
+                          "Reset",
+                          "SetAttr",
+                          "SaveSetting",
+                          "DeleteSetting",
+                          "MsgBox",
+                          "InputBox",
+                          "CByte",
+                          "CInt",
+                          "CLng",
+                          "CStr",
+                          "Left",
+                          "Right",
+                          "Trim",
+                          "Asc",
+                          "Chr",
+                          "Mid",
+                          "Len",
+                          "String",
+                          "Date",
+                          "Input",
+                          "Error",
+                          "Seek",
+                          "Spc",
+                          "Tab"
+                      ],
+    "requiredHard":  [
+                         "CallNew",
+                         "SyncLock",
+                         "AndAlso",
+                         "OrElse",
+                         "IsNot",
+                         "Interface",
+                         "Export",
+                         "WithEvents",
+                         "Me"
+                     ]
+}

@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {"name":"length-byval","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByVal Values() As Byte) As Long","role":"Array.Length"},
+    {"name":"length-scalar","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Value As Byte) As Long","role":"Array.Length"},
+    {"name":"length-wrong-result","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte) As Integer","role":"Array.Length"},
+    {"name":"length-array-result","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte) As Long()","role":"Array.Length"},
+    {"name":"resize-byval-array","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByVal Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean","role":"Array.TryResize"},
+    {"name":"resize-byref-count","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte, ByRef Count As Long, ByVal Preserve As Boolean) As Boolean","role":"Array.TryResize"},
+    {"name":"resize-integer-count","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte, ByVal Count As Integer, ByVal Preserve As Boolean) As Boolean","role":"Array.TryResize"},
+    {"name":"resize-byref-preserve","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte, ByVal Count As Long, ByRef Preserve As Boolean) As Boolean","role":"Array.TryResize"},
+    {"name":"resize-wrong-result","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Long","role":"Array.TryResize"},
+    {"name":"collect-parameter","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByVal Unused As Long) As Long","role":"Memory.Collect"},
+    {"name":"collect-array-result","diagnostic":"UBE3232","header":"Intrinsic Function Size() As Long()","role":"Memory.Collect"},
+    {"name":"collect-wrong-result","diagnostic":"UBE3232","header":"Intrinsic Function Size() As Boolean","role":"Memory.Collect"},
+    {"name":"copy-different-element","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Destination() As Byte, ByRef Source() As Integer) As Boolean","role":"Array.TryCopy"},
+    {"name":"copy-byval-destination","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByVal Destination() As Byte, ByRef Source() As Byte) As Boolean","role":"Array.TryCopy"},
+    {"name":"copy-byval-source","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Destination() As Byte, ByVal Source() As Byte) As Boolean","role":"Array.TryCopy"},
+    {"name":"copy-wrong-result","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Destination() As Byte, ByRef Source() As Byte) As Long","role":"Array.TryCopy"},
+    {"name":"bytes-non-byte","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Source() As Integer, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean","role":"Memory.CopyBytes"},
+    {"name":"bytes-byval-array","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Source() As Byte, ByVal SourceStart As Long, ByVal Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean","role":"Memory.CopyBytes"},
+    {"name":"bytes-byref-offset","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Source() As Byte, ByRef SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean","role":"Memory.CopyBytes"},
+    {"name":"bytes-integer-count","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Integer) As Boolean","role":"Memory.CopyBytes"},
+    {"name":"bytes-wrong-result","diagnostic":"UBE3232","header":"Intrinsic Function Size(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Long","role":"Memory.CopyBytes"},
+    {"name":"unknown-role","diagnostic":"UBE3230","header":"Intrinsic Function Size(ByRef Values() As Byte) As Long","role":"Array.UnknownStorageRole"},
+    {"name":"metadata-target","diagnostic":"UBE3230","sourceText":"Intrinsic Function Size(ByRef Values() As Byte) As Long\nAttribute OtherName.UBE_Primitive = \"Array.Length\"\nEnd Function\n"},
+    {"name":"metadata-duplicate","diagnostic":"UBE3230","sourceText":"Intrinsic Function Size(ByRef Values() As Byte) As Long\nAttribute Size.UBE_Primitive = \"Array.Length\"\nAttribute Size.UBE_Primitive = \"Array.Length\"\nEnd Function\n"},
+    {"name":"metadata-body","diagnostic":"UBE3230","sourceText":"Intrinsic Function Size(ByRef Values() As Byte) As Long\nAttribute Size.UBE_Primitive = \"Array.Length\"\nPrint 1\nEnd Function\n"},
+    {"name":"missing-binding","diagnostic":"UBE3232","sourceText":"Intrinsic Function Size(ByRef Values() As Byte) As Long\nEnd Function\n"},
+    {"name":"cross-module-binding","diagnostic":"UBE3232","files":{"Bindings.UBE":"UBE-Project 1\nName = \"StorageBindingProof\"\nKind = \"Exe\"\nStartup = \"Main\"\nSource = \"Declaration.bas\"\nSource = \"Main.bas\"\n","Declaration.bas":"Intrinsic Function Size(ByRef Values() As Byte) As Long\n","Main.bas":"Attribute Size.UBE_Primitive = \"Array.Length\"\nEnd Function\nFunction Main() As Long\nMain = 0\nEnd Function\n"},"project":"Bindings.UBE"},
+    {"name":"managed-entry","diagnostic":"UBE3004","source":"main-array.bas"}
+  ]
+}

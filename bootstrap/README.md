@@ -2,15 +2,43 @@
 
 The historical full build selects previous v3 source under
 `../compiler/archived/UBE_Compiler_v3/` and the archived source library. Its
-`ube-v3-*` output names belong to that old implementation. The fresh v3 has no
-production source yet; its candidate bounded stage-zero/v2 route is described
+`ube-v3-*` output names belong to that old implementation. The fresh v3 now has
+a tested source-input/scanner and bounded grammar consumer; its stage-zero/v2 route is described
 in `../compiler/UBE_Compiler_v3/`. No bootstrap fitness or full historical
 runtime gate is claimed by the archive relocation checks.
 
 This directory contains the temporary C++ implementation used to bootstrap the
 self-hosting UBE compiler. It requires a C++17-capable GCC installation.
 
-## Build and test
+## Current bounded v2 build
+
+Build the current seed/runtime and source-built v2, with fixed-point and native
+acceptance checks, from the repository root:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/build-v2.ps1
+```
+
+Each run has a separate `bootstrap/out/v2/` directory. A passing run updates
+`bootstrap/out/v2/current.json`; no backup compiler is needed. Use
+`compile-v2.ps1 -Source <source.bas|project.UBE> -Output <program.exe>` for a
+native program, and `tests/v2_usage_tests.ps1` for that helper's acceptance test.
+The gate now passes 501 grouped assertions, including scalar/native values, managed
+storage, UBECore decoder/buffer behavior/costs, direct source references,
+recoverable byte-file input and the fresh source/scanner/Unicode consumer. All proofs
+must pass before selection changes.
+The bounded production parser also passes its separate native and CLI gates;
+see [the parser evidence](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md)
+for exact commands, both-stage results, failure/cost bounds and the qualified
+local `bootstrap/out/v3/ube.exe`. Those parser checks are additional to the 501
+foundation assertions; semantic checking and code generation remain unavailable.
+The C runtime is compiled with the already-required Clang Windows target so its
+fixed per-thread error record uses native TLS. First-error publication must work
+without heap allocation; GCC's emulated TLS does not meet that requirement on the
+installed Windows toolchain. GCC/G++ remain the seed and Unicode support tools.
+See [the v2 evidence and limits](../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md).
+
+## Historical full build
 
 From the repository root in PowerShell:
 

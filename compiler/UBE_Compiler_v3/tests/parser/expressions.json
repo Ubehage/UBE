@@ -1,0 +1,306 @@
+{
+  "schema": "ube-parser-cases-1",
+  "cases": [
+    {
+      "name": "additive-binds-less-tightly-than-multiplication", "entry": "expression", "outcome": "syntax",
+      "source": "a + b * c", "rules": ["expression", "additive-expression", "multiplicative-expression"],
+      "witnesses": [{"id":"whole","text":"a + b * c"},{"id":"a","text":"a"},{"id":"product","text":"b * c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Add","whole",["Name","a"],["Multiply","product",["Name","b"],["Name","c"]]]
+    },
+    {
+      "name": "integer-division-binds-more-tightly-than-multiplication", "entry": "expression", "outcome": "syntax",
+      "source": "a * b \\ c", "rules": ["multiplicative-expression", "integer-division-expression"],
+      "witnesses": [{"id":"whole","text":"a * b \\ c"},{"id":"a","text":"a"},{"id":"quotient","text":"b \\ c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Multiply","whole",["Name","a"],["IntegerDivide","quotient",["Name","b"],["Name","c"]]],
+      "notes": "This follows the frozen primary precedence table; it is not a guess from another Basic dialect."
+    },
+    {
+      "name": "modulus-binds-more-tightly-than-integer-division", "entry": "expression", "outcome": "syntax",
+      "source": "a \\ b Mod c", "rules": ["integer-division-expression", "modulus-expression"],
+      "witnesses": [{"id":"whole","text":"a \\ b Mod c"},{"id":"a","text":"a"},{"id":"remainder","text":"b Mod c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["IntegerDivide","whole",["Name","a"],["Modulo","remainder",["Name","b"],["Name","c"]]]
+    },
+    {
+      "name": "me-is-structural-expression-with-later-instance-context-check", "entry": "expression", "outcome": "syntax",
+      "source": "Me", "rules": ["primary-expression", "me-expression"],
+      "witnesses": [{"id":"whole","text":"Me"}], "shape": ["Name","whole"],
+      "semanticChecks": ["Me requires an executing class, form or control instance member; this expression-only witness supplies no binding or scope proof."]
+    },
+    {
+      "name": "power-binds-more-tightly-than-unary-negative", "entry": "expression", "outcome": "syntax",
+      "source": "-a ^ b", "rules": ["unary-expression", "power-expression"],
+      "witnesses": [{"id":"whole","text":"-a ^ b"},{"id":"power","text":"a ^ b"},{"id":"a","text":"a"},{"id":"b","text":"b"}],
+      "shape": ["Negative","whole",["Power","power",["Name","a"],["Name","b"]]]
+    },
+    {
+      "name": "power-associates-to-the-right", "entry": "expression", "outcome": "syntax",
+      "source": "a ^ b ^ c", "rules": ["power-expression", "unary-expression"],
+      "witnesses": [{"id":"whole","text":"a ^ b ^ c"},{"id":"a","text":"a"},{"id":"right","text":"b ^ c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Power","whole",["Name","a"],["Power","right",["Name","b"],["Name","c"]]]
+    },
+    {
+      "name": "power-allows-unary-negative-right-operand", "entry": "expression", "outcome": "syntax",
+      "source": "a ^ -b", "rules": ["power-expression", "unary-expression"],
+      "witnesses": [{"id":"whole","text":"a ^ -b"},{"id":"a","text":"a"},{"id":"negative","text":"-b"},{"id":"b","text":"b"}],
+      "shape": ["Power","whole",["Name","a"],["Negative","negative",["Name","b"]]]
+    },
+    {
+      "name": "subtraction-associates-to-the-left", "entry": "expression", "outcome": "syntax",
+      "source": "a - b - c", "rules": ["additive-expression"],
+      "witnesses": [{"id":"whole","text":"a - b - c"},{"id":"left","text":"a - b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Subtract","whole",["Subtract","left",["Name","a"],["Name","b"]],["Name","c"]]
+    },
+    {
+      "name": "division-and-multiplication-share-left-associative-level", "entry": "expression", "outcome": "syntax",
+      "source": "a / b * c", "rules": ["multiplicative-expression"],
+      "witnesses": [{"id":"whole","text":"a / b * c"},{"id":"left","text":"a / b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Multiply","whole",["Divide","left",["Name","a"],["Name","b"]],["Name","c"]]
+    },
+    {
+      "name": "addition-binds-more-tightly-than-concatenation", "entry": "expression", "outcome": "syntax",
+      "source": "a & b + c", "rules": ["concatenation-expression", "additive-expression"],
+      "witnesses": [{"id":"whole","text":"a & b + c"},{"id":"a","text":"a"},{"id":"sum","text":"b + c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Concat","whole",["Name","a"],["Add","sum",["Name","b"],["Name","c"]]]
+    },
+    {
+      "name": "concatenation-binds-more-tightly-than-comparison", "entry": "expression", "outcome": "syntax",
+      "source": "a & b = c", "rules": ["comparison-expression", "concatenation-expression"],
+      "witnesses": [{"id":"whole","text":"a & b = c"},{"id":"concat","text":"a & b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Equal","whole",["Concat","concat",["Name","a"],["Name","b"]],["Name","c"]]
+    },
+    {
+      "name": "comparison-binds-more-tightly-than-not", "entry": "expression", "outcome": "syntax",
+      "source": "Not a = b", "rules": ["not-expression", "comparison-expression"],
+      "witnesses": [{"id":"whole","text":"Not a = b"},{"id":"comparison","text":"a = b"},{"id":"a","text":"a"},{"id":"b","text":"b"}],
+      "shape": ["Not","whole",["Equal","comparison",["Name","a"],["Name","b"]]]
+    },
+    {
+      "name": "and-binds-more-tightly-than-or", "entry": "expression", "outcome": "syntax",
+      "source": "a Or b And c", "rules": ["or-expression", "and-expression"],
+      "witnesses": [{"id":"whole","text":"a Or b And c"},{"id":"a","text":"a"},{"id":"conjunction","text":"b And c"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Or","whole",["Name","a"],["And","conjunction",["Name","b"],["Name","c"]]],
+      "semanticChecks": ["And and Or are eager; syntax shape alone does not prove evaluation behavior."]
+    },
+    {
+      "name": "orelse-and-or-share-left-associative-level", "entry": "expression", "outcome": "syntax",
+      "source": "a OrElse b Or c", "rules": ["or-expression"],
+      "witnesses": [{"id":"whole","text":"a OrElse b Or c"},{"id":"left","text":"a OrElse b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Or","whole",["OrElse","left",["Name","a"],["Name","b"]],["Name","c"]],
+      "semanticChecks": ["OrElse requires Boolean operands and short-circuits; these are not established by syntax recognition."]
+    },
+    {
+      "name": "andalso-and-and-share-left-associative-level", "entry": "expression", "outcome": "syntax",
+      "source": "a AndAlso b And c", "rules": ["and-expression"],
+      "witnesses": [{"id":"whole","text":"a AndAlso b And c"},{"id":"left","text":"a AndAlso b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["And","whole",["AndAlso","left",["Name","a"],["Name","b"]],["Name","c"]],
+      "semanticChecks": ["AndAlso requires Boolean operands and short-circuits; these are not established by syntax recognition."]
+    },
+    {
+      "name": "imp-eqv-xor-or-precedence", "entry": "expression", "outcome": "syntax",
+      "source": "a Imp b Eqv c Xor d Or e", "rules": ["implication-expression", "equivalence-expression", "xor-expression", "or-expression"],
+      "witnesses": [{"id":"whole","text":"a Imp b Eqv c Xor d Or e"},{"id":"a","text":"a"},{"id":"equivalence","text":"b Eqv c Xor d Or e"},{"id":"b","text":"b"},{"id":"exclusive","text":"c Xor d Or e"},{"id":"c","text":"c"},{"id":"disjunction","text":"d Or e"},{"id":"d","text":"d"},{"id":"e","text":"e"}],
+      "shape": ["Imp","whole",["Name","a"],["Eqv","equivalence",["Name","b"],["Xor","exclusive",["Name","c"],["Or","disjunction",["Name","d"],["Name","e"]]]]]
+    },
+    {
+      "name": "parenthesized-group-overrides-default-precedence", "entry": "expression", "outcome": "syntax",
+      "source": "(a + b) * c", "rules": ["parenthesized-expression", "multiplicative-expression"],
+      "witnesses": [{"id":"whole","text":"(a + b) * c"},{"id":"group","text":"(a + b)"},{"id":"sum","text":"a + b"},{"id":"a","text":"a"},{"id":"b","text":"b"},{"id":"c","text":"c"}],
+      "shape": ["Multiply","whole",["Group","group",["Add","sum",["Name","a"],["Name","b"]]],["Name","c"]]
+    },
+    {
+      "name": "postfix-member-application-member-chain", "entry": "expression", "outcome": "syntax",
+      "source": "obj.Type(x).Print", "rules": ["postfix-expression", "postfix-part", "member-access", "argument-list", "member-name"],
+      "witnesses": [{"id":"whole","text":"obj.Type(x).Print"},{"id":"application","text":"obj.Type(x)"},{"id":"target","text":"obj.Type"},{"id":"receiver","text":"obj"},{"id":"type-member","text":"Type"},{"id":"argument","text":"x"},{"id":"print-member","text":"Print"}],
+      "shape": ["Member","whole",["Call","application",["Member","target",["Name","receiver"],["Name","type-member"]],["Name","argument"]],["Name","print-member"]],
+      "semanticChecks": ["The parenthesized application requires later binding to distinguish a callable target, array indexing or another valid application."]
+    },
+    {
+      "name": "bang-access-consumes-reserved-member", "entry": "expression", "outcome": "syntax",
+      "source": "obj!Type", "rules": ["postfix-expression", "bang-access", "member-name"],
+      "witnesses": [{"id":"whole","text":"obj!Type"},{"id":"receiver","text":"obj"},{"id":"member","text":"Type"}],
+      "shape": ["Bang","whole",["Name","receiver"],["Name","member"]],
+      "semanticChecks": ["The receiver must provide the specified named-item/default-member facility; syntax recognition does not establish it."]
+    },
+    {
+      "name": "bracketed-reserved-spelling-remains-a-name", "entry": "expression", "outcome": "syntax",
+      "source": "[Type]", "rules": ["primary-expression", "identifier", "bracketed-identifier"],
+      "witnesses": [{"id":"whole","text":"[Type]"}], "shape": ["Name","whole"]
+    },
+    {
+      "name": "type-character-on-name-use", "entry": "expression", "outcome": "syntax",
+      "source": "item$", "rules": ["primary-expression", "identifier", "typed-name", "type-character"],
+      "witnesses": [{"id":"whole","text":"item$"}], "shape": ["Name","whole"],
+      "semanticChecks": ["The type character is not part of name identity and must agree with the declaration's type."],
+      "notes": "Primary language-spec section 4 permits type characters on use; its rule must be carried through the EBNF's identifier-only primary expression."
+    },
+    {
+      "name": "mid-dollar-is-an-ordinary-expression-callee", "entry": "expression", "outcome": "syntax",
+      "source": "Mid$(s,2)", "rules": ["postfix-expression", "primary-expression", "argument-list", "typed-name", "type-character"],
+      "witnesses": [{"id":"whole","text":"Mid$(s,2)"},{"id":"callee","text":"Mid$"},{"id":"text","text":"s"},{"id":"index","text":"2"}],
+      "shape": ["Call","whole",["Name","callee"],["Name","text"],["Literal","index"]],
+      "semanticChecks": ["The callee is an ordinary library procedure requiring later binding; this spelling does not select a privileged builtin."],
+      "notes": "Primary language-spec section 1 explicitly requires this ordinary call despite Mid's separate structural grammar role."
+    },
+    {
+      "name": "len-ordinary-callee-does-not-change-reserved-declarations", "entry": "expression", "outcome": "syntax",
+      "source": "Len(s)", "rules": ["postfix-expression", "primary-expression", "argument-list"],
+      "witnesses": [{"id":"whole","text":"Len(s)"},{"id":"callee","text":"Len"},{"id":"argument","text":"s"}],
+      "shape": ["Call","whole",["Name","callee"],["Name","argument"]],
+      "semanticChecks": ["Ordinary-call eligibility does not make the reserved spelling legal in an unbracketed declaration."]
+    },
+    {
+      "name": "named-argument-keeps-name-and-value", "entry": "expression", "outcome": "syntax",
+      "source": "F(x:=1)", "rules": ["argument-list", "argument", "named-argument"],
+      "witnesses": [{"id":"whole","text":"F(x:=1)"},{"id":"callee","text":"F"},{"id":"argument","text":"x:=1"},{"id":"parameter","text":"x"},{"id":"value","text":"1"}],
+      "shape": ["Call","whole",["Name","callee"],["NamedArgument","argument",["Name","parameter"],["Literal","value"]]]
+    },
+    {
+      "name": "interior-and-trailing-omitted-arguments-are-retained", "entry": "expression", "outcome": "syntax",
+      "source": "F(a,,c,)", "rules": ["argument-list", "argument-slot"],
+      "witnesses": [{"id":"whole","text":"F(a,,c,)"},{"id":"callee","text":"F"},{"id":"first","text":"a"},{"id":"middle","text":",","occurrence":1,"at":"start"},{"id":"third","text":"c"},{"id":"last","text":")","at":"start"}],
+      "shape": ["Call","whole",["Name","callee"],["Name","first"],["Omitted","middle"],["Name","third"],["Omitted","last"]],
+      "semanticChecks": ["Whether each omitted actual is legal depends on the bound parameter list."]
+    },
+    {
+      "name": "empty-parentheses-supply-zero-arguments", "entry": "expression", "outcome": "syntax",
+      "source": "F()", "rules": ["argument-list", "postfix-expression"],
+      "witnesses": [{"id":"whole","text":"F()"},{"id":"callee","text":"F"}], "shape": ["Call","whole",["Name","callee"]]
+    },
+    {
+      "name": "is-not-pair-is-one-negated-identity-relation", "entry": "expression", "outcome": "syntax",
+      "source": "a Is Not b", "rules": ["comparison-expression", "relational-operator"],
+      "witnesses": [{"id":"whole","text":"a Is Not b"},{"id":"a","text":"a"},{"id":"b","text":"b"}],
+      "shape": ["IsNot","whole",["Name","a"],["Name","b"]]
+    },
+    {
+      "name": "isnot-word-has-same-negated-identity-shape", "entry": "expression", "outcome": "syntax",
+      "source": "a IsNot b", "rules": ["comparison-expression", "relational-operator"],
+      "witnesses": [{"id":"whole","text":"a IsNot b"},{"id":"a","text":"a"},{"id":"b","text":"b"}],
+      "shape": ["IsNot","whole",["Name","a"],["Name","b"]]
+    },
+    {
+      "name": "typeof-keeps-expression-and-type-name-distinct", "entry": "expression", "outcome": "syntax",
+      "source": "TypeOf item Is Widget", "rules": ["comparison-expression", "type-of-expression", "type-name"],
+      "witnesses": [{"id":"whole","text":"TypeOf item Is Widget"},{"id":"value","text":"item"},{"id":"type","text":"Widget"}],
+      "shape": ["TypeOfIs","whole",["Name","value"],["TypeName","type"]],
+      "semanticChecks": ["TypeOf requires an object-compatible operand and an appropriate class, interface, form or control type."]
+    },
+    {
+      "name": "new-keeps-type-spelling", "entry": "expression", "outcome": "syntax",
+      "source": "New Widget", "rules": ["primary-expression", "new-expression", "type-name"],
+      "witnesses": [{"id":"whole","text":"New Widget"},{"id":"type","text":"Widget"}],
+      "shape": ["New","whole",["TypeName","type"]],
+      "semanticChecks": ["The type must later resolve to a type that can be constructed by New."]
+    },
+    {
+      "name": "addressof-keeps-qualified-target", "entry": "expression", "outcome": "syntax",
+      "source": "AddressOf Handlers.Work", "rules": ["primary-expression", "address-of-expression", "qualified-name"],
+      "witnesses": [{"id":"whole","text":"AddressOf Handlers.Work"},{"id":"qualified","text":"Handlers.Work"},{"id":"module","text":"Handlers"},{"id":"procedure","text":"Work"}],
+      "shape": ["AddressOf","whole",["Member","qualified",["Name","module"],["Name","procedure"]]],
+      "semanticChecks": ["AddressOf target, signature, lifetime and foreign-boundary restrictions require later binding."]
+    },
+    {
+      "name": "callnew-retains-qualified-callee-and-actuals", "entry": "expression", "outcome": "syntax",
+      "source": "CallNew Workers.Run(x)", "rules": ["primary-expression", "call-new-expression", "qualified-name", "argument-list"],
+      "witnesses": [{"id":"whole","text":"CallNew Workers.Run(x)"},{"id":"qualified","text":"Workers.Run"},{"id":"module","text":"Workers"},{"id":"procedure","text":"Run"},{"id":"argument","text":"x"}],
+      "shape": ["CallNew","whole",["Member","qualified",["Name","module"],["Name","procedure"]],["Name","argument"]],
+      "semanticChecks": ["CallNew must bind to an eligible Sub and obey its ByVal capture rules; syntax does not establish scheduling or runtime behavior."]
+    },
+    {
+      "name": "real-with-point-and-decimal-suffix-is-one-literal", "entry": "expression", "outcome": "syntax",
+      "source": ".5D", "rules": ["literal", "real-literal", "real-suffix"],
+      "witnesses": [{"id":"whole","text":".5D"}], "shape": ["Literal","whole"],
+      "semanticChecks": ["Literal representation, conversion and range checking are outside this syntax witness."]
+    },
+    {
+      "name": "negative-integer-has-separate-unary-sign", "entry": "expression", "outcome": "syntax",
+      "source": "-1", "rules": ["unary-expression", "integer-literal"],
+      "witnesses": [{"id":"whole","text":"-1"},{"id":"value","text":"1"}], "shape": ["Negative","whole",["Literal","value"]],
+      "notes": "The qualified raw scanner emits the sign separately. The optional EBNF literal sign must not produce a second competing grouping."
+    },
+    {
+      "name": "comparison-does-not-chain", "entry": "expression", "outcome": "reject",
+      "source": "a < b < c", "rules": ["comparison-expression", "relational-operator"],
+      "witnesses": [{"id":"second-relation","text":"<","occurrence":1}],
+      "diagnostic": {"kind":"UnexpectedToken","witness":"second-relation"}
+    },
+    {
+      "name": "adjacent-integer-power-suffix-is-not-an-operator", "entry": "expression", "outcome": "reject",
+      "source": "2^3", "rules": ["integer-literal", "integer-suffix", "power-expression"],
+      "witnesses": [{"id":"adjacent-literal","text":"3"}],
+      "diagnostic": {"kind":"UnexpectedToken","witness":"adjacent-literal"},
+      "notes": "The qualified scanner partitions this as Integer 2^ and Integer 3. The spaced spelling 2 ^ 3 would instead contain the power operator."
+    },
+    {
+      "name": "integer-only-f-does-not-become-real-suffix", "entry": "expression", "outcome": "reject",
+      "source": "1F", "rules": ["integer-literal", "real-literal", "real-suffix"],
+      "witnesses": [{"id":"unexpected-name","text":"F"}],
+      "diagnostic": {"kind":"UnexpectedToken","witness":"unexpected-name"}
+    },
+    {
+      "name": "integer-only-bang-does-not-become-real-suffix", "entry": "expression", "outcome": "reject",
+      "source": "1!", "rules": ["integer-literal", "real-literal", "real-suffix", "bang-access", "member-name"],
+      "witnesses": [{"id":"bang","text":"!"},{"id":"eof","text":"","at":"eof","anchor":{"byte":2,"scalar":2,"line":1,"column":3}}],
+      "diagnostic": {"kind":"ExpectedIdentifier","witness":"eof"},
+      "notes": "The bang is separate punctuation, not a real suffix. A structural postfix bang access then lacks its required member name; receiver suitability is not decided by syntax."
+    },
+    {
+      "name": "colon-inside-argument-parentheses-is-not-statement-separator", "entry": "expression", "outcome": "reject",
+      "source": "F(a:b)", "rules": ["argument-list", "argument-slot", "expression"],
+      "witnesses": [{"id":"unexpected-colon","text":":"}],
+      "diagnostic": {"kind":"ExpectedToken","witness":"unexpected-colon"}
+    },
+    {
+      "name": "missing-binary-right-operand-anchors-at-original-eof", "entry": "expression", "outcome": "reject",
+      "source": "a +", "rules": ["additive-expression", "primary-expression"],
+      "witnesses": [{"id":"eof","text":"","at":"eof","anchor":{"byte":3,"scalar":3,"line":1,"column":4}}],
+      "diagnostic": {"kind":"ExpectedExpression","witness":"eof"}
+    },
+    {
+      "name": "reserved-word-is-not-a-bare-expression-name", "entry": "expression", "outcome": "reject",
+      "source": "Type", "rules": ["primary-expression", "identifier", "bare-identifier"],
+      "witnesses": [{"id":"reserved-word","text":"Type"}],
+      "diagnostic": {"kind":"ExpectedExpression","witness":"reserved-word"},
+      "notes": "Reserved member names and separately recorded ordinary-callee eligibility do not globally relax the identifier rule."
+    },
+    {
+      "name": "unclosed-application-anchors-missing-token-at-original-eof", "entry": "expression", "outcome": "reject",
+      "source": "F(α", "rules": ["postfix-expression", "argument-list"],
+      "witnesses": [{"id":"eof","text":"","at":"eof","anchor":{"byte":4,"scalar":3,"line":1,"column":4}}],
+      "diagnostic": {"kind":"ExpectedToken","witness":"eof"}
+    },
+    {
+      "name": "string-dollar-is-an-ordinary-callee-not-a-privileged-conversion", "entry": "expression", "outcome": "syntax",
+      "source": "String$(3,\"x\")", "rules": ["postfix-expression", "primary-expression", "argument-list", "typed-name", "type-character"],
+      "witnesses": [{"id":"whole","text":"String$(3,\"x\")"},{"id":"callee","text":"String$"},{"id":"count","text":"3"},{"id":"text","text":"\"x\""}],
+      "shape": ["Call","whole",["Name","callee"],["Literal","count"],["Literal","text"]],
+      "semanticChecks": ["This spelling requires ordinary procedure binding and does not select a privileged datatype conversion or builtin implementation."]
+    },
+    {
+      "name": "overlapping-use-site-integer-suffix-needs-disambiguation", "entry": "expression", "outcome": "deferred",
+      "source": "x& + y", "rules": ["typed-name", "type-character", "concatenation-expression", "additive-expression", "unary-expression"],
+      "witnesses": [{"id":"whole","text":"x& + y"},{"id":"overlap","text":"x&"}],
+      "deferredReason": "The primary specification permits type characters on use, but this spelling overlaps Add(Name x&, Name y) and Concat(Name x, Positive(Name y)). The first bounded consumer does not choose a new disambiguation rule or claim complete overlapping suffix support."
+    },
+    {
+      "name": "supplementary-letter-uses-scalar-not-utf16-column", "entry": "expression", "outcome": "syntax",
+      "source": "𐐀 + β", "rules": ["additive-expression", "primary-expression", "bare-identifier"],
+      "witnesses": [{"id":"whole","text":"𐐀 + β"},{"id":"deseret","text":"𐐀","anchor":{"byte":0,"scalar":0,"line":1,"column":1}},{"id":"beta","text":"β","anchor":{"byte":7,"scalar":4,"line":1,"column":5}}],
+      "shape": ["Add","whole",["Name","deseret"],["Name","beta"]],
+      "notes": "U+10400 is a qualified Unicode 18 Letter occupying four UTF-8 bytes and one content scalar. Counting UTF-16 code units would give the wrong beta column."
+    },
+    {
+      "name": "not-has-required-spacing-before-grouped-operand", "entry": "expression", "outcome": "syntax",
+      "source": "Not (a)", "rules": ["not-expression", "spacing1", "parenthesized-expression"],
+      "witnesses": [{"id":"whole","text":"Not (a)"},{"id":"group","text":"(a)"},{"id":"value","text":"a"}],
+      "shape": ["Not","whole",["Group","group",["Name","value"]]]
+    },
+    {
+      "name": "not-without-required-spacing-is-not-silently-widened", "entry": "expression", "outcome": "reject",
+      "source": "Not(a)", "rules": ["not-expression", "spacing1"],
+      "witnesses": [{"id":"missing-spacing","text":"(","anchor":{"byte":3,"scalar":3,"line":1,"column":4}}],
+      "diagnostic": {"kind":"ExpectedToken","witness":"missing-spacing"},
+      "notes": "This pins the explicit spacing1 requirement in the frozen EBNF; it makes no assertion about another dialect's spacing behavior."
+    }
+  ]
+}

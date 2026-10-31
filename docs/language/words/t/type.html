@@ -36,6 +36,10 @@ End Sub</code></pre>
     <h3>Expected result</h3><p>4</p>
     <h2>Important rules</h2>
     <p>A Type declaration belongs at module scope. Its members are data fields.</p>
+    <h2>Native representation form</h2>
+    <pre><code>Type Octet As Byte
+End Type</code></pre>
+    <p>The As form declares an opaque native value with synthesized zero initialization and value copying, not a record with a public field. Current v2 tests Byte, Integer and Long representations. Existing field-only Type declarations keep their rules. See <a href="../../topics/types.html#native-values" data-doc-path="language/topics/types.html">opaque native values</a> and <a href="../i/intrinsic.html" data-doc-path="language/words/i/intrinsic.html">explicit Pack/Unpack bindings</a>.</p>
     <h2>UBE 1.0 rules</h2><p>A custom <code>Type</code> is a value type. Assignment copies its value, including managed fields; object fields keep the same object identity. A type may contain a field of its own type. That recursive field begins empty and materializes automatically only as deeply as code reads or writes it.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../t/true.html" data-doc-path="language/words/t/true.html">← Previous: True</a><a href="../t/typeof.html" data-doc-path="language/words/t/typeof.html">Next: TypeOf →</a></nav>
     <footer class="article-footer">Article ID: language.word.type · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
   </main>
