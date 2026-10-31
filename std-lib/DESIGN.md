@@ -40,9 +40,26 @@ offline from pinned official Unicode 18 raw data and its recorded license.
 Balanced immutable decisions avoid runtime table initialization and global
 mutable state. `UNICODE-CONTRACT.md` defines exact behavior;
 `UNICODE-EVIDENCE.md` records eight passing current-source assertions through
-both accepted bootstrap stages within the complete 501-check gate. The compiler
+both accepted bootstrap stages within that earlier 501-check gate. The compiler
 scanner's separate evidence records its intact UBECore Reference and token/
 envelope policy. Earlier diagnostic runs remain historical development evidence.
+
+## Current bounded thread handoff
+
+`THREADS-CONTRACT.md` defines the adopted generic identity, liveness, cooperative
+stop, completion-wait and yield Try APIs in `Threads.bas`. The current 592-check
+bootstrap qualifies their actual UBE reference captures, fresh status, original
+array/record value semantics, roots, TLS and cleanup. The compiler separately
+owns `SourceOwner`, `SourceWork` and `TryParseSources`; its source ordering,
+syntax/diagnostic policy and bounded orchestration do not enter UBECore.
+Exact current gates, identities and limits are in
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+This bounded slice does not establish full thread/synchronization conformance,
+a general executor, builtin String or shared-Library packaging.
+
+Instrumented four-worker compiler execution was slower; measured collector
+contention is focused follow-up work, without a speedup claim. Every later
+development-plan row remains proposed and needs its own contract and owner review.
 
 ## Dependency direction
 

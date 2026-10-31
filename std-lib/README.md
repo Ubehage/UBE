@@ -10,6 +10,23 @@ declarations, or public APIs have been imported from it.
 
 ## Current state
 
+UBECore supplies qualified byte, UTF-8, Unicode/cursor, file-input and bounded
+Threads facilities. `Threads.bas` provides fresh identity, liveness, stop, wait
+and yield APIs under [THREADS-CONTRACT.md](THREADS-CONTRACT.md). The current
+source-built bootstrap passes 592 grouped assertions, including actual UBE
+reference captures, value-copy semantics, failures, roots, TLS and cleanup.
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
+records the exact current cohort and the compiler's separate 5652-assertion
+source-set proof. Source policy, ordering and orchestration remain compiler-owned;
+no executor or compiler source type belongs in UBECore. Full threading, general
+String and native Library packaging are not qualified by this bounded slice.
+
+Instrumented four-worker compiler execution was slower; collector contention
+needs focused follow-up, and no speedup is claimed. All later development-plan
+rows remain proposed and need their own contract and owner review.
+
+## Earlier foundation checkpoints
+
 [`UBECore.UBE`](UBECore.UBE) includes its identity module and two portable
 facilities: [`Utf8.bas`](src/portable/Utf8.bas), an allocation-free incremental
 decoder, and [`ByteBuffer.bas`](src/portable/ByteBuffer.bas), owned byte storage
@@ -22,10 +39,10 @@ extension and intact source-library integration pass the combined gate; see
 [the consumer evidence](../compiler/UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md).
 There is no released library binary. The
 [source-built v2 tool](../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md)
-now passes 501 bounded acceptance assertions, including the
+passed 501 bounded acceptance assertions at that checkpoint, including the
 [opaque native-value mechanism](tests/native-type/NATIVE-EVIDENCE.md).
 Managed array/record copying, roots, cleanup, failure and component concurrency
-are covered by the current gate; builtin String remains separate work.
+were covered by that gate; builtin String remains separate work.
 
 The scanner's concrete library prerequisites are also implemented:
 [`Unicode.bas`](src/portable/Unicode.bas) supplies Unicode 18 Letter membership
@@ -33,8 +50,8 @@ and default simple folding, and [`Utf8Cursor.bas`](src/portable/Utf8Cursor.bas)
 borrows bytes to read one scalar without retaining or copying the source.
 Both use ordinary UBE over the existing storage/decoder facilities. Official raw
 Unicode data, license and provenance are checked in for offline regeneration.
-The current-source gate passes eight Unicode/cursor assertions through both
-accepted bootstrap stages. The complete gate passes 501 assertions, including
+That source-cohort gate passed eight Unicode/cursor assertions through both
+accepted bootstrap stages. That checkpoint's complete gate passed 501 assertions, including
 the compiler's raw scanner and source-envelope consumer. See
 [`UNICODE-EVIDENCE.md`](UNICODE-EVIDENCE.md) for exact identities and limits and
 [the scanner evidence](../compiler/UBE_Compiler_v3/SCANNER-EVIDENCE.md) for
@@ -66,20 +83,21 @@ library. It does not build this project.
 - [`BYTE-TEXT-EVIDENCE.md`](BYTE-TEXT-EVIDENCE.md): initial decoder and storage-gap history.
 - [`MANAGED-STORAGE-PROPOSAL.md`](MANAGED-STORAGE-PROPOSAL.md): approved mechanism scope.
 - [`BYTE-BUFFER-CONTRACT.md`](BYTE-BUFFER-CONTRACT.md): owned buffer API and cost budgets.
-- [`BYTE-BUFFER-EVIDENCE.md`](BYTE-BUFFER-EVIDENCE.md): current exact gate and measurements.
+- [`BYTE-BUFFER-EVIDENCE.md`](BYTE-BUFFER-EVIDENCE.md): earlier source-body gate and measurements.
 - [`FILE-BYTES-CONTRACT.md`](FILE-BYTES-CONTRACT.md): byte-file/argument declarations,
   failure codes, explicit resource ownership and platform boundary.
 - [`UNICODE-CONTRACT.md`](UNICODE-CONTRACT.md): scalar letter/fold and borrowed
   UTF-8 cursor APIs, ownership, failures and costs.
 - [`UNICODE-EVIDENCE.md`](UNICODE-EVIDENCE.md): official data identities,
-  exhaustive tests and exact current-source qualification.
+  exhaustive tests and exact recorded source-cohort qualification.
 - [`AGENTS.md`](AGENTS.md): contributor instructions.
 
-The active consumers are the compiler's source reader, raw scanner and bounded
-production parser. The parser needed no new UBECore API and passes its separate
-[native/CLI qualification](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md)
-alongside the refreshed 501-check foundation gate. Source policy and diagnostics
-remain outside UBECore; OS entry stays in a separate platform adapter.
+The active consumers include the compiler's source reader, scanner, bounded
+parser and `TryParseSources` source-set operation. UBECore owns only the generic
+facilities; compiler source policy and diagnostics stay outside the library,
+and OS entry stays in the platform adapter. Current qualification is in
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md);
+earlier parser and foundation records above preserve their original checkpoints.
 
 The target inventory can be checked from the repository root with
 `rtk proxy powershell -NoProfile -File std-lib/tools/check-inventory.ps1`.

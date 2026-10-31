@@ -5,6 +5,33 @@ function Get-ArtifactIdentity([string]$Path) {
         sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
 }
 
+# Admit an immutable source-built compiler cohort and its unchanged source inputs.
+function Get-VerifiedBootstrapSelection([string]$SelectionPath) {
+    $selection = Get-Content -LiteralPath $SelectionPath -Raw | ConvertFrom-Json
+    foreach ($property in $selection.PSObject.Properties) {
+        if ($property.Name -eq 'schema') { continue }
+        $actual = Get-ArtifactIdentity $property.Value.path
+        if ($actual.sha256 -cne $property.Value.sha256 -or $actual.bytes -ne $property.Value.bytes) {
+            throw "Selection identity mismatch: $($property.Name)"
+        }
+    }
+    $manifest = Get-Content -LiteralPath $selection.manifest.path -Raw | ConvertFrom-Json
+    if (-not $manifest.success) { throw 'Source-built cohort is unsuccessful' }
+    foreach ($identity in $manifest.inputs) {
+        if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) {
+            throw "Source-built input changed: $($identity.path)"
+        }
+    }
+    $stages = @((Join-Path (Split-Path $selection.compiler.path -Parent) 'ube-stage1-v2.exe'),$selection.compiler.path)
+    foreach ($stage in $stages) {
+        $identities = @($manifest.artifacts | Where-Object path -CEQ $stage)
+        if ($identities.Count -ne 1 -or (Get-ArtifactIdentity $stage).sha256 -cne $identities[0].sha256) {
+            throw "Source-built stage identity mismatch: $stage"
+        }
+    }
+    return $selection
+}
+
 function ConvertTo-ProcessArgument([string]$Value) {
     $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
     '"' + [regex]::Replace($escaped, '(\\+)$', '$1$1') + '"'

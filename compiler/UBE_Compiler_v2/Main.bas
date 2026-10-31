@@ -49,6 +49,7 @@ Type SourceFile
     SourceId As Long
     PackageId As Long
     ModuleName As String
+    IsReference As Long
     FilePath As String
     Contents As String
     CombinedStart As Long
@@ -86,6 +87,7 @@ Type ProcedureDeclarationSyntax
     HeaderToken As Long
     EndToken As Long
     IsIntrinsic As Long
+    IsThreadTarget As Long
     FirstParameter As Long
     ParameterCount As Long
     ReturnTypeToken As Long
@@ -392,7 +394,7 @@ Sub LlvmTypeName(ByVal TypeId As Long, ByRef Result As String)
         Result = "i16"
         Exit Sub
     End If
-    If TypeId >= 100000 Then
+    If TypeId >= 100000 Or IsReferenceType(TypeId) <> 0 Or TypeId = 8 Then
         Result = "ptr"
         Exit Sub
     End If
@@ -491,7 +493,15 @@ Sub EmitSimpleStatement(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         If PrintTypeId = 3 Then
             Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_string(ptr " & PrintOperand & ")" & NewLine)
         Else
-            Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_i32(i32 " & PrintOperand & ")" & NewLine)
+            If PrintTypeId = 5 Then
+                Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_i64(i64 " & PrintOperand & ")" & NewLine)
+            Else
+                If PrintTypeId = 6 Then
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_f64(double " & PrintOperand & ")" & NewLine)
+                Else
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_i32(i32 " & PrintOperand & ")" & NewLine)
+                End If
+            End If
         End If
         Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_print_newline()" & NewLine)
         Exit Sub
@@ -768,6 +778,8 @@ Function AppendParameter(ByRef Parameters() As ParameterSyntax, ByRef Count As L
 End Function
 
 Type TypeDeclarationSyntax
+    DeclaredName As String
+    IsReference As Long
     NameToken As Long
     HeaderToken As Long
     EndToken As Long
@@ -776,7 +788,6 @@ Type TypeDeclarationSyntax
     RepresentationToken As Long
     RepresentationType As Long
     RootCount As Long
-    HasArrayStorage As Long
 End Type
 
 Type FieldDeclarationSyntax
@@ -835,6 +846,8 @@ Function AppendTypeDeclaration(ByRef Declarations() As TypeDeclarationSyntax, By
         End If
         Capacity = NewCapacity
     End If
+    Declarations(Count).DeclaredName = ""
+    Declarations(Count).IsReference = 0
     Declarations(Count).NameToken = NameToken
     Declarations(Count).HeaderToken = HeaderToken
     Declarations(Count).EndToken = EndToken
@@ -870,6 +883,7 @@ Function AppendProcedureDeclaration(ByRef Procedures() As ProcedureDeclarationSy
     Procedures(Count).NameToken = NameToken
     Procedures(Count).HeaderToken = HeaderToken
     Procedures(Count).EndToken = EndToken
+    Procedures(Count).IsThreadTarget = 0
     Procedures(Count).IsIntrinsic = IsIntrinsic
     Procedures(Count).FirstParameter = -1
     Procedures(Count).ParameterCount = 0
@@ -1637,7 +1651,7 @@ Function ExpressionOperatorPrecedence(ByRef Tokens() As Token, ByVal TokenIndex 
         ExpressionOperatorPrecedence = 50
         Exit Function
     End If
-    If OperatorText = "=" Or OperatorText = "<" Or OperatorText = ">" Or OperatorText = "<>" Or OperatorText = "<=" Or OperatorText = ">=" Then
+    If OperatorText = "=" Or OperatorText = "<" Or OperatorText = ">" Or OperatorText = "<>" Or OperatorText = "<=" Or OperatorText = ">=" Or EqualsKeyword(OperatorText, "Is") <> 0 Then
         ExpressionOperatorPrecedence = 40
         Exit Function
     End If
@@ -1652,11 +1666,65 @@ Function ExpressionOperatorPrecedence(ByRef Tokens() As Token, ByVal TokenIndex 
     ExpressionOperatorPrecedence = 0
 End Function
 
+' Parses postfix call/index arguments outside the parenthesized-primary frame.
+Function ParseGeneralArguments(ByRef Tokens() As Token, ByVal EndExclusive As Long, ByRef Cursor As Long, ByVal CalleeNode As Long, ByRef Nodes() As SyntaxNode, ByRef NodeCount As Long, ByRef NodeCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+                Dim CallOpenToken As Long = Cursor
+                Cursor = Cursor + 1
+                Dim FirstArgumentLink As Long = -1
+                Dim LastArgumentLink As Long = -1
+                While Cursor < EndExclusive And Tokens(Cursor).TokenKind <> 6
+                    Dim ArgumentNode As Long = ParseGeneralExpression(Tokens, EndExclusive, Cursor, 1, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
+                    If ArgumentNode < 0 Then
+                        ParseGeneralArguments = -1
+                        Exit Function
+                    End If
+                    Dim ArgumentLink As Long = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 17, Tokens(Cursor - 1).StartByte, ArgumentNode, -1, -1)
+                    If ArgumentLink < 0 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2005", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "syntax node limit exceeded")
+                        ParseGeneralArguments = -1
+                        Exit Function
+                    End If
+                    If FirstArgumentLink < 0 Then
+                        FirstArgumentLink = ArgumentLink
+                    Else
+                        Nodes(LastArgumentLink).RightNode = ArgumentLink
+                    End If
+                    LastArgumentLink = ArgumentLink
+                    If Cursor < EndExclusive And Tokens(Cursor).Spelling = "," Then
+                        Cursor = Cursor + 1
+                        If Cursor >= EndExclusive Or Tokens(Cursor).TokenKind = 6 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2220", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "expected expression")
+                            ParseGeneralArguments = -1
+                            Exit Function
+                        End If
+                    Else
+                        Exit While
+                    End If
+                Wend
+                If Cursor >= EndExclusive Or Tokens(Cursor).TokenKind <> 6 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2223", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "expected ')' after arguments")
+                    ParseGeneralArguments = -1
+                    Exit Function
+                End If
+                Cursor = Cursor + 1
+                ParseGeneralArguments = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 13, CallOpenToken, CalleeNode, FirstArgumentLink, -1)
+End Function
+
 Function ParseGeneralPrimary(ByRef Tokens() As Token, ByVal EndExclusive As Long, ByRef Cursor As Long, ByRef Nodes() As SyntaxNode, ByRef NodeCount As Long, ByRef NodeCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     If Cursor >= EndExclusive Then
         Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2220", 0, 0, "expected expression")
         ParseGeneralPrimary = -1
         Exit Function
+    End If
+    Dim ThreadToken As Long = -1
+    If Tokens(Cursor).TokenKind = 1 And EqualsKeyword(Tokens(Cursor).Spelling, "CallNew") <> 0 Then
+        ThreadToken = Cursor
+        Cursor = Cursor + 1
+        If Cursor >= EndExclusive Or EqualsKeyword(Tokens(Cursor).Spelling, "CallNew") <> 0 Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2240", Tokens(ThreadToken).StartByte, Tokens(ThreadToken).ByteLength, "CallNew requires a statically resolved Sub call")
+            ParseGeneralPrimary = -1
+            Exit Function
+        End If
     End If
     Dim ResultNode As Long = -1
     If Tokens(Cursor).TokenKind = 2 Then
@@ -1668,7 +1736,21 @@ Function ParseGeneralPrimary(ByRef Tokens() As Token, ByVal EndExclusive As Long
             Cursor = Cursor + 1
         Else
             If Tokens(Cursor).TokenKind = 1 Then
-                ResultNode = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 12, Cursor, -1, -1, -1)
+                Dim PrimaryKind As Long = 12
+                If EqualsKeyword(Tokens(Cursor).Spelling, "New") <> 0 Then
+                    Cursor = Cursor + 1
+                    If Cursor >= EndExclusive Or Tokens(Cursor).TokenKind <> 1 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3241", Tokens(Cursor - 1).StartByte, Tokens(Cursor - 1).ByteLength, "New requires a native CLASS name")
+                        ParseGeneralPrimary = -1
+                        Exit Function
+                    End If
+                    PrimaryKind = 18
+                Else
+                    If EqualsKeyword(Tokens(Cursor).Spelling, "Nothing") <> 0 Then
+                        PrimaryKind = 19
+                    End If
+                End If
+                ResultNode = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, PrimaryKind, Cursor, -1, -1, -1)
                 Cursor = Cursor + 1
             Else
                 If Tokens(Cursor).TokenKind = 5 Then
@@ -1711,69 +1793,51 @@ Function ParseGeneralPrimary(ByRef Tokens() As Token, ByVal EndExclusive As Long
             Cursor = Cursor + 1
         Else
             If Tokens(Cursor).TokenKind = 5 Then
-                Dim CallOpenToken As Long = Cursor
-                Cursor = Cursor + 1
-                Dim FirstArgumentLink As Long = -1
-                Dim LastArgumentLink As Long = -1
-                While Cursor < EndExclusive And Tokens(Cursor).TokenKind <> 6
-                    Dim ArgumentNode As Long = ParseGeneralExpression(Tokens, EndExclusive, Cursor, 1, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
-                    If ArgumentNode < 0 Then
-                        ParseGeneralPrimary = -1
-                        Exit Function
-                    End If
-                    Dim ArgumentLink As Long = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 17, Tokens(Cursor - 1).StartByte, ArgumentNode, -1, -1)
-                    If ArgumentLink < 0 Then
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2005", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "syntax node limit exceeded")
-                        ParseGeneralPrimary = -1
-                        Exit Function
-                    End If
-                    If FirstArgumentLink < 0 Then
-                        FirstArgumentLink = ArgumentLink
-                    Else
-                        Nodes(LastArgumentLink).RightNode = ArgumentLink
-                    End If
-                    LastArgumentLink = ArgumentLink
-                    If Cursor < EndExclusive And Tokens(Cursor).Spelling = "," Then
-                        Cursor = Cursor + 1
-                        If Cursor >= EndExclusive Or Tokens(Cursor).TokenKind = 6 Then
-                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2220", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "expected expression")
-                            ParseGeneralPrimary = -1
-                            Exit Function
-                        End If
-                    Else
-                        Exit While
-                    End If
-                Wend
-                If Cursor >= EndExclusive Or Tokens(Cursor).TokenKind <> 6 Then
-                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2223", Tokens(CallOpenToken).StartByte, Tokens(CallOpenToken).ByteLength, "expected ')' after arguments")
+                ResultNode = ParseGeneralArguments(Tokens, EndExclusive, Cursor, ResultNode, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
+                If ResultNode < 0 Then
                     ParseGeneralPrimary = -1
                     Exit Function
                 End If
-                Cursor = Cursor + 1
-                ResultNode = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 13, CallOpenToken, ResultNode, FirstArgumentLink, -1)
             Else
                 Exit While
             End If
         End If
     Wend
+    If ThreadToken >= 0 Then
+        If Nodes(ResultNode).NodeKind <> 13 Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2240", Tokens(ThreadToken).StartByte, Tokens(ThreadToken).ByteLength, "CallNew requires a statically resolved Sub call")
+            ParseGeneralPrimary = -1
+            Exit Function
+        End If
+        ResultNode = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 20, ThreadToken, ResultNode, -1, -1)
+    End If
     ParseGeneralPrimary = ResultNode
 End Function
 
+' Consumes a unary prefix iteratively before constructing nodes inside out.
 Function ParseGeneralUnary(ByRef Tokens() As Token, ByVal EndExclusive As Long, ByRef Cursor As Long, ByRef Nodes() As SyntaxNode, ByRef NodeCount As Long, ByRef NodeCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
-    If Cursor < EndExclusive Then
-        If Tokens(Cursor).Spelling = "+" Or Tokens(Cursor).Spelling = "-" Or EqualsKeyword(Tokens(Cursor).Spelling, "Not") <> 0 Then
-            Dim UnaryOperator As Long = Cursor
-            Cursor = Cursor + 1
-            Dim UnaryOperand As Long = ParseGeneralUnary(Tokens, EndExclusive, Cursor, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
-            If UnaryOperand < 0 Then
-                ParseGeneralUnary = -1
-                Exit Function
-            End If
-            ParseGeneralUnary = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 16, UnaryOperator, UnaryOperand, -1, UnaryOperator)
+    Dim FirstUnary As Long = Cursor
+    While Cursor < EndExclusive
+        If Tokens(Cursor).Spelling <> "+" And Tokens(Cursor).Spelling <> "-" And EqualsKeyword(Tokens(Cursor).Spelling, "Not") = 0 Then
+            Exit While
+        End If
+        Cursor = Cursor + 1
+    Wend
+    Dim UnaryEnd As Long = Cursor
+    Dim Operand As Long = ParseGeneralPrimary(Tokens, EndExclusive, Cursor, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
+    If Operand < 0 Then
+        ParseGeneralUnary = -1
+        Exit Function
+    End If
+    While UnaryEnd > FirstUnary
+        UnaryEnd = UnaryEnd - 1
+        Operand = AppendSyntaxNode(Nodes, NodeCount, NodeCapacity, 16, UnaryEnd, Operand, -1, UnaryEnd)
+        If Operand < 0 Then
+            ParseGeneralUnary = -1
             Exit Function
         End If
-    End If
-    ParseGeneralUnary = ParseGeneralPrimary(Tokens, EndExclusive, Cursor, Nodes, NodeCount, NodeCapacity, Diagnostics, DiagnosticCount)
+    Wend
+    ParseGeneralUnary = Operand
 End Function
 
 Function ParseGeneralExpression(ByRef Tokens() As Token, ByVal EndExclusive As Long, ByRef Cursor As Long, ByVal MinimumPrecedence As Long, ByRef Nodes() As SyntaxNode, ByRef NodeCount As Long, ByRef NodeCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
@@ -1841,6 +1905,24 @@ Function PrimitiveBindingRole(ByVal BindingName As String) As Long
     End If
     If EqualsIdentifier(BindingName, "Error.Set") <> 0 Then
         PrimitiveBindingRole = 12
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryCurrentId") <> 0 Then
+        PrimitiveBindingRole = 13
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryIsAlive") <> 0 Then
+        PrimitiveBindingRole = 14
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryRequestStop") <> 0 Then
+        PrimitiveBindingRole = 15
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryStopRequested") <> 0 Then
+        PrimitiveBindingRole = 16
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryWait") <> 0 Then
+        PrimitiveBindingRole = 17
+    End If
+    If EqualsIdentifier(BindingName, "Thread.TryYield") <> 0 Then
+        PrimitiveBindingRole = 18
     End If
 End Function
 
@@ -2078,6 +2160,133 @@ Function ParseProcedureDeclarations(ByRef Tokens() As Token, ByVal TokenCount As
     ParseProcedureDeclarations = 1
 End Function
 
+' Parses the shared typed-field grammar; classes additionally require Public.
+Function ParseInstanceFields(ByRef Tokens() As Token, ByVal FieldCursor As Long, ByVal EndExclusive As Long, ByRef Declarations() As TypeDeclarationSyntax, ByVal DeclarationIndex As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef FieldCount As Long, ByRef FieldCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+            While FieldCursor < EndExclusive
+                If Tokens(FieldCursor).TokenKind = 4 Or Tokens(FieldCursor).TokenKind = 9 Then
+                    FieldCursor = FieldCursor + 1
+                Else
+                    If Declarations(DeclarationIndex).IsReference <> 0 Then
+                        If EqualsKeyword(Tokens(FieldCursor).Spelling, "Public") = 0 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3240", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "bootstrap CLASS supports only Public typed instance fields")
+                            ParseInstanceFields = 0
+                            Exit Function
+                        End If
+                        FieldCursor = FieldCursor + 1
+                    End If
+                    If FieldCursor >= EndExclusive Or Tokens(FieldCursor).TokenKind <> 1 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2113", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "expected Type field name")
+                        ParseInstanceFields = 0
+                        Exit Function
+                    End If
+                    Dim FieldNameToken As Long = FieldCursor
+                    Dim ExistingField As Long = Declarations(DeclarationIndex).FirstField
+                    While ExistingField < FieldCount
+                        If EqualsIdentifier(Tokens(Fields(ExistingField).NameToken).Spelling, Tokens(FieldNameToken).Spelling) <> 0 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2114", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "duplicate field name: " & Tokens(FieldNameToken).Spelling)
+                            ParseInstanceFields = 0
+                            Exit Function
+                        End If
+                        ExistingField = ExistingField + 1
+                    Wend
+                    FieldCursor = FieldCursor + 1
+                    Dim FieldIsArray As Long = 0
+                    If FieldCursor < EndExclusive Then
+                        If Tokens(FieldCursor).TokenKind = 5 Then
+                            FieldIsArray = 1
+                            FieldCursor = FieldCursor + 1
+                            If FieldCursor >= EndExclusive Or Tokens(FieldCursor).TokenKind <> 6 Then
+                                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2115", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "dynamic Type field requires empty parentheses")
+                                ParseInstanceFields = 0
+                                Exit Function
+                            End If
+                            FieldCursor = FieldCursor + 1
+                        End If
+                    End If
+                    If FieldCursor >= EndExclusive Or Tokens(FieldCursor).TokenKind <> 1 Or EqualsKeyword(Tokens(FieldCursor).Spelling, "As") = 0 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2116", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "Type field requires an explicit As type")
+                        ParseInstanceFields = 0
+                        Exit Function
+                    End If
+                    FieldCursor = FieldCursor + 1
+                    If FieldCursor >= EndExclusive Or Tokens(FieldCursor).TokenKind <> 1 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2117", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "expected Type field type")
+                        ParseInstanceFields = 0
+                        Exit Function
+                    End If
+                    Dim NewField As Long = AppendFieldDeclaration(Fields, FieldCount, FieldCapacity, DeclarationIndex, FieldNameToken, FieldCursor, FieldIsArray)
+                    If NewField < 0 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2118", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "Type field limit exceeded")
+                        ParseInstanceFields = 0
+                        Exit Function
+                    End If
+                    Declarations(DeclarationIndex).FieldCount = Declarations(DeclarationIndex).FieldCount + 1
+                    FieldCursor = FieldCursor + 1
+                    While FieldCursor < EndExclusive And Tokens(FieldCursor).TokenKind <> 4
+                        If Tokens(FieldCursor).TokenKind <> 9 Then
+                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2119", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "unexpected token after Type field")
+                            ParseInstanceFields = 0
+                            Exit Function
+                        End If
+                        FieldCursor = FieldCursor + 1
+                    Wend
+                End If
+            Wend
+    ParseInstanceFields = 1
+End Function
+
+' Admits field-only native reference declarations without changing original tokens.
+Function ParseClassDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef Declarations() As TypeDeclarationSyntax, ByRef DeclarationCount As Long, ByRef DeclarationCapacity As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef FieldCount As Long, ByRef FieldCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    Dim SourceIndex As Long = 0
+    Dim Cursor As Long = 0
+    While SourceIndex < SourceCount
+        ' Separating newlines belong to neither declaration; retain the actual
+        ' original unit boundary even when a preceding file lacks a final EOL.
+        While Cursor < TokenCount And Tokens(Cursor).StartByte < Sources(SourceIndex).CombinedStart
+            Cursor = Cursor + 1
+        Wend
+        Dim SourceStart As Long = Cursor
+        While Cursor < TokenCount And Tokens(Cursor).StartByte < Sources(SourceIndex).CombinedStart + Sources(SourceIndex).ByteLength
+            Cursor = Cursor + 1
+        Wend
+        If Sources(SourceIndex).IsReference <> 0 Then
+            Dim NameToken As Long = SourceStart
+            While NameToken < Cursor And Tokens(NameToken).TokenKind <> 3
+                NameToken = NameToken + 1
+            Wend
+            If NameToken >= Cursor Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3240", Sources(SourceIndex).CombinedStart, 0, "native CLASS requires its metadata identity")
+                ParseClassDeclarations = 0
+                Exit Function
+            End If
+            Dim Existing As Long = 0
+            While Existing < DeclarationCount
+                If EqualsIdentifier(Declarations(Existing).DeclaredName, Sources(SourceIndex).ModuleName) <> 0 Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2110", Tokens(NameToken).StartByte, Tokens(NameToken).ByteLength, "duplicate type name")
+                    ParseClassDeclarations = 0
+                    Exit Function
+                End If
+                Existing = Existing + 1
+            Wend
+            Dim DeclarationIndex As Long = AppendTypeDeclaration(Declarations, DeclarationCount, DeclarationCapacity, NameToken, SourceStart, Cursor - 1)
+            If DeclarationIndex < 0 Then
+                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2112", Tokens(NameToken).StartByte, Tokens(NameToken).ByteLength, "type declaration limit exceeded")
+                ParseClassDeclarations = 0
+                Exit Function
+            End If
+            Declarations(DeclarationIndex).DeclaredName = Sources(SourceIndex).ModuleName
+            Declarations(DeclarationIndex).IsReference = 1
+            Declarations(DeclarationIndex).FirstField = FieldCount
+            If ParseInstanceFields(Tokens, NameToken + 1, Cursor, Declarations, DeclarationIndex, Fields, FieldCount, FieldCapacity, Diagnostics, DiagnosticCount) = 0 Then
+                ParseClassDeclarations = 0
+                Exit Function
+            End If
+        End If
+        SourceIndex = SourceIndex + 1
+    Wend
+    ParseClassDeclarations = 1
+End Function
+
 Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Declarations() As TypeDeclarationSyntax, ByRef DeclarationCount As Long, ByRef DeclarationCapacity As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef FieldCount As Long, ByRef FieldCapacity As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     Dim Index As Long = 0
     While Index + 1 < TokenCount
@@ -2100,7 +2309,7 @@ Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long
             End If
             Dim ExistingIndex As Long = 0
             While ExistingIndex < DeclarationCount
-                If EqualsIdentifier(Tokens(Declarations(ExistingIndex).NameToken).Spelling, Tokens(Index + 1).Spelling) <> 0 Then
+                If EqualsIdentifier(Declarations(ExistingIndex).DeclaredName, Tokens(Index + 1).Spelling) <> 0 Then
                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2110", Tokens(Index + 1).StartByte, Tokens(Index + 1).ByteLength, "duplicate Type name: " & Tokens(Index + 1).Spelling)
                     ParseTypeDeclarations = 0
                     Exit Function
@@ -2113,6 +2322,7 @@ Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long
                 ParseTypeDeclarations = 0
                 Exit Function
             End If
+            Declarations(DeclarationIndex).DeclaredName = Tokens(Index + 1).Spelling
             Declarations(DeclarationIndex).FirstField = FieldCount
             Dim FieldCursor As Long = Index + 2
             If FieldCursor < DeclarationEnd - 1 And EqualsKeyword(Tokens(FieldCursor).Spelling, "As") <> 0 Then
@@ -2141,68 +2351,10 @@ Function ParseTypeDeclarations(ByRef Tokens() As Token, ByVal TokenCount As Long
                     FieldCursor = FieldCursor + 1
                 Wend
             End If
-            While FieldCursor < DeclarationEnd - 1
-                If Tokens(FieldCursor).TokenKind = 4 Or Tokens(FieldCursor).TokenKind = 9 Then
-                    FieldCursor = FieldCursor + 1
-                Else
-                    If Tokens(FieldCursor).TokenKind <> 1 Then
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2113", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "expected Type field name")
-                        ParseTypeDeclarations = 0
-                        Exit Function
-                    End If
-                    Dim FieldNameToken As Long = FieldCursor
-                    Dim ExistingField As Long = Declarations(DeclarationIndex).FirstField
-                    While ExistingField < FieldCount
-                        If EqualsIdentifier(Tokens(Fields(ExistingField).NameToken).Spelling, Tokens(FieldNameToken).Spelling) <> 0 Then
-                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2114", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "duplicate field name: " & Tokens(FieldNameToken).Spelling)
-                            ParseTypeDeclarations = 0
-                            Exit Function
-                        End If
-                        ExistingField = ExistingField + 1
-                    Wend
-                    FieldCursor = FieldCursor + 1
-                    Dim FieldIsArray As Long = 0
-                    If FieldCursor < DeclarationEnd Then
-                        If Tokens(FieldCursor).TokenKind = 5 Then
-                            FieldIsArray = 1
-                            FieldCursor = FieldCursor + 1
-                            If FieldCursor >= DeclarationEnd Or Tokens(FieldCursor).TokenKind <> 6 Then
-                                Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2115", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "dynamic Type field requires empty parentheses")
-                                ParseTypeDeclarations = 0
-                                Exit Function
-                            End If
-                            FieldCursor = FieldCursor + 1
-                        End If
-                    End If
-                    If FieldCursor >= DeclarationEnd Or Tokens(FieldCursor).TokenKind <> 1 Or EqualsKeyword(Tokens(FieldCursor).Spelling, "As") = 0 Then
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2116", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "Type field requires an explicit As type")
-                        ParseTypeDeclarations = 0
-                        Exit Function
-                    End If
-                    FieldCursor = FieldCursor + 1
-                    If FieldCursor >= DeclarationEnd Or Tokens(FieldCursor).TokenKind <> 1 Then
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2117", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "expected Type field type")
-                        ParseTypeDeclarations = 0
-                        Exit Function
-                    End If
-                    Dim NewField As Long = AppendFieldDeclaration(Fields, FieldCount, FieldCapacity, DeclarationIndex, FieldNameToken, FieldCursor, FieldIsArray)
-                    If NewField < 0 Then
-                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2118", Tokens(FieldNameToken).StartByte, Tokens(FieldNameToken).ByteLength, "Type field limit exceeded")
-                        ParseTypeDeclarations = 0
-                        Exit Function
-                    End If
-                    Declarations(DeclarationIndex).FieldCount = Declarations(DeclarationIndex).FieldCount + 1
-                    FieldCursor = FieldCursor + 1
-                    While FieldCursor < DeclarationEnd And Tokens(FieldCursor).TokenKind <> 4
-                        If Tokens(FieldCursor).TokenKind <> 9 Then
-                            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2119", Tokens(FieldCursor).StartByte, Tokens(FieldCursor).ByteLength, "unexpected token after Type field")
-                            ParseTypeDeclarations = 0
-                            Exit Function
-                        End If
-                        FieldCursor = FieldCursor + 1
-                    Wend
-                End If
-            Wend
+            If ParseInstanceFields(Tokens, FieldCursor, DeclarationEnd - 1, Declarations, DeclarationIndex, Fields, FieldCount, FieldCapacity, Diagnostics, DiagnosticCount) = 0 Then
+                ParseTypeDeclarations = 0
+                Exit Function
+            End If
             If Declarations(DeclarationIndex).RepresentationToken < 0 And Declarations(DeclarationIndex).FieldCount = 0 Then
                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2113", Tokens(Index).StartByte, Tokens(Index).ByteLength, "ordinary Type requires at least one field")
                 ParseTypeDeclarations = 0
@@ -2510,7 +2662,7 @@ Function ParseBasicStatements(ByRef Tokens() As Token, ByRef Procedures() As Pro
                                         BlockDepth = BlockDepth - 1
                                         Call AppendStatement(Statements, StatementCount, StatementCapacity, ProcedureIndex, 15, LineStart, LineEnd - 1, -1)
                                     Else
-                    If Tokens(LineStart).TokenKind = 1 And EqualsKeyword(Tokens(LineStart).Spelling, "Call") <> 0 Then
+                    If Tokens(LineStart).TokenKind = 1 And (EqualsKeyword(Tokens(LineStart).Spelling, "Call") <> 0 Or EqualsKeyword(Tokens(LineStart).Spelling, "CallNew") <> 0) Then
                         If LineStart + 1 >= LineEnd Or Tokens(LineStart + 1).TokenKind <> 1 Then
                             Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2210", Tokens(LineStart).StartByte, Tokens(LineStart).ByteLength, "expected procedure name after Call")
                             ParseBasicStatements = 0
@@ -2653,7 +2805,16 @@ Function ParseBasicStatements(ByRef Tokens() As Token, ByRef Procedures() As Pro
                                     ParseBasicStatements = 0
                                     Exit Function
                                 End If
-                                Dim AssignmentIndex As Long = AppendStatement(Statements, StatementCount, StatementCapacity, ProcedureIndex, 1, LineStart, LineEnd - 1, EqualsToken)
+                                Dim AssignmentStart As Long = LineStart
+                                Dim IsSet As Long = 0
+                                If EqualsKeyword(Tokens(LineStart).Spelling, "Set") <> 0 Then
+                                    AssignmentStart = AssignmentStart + 1
+                                    IsSet = 2
+                                End If
+                                Dim AssignmentIndex As Long = AppendStatement(Statements, StatementCount, StatementCapacity, ProcedureIndex, 1, AssignmentStart, LineEnd - 1, EqualsToken)
+                                If AssignmentIndex >= 0 Then
+                                    Statements(AssignmentIndex).Flags = IsSet
+                                End If
                                 If AssignmentIndex < 0 Then
                                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2214", Tokens(LineStart).StartByte, Tokens(LineStart).ByteLength, "statement limit exceeded")
                                     ParseBasicStatements = 0
@@ -2903,6 +3064,9 @@ Function ParseStoredExpressions(ByRef Tokens() As Token, ByRef Locals() As Local
             Else
             If Statements(StatementIndex).StatementKind = 2 Or Statements(StatementIndex).StatementKind = 3 Then
                 ExpressionStart = Statements(StatementIndex).FirstToken + 1
+                If EqualsKeyword(Tokens(Statements(StatementIndex).FirstToken).Spelling, "CallNew") <> 0 Then
+                    ExpressionStart = Statements(StatementIndex).FirstToken
+                End If
             Else
                 If Statements(StatementIndex).StatementKind = 10 Or Statements(StatementIndex).StatementKind = 14 Then
                     ExpressionStart = Statements(StatementIndex).FirstToken + 1
@@ -2983,7 +3147,7 @@ End Function
 
 Function ValidateExpressionNode(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByVal Owner As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     Dim Kind As Long = Nodes(NodeIndex).NodeKind
-    If Kind = 10 Or Kind = 11 Then
+    If Kind = 10 Or Kind = 11 Or Kind = 18 Or Kind = 19 Then
         ValidateExpressionNode = 1
         Exit Function
     End If
@@ -3042,7 +3206,7 @@ Function ValidateExpressionNode(ByRef Tokens() As Token, ByRef Nodes() As Syntax
         ValidateExpressionNode = ValidateExpressionNode(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Owner, Diagnostics, DiagnosticCount)
         Exit Function
     End If
-    If Kind = 16 Then
+    If Kind = 16 Or Kind = 20 Then
         ValidateExpressionNode = ValidateExpressionNode(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Owner, Diagnostics, DiagnosticCount)
         Exit Function
     End If
@@ -3082,6 +3246,14 @@ Function AnalyzeStoredExpressions(ByRef Tokens() As Token, ByRef Nodes() As Synt
     AnalyzeStoredExpressions = 1
 End Function
 
+' Identifies a shared identity, not its inline payload or an array of identities.
+Function IsReferenceType(ByVal TypeId As Long) As Long
+    IsReferenceType = 0
+    If TypeId >= 20000 And TypeId < 30000 Then
+        IsReferenceType = 1
+    End If
+End Function
+
 Function DeclaredTypeId(ByRef Tokens() As Token, ByVal TypeToken As Long, ByVal IsDynamicArray As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long) As Long
     Dim TypeName As String = Tokens(TypeToken).Spelling
     Dim Result As Long = 0
@@ -3113,8 +3285,11 @@ Function DeclaredTypeId(ByRef Tokens() As Token, ByVal TypeToken As Long, ByVal 
                         Else
                             Dim TypeIndex As Long = 0
                             While TypeIndex < TypeCount
-                                If EqualsIdentifier(Tokens(Types(TypeIndex).NameToken).Spelling, TypeName) <> 0 Then
+                                If EqualsIdentifier(Types(TypeIndex).DeclaredName, TypeName) <> 0 Then
                                     Result = 1000 + TypeIndex
+                                    If Types(TypeIndex).IsReference <> 0 Then
+                                        Result = 20000 + TypeIndex
+                                    End If
                                     Exit While
                                 End If
                                 TypeIndex = TypeIndex + 1
@@ -3339,6 +3514,24 @@ Function ValidateHostBinding(ByRef Tokens() As Token, ByRef Procedures() As Proc
     If Role = 12 Then
         ExpectedSignature = "1:v2"
     End If
+    If Role = 13 Then
+        ExpectedSignature = "1:r5"
+    End If
+    If Role = 14 Then
+        ExpectedSignature = "1:v5,r1"
+    End If
+    If Role = 15 Then
+        ExpectedSignature = "1:v5,r1"
+    End If
+    If Role = 16 Then
+        ExpectedSignature = "1:r1"
+    End If
+    If Role = 17 Then
+        ExpectedSignature = "1:v5,v5,r1"
+    End If
+    If Role = 18 Then
+        ExpectedSignature = "1:"
+    End If
     Dim ResultType As Long = 0
     If Procedures(Index).ProcedureKind = 2 Then
         ResultType = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
@@ -3382,6 +3575,24 @@ Sub HostPrimitiveLlvmSymbol(ByVal Role As Long, ByRef Symbol As String)
     If Role = 12 Then
         Symbol = "ube_error_set_number"
     End If
+    If Role = 13 Then
+        Symbol = "ube_thread_try_current_id"
+    End If
+    If Role = 14 Then
+        Symbol = "ube_thread_try_is_alive"
+    End If
+    If Role = 15 Then
+        Symbol = "ube_thread_try_request_stop"
+    End If
+    If Role = 16 Then
+        Symbol = "ube_thread_try_stop_requested"
+    End If
+    If Role = 17 Then
+        Symbol = "ube_thread_try_wait"
+    End If
+    If Role = 18 Then
+        Symbol = "ube_thread_try_yield"
+    End If
 End Sub
 
 Function IsNumericType(ByVal TypeId As Long) As Long
@@ -3389,20 +3600,6 @@ Function IsNumericType(ByVal TypeId As Long) As Long
         IsNumericType = 1
     Else
         IsNumericType = 0
-    End If
-End Function
-
-Function ContainsArrayStorage(ByRef Tokens() As Token, ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax) As Long
-    ContainsArrayStorage = 0
-    If TypeId >= 100000 Then
-        ContainsArrayStorage = 1
-        Exit Function
-    End If
-    If TypeId < 1000 Then
-        Exit Function
-    End If
-    If TypeId < 1000 + TypeCount Then
-        ContainsArrayStorage = Types(TypeId - 1000).HasArrayStorage
     End If
 End Function
 
@@ -3425,7 +3622,6 @@ Function PrepareValueLayouts(ByRef Tokens() As Token, ByRef Types() As TypeDecla
     Dim Start As Long = 0
     While Start < TypeCount
         Types(Start).RootCount = 0
-        Types(Start).HasArrayStorage = 0
         Start = Start + 1
     Wend
     Start = 0
@@ -3446,12 +3642,8 @@ Function PrepareValueLayouts(ByRef Tokens() As Token, ByRef Types() As TypeDecla
             Else
                 Dim FieldType As Long = Fields(FieldIndex).ResolvedType
                 Dim Roots As Long = 0
-                Dim OwnsArray As Long = 0
-                If FieldType >= 100000 Then
+                If FieldType >= 100000 Or IsReferenceType(FieldType) <> 0 Then
                     Roots = 1
-                    If FieldType >= 100000 Then
-                        OwnsArray = 1
-                    End If
                 Else
                     If FieldType >= 1000 Then
                         Dim Child As Long = FieldType - 1000
@@ -3467,7 +3659,6 @@ Function PrepareValueLayouts(ByRef Tokens() As Token, ByRef Types() As TypeDecla
                             States(Child) = 1
                         Else
                             Roots = Types(Child).RootCount
-                            OwnsArray = Types(Child).HasArrayStorage
                         End If
                     End If
                 End If
@@ -3477,9 +3668,6 @@ Function PrepareValueLayouts(ByRef Tokens() As Token, ByRef Types() As TypeDecla
                         Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3221", Tokens(Types(RecordIndex).NameToken).StartByte, Tokens(Types(RecordIndex).NameToken).ByteLength, "value layout exceeds the managed-reference limit")
                         PrepareValueLayouts = 0
                         Exit Function
-                    End If
-                    If OwnsArray <> 0 Then
-                        Types(RecordIndex).HasArrayStorage = 1
                     End If
                     Cursors(Depth) = FieldIndex + 1
                 End If
@@ -3495,7 +3683,7 @@ End Sub
 
 Function ValueRootCount(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long) As Long
     ValueRootCount = 0
-    If TypeId >= 100000 Then
+    If TypeId >= 100000 Or IsReferenceType(TypeId) <> 0 Then
         ValueRootCount = 1
     Else
         If TypeId >= 1000 And TypeId < 1000 + TypeCount Then
@@ -3563,7 +3751,7 @@ Sub EmitValueRootOffsets(ByVal TypeIndex As Long, ByRef Types() As TypeDeclarati
             FieldStack(Depth) = FieldIndex + 1
             Dim FieldType As Long = Fields(FieldIndex).ResolvedType
             Dim FieldPath As String = Paths(Depth) & ", i32 " & LongToString(FieldIndex - Types(RecordIndex).FirstField)
-            If FieldType >= 100000 Then
+            If FieldType >= 100000 Or IsReferenceType(FieldType) <> 0 Then
                 If OffsetText <> "" Then
                     OffsetText = OffsetText & ", "
                 End If
@@ -3594,6 +3782,11 @@ Sub EmitValueLayout(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax
     If TypeId = 3 Then
         Kind = 3
     End If
+    If IsReferenceType(TypeId) <> 0 Then
+        Kind = 3
+        RootsPointer = "@ube.roots." & LongToString(TypeId)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, RootsPointer & " = private constant [1 x i64] [i64 0]" & NewLine)
+    End If
     If TypeId >= 100000 Then
         Kind = 1
         FieldCount = 1
@@ -3604,7 +3797,7 @@ Sub EmitValueLayout(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, FieldsPointer & " = private constant [1 x %ube.value.field] [%ube.value.field { i64 0, ptr " & ElementLayout & " }]" & NewLine)
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, RootsPointer & " = private constant [1 x i64] [i64 0]" & NewLine)
     Else
-        If TypeId >= 1000 Then
+        If TypeId >= 1000 And IsReferenceType(TypeId) = 0 Then
             Dim TypeIndex As Long = TypeId - 1000
             If Types(TypeIndex).RepresentationType = 0 Then
                 Kind = 2
@@ -3637,6 +3830,7 @@ Sub EmitValueLayout(ByVal TypeId As Long, ByRef Types() As TypeDeclarationSyntax
 End Sub
 
 Sub EmitValueLayouts(ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "%ube.gc.layout = type { i64, i64, ptr, ptr }" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "%ube.value.field = type { i64, ptr }" & NewLine & "%ube.value.layout = type { i64, i32, i32, ptr, i64, ptr }" & NewLine)
     Dim TypeId As Long = 1
     While TypeId <= 7
@@ -3648,6 +3842,17 @@ Sub EmitValueLayouts(ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As 
     While TypeId < 1000 + TypeCount
         Call EmitValueLayout(TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
         Call EmitValueLayout(100000 + TypeId, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        Dim TypeIndex As Long = TypeId - 1000
+        If Types(TypeIndex).IsReference <> 0 Then
+            Call EmitValueLayout(20000 + TypeIndex, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+            Call EmitValueLayout(120000 + TypeIndex, Types, TypeCount, Fields, Chunks, ChunkCount, ChunkCapacity, NewLine)
+            Dim RootPointer As String = "null"
+            If Types(TypeIndex).RootCount > 0 Then
+                RootPointer = "@ube.roots." & LongToString(TypeId)
+            End If
+            Dim PayloadSize As String = "ptrtoint (ptr getelementptr (%ube.type." & LongToString(TypeIndex) & ", ptr null, i32 1) to i64)"
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "@ube.object." & LongToString(TypeIndex) & " = private constant %ube.gc.layout { i64 " & PayloadSize & ", i64 " & LongToString(Types(TypeIndex).RootCount) & ", ptr " & RootPointer & ", ptr null }" & NewLine)
+        End If
         TypeId = TypeId + 1
     Wend
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, NewLine)
@@ -3780,13 +3985,153 @@ Function IsAddressableExpression(ByRef Tokens() As Token, ByRef Nodes() As Synta
     IsAddressableExpression = 0
 End Function
 
+' Resolves dependencies iteratively so an admitted expression cannot consume
+' one large native semantic frame per binary/member/call nesting level.
 Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    ResolveExpressionType = 0
     If Nodes(NodeIndex).ResolvedType <> 0 Then
         ResolveExpressionType = Nodes(NodeIndex).ResolvedType
         Exit Function
     End If
+    Dim StackNodes() As Long
+    Dim StackEdges() As Long
+    Dim StackArguments() As Long
+    Dim Limit As Long = ExpressionDepthLimit()
+    ReDim StackNodes(Limit - 1)
+    ReDim StackEdges(Limit - 1)
+    ReDim StackArguments(Limit - 1)
+    Dim Depth As Long = 0
+    StackNodes(0) = NodeIndex
+    While Depth >= 0
+        Dim CurrentNode As Long = StackNodes(Depth)
+        Dim Kind As Long = Nodes(CurrentNode).NodeKind
+        Dim Child As Long = -1
+        Dim Ready As Boolean = True
+        If Kind = 15 Then
+            If StackEdges(Depth) < 2 Then
+                Child = Nodes(CurrentNode).LeftNode
+                If StackEdges(Depth) = 1 Then
+                    Child = Nodes(CurrentNode).RightNode
+                End If
+                StackEdges(Depth) = StackEdges(Depth) + 1
+                Ready = False
+            End If
+        Else
+            If Kind = 14 Or Kind = 16 Or Kind = 20 Then
+                If StackEdges(Depth) = 0 Then
+                    Child = Nodes(CurrentNode).LeftNode
+                    StackEdges(Depth) = 1
+                    Ready = False
+                End If
+            Else
+                If Kind = 13 Then
+                    If StackEdges(Depth) = 0 Then
+                        StackEdges(Depth) = 1
+                        StackArguments(Depth) = Nodes(CurrentNode).RightNode
+                        Dim Callee As Long = Nodes(CurrentNode).LeftNode
+                        If Nodes(Callee).NodeKind <> 12 Then
+                            Child = Callee
+                        End If
+                        Ready = False
+                    Else
+                        If StackArguments(Depth) >= 0 Then
+                            Dim Link As Long = StackArguments(Depth)
+                            Child = Nodes(Link).LeftNode
+                            StackArguments(Depth) = Nodes(Link).RightNode
+                            Ready = False
+                        End If
+                    End If
+                End If
+            End If
+        End If
+        If Ready Then
+            Dim Before As Long = DiagnosticCount
+            Dim Result As Long = ResolveExpressionNodeType(Tokens, Nodes, CurrentNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
+            If DiagnosticCount <> Before Then
+                Exit Function
+            End If
+            Depth = Depth - 1
+        Else
+            If Child >= 0 Then
+                If Nodes(Child).ResolvedType = 0 Then
+                    If Depth + 1 >= Limit Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3222", 0, 0, "expression exceeds the bootstrap depth limit")
+                        Exit Function
+                    End If
+                    Depth = Depth + 1
+                    StackNodes(Depth) = Child
+                    StackEdges(Depth) = 0
+                    StackArguments(Depth) = -1
+                End If
+            End If
+        End If
+    Wend
+    ResolveExpressionType = Nodes(NodeIndex).ResolvedType
+End Function
+
+' Resolves one node whose expression children already have their types.
+Function ResolveExpressionNodeType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
+    If Nodes(NodeIndex).ResolvedType <> 0 Then
+        ResolveExpressionNodeType = Nodes(NodeIndex).ResolvedType
+        Exit Function
+    End If
     Dim Kind As Long = Nodes(NodeIndex).NodeKind
     Dim Result As Long = 0
+    If Kind = 20 Then
+        Dim ThreadCall As Long = Nodes(NodeIndex).LeftNode
+        Dim ThreadCallee As Long = Nodes(ThreadCall).LeftNode
+        Dim ThreadProcedure As Long = -1
+        If Nodes(ThreadCallee).NodeKind = 12 Then
+            ThreadProcedure = FindProcedureByToken(Tokens, Procedures, ProcedureCount, Nodes(ThreadCallee).SourceToken)
+        End If
+        Dim ValidThread As Long = 0
+        If ThreadProcedure >= 0 Then
+            If Procedures(ThreadProcedure).ProcedureKind = 1 And Procedures(ThreadProcedure).IsIntrinsic = 0 And EqualsKeyword(Tokens(Procedures(ThreadProcedure).NameToken).Spelling, "Main") = 0 Then
+                ValidThread = 1
+            End If
+        End If
+        If ValidThread <> 0 Then
+            Dim ThreadParameter As Long = Procedures(ThreadProcedure).FirstParameter
+            While ThreadParameter < Procedures(ThreadProcedure).FirstParameter + Procedures(ThreadProcedure).ParameterCount
+                Dim CaptureType As Long = DeclaredTypeId(Tokens, Parameters(ThreadParameter).TypeToken, Parameters(ThreadParameter).IsDynamicArray, Types, TypeCount)
+                If Parameters(ThreadParameter).PassingMode <> 2 Or (IsIntegralOrBooleanType(CaptureType) = 0 And CaptureType <> 6 And IsReferenceType(CaptureType) = 0) Then
+                    ValidThread = 0
+                End If
+                ThreadParameter = ThreadParameter + 1
+            Wend
+        End If
+        If ValidThread = 0 Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE2240", Tokens(Nodes(NodeIndex).SourceToken).StartByte, Tokens(Nodes(NodeIndex).SourceToken).ByteLength, "bootstrap CallNew requires a non-entry Sub with explicit ByVal scalar or CLASS parameters")
+            ResolveExpressionNodeType = 0
+            Exit Function
+        End If
+        Dim ThreadDiagnostics As Long = DiagnosticCount
+        Dim ThreadCallType As Long = ResolveExpressionType(Tokens, Nodes, ThreadCall, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
+        If DiagnosticCount <> ThreadDiagnostics Then
+            ResolveExpressionNodeType = 0
+            Exit Function
+        End If
+        Procedures(ThreadProcedure).IsThreadTarget = 1
+        Nodes(NodeIndex).ResolvedType = 5
+        ResolveExpressionNodeType = 5
+        Exit Function
+    End If
+    If Kind = 18 Then
+        Result = DeclaredTypeId(Tokens, Nodes(NodeIndex).SourceToken, 0, Types, TypeCount)
+        If IsReferenceType(Result) = 0 Then
+            Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3241", Tokens(Nodes(NodeIndex).SourceToken).StartByte, Tokens(Nodes(NodeIndex).SourceToken).ByteLength, "New requires a native CLASS name")
+            ResolveExpressionNodeType = 0
+            Exit Function
+        End If
+        Nodes(NodeIndex).ResolvedType = Result
+        ResolveExpressionNodeType = Result
+        Exit Function
+    End If
+    If Kind = 19 Then
+        Nodes(NodeIndex).ResolvedType = 8
+        ResolveExpressionNodeType = 8
+        Exit Function
+    End If
     If Kind = 10 Then
         Result = 2
     Else
@@ -3821,7 +4166,7 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                                 End If
                             Else
                                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3209", Tokens(TypedCalleeToken).StartByte, Tokens(TypedCalleeToken).ByteLength, "expression is not callable or indexable")
-                                ResolveExpressionType = 0
+                                ResolveExpressionNodeType = 0
                                 Exit Function
                             End If
                         End If
@@ -3832,7 +4177,7 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                             IndexedArray = 1
                         Else
                             Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3209", Tokens(Nodes(TypedCallee).SourceToken).StartByte, Tokens(Nodes(TypedCallee).SourceToken).ByteLength, "expression is not callable or indexable")
-                            ResolveExpressionType = 0
+                            ResolveExpressionNodeType = 0
                             Exit Function
                         End If
                     End If
@@ -3842,13 +4187,13 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                         Dim TypedArgumentNode As Long = Nodes(TypedArgumentLink).LeftNode
                         Dim TypedArgumentType As Long = ResolveExpressionType(Tokens, Nodes, TypedArgumentNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
                         If TypedArgumentType = 0 Then
-                            ResolveExpressionType = 0
+                            ResolveExpressionNodeType = 0
                             Exit Function
                         End If
                         If ResolvedProcedure >= 0 Then
                             If TypedArgumentIndex >= Procedures(ResolvedProcedure).ParameterCount Then
                                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3103", Tokens(Nodes(NodeIndex).SourceToken).StartByte, Tokens(Nodes(NodeIndex).SourceToken).ByteLength, "argument count does not match callable")
-                                ResolveExpressionType = 0
+                                ResolveExpressionNodeType = 0
                                 Exit Function
                             End If
                             Dim TypedParameterIndex As Long = Procedures(ResolvedProcedure).FirstParameter + TypedArgumentIndex
@@ -3856,29 +4201,33 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                             If Parameters(TypedParameterIndex).PassingMode = 1 Or Parameters(TypedParameterIndex).PassingMode = 3 Then
                                 If IsAddressableExpression(Tokens, Nodes, TypedArgumentNode, Procedures, Parameters, Locals, LocalCount, Owner) = 0 Then
                                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3202", Tokens(Nodes(TypedArgumentNode).SourceToken).StartByte, Tokens(Nodes(TypedArgumentNode).SourceToken).ByteLength, "ByRef argument must be an addressable variable")
-                                    ResolveExpressionType = 0
+                                    ResolveExpressionNodeType = 0
                                     Exit Function
                                 End If
                                 If TypedArgumentType <> TypedParameterType Then
                                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3203", Tokens(Nodes(TypedArgumentNode).SourceToken).StartByte, Tokens(Nodes(TypedArgumentNode).SourceToken).ByteLength, "ByRef argument type must exactly match the parameter")
-                                    ResolveExpressionType = 0
+                                    ResolveExpressionNodeType = 0
                                     Exit Function
                                 End If
                             Else
+                                If TypedArgumentType = 8 And IsReferenceType(TypedParameterType) <> 0 Then
+                                    Nodes(TypedArgumentNode).ResolvedType = TypedParameterType
+                                    TypedArgumentType = TypedParameterType
+                                End If
                                 If ValidateIntegerConstant(Tokens, Nodes, TypedArgumentNode, TypedParameterType, Diagnostics, DiagnosticCount) = 0 Then
-                                    ResolveExpressionType = 0
+                                    ResolveExpressionNodeType = 0
                                     Exit Function
                                 End If
                                 If TypedArgumentType <> TypedParameterType And (IsNumericType(TypedArgumentType) = 0 Or IsNumericType(TypedParameterType) = 0) Then
                                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3204", Tokens(Nodes(TypedArgumentNode).SourceToken).StartByte, Tokens(Nodes(TypedArgumentNode).SourceToken).ByteLength, "argument type is not assignable to parameter")
-                                    ResolveExpressionType = 0
+                                    ResolveExpressionNodeType = 0
                                     Exit Function
                                 End If
                             End If
                         Else
                             If IndexedArray <> 0 And TypedArgumentType <> 2 Then
                                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3205", Tokens(Nodes(TypedArgumentNode).SourceToken).StartByte, Tokens(Nodes(TypedArgumentNode).SourceToken).ByteLength, "array index must be Long")
-                                ResolveExpressionType = 0
+                                ResolveExpressionNodeType = 0
                                 Exit Function
                             End If
                         End If
@@ -3890,6 +4239,9 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                         Dim BaseType As Long = ResolveExpressionType(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
                         If BaseType >= 1000 And BaseType < 100000 Then
                             Dim OwnerType As Long = BaseType - 1000
+                            If IsReferenceType(BaseType) <> 0 Then
+                                OwnerType = BaseType - 20000
+                            End If
                             Dim FieldIndex As Long = Types(OwnerType).FirstField
                             Dim FieldEnd As Long = FieldIndex + Types(OwnerType).FieldCount
                             While FieldIndex < FieldEnd
@@ -3924,6 +4276,17 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
                                 Dim LeftType As Long = ResolveExpressionType(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
                                 Dim RightType As Long = ResolveExpressionType(Tokens, Nodes, Nodes(NodeIndex).RightNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Diagnostics, DiagnosticCount)
                                 Dim TypedOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
+                                If EqualsKeyword(TypedOperator, "Is") <> 0 Then
+                                    If (IsReferenceType(LeftType) <> 0 Or LeftType = 8) And (IsReferenceType(RightType) <> 0 Or RightType = 8) Then
+                                        Result = 1
+                                    End If
+                                    If Result = 0 Then
+                                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3243", Tokens(Nodes(NodeIndex).OperatorToken).StartByte, Tokens(Nodes(NodeIndex).OperatorToken).ByteLength, "Is requires reference operands")
+                                    End If
+                                    Nodes(NodeIndex).ResolvedType = Result
+                                    ResolveExpressionNodeType = Result
+                                    Exit Function
+                                End If
                                 If TypedOperator = "=" Or TypedOperator = "<>" Or TypedOperator = "<" Or TypedOperator = ">" Or TypedOperator = "<=" Or TypedOperator = ">=" Then
                                     If LeftType = RightType Or (IsNumericType(LeftType) <> 0 And IsNumericType(RightType) <> 0) Then
                                         Result = 1
@@ -3964,17 +4327,17 @@ Function ResolveExpressionType(ByRef Tokens() As Token, ByRef Nodes() As SyntaxN
     End If
     If Result = 0 And Kind <> 13 Then
         Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3200", Tokens(Nodes(NodeIndex).SourceToken).StartByte, Tokens(Nodes(NodeIndex).SourceToken).ByteLength, "expression has incompatible or unresolved types")
-        ResolveExpressionType = 0
+        ResolveExpressionNodeType = 0
         Exit Function
     End If
     If Kind = 15 Or Kind = 16 Then
         If ValidateIntegerConstant(Tokens, Nodes, NodeIndex, Result, Diagnostics, DiagnosticCount) = 0 Then
-            ResolveExpressionType = 0
+            ResolveExpressionNodeType = 0
             Exit Function
         End If
     End If
     Nodes(NodeIndex).ResolvedType = Result
-    ResolveExpressionType = Result
+    ResolveExpressionNodeType = Result
 End Function
 
 Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByRef Statements() As StatementSyntax, ByVal StatementCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
@@ -4008,7 +4371,7 @@ Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As Syntax
                     Exit Function
                 End If
             End If
-            If Statements(StatementIndex).StatementKind = 3 And StatementValueType >= 1000 Then
+            If Statements(StatementIndex).StatementKind = 3 And (StatementValueType >= 1000 Or StatementValueType = 8) Then
                 Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3233", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "Print requires a scalar value or an explicit native representation conversion")
                 AnalyzeExpressionTypes = 0
                 Exit Function
@@ -4025,6 +4388,15 @@ Function AnalyzeExpressionTypes(ByRef Tokens() As Token, ByRef Nodes() As Syntax
                     Exit Function
                 End If
                 Dim StatementTargetType As Long = ResolveExpressionType(Tokens, Nodes, Statements(StatementIndex).TargetNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Statements(StatementIndex).OwnerProcedure, Diagnostics, DiagnosticCount)
+                If IsReferenceType(StatementTargetType) <> 0 And StatementValueType = 8 Then
+                    Nodes(Statements(StatementIndex).ValueNode).ResolvedType = StatementTargetType
+                    StatementValueType = StatementTargetType
+                End If
+                If (IsReferenceType(StatementTargetType) <> 0 And Statements(StatementIndex).Flags <> 2) Or (IsReferenceType(StatementTargetType) = 0 And Statements(StatementIndex).Flags = 2) Then
+                    Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3242", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "Set requires a reference assignment; reference assignment requires Set")
+                    AnalyzeExpressionTypes = 0
+                    Exit Function
+                End If
                 If StatementTargetType = 0 Or StatementValueType = 0 Or (StatementTargetType <> StatementValueType And (IsNumericType(StatementTargetType) = 0 Or IsNumericType(StatementValueType) = 0)) Then
                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE3208", Tokens(Statements(StatementIndex).FirstToken).StartByte, Tokens(Statements(StatementIndex).FirstToken).ByteLength, "assigned value has an incompatible type")
                     AnalyzeExpressionTypes = 0
@@ -4270,6 +4642,19 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_array_element(ptr, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_lbound(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_array_ubound(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_thread_capture_allocate(i64, i64, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_thread_capture_destroy(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_thread_start_checked(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_admit()" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_thread_program_wait()" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_gc_write_barrier(ptr, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_current_id(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_is_alive(i64, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_request_stop(i64, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_stop_requested(ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_wait(i64, i64, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_thread_try_yield()" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_new_object(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_snapshot(ptr, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_value_read(ptr, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare void @ube_value_zero(ptr, ptr)" & NewLine)
@@ -4426,6 +4811,12 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         End If
         Header = Header & "ptr %result.out"
     End If
+    If Procedures(ProcedureIndex).IsThreadTarget <> 0 Then
+        If Procedures(ProcedureIndex).ParameterCount > 0 Then
+            Header = Header & ", "
+        End If
+        Header = Header & "ptr %thread.admitted"
+    End If
     Dim IsSourceEntry As Long = EqualsIdentifier(Tokens(Procedures(ProcedureIndex).NameToken).Spelling, "Main")
     If IsSourceEntry <> 0 Then
         If Procedures(ProcedureIndex).ParameterCount > 0 Or ResultIsManaged > 0 Then
@@ -4457,6 +4848,9 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
     If Procedures(ProcedureIndex).ProcedureKind = 2 Then
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %result = alloca " & ReturnLlvmType & NewLine)
         Dim ResultInitial As String = "0"
+        If ReturnTypeId = 6 Then
+            ResultInitial = "0.0"
+        End If
         If ReturnTypeId = 3 Or ReturnTypeId >= 100000 Then
             ResultInitial = "null"
         Else
@@ -4474,6 +4868,9 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
             Call LlvmTypeName(LocalTypeId, LocalLlvmType)
             Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %local." & LongToString(LocalIndex) & " = alloca " & LocalLlvmType & NewLine)
             Dim LocalInitial As String = "0"
+            If LocalTypeId = 6 Then
+                LocalInitial = "0.0"
+            End If
             If LocalTypeId = 3 Or LocalTypeId >= 100000 Then
                 LocalInitial = "null"
             Else
@@ -4490,6 +4887,9 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
         If Nodes(NodeIndex).ResolvedType >= 1000 Then
             Call EmitValueSlot("value." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
             Call EmitValueSlot("scratch." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
+        If Nodes(NodeIndex).NodeKind = 20 Then
+            Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %thread.id." & LongToString(NodeIndex) & " = alloca i64" & NewLine)
         End If
         If Nodes(NodeIndex).NodeKind = 13 And Nodes(NodeIndex).LeftNode >= 0 Then
             Dim ArrayType As Long = Nodes(Nodes(NodeIndex).LeftNode).ResolvedType
@@ -4520,6 +4920,13 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
     If ResultIsManaged > 0 Then
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store i1 true, ptr %result.ready" & NewLine)
     End If
+    If Procedures(ProcedureIndex).IsThreadTarget <> 0 Then
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %thread.has.observer = icmp ne ptr %thread.admitted, null" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %thread.has.observer, label %thread.admit, label %thread.body" & NewLine & "thread.admit:" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %thread.status = call i32 @ube_thread_admit()" & NewLine & "  %thread.ok = icmp ne i32 %thread.status, 0" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %thread.ok, label %thread.ready, label %proc.exit" & NewLine & "thread.ready:" & NewLine)
+        Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  store i1 true, ptr %thread.admitted" & NewLine & "  br label %thread.body" & NewLine & "thread.body:" & NewLine)
+    End If
     If IsSourceEntry <> 0 Then
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  %entry.has.observer = icmp ne ptr %entry.admitted, null" & NewLine)
         Call AppendText(Chunks, ChunkCount, ChunkCapacity, "  br i1 %entry.has.observer, label %entry.admit, label %entry.body" & NewLine & "entry.admit:" & NewLine)
@@ -4537,22 +4944,8 @@ Sub EmitStringConstant(ByVal Value As String, ByRef Globals() As String, ByRef G
     Operand = "getelementptr inbounds ([" & LongToString(ByteCount) & " x i8], ptr " & GlobalName & ", i32 0, i32 0)"
 End Sub
 
-Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Address As String, ByRef TypeId As Long)
-    Address = ""
-    TypeId = 0
-    If NodeIndex < 0 Then
-        State.Failed = 1
-        Exit Sub
-    End If
-    Dim Kind As Long = Nodes(NodeIndex).NodeKind
-    If Kind = 12 Then
-        Call EmitNameAddress(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, Nodes(NodeIndex).SourceToken, Address, TypeId)
-        If Address = "" Then
-            State.Failed = 1
-        End If
-        Exit Sub
-    End If
-    If Kind = 13 Then
+' Emits one array element address while member walks keep a small native frame.
+Sub EmitArrayAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Address As String, ByRef TypeId As Long)
         Dim CalleeNode As Long = Nodes(NodeIndex).LeftNode
         Dim ArrayAddress As String = ""
         Dim ArrayTypeId As Long = 0
@@ -4585,11 +4978,42 @@ Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
         Call AppendText(Body, BodyCount, BodyCapacity, "  " & Address & " = call ptr @ube_value_array_element(ptr " & ArrayAddress & ", i32 " & IndexOperand & ", ptr %borrow." & LongToString(NodeIndex) & ", ptr %fallback." & LongToString(NodeIndex) & ", ptr " & ElementLayout & ")" & NewLine)
         TypeId = ArrayTypeId - 100000
         Exit Sub
+End Sub
+
+Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Address As String, ByRef TypeId As Long)
+    Address = ""
+    TypeId = 0
+    If NodeIndex < 0 Then
+        State.Failed = 1
+        Exit Sub
+    End If
+    Dim Kind As Long = Nodes(NodeIndex).NodeKind
+    If Kind = 12 Then
+        Call EmitNameAddress(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, Nodes(NodeIndex).SourceToken, Address, TypeId)
+        If Address = "" Then
+            State.Failed = 1
+        End If
+        Exit Sub
+    End If
+    If Kind = 13 Then
+        Call EmitArrayAddress(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Address, TypeId)
+        Exit Sub
     End If
     If Kind = 14 Then
         Dim BaseAddress As String = ""
         Dim BaseTypeId As Long = 0
         Dim BaseNode As Long = Nodes(NodeIndex).LeftNode
+        Dim IsReference As Long = IsReferenceType(Nodes(BaseNode).ResolvedType)
+        If IsReference <> 0 Then
+            Call EmitExpression(Tokens, Nodes, BaseNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseAddress, BaseTypeId)
+            Dim ReferenceReady As String = ""
+            Call NextLlvmRegister(State, ReferenceReady)
+            Dim ReferenceLabel As String = "member.ready." & LongToString(State.NextRegister)
+            Dim ReferenceFailure As String = "member.failed." & LongToString(State.NextRegister)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & ReferenceReady & " = icmp ne ptr " & BaseAddress & ", null" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  br i1 " & ReferenceReady & ", label %" & ReferenceLabel & ", label %" & ReferenceFailure & NewLine & ReferenceFailure & ":" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  call i32 @ube_error_set_number(i32 91)" & NewLine & "  br label %proc.exit" & NewLine & ReferenceLabel & ":" & NewLine)
+        Else
         If IsAddressableExpression(Tokens, Nodes, BaseNode, Procedures, Parameters, Locals, LocalCount, Owner) <> 0 Then
             Call EmitLvalueAddress(Tokens, Nodes, BaseNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseAddress, BaseTypeId)
         Else
@@ -4597,11 +5021,15 @@ Sub EmitLvalueAddress(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
             Call EmitExpression(Tokens, Nodes, BaseNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, BaseValue, BaseTypeId)
             BaseAddress = "%value." & LongToString(BaseNode)
         End If
+        End If
         If State.Failed <> 0 Or BaseTypeId < 1000 Or BaseTypeId >= 100000 Then
             State.Failed = 1
             Exit Sub
         End If
         Dim RecordIndex As Long = BaseTypeId - 1000
+        If IsReference <> 0 Then
+            RecordIndex = BaseTypeId - 20000
+        End If
         Dim FieldIndex As Long = Types(RecordIndex).FirstField
         Dim FieldEnd As Long = FieldIndex + Types(RecordIndex).FieldCount
         Dim FieldOffset As Long = 0
@@ -4687,6 +5115,10 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
         Exit Sub
     End If
     TypeId = Nodes(NodeIndex).ResolvedType
+    If Nodes(NodeIndex).NodeKind = 15 Or Nodes(NodeIndex).NodeKind = 16 Then
+        Call EmitOperatorExpression(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Operand, TypeId)
+        Exit Sub
+    End If
     Dim AddressableValue As Long = 0
     If TypeId >= 1000 Then
         If Nodes(NodeIndex).NodeKind = 12 Or Nodes(NodeIndex).NodeKind = 14 Then
@@ -4719,61 +5151,344 @@ Sub EmitExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal N
     End If
 End Sub
 
-Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
-    Operand = ""
-    TypeId = 0
-    If NodeIndex < 0 Then
-        State.Failed = 1
-        Exit Sub
-    End If
-    Dim Kind As Long = Nodes(NodeIndex).NodeKind
-    TypeId = Nodes(NodeIndex).ResolvedType
-    If TypeId = 2 Or TypeId = 4 Or TypeId = 7 Then
-        Dim ConstantValue As Long = 0
-        If EvaluateIntegerConstant(Tokens, Nodes, NodeIndex, ConstantValue) = 1 Then
-            Operand = LongToString(ConstantValue)
-            Exit Sub
-        End If
-    End If
-    If Kind = 10 Then
-        Operand = Tokens(Nodes(NodeIndex).SourceToken).Spelling
-        Exit Sub
-    End If
-    If Kind = 11 Then
-        Call EmitStringConstant(Tokens(Nodes(NodeIndex).SourceToken).Decoded, Globals, GlobalCount, GlobalCapacity, State, NewLine, Operand)
-        Exit Sub
-    End If
-    If Kind = 12 Then
-        Dim NameToken As Long = Nodes(NodeIndex).SourceToken
-        If EqualsKeyword(Tokens(NameToken).Spelling, "True") <> 0 Then
-            Operand = "true"
-            TypeId = 1
-            Exit Sub
-        End If
-        If EqualsKeyword(Tokens(NameToken).Spelling, "False") <> 0 Then
-            Operand = "false"
-            TypeId = 1
-            Exit Sub
-        End If
-        Dim Address As String = ""
-        Call EmitNameAddress(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, NameToken, Address, TypeId)
-        If Address = "" Or TypeId = 0 Then
-            State.Failed = 1
-            Exit Sub
-        End If
-        Call EmitValueLoad(TypeId, Address, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
-        Exit Sub
-    End If
-    If Kind = 14 Then
-        Dim MemberAddress As String = ""
-        Call EmitLvalueAddress(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, MemberAddress, TypeId)
+' Captures evaluated values in typed rooted storage and invokes the actual UBE Sub.
+' Native admission consumes that storage exactly once on success or failure.
+Sub EmitThreadStart(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String)
+    Dim CallNode As Long = Nodes(NodeIndex).LeftNode
+    Dim CalleeNode As Long = Nodes(CallNode).LeftNode
+    Dim ProcedureIndex As Long = FindProcedureByToken(Tokens, Procedures, ProcedureCount, Nodes(CalleeNode).SourceToken)
+    Dim Suffix As String = LongToString(NodeIndex)
+    Dim CaptureType As String = "%ube.capture." & Suffix
+    Dim ArgumentCount As Long = Procedures(ProcedureIndex).ParameterCount
+    Dim Values() As String
+    Dim LlvmTypes() As String
+    Dim ParameterTypes() As Long
+    ReDim Values(ArgumentCount)
+    ReDim LlvmTypes(ArgumentCount)
+    ReDim ParameterTypes(ArgumentCount)
+    Dim Index As Long = 0
+    Dim ArgumentLink As Long = Nodes(CallNode).RightNode
+    Dim TypeText As String = ""
+    Dim RootText As String = ""
+    Dim RootCount As Long = 0
+    Dim EntryText As String = "define private void @ube.thread.entry." & Suffix & "(ptr %capture) {" & NewLine & "entry:" & NewLine
+    EntryText = EntryText & "  %admitted = alloca i1" & NewLine & "  store i1 false, ptr %admitted" & NewLine
+    Dim Arguments As String = ""
+    While Index < ArgumentCount
+        Dim ArgumentNode As Long = Nodes(ArgumentLink).LeftNode
+        Dim ActualType As Long = 0
+        Dim ArgumentValue As String = ""
+        Call EmitExpression(Tokens, Nodes, ArgumentNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, ArgumentValue, ActualType)
         If State.Failed <> 0 Then
             Exit Sub
         End If
-        Call EmitValueLoad(TypeId, MemberAddress, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+        Dim ParameterIndex As Long = Procedures(ProcedureIndex).FirstParameter + Index
+        ParameterTypes(Index) = DeclaredTypeId(Tokens, Parameters(ParameterIndex).TypeToken, 0, Types, TypeCount)
+        Call EmitIntegerConversion(ActualType, ParameterTypes(Index), ArgumentValue, Body, BodyCount, BodyCapacity, State, NewLine)
+        Values(Index) = ArgumentValue
+        Dim ParameterLlvmType As String = ""
+        Call LlvmTypeName(ParameterTypes(Index), ParameterLlvmType)
+        LlvmTypes(Index) = ParameterLlvmType
+        If Index > 0 Then
+            TypeText = TypeText & ", "
+            Arguments = Arguments & ", "
+        End If
+        TypeText = TypeText & LlvmTypes(Index)
+        Dim FieldSuffix As String = LongToString(Index)
+        Dim FieldPath As String = "getelementptr (" & CaptureType & ", ptr null, i32 0, i32 " & FieldSuffix & ")"
+        If IsReferenceType(ParameterTypes(Index)) <> 0 Then
+            If RootCount > 0 Then
+                RootText = RootText & ", "
+            End If
+            RootText = RootText & "i64 ptrtoint (ptr " & FieldPath & " to i64)"
+            RootCount = RootCount + 1
+        End If
+        EntryText = EntryText & "  %field." & FieldSuffix & " = getelementptr " & CaptureType & ", ptr %capture, i32 0, i32 " & FieldSuffix & NewLine
+        EntryText = EntryText & "  %argument." & FieldSuffix & " = load " & LlvmTypes(Index) & ", ptr %field." & FieldSuffix & NewLine
+        Arguments = Arguments & LlvmTypes(Index) & " %argument." & FieldSuffix
+        ArgumentLink = Nodes(ArgumentLink).RightNode
+        Index = Index + 1
+    Wend
+    If ArgumentCount > 0 Then
+        Arguments = Arguments & ", "
+    End If
+    Arguments = Arguments & "ptr %admitted"
+    Dim ProcedureSymbol As String = ""
+    Call ProcedureLlvmSymbol(ProcedureIndex, ProcedureSymbol)
+    EntryText = EntryText & "  call void " & ProcedureSymbol & "(" & Arguments & ")" & NewLine & "  ret void" & NewLine & "}" & NewLine
+    Call AppendText(Globals, GlobalCount, GlobalCapacity, CaptureType & " = type { " & TypeText & " }" & NewLine)
+    Dim RootsPointer As String = "null"
+    If RootCount > 0 Then
+        RootsPointer = "@ube.capture.roots." & Suffix
+        Call AppendText(Globals, GlobalCount, GlobalCapacity, RootsPointer & " = private constant [" & LongToString(RootCount) & " x i64] [" & RootText & "]" & NewLine)
+    End If
+    Dim Size As String = "ptrtoint (ptr getelementptr (" & CaptureType & ", ptr null, i32 1) to i64)"
+    Call AppendText(Globals, GlobalCount, GlobalCapacity, EntryText)
+    Dim Capture As String = ""
+    Dim Available As String = ""
+    Call NextLlvmRegister(State, Capture)
+    Call NextLlvmRegister(State, Available)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  store i64 0, ptr %thread.id." & Suffix & NewLine)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Capture & " = call ptr @ube_thread_capture_allocate(i64 " & Size & ", i64 " & LongToString(RootCount) & ", ptr " & RootsPointer & ")" & NewLine)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Available & " = icmp ne ptr " & Capture & ", null" & NewLine)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  br i1 " & Available & ", label %thread.capture." & Suffix & ", label %thread.complete." & Suffix & NewLine & "thread.capture." & Suffix & ":" & NewLine)
+    Index = 0
+    While Index < ArgumentCount
+        Dim FieldAddress As String = ""
+        Call NextLlvmRegister(State, FieldAddress)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & FieldAddress & " = getelementptr " & CaptureType & ", ptr " & Capture & ", i32 0, i32 " & LongToString(Index) & NewLine)
+        If IsReferenceType(ParameterTypes(Index)) <> 0 Then
+            Call AppendText(Body, BodyCount, BodyCapacity, "  call i32 @ube_gc_write_barrier(ptr null, ptr " & FieldAddress & ", ptr " & Values(Index) & ")" & NewLine)
+        Else
+            Call AppendText(Body, BodyCount, BodyCapacity, "  store " & LlvmTypes(Index) & " " & Values(Index) & ", ptr " & FieldAddress & NewLine)
+        End If
+        Index = Index + 1
+    Wend
+    Dim Id As String = ""
+    Call NextLlvmRegister(State, Id)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Id & " = call i64 @ube_thread_start_checked(ptr @ube.thread.entry." & Suffix & ", ptr " & Capture & ", ptr @ube_thread_capture_destroy)" & NewLine)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  store i64 " & Id & ", ptr %thread.id." & Suffix & NewLine & "  br label %thread.complete." & Suffix & NewLine & "thread.complete." & Suffix & ":" & NewLine)
+    Call NextLlvmRegister(State, Operand)
+    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load i64, ptr %thread.id." & Suffix & NewLine)
+End Sub
+
+' Evaluates eager operator dependencies with a bounded explicit continuation stack.
+Sub EmitOperatorExpression(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
+    Dim Limit As Long = ExpressionDepthLimit()
+    Dim StackNodes() As Long
+    Dim StackSteps() As Long
+    Dim LeftValues() As String
+    Dim RightValues() As String
+    Dim LeftTypes() As Long
+    Dim RightTypes() As Long
+    ReDim StackNodes(Limit - 1)
+    ReDim StackSteps(Limit - 1)
+    ReDim LeftValues(Limit - 1)
+    ReDim RightValues(Limit - 1)
+    ReDim LeftTypes(Limit - 1)
+    ReDim RightTypes(Limit - 1)
+    Dim Depth As Long = 0
+    StackNodes(0) = NodeIndex
+    While Depth >= 0
+        Dim CurrentNode As Long = StackNodes(Depth)
+        Dim Kind As Long = Nodes(CurrentNode).NodeKind
+        Dim Child As Long = -1
+        Dim Completed As Boolean = False
+        Dim CurrentOperand As String = ""
+        Dim CurrentType As Long = Nodes(CurrentNode).ResolvedType
+        Dim ConstantValue As Long = 0
+        Dim ConstantReady As Boolean = False
+        If StackSteps(Depth) = 0 And (CurrentType = 2 Or CurrentType = 4 Or CurrentType = 7) Then
+            ConstantReady = EvaluateIntegerConstant(Tokens, Nodes, CurrentNode, ConstantValue) = 1
+        End If
+        If ConstantReady Then
+            CurrentOperand = LongToString(ConstantValue)
+            Completed = True
+        Else
+            If Kind = 15 Or Kind = 16 Then
+                If StackSteps(Depth) = 0 Then
+                    StackSteps(Depth) = 1
+                    Child = Nodes(CurrentNode).LeftNode
+                Else
+                    If Kind = 15 And StackSteps(Depth) = 2 Then
+                        StackSteps(Depth) = 3
+                        Child = Nodes(CurrentNode).RightNode
+                    Else
+                        Call EmitOperatorValue(Tokens, Nodes, CurrentNode, Types, TypeCount, LeftValues(Depth), LeftTypes(Depth), RightValues(Depth), RightTypes(Depth), Body, BodyCount, BodyCapacity, State, NewLine, CurrentOperand, CurrentType)
+                        Completed = True
+                    End If
+                End If
+            Else
+                Call EmitExpression(Tokens, Nodes, CurrentNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, CurrentOperand, CurrentType)
+                Completed = True
+            End If
+        End If
+        If State.Failed <> 0 Then
+            Exit Sub
+        End If
+        If Completed Then
+            Depth = Depth - 1
+            If Depth < 0 Then
+                Operand = CurrentOperand
+                TypeId = CurrentType
+            Else
+                If StackSteps(Depth) = 1 Then
+                    LeftValues(Depth) = CurrentOperand
+                    LeftTypes(Depth) = CurrentType
+                    StackSteps(Depth) = 2
+                Else
+                    RightValues(Depth) = CurrentOperand
+                    RightTypes(Depth) = CurrentType
+                    StackSteps(Depth) = 4
+                End If
+            End If
+        Else
+            If Child < 0 Or Depth + 1 >= Limit Then
+                State.Failed = 1
+                Exit Sub
+            End If
+            Depth = Depth + 1
+            StackNodes(Depth) = Child
+            StackSteps(Depth) = 0
+        End If
+    Wend
+End Sub
+
+' Emits an operator from evaluated operands without recursively visiting its tree.
+Sub EmitOperatorValue(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByVal LeftOperand As String, ByVal LeftTypeId As Long, ByVal RightOperand As String, ByVal RightTypeId As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
+    Dim Kind As Long = Nodes(NodeIndex).NodeKind
+    TypeId = Nodes(NodeIndex).ResolvedType
+    If Kind = 16 Then
+        Dim UnaryOperand As String = LeftOperand
+        Dim UnaryTypeId As Long = LeftTypeId
+        Dim UnaryOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
+        If UnaryOperator = "+" Then
+            Operand = UnaryOperand
+            Call EmitIntegerConversion(UnaryTypeId, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
+            Exit Sub
+        End If
+        Call EmitIntegerConversion(UnaryTypeId, TypeId, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+        UnaryTypeId = TypeId
+        Dim UnaryLlvmType As String = ""
+        Call LlvmTypeName(UnaryTypeId, UnaryLlvmType)
+        Call NextLlvmRegister(State, Operand)
+        If UnaryOperator = "-" Then
+            If UnaryTypeId = 2 Or UnaryTypeId = 4 Then
+                Call EmitIntegerConversion(UnaryTypeId, 2, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_neg_i32(i32 " & UnaryOperand & ")" & NewLine)
+                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
+            Else
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = sub " & UnaryLlvmType & " 0, " & UnaryOperand & NewLine)
+            End If
+            Exit Sub
+        End If
+        If EqualsKeyword(UnaryOperator, "Not") <> 0 Then
+            If UnaryTypeId = 1 Then
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = xor i1 " & UnaryOperand & ", true" & NewLine)
+            Else
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = xor " & UnaryLlvmType & " " & UnaryOperand & ", -1" & NewLine)
+            End If
+            Exit Sub
+        End If
+        State.Failed = 1
         Exit Sub
     End If
-    If Kind = 13 Then
+    If Kind = 15 Then
+        Dim BinaryOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
+        Call NextLlvmRegister(State, Operand)
+        If BinaryOperator = "&" Then
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call ptr @ube_string_concat(ptr " & LeftOperand & ", ptr " & RightOperand & ")" & NewLine)
+            Exit Sub
+        End If
+        If LeftTypeId >= 1000 And LeftTypeId < 1000 + TypeCount Then
+            If Types(LeftTypeId - 1000).RepresentationType = 0 Or LeftTypeId <> RightTypeId Or (BinaryOperator <> "=" And BinaryOperator <> "<>") Then
+                State.Failed = 1
+                Exit Sub
+            End If
+            Dim CompareAggregate As String = ""
+            Call LlvmTypeName(LeftTypeId, CompareAggregate)
+            Dim LeftScalar As String = ""
+            Dim RightScalar As String = ""
+            Call NextLlvmRegister(State, LeftScalar)
+            Call NextLlvmRegister(State, RightScalar)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & LeftScalar & " = extractvalue " & CompareAggregate & " " & LeftOperand & ", 0" & NewLine)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & RightScalar & " = extractvalue " & CompareAggregate & " " & RightOperand & ", 0" & NewLine)
+            RightTypeId = Types(LeftTypeId - 1000).RepresentationType
+            LeftTypeId = RightTypeId
+            LeftOperand = LeftScalar
+            RightOperand = RightScalar
+        End If
+        If IsNumericType(LeftTypeId) <> 0 And IsNumericType(RightTypeId) <> 0 Then
+            Dim PromotedType As Long = CommonNumericType(LeftTypeId, RightTypeId)
+            Call EmitIntegerConversion(LeftTypeId, PromotedType, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            Call EmitIntegerConversion(RightTypeId, PromotedType, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+            LeftTypeId = PromotedType
+            RightTypeId = PromotedType
+        End If
+        If EqualsKeyword(BinaryOperator, "And") <> 0 Or EqualsKeyword(BinaryOperator, "Or") <> 0 Then
+            Dim LogicOpcode As String = "and"
+            If EqualsKeyword(BinaryOperator, "Or") <> 0 Then
+                LogicOpcode = "or"
+            End If
+            Dim LogicType As String = ""
+            Call LlvmTypeName(LeftTypeId, LogicType)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = " & LogicOpcode & " " & LogicType & " " & LeftOperand & ", " & RightOperand & NewLine)
+            Exit Sub
+        End If
+        If EqualsKeyword(BinaryOperator, "Is") <> 0 Then
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp eq ptr " & LeftOperand & ", " & RightOperand & NewLine)
+            TypeId = 1
+            Exit Sub
+        End If
+        Dim IsComparison As Long = 0
+        If BinaryOperator = "=" Or BinaryOperator = "<>" Or BinaryOperator = "<" Or BinaryOperator = ">" Or BinaryOperator = "<=" Or BinaryOperator = ">=" Then
+            IsComparison = 1
+        End If
+        If IsComparison <> 0 Then
+            Dim CompareLeft As String = LeftOperand
+            If LeftTypeId = 3 Then
+                Dim StringCompare As String = Operand
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & StringCompare & " = call i32 @ube_string_compare(ptr " & LeftOperand & ", ptr " & RightOperand & ")" & NewLine)
+                Call NextLlvmRegister(State, Operand)
+                CompareLeft = StringCompare
+                LeftTypeId = 2
+                RightOperand = "0"
+            End If
+            Dim Predicate As String = "eq"
+            If BinaryOperator = "<>" Then
+                Predicate = "ne"
+            End If
+            If BinaryOperator = "<" Then
+                Predicate = "slt"
+            End If
+            If BinaryOperator = ">" Then
+                Predicate = "sgt"
+            End If
+            If BinaryOperator = "<=" Then
+                Predicate = "sle"
+            End If
+            If BinaryOperator = ">=" Then
+                Predicate = "sge"
+            End If
+            Dim CompareType As String = ""
+            Call LlvmTypeName(LeftTypeId, CompareType)
+            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp " & Predicate & " " & CompareType & " " & CompareLeft & ", " & RightOperand & NewLine)
+            TypeId = 1
+            Exit Sub
+        End If
+        If LeftTypeId = 2 Or LeftTypeId = 4 Then
+            Dim ArithmeticHelper As String = ""
+            If BinaryOperator = "+" Then
+                ArithmeticHelper = "add"
+            End If
+            If BinaryOperator = "-" Then
+                ArithmeticHelper = "sub"
+            End If
+            If BinaryOperator = "*" Then
+                ArithmeticHelper = "mul"
+            End If
+            If BinaryOperator = "\" Then
+                ArithmeticHelper = "div"
+            End If
+            If EqualsKeyword(BinaryOperator, "Mod") <> 0 Then
+                ArithmeticHelper = "mod"
+            End If
+            If ArithmeticHelper <> "" Then
+                Call EmitIntegerConversion(LeftTypeId, 2, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call EmitIntegerConversion(RightTypeId, 2, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_" & ArithmeticHelper & "_i32(i32 " & LeftOperand & ", i32 " & RightOperand & ")" & NewLine)
+                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Exit Sub
+            End If
+        End If
+        State.Failed = 1
+        Exit Sub
+    End If
+    State.Failed = 1
+End Sub
+
+' Emits one call/index operation without placing its large frame on operator walks.
+Sub EmitProcedureCall(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
         Dim CallCalleeNode As Long = Nodes(NodeIndex).LeftNode
         If Nodes(CallCalleeNode).ResolvedType >= 100000 Then
             Dim ElementAddress As String = ""
@@ -4934,6 +5649,12 @@ Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByV
             End If
             Exit Sub
         End If
+        If Procedures(CalledProcedure).IsThreadTarget <> 0 Then
+            If Arguments <> "" Then
+                Arguments = Arguments & ", "
+            End If
+            Arguments = Arguments & "ptr null"
+        End If
         If Procedures(CalledProcedure).IsIntrinsic = 0 And EqualsIdentifier(Tokens(Procedures(CalledProcedure).NameToken).Spelling, "Main") <> 0 Then
             If Arguments <> "" Then
                 Arguments = Arguments & ", "
@@ -4945,7 +5666,7 @@ Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByV
             Dim CallReturnLlvmType As String = ""
             Call LlvmTypeName(TypeId, CallReturnLlvmType)
             Call NextLlvmRegister(State, Operand)
-            If ContainsArrayStorage(Tokens, TypeId, Types, TypeCount, Fields) <> 0 Then
+            If ValueRootCount(TypeId, Types, TypeCount) > 0 Then
                 Dim ResultLayout As String = ""
                 Call ValueLayoutSymbol(TypeId, ResultLayout)
                 Call AppendText(Body, BodyCount, BodyCapacity, "  call void @ube_value_zero(ptr %value." & LongToString(NodeIndex) & ", ptr " & ResultLayout & ")" & NewLine)
@@ -4964,162 +5685,83 @@ Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByV
             Call AppendText(Body, BodyCount, BodyCapacity, "  call void " & CallSymbol & "(" & Arguments & ")" & NewLine)
         End If
         Exit Sub
-    End If
-    If Kind = 16 Then
-        Dim UnaryOperand As String = ""
-        Dim UnaryTypeId As Long = 0
-        Call EmitExpression(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, UnaryOperand, UnaryTypeId)
-        If State.Failed <> 0 Then
-            Exit Sub
-        End If
-        Dim UnaryOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
-        If UnaryOperator = "+" Then
-            Operand = UnaryOperand
-            Call EmitIntegerConversion(UnaryTypeId, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
-            Exit Sub
-        End If
-        Call EmitIntegerConversion(UnaryTypeId, TypeId, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-        UnaryTypeId = TypeId
-        Dim UnaryLlvmType As String = ""
-        Call LlvmTypeName(UnaryTypeId, UnaryLlvmType)
-        Call NextLlvmRegister(State, Operand)
-        If UnaryOperator = "-" Then
-            If UnaryTypeId = 2 Or UnaryTypeId = 4 Then
-                Call EmitIntegerConversion(UnaryTypeId, 2, UnaryOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_neg_i32(i32 " & UnaryOperand & ")" & NewLine)
-                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
-            Else
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = sub " & UnaryLlvmType & " 0, " & UnaryOperand & NewLine)
-            End If
-            Exit Sub
-        End If
-        If EqualsKeyword(UnaryOperator, "Not") <> 0 Then
-            If UnaryTypeId = 1 Then
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = xor i1 " & UnaryOperand & ", true" & NewLine)
-            Else
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = xor " & UnaryLlvmType & " " & UnaryOperand & ", -1" & NewLine)
-            End If
-            Exit Sub
-        End If
+End Sub
+
+Sub EmitExpressionCore(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Fields() As FieldDeclarationSyntax, ByVal FieldCount As Long, ByVal Owner As Long, ByRef Globals() As String, ByRef GlobalCount As Long, ByRef GlobalCapacity As Long, ByRef Body() As String, ByRef BodyCount As Long, ByRef BodyCapacity As Long, ByRef State As LlvmEmitterState, ByVal NewLine As String, ByRef Operand As String, ByRef TypeId As Long)
+    Operand = ""
+    TypeId = 0
+    If NodeIndex < 0 Then
         State.Failed = 1
         Exit Sub
     End If
-    If Kind = 15 Then
-        Dim LeftOperand As String = ""
-        Dim RightOperand As String = ""
-        Dim LeftTypeId As Long = 0
-        Dim RightTypeId As Long = 0
-        Call EmitExpression(Tokens, Nodes, Nodes(NodeIndex).LeftNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, LeftOperand, LeftTypeId)
-        If State.Failed <> 0 Then
+    Dim Kind As Long = Nodes(NodeIndex).NodeKind
+    TypeId = Nodes(NodeIndex).ResolvedType
+    If TypeId = 2 Or TypeId = 4 Or TypeId = 7 Then
+        Dim ConstantValue As Long = 0
+        If EvaluateIntegerConstant(Tokens, Nodes, NodeIndex, ConstantValue) = 1 Then
+            Operand = LongToString(ConstantValue)
             Exit Sub
         End If
-        Call EmitExpression(Tokens, Nodes, Nodes(NodeIndex).RightNode, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, RightOperand, RightTypeId)
-        If State.Failed <> 0 Then
-            Exit Sub
-        End If
-        Dim BinaryOperator As String = Tokens(Nodes(NodeIndex).OperatorToken).Spelling
+    End If
+    If Kind = 20 Then
+        Call EmitThreadStart(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+        Exit Sub
+    End If
+    If Kind = 18 Then
+        Dim NewStatus As String = ""
+        Call NextLlvmRegister(State, NewStatus)
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & NewStatus & " = call i32 @ube_value_new_object(ptr %value." & LongToString(NodeIndex) & ", ptr @ube.object." & LongToString(TypeId - 20000) & ")" & NewLine)
         Call NextLlvmRegister(State, Operand)
-        If BinaryOperator = "&" Then
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call ptr @ube_string_concat(ptr " & LeftOperand & ", ptr " & RightOperand & ")" & NewLine)
-            Exit Sub
+        Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = load ptr, ptr %value." & LongToString(NodeIndex) & NewLine)
+        Exit Sub
+    End If
+    If Kind = 19 Then
+        Operand = "null"
+        If IsReferenceType(TypeId) <> 0 Then
+            Call AppendText(Body, BodyCount, BodyCapacity, "  store ptr null, ptr %value." & LongToString(NodeIndex) & NewLine)
         End If
-        If LeftTypeId >= 1000 And LeftTypeId < 1000 + TypeCount Then
-            If Types(LeftTypeId - 1000).RepresentationType = 0 Or LeftTypeId <> RightTypeId Or (BinaryOperator <> "=" And BinaryOperator <> "<>") Then
-                State.Failed = 1
-                Exit Sub
-            End If
-            Dim CompareAggregate As String = ""
-            Call LlvmTypeName(LeftTypeId, CompareAggregate)
-            Dim LeftScalar As String = ""
-            Dim RightScalar As String = ""
-            Call NextLlvmRegister(State, LeftScalar)
-            Call NextLlvmRegister(State, RightScalar)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & LeftScalar & " = extractvalue " & CompareAggregate & " " & LeftOperand & ", 0" & NewLine)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & RightScalar & " = extractvalue " & CompareAggregate & " " & RightOperand & ", 0" & NewLine)
-            RightTypeId = Types(LeftTypeId - 1000).RepresentationType
-            LeftTypeId = RightTypeId
-            LeftOperand = LeftScalar
-            RightOperand = RightScalar
-        End If
-        If IsNumericType(LeftTypeId) <> 0 And IsNumericType(RightTypeId) <> 0 Then
-            Dim PromotedType As Long = CommonNumericType(LeftTypeId, RightTypeId)
-            Call EmitIntegerConversion(LeftTypeId, PromotedType, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-            Call EmitIntegerConversion(RightTypeId, PromotedType, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-            LeftTypeId = PromotedType
-            RightTypeId = PromotedType
-        End If
-        If EqualsKeyword(BinaryOperator, "And") <> 0 Or EqualsKeyword(BinaryOperator, "Or") <> 0 Then
-            Dim LogicOpcode As String = "and"
-            If EqualsKeyword(BinaryOperator, "Or") <> 0 Then
-                LogicOpcode = "or"
-            End If
-            Dim LogicType As String = ""
-            Call LlvmTypeName(LeftTypeId, LogicType)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = " & LogicOpcode & " " & LogicType & " " & LeftOperand & ", " & RightOperand & NewLine)
-            Exit Sub
-        End If
-        Dim IsComparison As Long = 0
-        If BinaryOperator = "=" Or BinaryOperator = "<>" Or BinaryOperator = "<" Or BinaryOperator = ">" Or BinaryOperator = "<=" Or BinaryOperator = ">=" Then
-            IsComparison = 1
-        End If
-        If IsComparison <> 0 Then
-            Dim CompareLeft As String = LeftOperand
-            If LeftTypeId = 3 Then
-                Dim StringCompare As String = Operand
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & StringCompare & " = call i32 @ube_string_compare(ptr " & LeftOperand & ", ptr " & RightOperand & ")" & NewLine)
-                Call NextLlvmRegister(State, Operand)
-                CompareLeft = StringCompare
-                LeftTypeId = 2
-                RightOperand = "0"
-            End If
-            Dim Predicate As String = "eq"
-            If BinaryOperator = "<>" Then
-                Predicate = "ne"
-            End If
-            If BinaryOperator = "<" Then
-                Predicate = "slt"
-            End If
-            If BinaryOperator = ">" Then
-                Predicate = "sgt"
-            End If
-            If BinaryOperator = "<=" Then
-                Predicate = "sle"
-            End If
-            If BinaryOperator = ">=" Then
-                Predicate = "sge"
-            End If
-            Dim CompareType As String = ""
-            Call LlvmTypeName(LeftTypeId, CompareType)
-            Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = icmp " & Predicate & " " & CompareType & " " & CompareLeft & ", " & RightOperand & NewLine)
+        Exit Sub
+    End If
+    If Kind = 10 Then
+        Operand = Tokens(Nodes(NodeIndex).SourceToken).Spelling
+        Exit Sub
+    End If
+    If Kind = 11 Then
+        Call EmitStringConstant(Tokens(Nodes(NodeIndex).SourceToken).Decoded, Globals, GlobalCount, GlobalCapacity, State, NewLine, Operand)
+        Exit Sub
+    End If
+    If Kind = 12 Then
+        Dim NameToken As Long = Nodes(NodeIndex).SourceToken
+        If EqualsKeyword(Tokens(NameToken).Spelling, "True") <> 0 Then
+            Operand = "true"
             TypeId = 1
             Exit Sub
         End If
-        If LeftTypeId = 2 Or LeftTypeId = 4 Then
-            Dim ArithmeticHelper As String = ""
-            If BinaryOperator = "+" Then
-                ArithmeticHelper = "add"
-            End If
-            If BinaryOperator = "-" Then
-                ArithmeticHelper = "sub"
-            End If
-            If BinaryOperator = "*" Then
-                ArithmeticHelper = "mul"
-            End If
-            If BinaryOperator = "\" Then
-                ArithmeticHelper = "div"
-            End If
-            If EqualsKeyword(BinaryOperator, "Mod") <> 0 Then
-                ArithmeticHelper = "mod"
-            End If
-            If ArithmeticHelper <> "" Then
-                Call EmitIntegerConversion(LeftTypeId, 2, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Call EmitIntegerConversion(RightTypeId, 2, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_" & ArithmeticHelper & "_i32(i32 " & LeftOperand & ", i32 " & RightOperand & ")" & NewLine)
-                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Exit Sub
-            End If
+        If EqualsKeyword(Tokens(NameToken).Spelling, "False") <> 0 Then
+            Operand = "false"
+            TypeId = 1
+            Exit Sub
         End If
-        State.Failed = 1
+        Dim Address As String = ""
+        Call EmitNameAddress(Tokens, Procedures, Parameters, Locals, LocalCount, Types, TypeCount, Owner, NameToken, Address, TypeId)
+        If Address = "" Or TypeId = 0 Then
+            State.Failed = 1
+            Exit Sub
+        End If
+        Call EmitValueLoad(TypeId, Address, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+        Exit Sub
+    End If
+    If Kind = 14 Then
+        Dim MemberAddress As String = ""
+        Call EmitLvalueAddress(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, MemberAddress, TypeId)
+        If State.Failed <> 0 Then
+            Exit Sub
+        End If
+        Call EmitValueLoad(TypeId, MemberAddress, NodeIndex, Body, BodyCount, BodyCapacity, State, NewLine, Operand)
+        Exit Sub
+    End If
+    If Kind = 13 Then
+        Call EmitProcedureCall(Tokens, Nodes, NodeIndex, Procedures, ProcedureCount, Parameters, Locals, LocalCount, Types, TypeCount, Fields, FieldCount, Owner, Globals, GlobalCount, GlobalCapacity, Body, BodyCount, BodyCapacity, State, NewLine, Operand, TypeId)
         Exit Sub
     End If
     State.Failed = 1
@@ -5584,7 +6226,7 @@ Function NormalizeProjectSourcePath(ByVal Value As String, ByRef Normalized As S
         NormalizeProjectSourcePath = 0
         Exit Function
     End If
-    If EqualsIdentifier(StringSlice(Normalized, NormalizedLength - 4, 4), ".bas") = 0 Then
+    If EqualsIdentifier(StringSlice(Normalized, NormalizedLength - 4, 4), ".bas") = 0 And EqualsIdentifier(StringSlice(Normalized, NormalizedLength - 4, 4), ".cls") = 0 Then
         NormalizeProjectSourcePath = 0
         Exit Function
     End If
@@ -5843,7 +6485,8 @@ Function Utf8HeaderStart(ByVal Contents As String) As Long
     End If
 End Function
 
-Function ValidateBootstrapEnvelope(ByVal Contents As String, ByVal RequireNative As Long, ByRef ModuleName As String, ByRef ErrorMessage As String) As Long
+Function ValidateBootstrapEnvelope(ByVal Contents As String, ByVal RequireNative As Long, ByRef ModuleName As String, ByRef IsReference As Long, ByRef ErrorMessage As String) As Long
+    IsReference = 0
     ValidateBootstrapEnvelope = 0
     ModuleName = ""
     Dim Cursor As Long = Utf8HeaderStart(Contents)
@@ -5859,7 +6502,8 @@ Function ValidateBootstrapEnvelope(ByVal Contents As String, ByVal RequireNative
         If StringLength(EnvelopeLine) > 0 Then
             If StringByteAt(EnvelopeLine, 0) <> 39 Then
                 If EnvelopeState = 0 Then
-                    If EqualsIdentifier(EnvelopeLine, "UBE SOURCE 1 MODULE") <> 0 Then
+                    If EqualsIdentifier(EnvelopeLine, "UBE SOURCE 1 MODULE") <> 0 Or EqualsIdentifier(EnvelopeLine, "UBE SOURCE 1 CLASS") <> 0 Then
+                        IsReference = EqualsIdentifier(EnvelopeLine, "UBE SOURCE 1 CLASS")
                         EnvelopeState = 1
                     Else
                         ' Existing bare bootstrap diagnostics may begin with
@@ -6007,6 +6651,9 @@ Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As 
                     End If
                 End If
                 Dim HeaderWord As String = Tokens(HeaderIndex).Spelling
+                If Sources(SourceIndex).IsReference <> 0 Then
+                    HeaderWord = "Attribute"
+                End If
                 If InProcedure = 0 And InType = 0 Then
                     If EqualsKeyword(HeaderWord, "Sub") <> 0 Or EqualsKeyword(HeaderWord, "Function") <> 0 Then
                         InProcedure = 1
@@ -6048,7 +6695,7 @@ Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As 
             Wend
             DeclarationIndex = 0
             While DeclarationIndex < TypeCount
-                If EqualsIdentifier(Word, Tokens(Types(DeclarationIndex).NameToken).Spelling) <> 0 Then
+                If EqualsIdentifier(Word, Types(DeclarationIndex).DeclaredName) <> 0 Then
                     Dim TypeSource As Long = FindSourceIndex(Sources, SourceCount, Tokens(Types(DeclarationIndex).NameToken).StartByte)
                     If Sources(TypeSource).PackageId <> PackageId Then
                         Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5024", Tokens(Index).StartByte, Tokens(Index).ByteLength, "referenced library cannot name executable or independent-library declarations in this bootstrap subset")
@@ -6294,11 +6941,13 @@ Function Main() As Long
             RequireNative = 1
         End If
         Dim ModuleName As String = ""
-        If ValidateBootstrapEnvelope(Sources(LoadIndex).Contents, RequireNative, ModuleName, InputError) = 0 Then
+        Dim IsReference As Long = 0
+        If ValidateBootstrapEnvelope(Sources(LoadIndex).Contents, RequireNative, ModuleName, IsReference, InputError) = 0 Then
             Print Sources(LoadIndex).FilePath & "(1,1): " & InputError
             Main = 1
             Exit Function
         End If
+        Sources(LoadIndex).IsReference = IsReference
         Sources(LoadIndex).ModuleName = ModuleName
         Dim PreviousModule As Long = 0
         While PreviousModule < LoadIndex
@@ -6355,6 +7004,11 @@ Function Main() As Long
     Dim FieldDeclarations() As FieldDeclarationSyntax
     Dim FieldDeclarationCount As Long = 0
     Dim FieldDeclarationCapacity As Long = 0
+    If ParseClassDeclarations(Tokens, TokenCount, Sources, SourcePathCount, TypeDeclarations, TypeDeclarationCount, TypeDeclarationCapacity, FieldDeclarations, FieldDeclarationCount, FieldDeclarationCapacity, Diagnostics, DiagnosticCount) = 0 Then
+        Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
     If ParseTypeDeclarations(Tokens, TokenCount, TypeDeclarations, TypeDeclarationCount, TypeDeclarationCapacity, FieldDeclarations, FieldDeclarationCount, FieldDeclarationCapacity, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
         Main = 1
@@ -6507,6 +7161,7 @@ Function Main() As Long
     Else
         Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call void " & EntrySymbol & "(ptr %entry.admitted)" & NewLine)
     End If
+    Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call void @ube_thread_program_wait()" & NewLine)
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  %entry.did.admit = load i1, ptr %entry.admitted" & NewLine)
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  br i1 %entry.did.admit, label %entry.complete, label %entry.failure" & NewLine & "entry.failure:" & NewLine)
     Call AppendText(ResultChunks, ResultChunkCount, ResultChunkCapacity, "  call i32 @puts(ptr " & EntryFailureOperand & ")" & NewLine & "  ret i32 70" & NewLine & "entry.complete:" & NewLine)

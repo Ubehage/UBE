@@ -14,11 +14,46 @@ nearer roadmap or progress file.
 
 ## Current priority — 2026-10-31
 
+Completed: the owner-requested bounded compiler-concurrency contract and actual
+UBE-driven proof. Compiler-owned `TryParseSources` uses the existing source,
+scanner and parser bodies with one worker budget, immutable source owners,
+private work and complete failure-atomic publication. Budgets 1, 2 and 4 produce
+the same complete results and canonical first failures. Cancellation and actual
+allocation/root/start/wait failures preserve earlier output and drain workers.
+UBECore retains generic mechanisms without source policy or an executor.
+
+The current source-built bootstrap passes 592 grouped assertions. Bounded
+field-only reference classes and scalar/reference `CallNew` captures preserve
+ordinary independent array/record copies. UBECore's `Threads` Try APIs provide
+fresh identity, liveness, stop, wait and yield status. The current concurrency
+proof passes 5652 native assertions through both stages; retained parser and
+strict CLI gates pass 4049 and 217 checks, and the rebuilt local executable
+passes 41 exact process oracles. Exact commands, identities, costs and limits
+are in [CONCURRENCY-EVIDENCE.md](compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+
+Instrumented four-worker execution was slower than the one-worker reference;
+collector contention is explicit follow-up work. No speedup is claimed.
+The owner has approved an explicit
+[parallel performance gate](project-docs/Development-Plan.md#parallel-performance-acceptance):
+at least 1.5x speedup with two workers and 2x with four on representative real and
+larger balanced corpora, with single-worker/small-input regression guards and
+all correctness/resource gates retained. Measurement and optimization remain
+unfinished. This is required before the parallel frontend is marked complete
+and before substantial semantic/backend growth; it does not reopen the completed
+concurrency correctness proof or start another implementation goal.
+The [development plan](project-docs/Development-Plan.md) proposes bounded normal
+`.UBE`/direct-UBECore input and parallel frontend integration next. That row and
+every later row remain proposed and need their own contract and owner review.
+Full grammar, semantics, backend work and project/jobs CLI integration are not
+capabilities implied by this completed goal.
+
+## Earlier foundation and parser checkpoints
+
 The first UBECore byte/text foundation is implemented and independently tested:
 an incremental UTF-8 decoder and owned ByteBuffer with geometric growth,
 failure-atomic operations and independent snapshots. The owner approved the
 managed-storage scope and permits extending v2 as necessary for bootstrap.
-`bootstrap/build-v2.ps1` now passes 501 grouped assertions, retaining the earlier
+`bootstrap/build-v2.ps1` passed 501 grouped assertions at that checkpoint, retaining the earlier
 foundation gates and adding the fresh scanner/envelope consumer and exhaustive
 Unicode qualification. Current runtime/bootstrap and production-parser results
 are in `compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`; representation probes
@@ -47,7 +82,7 @@ renames, official pinned Unicode 18 data, ordinary UBE lookup/cursor helpers,
 exact token/envelope spans, controlled diagnostics and failure-atomic results.
 Both source-built stages pass native fixtures, real root/allocator failures,
 cleanup, four private-worker comparisons and measured scanner copy/work budgets.
-The complete gate passes 501 assertions; the scanner's observed executable
+At that checkpoint, the complete gate passed 501 assertions; the scanner's observed executable
 executes 2274484 native assertions per stage. Legacy recognition and raw date/
 directive tokens do not establish their full grammar or semantics. `--check`
 still reports checking unavailable after a successful scan.
@@ -74,14 +109,16 @@ borrowed source/token views, private pending nodes and atomic complete-result
 publication. Native acceptance covers the full frozen syntax/rejection/deferred
 cohort while preserving ownership, diagnostics, budgets, cleanup and measured
 work/copy obligations. No UBECore API expansion was needed.
-The refreshed bootstrap passes all 501 checks. The unrestricted parser gate
+At that parser checkpoint, the refreshed bootstrap passed all 501 checks. The unrestricted parser gate
 passes 4049 grouped checks through both source-built stages, all 188 independent
 cases, 10412 actual root capacities and 102 cost rows, including complete failure
 retention and cleanup. Strict CLI acceptance passes 82 cases and 54 diagnostic
 controls; the rebuilt local executable passes all 41 process oracles. Exact
 commands, hashes, limits and handoff are in
 `compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`. No generic collection or worker
-scheduler was added. The next bounded contract is not selected by this checklist.
+scheduler was added. That checkpoint preceded the subsequently owner-approved
+concurrency goal. Current qualification and proposed next work are recorded in
+`CONCURRENCY-EVIDENCE.md` and the priority above.
 
 The owner chose to establish a fresh UBECore in `std-lib/` before further
 compiler feature expansion. Grow the library with concrete compiler needs;

@@ -14,7 +14,7 @@ rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
 - [x] Prove the bounded bootstrap subset and library-defined native datatype
   mechanism before broad compiler implementation.
   The earlier source-input gate passed 470 assertions including managed storage
-  and the first library byte/text facility. The current 501-check qualification
+  and the first library byte/text facility. The then-current 501-check qualification
   adds scanner/Unicode proofs; see `UBE_Compiler_v3/SCANNER-EVIDENCE.md`.
 - [x] Build the first source-ingestion consumer with independently tested
   UBECore facilities, direct source references and controlled native failures.
@@ -23,7 +23,7 @@ rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
   this is a definition gate, not native scanner qualification.
 - [x] Implement that defined scanner/source-envelope consumer in UBE and pass
   its independent native, failure, resource and measured-cost gates.
-  The current-source gate passes 501 grouped checks; exact scanner/Unicode
+  That checkpoint's current-source gate passed 501 grouped checks; exact scanner/Unicode
   evidence and supported limits are in `UBE_Compiler_v3/SCANNER-EVIDENCE.md`.
 - [x] Define the first bounded grammar consumer before choosing parser storage
   or strategy. 116 independent cases and 16 negative controls pass the definition
@@ -40,8 +40,18 @@ rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
   bounds. The refreshed 501-check bootstrap and strict CLI/artifact gates pass.
   Exact evidence and scope are in `UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`.
 
-No successor implementation item is selected by this checklist. Agree the next
-bounded contract and independent cases before expanding compiler/library scope.
+- [x] Complete the owner-requested bounded compiler-concurrency contract and
+  actual UBE-driven proof, preserving immutable owners, private results, one
+  budget, canonical failures, cancellation/drain and complete publication.
+  Compiler `TryParseSources` owns orchestration; UBECore Threads supplies generic
+  mechanisms. [CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
+  records the exact current gates and limits, including collector contention.
+
+The [development plan](../project-docs/Development-Plan.md) proposes bounded
+normal `.UBE`/direct-UBECore input and parallel frontend integration next.
+Every later row remains proposed; the completed concurrency goal does not
+authorize successor implementation or new APIs. Review each bounded contract
+before coding. Preserve existing names, layer separation and qualified gates.
 
 The earlier roadmap is retained under `archived/compiler-history/Roadmap.md`.
 It is historical scope and evidence, not the fresh compiler's execution plan.

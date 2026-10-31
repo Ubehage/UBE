@@ -168,7 +168,7 @@ try {
     Test-Project 'package-qualification' (Exe-Project 'Probe' 'Source = "Qualified.bas"' $reference) '' 'UBE5026'
     Write-Fixture 'Duplicate.bas' (Native-Module 'main' "Function Other() As Long`nOther = 0`nEnd Function") | Out-Null
     Test-Project 'module-identity' (Exe-Project 'Probe' ($source + "`nSource = `"Duplicate.bas`"") $reference) '' 'UBE5027'
-    foreach ($case in @(@('version',"UBE SOURCE 2 MODULE`nAttribute UBE_Name = `"Main`"`n",'UBE5020'),@('kind',"UBE SOURCE 1 CLASS`nAttribute UBE_Name = `"Main`"`n",'UBE5020'),@('name',"UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Bad Name`"`n",'UBE5021'),@('attribute',"UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Main`"`nAttribute UBE_Unknown = `"x`"`n",'UBE5022'),@('bare','', 'UBE5020'))) {
+    foreach ($case in @(@('version',"UBE SOURCE 2 MODULE`nAttribute UBE_Name = `"Main`"`n",'UBE5020'),@('kind',"UBE SOURCE 1 FORM`nAttribute UBE_Name = `"Main`"`n",'UBE5020'),@('name',"UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Bad Name`"`n",'UBE5021'),@('attribute',"UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Main`"`nAttribute UBE_Unknown = `"x`"`n",'UBE5022'),@('bare','', 'UBE5020'))) {
         Write-Fixture 'Invalid.bas' ($case[1]+"Function Main() As Long`nMain = 0`nEnd Function`n") | Out-Null
         Test-Project ('envelope-'+$case[0]) (Exe-Project 'Probe' 'Source = "Invalid.bas"' $reference) '' $case[2]
     }

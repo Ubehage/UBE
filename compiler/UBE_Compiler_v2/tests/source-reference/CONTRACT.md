@@ -19,7 +19,11 @@ build. Each project permits at most 256 sources. Manifests and reference paths
 also have explicit size bounds. Name, Kind, Startup and native envelope metadata
 are validated rather than ignored.
 
-Native sources have `UBE SOURCE 1 MODULE` and one valid `Attribute UBE_Name`.
+Native sources have `UBE SOURCE 1 MODULE` or the owner-approved bounded
+`UBE SOURCE 1 CLASS` form, and one valid `Attribute UBE_Name`. Field-only CLASS
+storage and its independent acceptance are specified in
+`../../../UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md`. The unknown-kind rejection
+fixture uses FORM; it does not preserve CLASS rejection after CLASS is admitted.
 Module identities are unique within their package. Bare `.bas` source remains
 an explicit bootstrap exception for existing v1/v2 sources and diagnostic test
 fixtures; every source in a build with a Reference must use a native envelope.

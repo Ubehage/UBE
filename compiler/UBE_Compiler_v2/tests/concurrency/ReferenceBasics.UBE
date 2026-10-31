@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "ReferenceBasics"
+Kind = "Exe"
+Startup = "Main"
+Source = "ByteOwner.cls"
+Source = "reference-basics.bas"

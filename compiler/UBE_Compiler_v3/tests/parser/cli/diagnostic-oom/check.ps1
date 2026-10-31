@@ -4,6 +4,18 @@ function Invoke-ParserDiagnosticRegression([string]$RawPath,[string[]]$Sources,$
     New-Item -ItemType Directory -Path $Destination -Force|Out-Null
     $fixture=$PSScriptRoot
     $raw=[IO.File]::ReadAllText($RawPath);$procedures=@{};$types=@{};$procedureIndex=0;$typeIndex=0
+    # The emitter reserves every reference-class payload type before declaring
+    # any record, including records in modules earlier in the source closure.
+    foreach($source in $Sources) {
+        $text=[IO.File]::ReadAllText($source)
+        if($text -match '(?m)^UBE SOURCE 1 CLASS\r?$') {
+            $declarations=[regex]::Matches($text,'(?m)^Attribute UBE_Name = "([A-Za-z_][A-Za-z_0-9]*)"\r?$')
+            if($declarations.Count -ne 1){throw "Actual diagnostic class identity differs: $source"}
+            $name=$declarations[0].Groups[1].Value
+            if($types.ContainsKey($name)){throw "Duplicate diagnostic ABI type $name"}
+            $types[$name]='%ube.type.'+$typeIndex;++$typeIndex
+        }
+    }
     foreach($source in $Sources) {
         $text=[IO.File]::ReadAllText($source)
         foreach($match in [regex]::Matches($text,'(?m)^(?:(?:Public|Private|Friend) )?(?:Intrinsic )?(?:Sub|Function) ([A-Za-z_][A-Za-z_0-9]*)\b')) {

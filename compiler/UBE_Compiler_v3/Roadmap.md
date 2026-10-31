@@ -23,10 +23,10 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
   The owner delegated those decisions, preferring compatible VB6 conventions.
   `../../std-lib/NATIVE-TYPE-PROPOSAL.md` is adopted; the bounded scalar proof
   passes 66 native and eight record assertions alongside all 130 earlier checks.
-  See `../../std-lib/tests/native-type/NATIVE-EVIDENCE.md` for current evidence.
+  See `../../std-lib/tests/native-type/NATIVE-EVIDENCE.md` for that checkpoint.
 - [x] Implement and independently test the first UBECore byte/text foundation.
   The approved managed-storage prerequisites, Utf8 decoder and ByteBuffer now
-  pass the combined source-only gate (296 assertions). Exact current evidence:
+  passed the combined source-only gate (296 assertions). Its exact evidence:
   `../../std-lib/BYTE-BUFFER-EVIDENCE.md`.
 - [x] Measure construction/copying/memory behavior and test independent-instance
   reentrancy, immutable sharing and bounded worker ownership early.
@@ -43,7 +43,7 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
   qualify an implemented scanner. See `SCANNER-EVIDENCE.md`.
 - [x] Implement that scanner/source-envelope consumer in UBE, satisfying its
   native fixture, failure, ownership, Unicode-data and measured-cost gates.
-  The combined current-source gate passes 501 grouped checks. Both stages
+  The combined source gate at that checkpoint passed 501 grouped checks. Both stages
   produce identical raw LLVM and pass independent native fixtures, real root
   pressure, allocation faults, private-worker cleanup and observed copy budgets.
   Exact accepted identities and recognition limits are in `SCANNER-EVIDENCE.md`.
@@ -66,6 +66,26 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
   `PARSER-NATIVE-EVIDENCE.md` records the refreshed 501-check bootstrap,
   4049 native checks, all 188 cases and 10412 real-root capacities through both
   stages, measured bounds, strict CLI and qualified local artifact.
+- [x] Define and qualify the owner-requested bounded compiler-concurrency
+  contract and actual UBE-driven proof. Compiler-owned `TryParseSources`
+  preserves immutable owners, private results, one budget, canonical failures,
+  cancellation/drain and complete publication through budgets 1, 2 and 4.
+  UBECore retains generic thread/storage mechanisms. `CONCURRENCY-EVIDENCE.md`
+  records the current 592-check bootstrap, 5652 concurrency assertions,
+  retained parser/CLI gates, exact identities, costs and supported limits.
+- [ ] Proposed: define bounded normal `.UBE`/direct-UBECore source input and
+  connect it to the qualified parallel frontend. Obtain owner review of its own
+  contract before implementation. Investigate measured collector contention;
+  instrumented four-worker execution was slower. This and all later plan rows remain
+  proposed, without authorization for semantic/backend or executor expansion.
+- [ ] Meet the owner-approved
+  [parallel performance gate](../../project-docs/Development-Plan.md#parallel-performance-acceptance)
+  within the existing frontend deliverable: at least 1.5x/2x speedup with two/four
+  workers on representative real and larger balanced corpora, while retaining
+  single-worker/small-input guards and all correctness/resource gates. Use
+  uninstrumented measurements separately from correctness profiling. This exit
+  requirement must pass before substantial semantic/backend growth; the earlier
+  concurrency correctness proof remains complete.
 
 The 710-entry library inventory is target scope, not an instruction to implement
 all families before the compiler begins. No new compiler phase architecture is
@@ -78,12 +98,12 @@ failure regressions, exact tool/input identities, actual work/copy/allocation
 measurements, cleanup checks and applicable earlier tests. Archive integrity
 and path/syntax checks do not verify a compiler or its generated programs.
 
-## Exact next action
+## Proposed next action
 
-This bounded consumer is complete. Agree the next bounded contract and independent
-acceptance cases before further compiler or library expansion; no successor
-implementation item is selected by this checklist. Preserve the qualified parser
-and existing foundation gates. Literal conversion, semantic validity, conditional
-selection/inactive-text behavior, deferred grammar and code generation remain
-separate as already defined. Current commands and handoff are in
-`PARSER-NATIVE-EVIDENCE.md`.
+Review the bounded project/source-reference input contract proposed in
+[`Development-Plan.md`](../../project-docs/Development-Plan.md). Preserve the
+qualified `TryParseSources` path, canonical source identity, original spans,
+failure/cancellation behavior and earlier gates. Current qualification and
+contention measurements are in `CONCURRENCY-EVIDENCE.md`. This and later rows
+remain proposed. Literal conversion, semantics, conditional selection, deferred
+grammar and backend expansion are separate unfinished work.

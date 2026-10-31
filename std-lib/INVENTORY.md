@@ -2,7 +2,14 @@
 
 **Requested scope:** the VB6 runtime, shared VBA7 language/runtime facilities,
 and the additions defined by UBE. VBA7 was explicitly added by the owner on
-2026-10-30. **Implementation status:** the fresh UBECore has no public APIs.
+2026-10-30. **Implementation status:** the first byte/Unicode/file foundations
+and bounded Threads Try APIs are implemented and tested.
+[THREADS-CONTRACT.md](THREADS-CONTRACT.md) defines the adopted thread slice;
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
+records current qualification and its separate compiler consumer. Broader
+contracts and limits are linked from [README.md](README.md). This catalog is
+target scope, not evidence that every listed API exists, all threading semantics
+are supported, or a library binary has been released.
 
 This is the target-scope inventory for planning the finished library. It does
 not freeze new signatures, change UBE 1.0 semantics, import archived code, or

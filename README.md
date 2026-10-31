@@ -84,20 +84,25 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-**Working native bootstrap, tested UBECore foundations, and a qualified bounded parser.**
+**Working native bootstrap, tested UBECore foundations, and qualified bounded
+parallel source processing.**
 
-The fresh Compiler v3 preserves exact source input, scans it, and parses the
-first bounded grammar slice. UBECore's byte storage, UTF-8, Unicode and file-input
-foundations are implemented and tested.
+Fresh Compiler v3 preserves original source bytes, scans them, and parses the
+first bounded native MODULE grammar. Its compiler-owned `TryParseSources` runs
+that work through actual UBE workers with budgets 1, 2 and 4, shared immutable
+source owners, private results and deterministic complete publication. UBECore
+supplies the reusable byte, Unicode, file and thread facilities.
 
-Compiler v3 still needs semantic checking and code generation before it can
-compile programs. The existing source-built v2 remains its bootstrap tool.
+Full grammar, semantic checking, code generation and project/jobs CLI integration
+remain unfinished. Source-built v2 is still the bootstrap tool. Instrumented
+four-worker execution was slower than one-worker execution; measured collector
+contention is follow-up work, and no speedup is claimed.
 
 **UBE is under active development and is not ready for production use.**
 
-See the [workplan](Workplan.md) for development details and the
-[parser evidence](compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md) for the
-current test results and supported limits.
+See the [workplan](Workplan.md), [development plan](project-docs/Development-Plan.md)
+and [concurrency evidence](compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
+for the accepted gates, supported limits and proposed next work.
 
 ## First public-release goals
 

@@ -607,6 +607,11 @@ struct ube_thread_record {
     int64_t id;
     HANDLE completed;
     HANDLE stop_requested;
+    HANDLE ready;
+    LONG owners;
+    int checked_admission;
+    int admission_result;
+    int32_t admission_error;
     ube_thread_entry entry;
     ube_thread_capture_destructor destroy_capture;
     void* capture;
@@ -668,41 +673,64 @@ static void ube_thread_signal_if_idle_locked(void) {
     SetEvent(ube_thread_workers_done);
 }
 
+/* The creator and worker independently retain admission/completion resources. */
+static void ube_thread_release_record(struct ube_thread_record* record) {
+    if (InterlockedDecrement(&record->owners) != 0) return;
+    if (record->ready != NULL) CloseHandle(record->ready);
+    if (record->completed != NULL) CloseHandle(record->completed);
+    if (record->stop_requested != NULL) CloseHandle(record->stop_requested);
+    free(record);
+}
+
+/* Only an admitted worker issues an ID. Pending/failed starts have ID zero. */
+int32_t ube_thread_admit(void) {
+    struct ube_thread_local_state* state = ube_tls_get(0);
+    struct ube_thread_record* record = state != NULL ? state->thread_record : NULL;
+    if (record == NULL || !record->is_worker) {
+        ube_err_set(7, "worker admission context is unavailable", "UBECore.Threads");
+        return 0;
+    }
+    if (!ube_thread_enter_lock()) return 0;
+    if (record->admission_result != 0 || !ube_thread_accepting ||
+        ube_thread_high_water == INT64_MAX) {
+        ube_thread_leave_lock();
+        ube_err_set(7, "worker admission is closed", "UBECore.Threads");
+        return 0;
+    }
+    record->id = ++ube_thread_high_water;
+    state->thread_id = record->id;
+    record->admission_result = 1;
+    SetEvent(record->ready);
+    ube_thread_leave_lock();
+    return 1;
+}
+
+/* Rejection is published before cleanup; completion still owns the capture. */
+static void ube_thread_reject(struct ube_thread_record* record, int32_t error) {
+    if (!ube_thread_enter_lock()) return;
+    if (record->admission_result == 0) {
+        record->admission_result = -1;
+        record->admission_error = error > 0 ? error : 7;
+        SetEvent(record->ready);
+    }
+    ube_thread_leave_lock();
+}
+
 static DWORD WINAPI ube_thread_worker(LPVOID raw_record) {
     struct ube_thread_record* record = raw_record;
     struct ube_thread_local_state* state = ube_tls_get(1);
-    if (state == NULL) {
-        if (record->destroy_capture != NULL) {
-            record->destroy_capture(record->capture);
+    if (state != NULL) {
+        state->thread_record = record;
+        if (record->checked_admission || ube_thread_admit()) {
+            record->entry(record->capture);
         }
-        record->capture = NULL;
-        if (ube_thread_enter_lock()) {
-            struct ube_thread_record** link = &ube_threads;
-            while (*link != NULL && *link != record) link = &(*link)->next;
-            if (*link == record) *link = record->next;
-            SetEvent(record->completed);
-            ube_thread_signal_if_idle_locked();
-            ube_thread_leave_lock();
-            CloseHandle(record->stop_requested);
-            CloseHandle(record->completed);
-            free(record);
-        } else {
-            /* A registry-lock initialization failure is unrecoverable for this
-               worker, but retaining the record is safer than leaving a live
-               list entry that points at freed memory. */
-            SetEvent(record->completed);
-        }
-        return 0;
+        if (record->id == 0) ube_thread_reject(record, ube_err_number());
+    } else {
+        ube_thread_reject(record, 7);
     }
-    state->thread_id = record->id;
-    state->thread_record = record;
-    record->entry(record->capture);
-    if (record->destroy_capture != NULL) {
-        record->destroy_capture(record->capture);
-    }
+    if (record->destroy_capture != NULL) record->destroy_capture(record->capture);
     record->capture = NULL;
-    ube_err_clear();
-
+    if (state != NULL) ube_err_clear();
     if (ube_thread_enter_lock()) {
         struct ube_thread_record** link = &ube_threads;
         while (*link != NULL && *link != record) link = &(*link)->next;
@@ -710,21 +738,19 @@ static DWORD WINAPI ube_thread_worker(LPVOID raw_record) {
         SetEvent(record->completed);
         ube_thread_signal_if_idle_locked();
         ube_thread_leave_lock();
-        state->thread_record = NULL;
-        CloseHandle(record->stop_requested);
-        CloseHandle(record->completed);
-        free(record);
+        if (state != NULL) state->thread_record = NULL;
+        ube_thread_release_record(record);
     } else {
-        /* Preserve the registry node if it could not be detached. */
+        /* Keep a registry-owned node alive if it could not be detached. */
         SetEvent(record->completed);
     }
     return 0;
 }
 
-/* Starts a native worker after its complete ByVal capture has been published.
-   The compiler supplies a typed thunk and an optional capture destructor. */
-int64_t ube_thread_start(ube_thread_entry entry, void* capture,
-                         ube_thread_capture_destructor destroy_capture) {
+/* Starts one native worker and observes its real TLS/prologue admission.
+   All failure paths consume the capture exactly once and drain a started worker. */
+static int64_t ube_thread_start_with_admission(ube_thread_entry entry, void* capture,
+        ube_thread_capture_destructor destroy_capture, int checked_admission) {
     if (entry == NULL) {
         if (destroy_capture != NULL) destroy_capture(capture);
         ube_err_set(5, "CallNew target is invalid", "UBECore.Threads");
@@ -736,59 +762,77 @@ int64_t ube_thread_start(ube_thread_entry entry, void* capture,
         ube_err_set(7, "thread record allocation failed", "UBECore.Threads");
         return 0;
     }
+    record->owners = 2;
     record->completed = CreateEventA(NULL, TRUE, FALSE, NULL);
     record->stop_requested = CreateEventA(NULL, TRUE, FALSE, NULL);
+    record->ready = CreateEventA(NULL, TRUE, FALSE, NULL);
     record->entry = entry;
     record->destroy_capture = destroy_capture;
     record->capture = capture;
     record->is_worker = 1;
-    if (record->completed == NULL || record->stop_requested == NULL) {
-        if (record->completed != NULL) CloseHandle(record->completed);
-        if (record->stop_requested != NULL) CloseHandle(record->stop_requested);
-        free(record);
-        if (destroy_capture != NULL) destroy_capture(capture);
+    record->checked_admission = checked_admission;
+    HANDLE native_thread = NULL;
+    int registered = 0;
+    if (record->completed == NULL || record->stop_requested == NULL || record->ready == NULL) {
         ube_err_set(7, "thread event allocation failed", "UBECore.Threads");
-        return 0;
-    }
-    if (!ube_thread_enter_lock()) {
-        CloseHandle(record->completed);
-        CloseHandle(record->stop_requested);
-        free(record);
-        if (destroy_capture != NULL) destroy_capture(capture);
-        return 0;
-    }
-    if (!ube_thread_accepting || ube_thread_high_water == INT64_MAX) {
+    } else if (ube_thread_enter_lock()) {
+        if (!ube_thread_accepting || ube_thread_high_water == INT64_MAX) {
+            ube_err_set(7, "thread creation is closed", "UBECore.Threads");
+        } else {
+            record->next = ube_threads;
+            ube_threads = record;
+            registered = 1;
+            ResetEvent(ube_thread_workers_done);
+            const int inject_failure = ube_thread_test_start_failures != 0;
+            if (inject_failure) --ube_thread_test_start_failures;
+            native_thread = inject_failure ? NULL :
+                CreateThread(NULL, 0, ube_thread_worker, record, 0, NULL);
+            if (native_thread == NULL) {
+                ube_threads = record->next;
+                registered = 0;
+                ube_thread_signal_if_idle_locked();
+                ube_err_set(7, "native thread creation failed", "UBECore.Threads");
+            }
+        }
         ube_thread_leave_lock();
-        CloseHandle(record->completed);
-        CloseHandle(record->stop_requested);
-        free(record);
+    }
+    if (!registered || native_thread == NULL) {
         if (destroy_capture != NULL) destroy_capture(capture);
-        ube_err_set(7, "thread creation is closed", "UBECore.Threads");
+        ube_thread_release_record(record);
+        ube_thread_release_record(record);
         return 0;
     }
-    record->id = ++ube_thread_high_water;
-    record->next = ube_threads;
-    ube_threads = record;
-    ResetEvent(ube_thread_workers_done);
-    const int inject_failure = ube_thread_test_start_failures != 0;
-    if (inject_failure) --ube_thread_test_start_failures;
-    HANDLE native_thread = inject_failure
-        ? NULL : CreateThread(NULL, 0, ube_thread_worker, record, 0, NULL);
-    if (native_thread == NULL) {
-        ube_threads = record->next;
-        ube_thread_signal_if_idle_locked();
-        ube_thread_leave_lock();
-        CloseHandle(record->completed);
-        CloseHandle(record->stop_requested);
-        free(record);
-        if (destroy_capture != NULL) destroy_capture(capture);
-        ube_err_set(7, "native thread creation failed", "UBECore.Threads");
-        return 0;
+    HANDLE waits[2] = {record->ready, record->completed};
+    DWORD observed = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+    int64_t issued_id = 0;
+    int32_t error = 7;
+    if (observed == WAIT_OBJECT_0 || observed == WAIT_OBJECT_0 + 1) {
+        if (record->admission_result == 1) issued_id = record->id;
+        else if (record->admission_error > 0) error = record->admission_error;
     }
-    const int64_t issued_id = record->id;
+    if (issued_id == 0) {
+        SetEvent(record->stop_requested);
+        /* A failed observation never permits returning while capture cleanup is
+           live. The native thread handle remains privately owned on this path. */
+        DWORD exit_code = STILL_ACTIVE;
+        while (!GetExitCodeThread(native_thread, &exit_code) || exit_code == STILL_ACTIVE) Sleep(1);
+        ube_err_set(error, "worker admission failed", "UBECore.Threads");
+    }
     CloseHandle(native_thread);
-    ube_thread_leave_lock();
+    ube_thread_release_record(record);
     return issued_id;
+}
+
+/* Native callers admit immediately after TLS; emitted UBE callbacks acknowledge
+   only after the actual Sub's checked parameter/root prologue has succeeded. */
+int64_t ube_thread_start(ube_thread_entry entry, void* capture,
+                         ube_thread_capture_destructor destroy_capture) {
+    return ube_thread_start_with_admission(entry, capture, destroy_capture, 0);
+}
+
+int64_t ube_thread_start_checked(ube_thread_entry entry, void* capture,
+                         ube_thread_capture_destructor destroy_capture) {
+    return ube_thread_start_with_admission(entry, capture, destroy_capture, 1);
 }
 
 int64_t ube_thread_current_id(void) {
@@ -852,7 +896,9 @@ bool ube_thread_stop_requested(void) {
     struct ube_thread_local_state* state = ube_tls_get(0);
     struct ube_thread_record* record = state != NULL ? state->thread_record : NULL;
     if (record == NULL) return 0;
-    return WaitForSingleObject(record->stop_requested, 0) == WAIT_OBJECT_0 ? 1 : 0;
+    const DWORD result = WaitForSingleObject(record->stop_requested, 0);
+    if (result == WAIT_FAILED) ube_err_set(7, "stop observation failed", "UBECore.Threads");
+    return result == WAIT_OBJECT_0;
 }
 
 int32_t ube_thread_wait(int64_t id, int64_t timeout_milliseconds) {
@@ -1044,8 +1090,9 @@ void ube_thread_program_wait(void) {
         if (wait_count == 0 ||
             WaitForMultipleObjects(wait_count, waits, FALSE, INFINITE) == WAIT_FAILED) {
             ube_err_set(7, "program shutdown wait failed", "UBECore.Threads");
-            fputs("UBE thread support: program shutdown wait failed\n", stderr);
-            return;
+            /* Preserve liveness and retry the owned registry instead of
+               returning while workers or callback sources still own state. */
+            Sleep(1);
         }
     }
 }
@@ -1055,20 +1102,16 @@ static BOOL CALLBACK ube_gc_initialize_lock(PINIT_ONCE once, PVOID parameter,
     (void)once;
     (void)parameter;
     (void)context;
+    /* On the maintained Vista-or-later host this initialization cannot fail.
+       Callback liveness events are unrelated to ordinary managed storage. */
     InitializeCriticalSection(&ube_gc_lock);
-    ube_component_sources_done = CreateEventA(NULL, TRUE, TRUE, NULL);
-    if (ube_component_sources_done == NULL) {
-        DeleteCriticalSection(&ube_gc_lock);
-        return FALSE;
-    }
     return TRUE;
 }
 
 static void ube_gc_enter_lock(void) {
-    if (!InitOnceExecuteOnce(&ube_gc_lock_once, ube_gc_initialize_lock, NULL, NULL)) {
-        fputs("UBE managed support: could not initialize collector lock\n", stderr);
-        ExitProcess(70);
-    }
+    /* The callback now has no fallible resource acquisition and always returns
+       TRUE; callers never terminate because an optional source event failed. */
+    (void)InitOnceExecuteOnce(&ube_gc_lock_once, ube_gc_initialize_lock, NULL, NULL);
     EnterCriticalSection(&ube_gc_lock);
 }
 
@@ -1484,6 +1527,24 @@ void* ube_gc_allocate_into(const struct ube_gc_layout* layout, void** slot) {
     return value;
 }
 
+/* New publishes only into a caller-rooted reference slot. Keep allocation and
+   publication under the collector lock; a failed New has the neutral value. */
+int32_t ube_value_new_object(void** slot, const struct ube_gc_layout* layout) {
+    if (slot == NULL || layout == NULL) {
+        ube_err_set(5, "Invalid object allocation request", "New");
+        return 0;
+    }
+    ube_gc_enter_lock();
+    void* value = ube_gc_allocate(layout);
+    *slot = value;
+    ube_gc_leave_lock();
+    if (value == NULL) {
+        ube_err_set(7, "Out of memory", "New");
+        return 0;
+    }
+    return 1;
+}
+
 static void* ube_gc_allocate_pending(const struct ube_gc_layout* layout) {
     ube_gc_enter_lock();
     void* value = ube_gc_allocate(layout);
@@ -1704,7 +1765,15 @@ int32_t ube_component_finish_load(void* value, int32_t succeeded) {
         const struct ube_error_state* error = ube_current_error_state();
         const int hook_failed = succeeded &&
             error->revision != (*link)->load_error_revision && error->number != 0;
-        if (succeeded && !hook_failed) {
+        int event_ready = 1;
+        if (succeeded && !hook_failed && ube_component_sources_done == NULL) {
+            ube_component_sources_done = CreateEventA(NULL, TRUE, TRUE, NULL);
+            if (ube_component_sources_done == NULL) {
+                ube_err_set(7, "component source event allocation failed", "UBE.Components");
+                event_ready = 0;
+            }
+        }
+        if (succeeded && !hook_failed && event_ready) {
             (*link)->state = 2;
             if (ube_active_event_sources == 0 &&
                 ube_component_sources_done != NULL) {
@@ -4053,6 +4122,7 @@ int32_t ube_value_copy_bytes(void* const* source, int32_t source_start,
 /* The initial host is Windows. OS entry and external-resource ownership stay
    in the platform library; portable file progress/growth policy is UBE. */
 #include "../std-lib/src/win-lib/file_primitives.c"
+#include "../std-lib/src/win-lib/thread_primitives.c"
 
 static char* ube_string_array_join_impl(void** value_reference, int32_t count,
                                         int managed) {

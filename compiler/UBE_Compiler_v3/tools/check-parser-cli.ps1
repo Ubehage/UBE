@@ -127,7 +127,7 @@ try {
         }
         $missing=Join-Path $run 'absent.bas'
         $null=Assert-Cli ($stage+1) $exe @('--check',$missing) 1 "source(1,1): error UBE1008: cannot open source; check its path and read permissions`n" 'missing source file'
-        $diagnostic=Invoke-ParserDiagnosticRegression $ir @(Get-ProjectInputs $productionManifest|Where-Object {[IO.Path]::GetExtension($_) -ieq '.bas'}) $selection (Join-Path $run ('diagnostic-stage'+($stage+1))) $root
+        $diagnostic=Invoke-ParserDiagnosticRegression $ir @(Get-ProjectInputs $productionManifest|Where-Object {[IO.Path]::GetExtension($_) -in @('.bas','.cls')}) $selection (Join-Path $run ('diagnostic-stage'+($stage+1))) $root
         $diagnostics+=$diagnostic
         $inputs+=@($diagnostic.inputs)
         $artifacts+=@($diagnostic.artifacts)+@($diagnostic.report)

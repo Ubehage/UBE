@@ -1,8 +1,10 @@
 # UBE development roadmap
 
-This document tracks the work required to take UBE from its current
-stage-zero lexer to a complete, self-hosting compiler, runtime, standard
-library, debugger, and native IDE.
+This document retains the long-term scope for a complete, self-hosting compiler,
+runtime, standard library, debugger and native IDE. The fresh implementation's
+verified position is recorded below; older phase checklists retain their history.
+The proposed next execution order is in [Development-Plan.md](Development-Plan.md),
+pending owner review.
 
 The roadmap is ordered by dependency. Later phases may be prototyped early,
 but a phase is complete only when its exit criteria are satisfied.
@@ -41,16 +43,25 @@ of a bounded stage-zero/v2 bootstrap route are approved. Resume from
 `../compiler/UBE_Compiler_v3/Roadmap.md` and `../std-lib/ROADMAP.md`. References to
 old v3/v4 milestones below describe the archived lines.
 
-The fresh source reader/scanner and Unicode helpers pass the refreshed 501-check
-native gate. The bounded grammar consumer in
-`../compiler/UBE_Compiler_v3/PARSER-CONTRACT.md` is now implemented and independently
-qualified: 4049 native checks through both stages, 188 independent cases, all
-10412 real-root capacities, measured work/copy bounds and strict production CLI
-acceptance pass. Exact commands, identities and limits are in
-`../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`. It uses the measured
-linked-child nodes and explicit stacks. Semantic checking, conditional selection,
-deferred grammar and code generation remain separate. Resume from the fresh
-compiler roadmap; no successor implementation item is selected by this slice.
+The fresh source reader/scanner and bounded native MODULE parser now feed the
+qualified compiler-owned `TryParseSources` operation. Actual UBE workers with
+budgets 1, 2 and 4 share immutable source owners, create private tokens/results
+and publish complete deterministic output. Failure/cancellation retains the
+older graph and drains admitted workers. UBECore supplies generic thread/storage
+mechanisms without compiler source policy. Current exact gates, identities,
+limits and earlier-gate reruns are in
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+The original 501-check/parser checkpoint remains historical in
+`../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`.
+
+Instrumented four-worker execution was slower than the one-worker reference;
+collector contention is recorded follow-up work, and no speedup is claimed.
+Full grammar, conditional selection, semantics, code generation and project/
+jobs CLI integration remain separate unfinished work. The
+[development plan](Development-Plan.md) proposes bounded normal `.UBE`/direct-
+UBECore input and parallel frontend integration next. That row and every later
+row remain proposed and need their own contract and owner review; completing
+the concurrency goal does not authorize successor implementation or new APIs.
 
 The owner changed the immediate development order on 2026-10-30: establish a
 fresh UBECore in [`../std-lib/`](../std-lib/README.md), adding independently

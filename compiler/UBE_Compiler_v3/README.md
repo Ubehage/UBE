@@ -13,13 +13,22 @@ practical. The datatype-definition mechanism must be demonstrated early.
 
 ## Current state
 
-This directory contains the source reader, scanner, source-header and bounded
-grammar consumers, with a native manifest and startup module. The foundation's
-refreshed 501-check gate and the parser's independent native/CLI gates pass;
-see [the current parser evidence](PARSER-NATIVE-EVIDENCE.md). It preserves exact source bytes
-and positions, validates UTF-8/newlines, and produces tokens and metadata views
-through independently tested UBECore facilities. Semantic validation and code
-generation remain unimplemented.
+This directory contains source input, scanner, source-header, bounded grammar
+and compiler-owned source-set orchestration. `TryParseSources` runs actual UBE
+source workers with budgets 1, 2 and 4, shared immutable owners, private results
+and deterministic complete publication. The current bootstrap passes 592 grouped
+assertions; [concurrency evidence](CONCURRENCY-EVIDENCE.md) records its 5652 native
+assertions, retained parser/CLI gates and exact current identities and limits.
+UBECore supplies reusable storage, Unicode, file and thread facilities without
+compiler source policy.
+
+Instrumented four-worker execution was slower than one-worker execution;
+collector contention is recorded follow-up work, and no speedup is claimed.
+Full grammar, semantic validation, code generation and project/jobs CLI
+integration remain unfinished.
+
+## Earlier foundation and parser checkpoints
+
 The first [foundation contract](../../std-lib/FOUNDATION.md) and
 [bounded bootstrap investigation](../../std-lib/FOUNDATION-EVIDENCE.md) are
 recorded. The subsequent [source-built v2 repair](../UBE_Compiler_v2/FOUNDATION-VERIFICATION.md)
@@ -28,7 +37,7 @@ for further work. The adopted opaque native scalar mechanism now passes its
 focused proof. The first UBECore byte/text foundation now has tested managed
 storage, incremental UTF-8 decoding and ByteBuffer growth/snapshots; the complete
 source-only foundation snapshot passed 296 assertions. See
-[the current evidence](../../std-lib/BYTE-BUFFER-EVIDENCE.md).
+[that checkpoint's evidence](../../std-lib/BYTE-BUFFER-EVIDENCE.md).
 The consumer extends this foundation using recoverable byte-file input and
 actual direct UBECore source references. A successful intake still returns the
 explicit unavailable-check diagnostic; it never claims a source program passed.
@@ -41,12 +50,12 @@ use pinned official data and ordinary UBE implementations. See
 Legacy recognition preserves metadata without claiming full designer grammar;
 raw dates/directives do not establish their semantics.
 
-The first [parser acceptance contract](PARSER-CONTRACT.md) is now defined with
+At the earlier parser checkpoint, the [parser acceptance contract](PARSER-CONTRACT.md) is now defined with
 116 hand-authored cases. Its consistency gate passes; [the definition evidence](PARSER-EVIDENCE.md)
 keeps that result separate from native execution. The subsequent
 [native probes](PARSER-PROBE-EVIDENCE.md) pass 3828 assertions through both stages
 and select linked-child storage with explicit stacks. The necessary recoverable
-memory-failure correction also passes the fresh complete 501-check gate.
+memory-failure correction also passed that fresh complete 501-check gate.
 The subsequent bounded production parser is implemented with that representation.
 Its unrestricted native gate passes 4049 grouped checks through both stages:
 188 independent syntax/rejection/deferred cases, complete old-result retention,
@@ -57,7 +66,11 @@ same 41 process oracles. Both native-test and production raw LLVM pairs are
 byte-identical. See [implementation details](PARSER-IMPLEMENTATION.md) and
 [exact evidence and limits](PARSER-NATIVE-EVIDENCE.md). Successful syntax still
 reports semantic checking unavailable; complete-language parsing and code
-generation remain unimplemented. No next implementation slice is selected yet.
+generation remain unimplemented. The subsequent bounded concurrency objective is now complete. The
+[development plan](../../project-docs/Development-Plan.md) proposes bounded
+project input and parallel frontend integration next. That row and every later
+row require their own contract and owner review; their gates are not current
+capabilities.
 
 An existing stage-zero/v2 route may be used temporarily after its required
 language subset passes independent small tests. This permission does not

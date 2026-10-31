@@ -57,16 +57,20 @@ The compiler and library add no new third-party dependency through this setup.
 
 Select tools by source/artifact hash, supported subset, flags, runtime/toolchain
 identity and test results. The old version label alone is not a trust proof.
-The stage-zero/v2 route is a candidate, not a newly verified build chain.
-Existing unsupported features are not silently accepted to reach a milestone.
+The current-source stage-zero/v2 route is qualified for the bounded subset in
+`CONCURRENCY-BOOTSTRAP.md` and earlier adopted foundation contracts.
+`bootstrap/build-v2.ps1` passes 592 grouped assertions. Both source-built stages
+are retained by exact identity; this is not complete language, class or thread
+support. Unsupported features continue to diagnose rather than being silently
+accepted. `CONCURRENCY-EVIDENCE.md` identifies current tools and retained gates.
 
 Archived v3 preview names and existing `bootstrap/out/ube-v3-*` products belong
-to the old implementation. The fresh line now has a qualified source-ingestion
-executable, but no public compiler release identity. Its build/output records
-distinguish exact source/tool identities and supported scope. Scanner/native
-envelope recognition now passes the 501-check current-source gate; its limits
-and exact proof identities are in `SCANNER-EVIDENCE.md`. A successful scan still
-reports source checking unavailable; parsing/code generation remain later work.
+to the old implementation. The fresh line has a qualified source reader, scanner,
+envelope recognizer and bounded native MODULE parser, but no public compiler
+release identity. `CONCURRENCY-EVIDENCE.md` records current bootstrap, bounded
+concurrency and retained parser/CLI qualification. `PARSER-NATIVE-EVIDENCE.md`
+preserves the earlier parser checkpoint. Successful syntax still
+reports semantic checking unavailable; code generation remains future work.
 Do not overwrite archived previews.
 
 ## Measured first grammar consumer
@@ -78,5 +82,23 @@ Results borrow original source views and publish their complete owned arrays,
 root/count metadata and source identity together. The recursive probe cannot
 satisfy the shared mixed-depth limit; it is not the production strategy.
 The test-only command stream is an oracle bridge, not a required production
-intermediate or public ABI. Implement the contracted grammar next, retaining
-the qualified ownership, resource and measured-cost obligations.
+intermediate or public ABI. The production consumer is now qualified; its exact
+scope and remaining deferred families are recorded in `PARSER-NATIVE-EVIDENCE.md`.
+
+## Qualified concurrency and proposed next work
+
+The owner identified UBECore/compiler mixing, naming drift and failed
+multithreading as failures of earlier attempts. The first owner-requested
+bounded UBE-driven concurrency proof is now qualified under
+`CONCURRENCY-CONTRACT.md`, `CONCURRENCY-BOOTSTRAP.md` and
+`CONCURRENCY-CONSUMER.md`. Compiler-owned source/work references preserve
+immutable input lifetime and private complete results; UBECore supplies generic
+thread/storage mechanisms. No general executor, shared mutable compiler model
+or new phase API is adopted. Instrumented four-worker execution was slower;
+measured collector contention remains focused follow-up work.
+
+The [development plan](../../project-docs/Development-Plan.md) proposes bounded
+normal project/source-reference input next. That row and every later row remain
+proposed and need their own contract and owner review. Full grammar, semantics,
+backend work and project/jobs CLI integration are not implied by the qualified
+source-set API.

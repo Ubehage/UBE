@@ -102,6 +102,8 @@ try {
         (Join-Path $root 'std-lib/UBECore.UBE')
         (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md')
         (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md')
+        (Join-Path $root 'std-lib/THREADS-CONTRACT.md')
+        (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md')
         (Join-Path $root 'std-lib/tools/check-native-type.ps1')
         (Join-Path $root 'std-lib/tools/check-value-record.ps1')
         (Join-Path $root 'std-lib/tools/native-type-cases.ps1')
@@ -124,7 +126,9 @@ try {
         (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp')
     )
     $inputs = @($inputPaths | Where-Object {
-        [IO.Path]::GetExtension($_) -in @('.bas','.UBE','.c','.cpp','.h','.hpp','.ps1','.json','.ll') -or
+        [IO.Path]::GetExtension($_) -in @('.bas','.cls','.UBE','.c','.cpp','.h','.hpp','.ps1','.json','.ll') -or
+        $_ -eq (Join-Path $root 'std-lib/THREADS-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md') -or
         $_ -eq (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/tests/byte-buffer/ORACLES.md') -or
         $_ -eq (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md') -or
@@ -315,10 +319,20 @@ try {
         @('file-bytes','std-lib/tools/check-file-bytes.ps1'),
         @('source-input','compiler/UBE_Compiler_v3/tools/check-source-input.ps1'),
         @('unicode','std-lib/tools/check-unicode.ps1'),
-        @('scanner','compiler/UBE_Compiler_v3/tools/check-scanner.ps1'))) {
+        @('scanner','compiler/UBE_Compiler_v3/tools/check-scanner.ps1'),
+        @('reference-storage','compiler/UBE_Compiler_v2/tests/concurrency/check-references.ps1'),
+        @('reference-order','compiler/UBE_Compiler_v2/tests/concurrency/check-reference-order.ps1'),
+        @('scalar-output','compiler/UBE_Compiler_v2/tests/concurrency/check-scalar-output.ps1'),
+        @('thread-statement','compiler/UBE_Compiler_v2/tests/concurrency/check.ps1'),
+        @('thread-references','compiler/UBE_Compiler_v2/tests/concurrency/check-thread-references.ps1'),
+        @('expression-stack','compiler/UBE_Compiler_v2/tests/concurrency/check-expression-stack.ps1'),
+        @('gc-initialization','compiler/UBE_Compiler_v2/tests/concurrency/check-gc-initialization.ps1'))) {
         $proofTimeout = 60
         if ($proof[0] -in @('source-references','source-input','unicode','scanner')) { $proofTimeout = 900 }
-        $record = Invoke-Recorded $shell @('-NoProfile','-File',(Join-Path $root $proof[1]),'-SelectionPath',$candidatePath) $proofTimeout
+        if ($proof[0] -eq 'thread-references') { $proofTimeout = 180 }
+        $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-SelectionPath',$candidatePath)
+        if ($proof[0] -eq 'thread-statement') { $proofArguments += '-RequireNative' }
+        $record = Invoke-Recorded $shell $proofArguments $proofTimeout
         Assert-Success $record $proof[0]
         $reports = [regex]::Matches($record.stdout,'(?m)^Evidence: (.+)$')
         if ($reports.Count -ne 1) { throw "No unique proof report: $($proof[0])" }

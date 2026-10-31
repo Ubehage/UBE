@@ -1,15 +1,23 @@
 # UBE compiler projects
 
 [`UBE_Compiler_v3/`](UBE_Compiler_v3/README.md) is the fresh active compiler,
-named by the owner on 2026-10-30. It starts with the shared
-[`UBECore`](../std-lib/README.md) foundation, library-defined native datatype
-mechanisms and a tested bounded bootstrap route. Its native source reader,
-scanner and source-header recognizer pass the refreshed 501-check gate. Its
-bounded production parser also passes independent native/CLI qualification;
-see [the parser evidence](UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md). It still
-reports semantic checking unavailable after successful syntax; code generation
-is not implemented. Current acceptance and next work are recorded
-in [`UBE_Compiler_v3/Progress.md`](UBE_Compiler_v3/Progress.md).
+named by the owner on 2026-10-30. Its qualified foundations include bounded
+compiler-owned parallel source processing through actual UBE workers with
+budgets 1, 2 and 4. Immutable owners, private results, canonical failures,
+atomic publication and cancellation/drain preserve earlier output on failure.
+UBECore retains reusable byte, Unicode, file and thread facilities.
+
+[CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md) records current
+qualification, retained earlier gates and measured limits. Instrumented
+four-worker execution was slower; collector contention needs focused follow-up,
+and no speedup is claimed. Full grammar, semantics, code generation and project/
+jobs CLI integration remain incomplete.
+
+The [development plan](../project-docs/Development-Plan.md) preserves the owner's
+layer and naming requirements. Its first owner-requested concurrency objective
+is complete. All later rows, including proposed bounded project/frontend input,
+need their own contract and owner review before implementation. Current handoff
+is in [`UBE_Compiler_v3/Progress.md`](UBE_Compiler_v3/Progress.md).
 
 [`archived/`](archived/README.md) preserves the previous v3/v4 source, plans,
 tests and v3 release previews. Historical names, source hashes and build output

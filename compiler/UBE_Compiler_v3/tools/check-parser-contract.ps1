@@ -28,7 +28,16 @@ $arities.Add('IfLine',@(2,3));$arities.Add('IfBlock',@(2,4096));$arities.Add('El
 $expressionRoots=@('Name','Literal','Group','Positive','Negative','Not','AddressOf','New','LeadingMember','Member','Bang','TypeOfIs','Call','CallNew')+$binaryOperators
 $statementRoots=@('Assign','LetAssign','SetAssign','CallStatement','CallKeyword','IfLine','IfBlock','While','With','Exit','Label','Goto','Return','Print','VariableDecl','ConstantDecl','Block','StatementList')
 $diagnosticKinds=@('ExpectedExpression','ExpectedToken','ExpectedIdentifier','UnexpectedToken','InvalidCallSyntax','UnterminatedBlock','UnexpectedTerminator')
-$expectedProofNames=@('native-values','ordinary-records','managed-substrate','managed-values','utf8-decoder','byte-buffer','byte-buffer-costs','source-references','entry-admission','file-bytes','source-input','unicode','scanner')
+$expectedProofCounts=[ordered]@{
+    'native-values'=66;'ordinary-records'=8;'managed-substrate'=8;'managed-values'=52
+    'utf8-decoder'=8;'byte-buffer'=13;'byte-buffer-costs'=5;'source-references'=91
+    'entry-admission'=6;'file-bytes'=4;'source-input'=87;'unicode'=8;'scanner'=9
+    'reference-storage'=26;'reference-order'=2;'scalar-output'=2;'thread-statement'=4
+    'thread-references'=28;'expression-stack'=28;'gc-initialization'=1
+}
+$expectedProofNames=@($expectedProofCounts.Keys)
+$expectedAggregate=136
+foreach($count in $expectedProofCounts.Values){$expectedAggregate+=[int]$count}
 
 function Assert-Fact([bool]$Condition,[string]$Message){
     if(-not $Condition){throw $Message}
@@ -170,13 +179,27 @@ function Read-StrictJson([string]$Path){
     $text=$utf8.GetString([IO.File]::ReadAllBytes($Path));if($text.Length -gt 0 -and [int]$text[0] -eq 65279){$text=$text.Substring(1)}
     return ($text|ConvertFrom-Json)
 }
+function Record-ContainedIdentities($Value){
+    if($null -eq $Value -or $Value -is [string]){return 0}
+    $count=0
+    if($Value -is [Management.Automation.PSCustomObject]){
+        if((Has-Property $Value 'path') -and (Has-Property $Value 'bytes') -and (Has-Property $Value 'sha256')){
+            Record-Identity $Value
+            return 1
+        }
+        foreach($property in $Value.PSObject.Properties){$count+=Record-ContainedIdentities $property.Value}
+    }elseif($Value -is [Collections.IEnumerable]){
+        foreach($item in $Value){$count+=Record-ContainedIdentities $item}
+    }
+    return $count
+}
 function Assert-AcceptedBaseline{
     Record-Identity (Get-ArtifactIdentity $SelectionPath)
     $selected=Get-Content -LiteralPath $SelectionPath -Raw|ConvertFrom-Json
     Assert-Fact ($selected.schema -ceq 'ube-v2-current-1') 'Existing accepted selection schema is retained'
     foreach($property in $selected.PSObject.Properties){if($property.Name -cne 'schema'){Record-Identity $property.Value}}
     $manifest=Get-Content -LiteralPath $selected.manifest.path -Raw|ConvertFrom-Json
-    Assert-Fact ($manifest.success -and $manifest.checks.Count -eq 501) 'Accepted scanner implementation retains 501 passed grouped checks'
+    Assert-Fact ($manifest.success -and $manifest.checks.Count -eq $expectedAggregate) 'Accepted implementation retains every defined foundation and prerequisite check'
     foreach($identity in @($manifest.inputs)+@($manifest.artifacts)){Record-Identity $identity}
     foreach($tool in $manifest.tools){Record-Identity $tool.identity}
     $approved=@($manifest.inputs)+@($manifest.artifacts)+@($manifest.tools|ForEach-Object {$_.identity})
@@ -193,19 +216,27 @@ function Assert-AcceptedBaseline{
     $children=New-Object 'System.Collections.Generic.List[object]';$sum=136;$proofNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($proof in $manifest.proofs){
         Assert-Fact ($expectedProofNames -ccontains $proof.name -and $proofNames.Add([string]$proof.name)) "Unique defined accepted child proof $($proof.name)"
+        Assert-Fact ($proof.assertions -eq $expectedProofCounts[$proof.name]) "Exact retained assertion count for $($proof.name)"
         Record-Identity $proof.report;$report=Get-Content -LiteralPath $proof.report.path -Raw|ConvertFrom-Json
         Assert-Fact ($report.success -and $report.checks.Count -eq $proof.assertions -and $report.acceptedSelection.compiler.sha256 -ceq $selected.compiler.sha256 -and $report.acceptedSelection.manifest.sha256 -ceq $manifest.sourceBootstrap.sha256) "Retained child cohort $($proof.name)"
         if($proof.name -ceq 'scanner'){Assert-Fact ($report.qualified -and -not $report.diagnosticOnly) 'Retained scanner report is formally qualified'}
         if($proof.name -ceq 'managed-substrate'){Assert-Fact ([bool]$report.sourceBuildCurrent) 'Retained managed substrate was built from current source'}
-        foreach($identity in @($report.inputs)+@($report.artifacts)){Record-Identity $identity}
+        if(Has-Property $report 'artifacts'){
+            foreach($identity in @($report.inputs)+@($report.artifacts)){Record-Identity $identity}
+        }else{
+            # The focused prerequisite reports retain typed identities beside
+            # each native case rather than flattening them into one list.
+            $contained=Record-ContainedIdentities $report
+            Assert-Fact ($contained -gt 0) "Retained nested input/artifact identities $($proof.name)"
+        }
         foreach($check in $report.checks){if(Has-Property $check 'passed'){Assert-Fact ([bool]$check.passed) "Retained child assertion $($proof.name)"}}
         $sum+=$proof.assertions;$children.Add([pscustomobject]@{name=$proof.name;checks=$proof.assertions;report=$proof.report})
     }
-    Assert-Fact ($children.Count -eq 13 -and $sum -eq 501) 'All 13 existing child proofs retain the aggregate'
+    Assert-Fact ($children.Count -eq $expectedProofNames.Count -and $sum -eq $expectedAggregate) 'Every defined child proof retains the exact aggregate'
     foreach($name in $expectedProofNames){Assert-Fact ($proofNames.Contains($name)) "Accepted feature proof is retained: $name"}
     $raw=@($manifest.inputs|Where-Object {$_.path -like '*\std-lib\data\unicode\18.0.0\*'})
     Assert-Fact ($raw.Count -eq 5) 'All five versioned Unicode raw/provenance inputs remain pinned'
-    return [pscustomobject]@{selection=(Get-ArtifactIdentity $SelectionPath);manifest=$selected.manifest;sourceManifest=$manifest.sourceBootstrap;checks=501;sourceChecks=136;children=$children.ToArray();unicodeRawInputs=5}
+    return [pscustomobject]@{selection=(Get-ArtifactIdentity $SelectionPath);manifest=$selected.manifest;sourceManifest=$manifest.sourceBootstrap;checks=$expectedAggregate;sourceChecks=136;children=$children.ToArray();unicodeRawInputs=5}
 }
 function Clone-Case($Case){return ($Case|ConvertTo-Json -Depth 90|ConvertFrom-Json)}
 function Assert-RejectedMutation([string]$Name,$Case){
@@ -262,8 +293,8 @@ finally{
         try{foreach($identity in $baselineRecords.Values){$actual=Get-ArtifactIdentity $identity.path;if($actual.sha256 -cne $identity.sha256 -or $actual.bytes -ne $identity.bytes){throw "Accepted baseline changed during definition check: $($identity.path)"}};$afterComplete=$true}
         catch{$success=$false;if($failure){$failure+='; '+$_.Exception.Message}else{$failure=$_.Exception.Message}}
     }
-    [pscustomobject]@{schema='ube-parser-contract-proof-1';success=$success;definitionOnly=$true;parserImplemented=$false;failure=$failure;baseline=$baseline;baselineBeforeComplete=$beforeComplete;baselineAfterComplete=$afterComplete;baselineIdentityCount=$baselineRecords.Count;baselineIdentities=@($baselineRecords.Values);baselineAssertionCount=$baselineAssertionCount;definitionAssertionCount=($checks.Count-$baselineAssertionCount);inputs=$inputs;cases=$vectors.ToArray();caseCount=$vectors.Count;negativeControls=$negativeControls.ToArray();checks=$checks.ToArray();limits='Definition consistency only: hand-authored expected shapes, exact substring/point witnesses, coordinate assertions, known node arity/domain and EBNF reference checks. Source is never parsed and expected grammatical answers are not inferred from an existing compiler. This does not qualify a parser, recovery algorithm, literal conversion, binding, conditional branch selection or full program validity. The existing 501-check source/tool/artifact/13-child cohort is only audited unchanged, never rebuilt or republished.'}|ConvertTo-Json -Depth 90|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
+    [pscustomobject]@{schema='ube-parser-contract-proof-1';success=$success;definitionOnly=$true;parserImplemented=$false;failure=$failure;baseline=$baseline;baselineBeforeComplete=$beforeComplete;baselineAfterComplete=$afterComplete;baselineIdentityCount=$baselineRecords.Count;baselineIdentities=@($baselineRecords.Values);baselineAssertionCount=$baselineAssertionCount;definitionAssertionCount=($checks.Count-$baselineAssertionCount);inputs=$inputs;cases=$vectors.ToArray();caseCount=$vectors.Count;negativeControls=$negativeControls.ToArray();checks=$checks.ToArray();limits='Definition consistency only: hand-authored expected shapes, exact substring/point witnesses, coordinate assertions, known node arity/domain and EBNF reference checks. Source is never parsed and expected grammatical answers are not inferred from an existing compiler. This does not qualify a parser, recovery algorithm, literal conversion, binding, conditional branch selection or full program validity. The accepted source/tool/artifact/child cohort is only audited unchanged, never rebuilt or republished.'}|ConvertTo-Json -Depth 90|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
     Write-Output "Evidence: $(Join-Path $run 'report.json')"
 }
 if(-not $success){throw $failure}
-Write-Output "PASS definition only: $($vectors.Count) parser fixtures, $($negativeControls.Count) negative controls, $($checks.Count-$baselineAssertionCount) definition consistency assertions; accepted 501-check baseline unchanged."
+Write-Output "PASS definition only: $($vectors.Count) parser fixtures, $($negativeControls.Count) negative controls, $($checks.Count-$baselineAssertionCount) definition consistency assertions; accepted $expectedAggregate-check baseline unchanged."

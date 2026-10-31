@@ -14,6 +14,17 @@ v3/v4 sources, previews and handoffs are under `../compiler/archived/`.
 
 ## Current position
 
+- [x] Qualify the owner-approved bounded threading prerequisite. `Threads.bas`
+  supplies `TryCurrentThreadId`, `TryThreadIsAlive`, `TryThreadRequestStop`,
+  `TryThreadStopRequested`, `TryThreadWait` and `TryThreadYield` under
+  `THREADS-CONTRACT.md`. The source-built bootstrap's 592-check gate covers
+  actual UBE reference captures, original array/record value semantics,
+  failures, real roots, TLS and cleanup. The compiler's separate bounded
+  source-set proof passes 5652 native assertions; exact current evidence is in
+  [CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+  This does not qualify full threading or shared-Library packaging. No executor,
+  source document or compiler policy belongs in UBECore.
+
 - [x] Archive all 28 previous library files without changing their bytes.
   The archive snapshot records SHA-256 values, sizes, and directories.
 - [x] Establish a fresh `UBECore.UBE` project with an empty identity module,
@@ -55,7 +66,7 @@ v3/v4 sources, previews and handoffs are under `../compiler/archived/`.
   for the first compiler consumer. Explicit resource cleanup, cancellation by
   early close, fault atomicity and private native workers pass their oracles.
   Intact library source references and the source reader passed the earlier
-  470-check gate and remain covered by the current 501-check gate. See
+  470-check gate and remained covered by the subsequent 501-check snapshot. See
   `../compiler/UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.
 - [x] Implement the raw scanner's concrete Unicode and scalar-cursor needs in
   ordinary UBE, with checked-in official Unicode 18 raw data, license,
@@ -72,8 +83,8 @@ The compiler's production parser now uses the measured linked-child nodes and
 explicit stacks over the existing UBECore byte, Unicode and cursor facilities.
 No library collection, primitive or API expansion was needed. Both source-built
 stages pass the full bounded native gate, including failure retention, cleanup,
-private workers and measured work/copy bounds. The refreshed foundation passes
-all 501 checks. Current identities, commands and limits are in
+private workers and measured work/copy bounds. That parser checkpoint
+passed all 501 foundation checks. Its identities, commands and limits are in
 `../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`; the earlier probes and
 their recoverable-memory prerequisite remain historical evidence.
 
@@ -107,12 +118,20 @@ also passed for tracked changes.
 
 ## Exact next action
 
-The concrete source reader, raw scanner, source-envelope and bounded grammar
-consumers are implemented and independently qualified. Agree the next bounded
-consumer contract before library expansion; add only the reusable facilities
-that its independent cases demonstrate are needed. Keep compiler policy outside
-UBECore and preserve the platform boundary and builtin String limits. No
-additional library feature expansion is selected by this completed slice.
+The compiler's bounded source-set consumer is qualified. The
+[development plan](../project-docs/Development-Plan.md) proposes normal
+`.UBE`/direct-UBECore input and parallel frontend integration next; that row and
+all later rows need their own contract and owner review before implementation.
+Provide additional reusable facilities only when an agreed consumer exposes a
+concrete need. Keep project/reference policy and canonical diagnostics in the
+compiler. Preserve established names, the platform boundary, ordinary value
+semantics and builtin String limits.
+
+Measured collector contention is recorded follow-up work; instrumented
+four-worker execution was slower, and no speedup is claimed. Current exact
+gates, identities and limits are in
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+The dated handoffs below preserve earlier checkpoints and their original counts.
 
 ## Unicode and cursor handoff - 2026-10-30
 

@@ -9,8 +9,16 @@ feature expansion. The prior library is preserved byte-for-byte under
 archive. It is not the implementation or API base for the new library.
 `../std-lib/DESIGN.md` and `../std-lib/ROADMAP.md` define the new starting
 boundary and next work. The language semantics and compiler/library/platform
-separation below remain in force; no bootstrap executable is selected for the
-fresh project yet.
+separation below remain in force. Current-source v2 is now the qualified bounded
+bootstrap tool. Its 592-check gate includes the field-only reference and
+scalar/reference `CallNew` prerequisites used by compiler-owned
+`TryParseSources`. The bounded API runs existing source/scanner/parser bodies
+with budgets 1, 2 and 4, immutable inputs and private complete results. UBECore
+retains generic thread/storage mechanisms; source ordering, grammar and
+diagnostic policy stays in the compiler.
+[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
+records current exact gates, identities and limits. Full grammar, semantics,
+code generation and project/jobs CLI integration remain unfinished.
 
 The owner approved the native-datatype and bootstrap starting direction later
 on 2026-10-30: the fresh compiler is `compiler/UBE_Compiler_v3/`; previous v3/v4
@@ -18,8 +26,17 @@ implementations are preserved under `compiler/archived/`. Establish the small
 machine/storage/type-mechanism boundary and prove library-defined datatypes
 early, with higher-level behavior in UBECore where practical. Investigate the
 stage-zero/v2 route as a temporary tool and test the exact required subset.
-Exact syntax, layouts and intrinsic signatures remain undecided. The detailed
-foundation direction is `../compiler/UBE_Compiler_v3/DESIGN.md`.
+The scalar opaque native-value addition and precise ordinary array/record storage
+contracts are now adopted and proved; further datatype representations, lifecycle
+mechanisms and intrinsic signatures are not implicitly decided. The detailed
+foundation direction is `../compiler/UBE_Compiler_v3/DESIGN.md`. The proposed next
+execution order in [Development-Plan.md](Development-Plan.md) retains these
+boundaries. Its first owner-requested bounded concurrency objective is complete;
+normal `.UBE`/direct-UBECore input and every later row remain proposed and need
+their own contract and owner review. Instrumented four-worker execution was
+slower; measured collector contention needs focused follow-up, without a speedup
+claim or a new architecture/phase API. The final layer boundaries below remain
+in force.
 
 UBE is intended to become self-hosting. The complete system is divided into
 three layers with deliberately narrow boundaries.
