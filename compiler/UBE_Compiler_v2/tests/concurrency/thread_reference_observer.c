@@ -12,7 +12,7 @@ static BOOL observed_yield(void);
 #define free observed_free
 #define SwitchToThread observed_yield
 #define UBE_VALUE_OBSERVE_COPY(bytes) observed_copy(bytes)
-#include "../../../../runtime/bootstrap_runtime.c"
+#include "../../../../bootstrap/runtime/bootstrap_runtime.c"
 #undef calloc
 #undef free
 #undef SwitchToThread

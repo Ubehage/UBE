@@ -55,8 +55,8 @@ try {
     $sourceFiles = @('lexer.cpp','unicode.cpp','parser.cpp','semantic.cpp','codegen.cpp','main.cpp') |
         ForEach-Object { Join-Path $root "bootstrap/src/$_" }
     $headers = @(Get-ChildItem -LiteralPath (Join-Path $root 'bootstrap/include') -Recurse -File)
-    $runtimeSource = Join-Path $root 'runtime/bootstrap_runtime.c'
-    $unicodeSource = Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp'
+    $runtimeSource = Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'
+    $unicodeSource = Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp'
     $inputPaths = @($sourceFiles) + @($headers.FullName) + @($runtimeSource, $unicodeSource,
         (Join-Path $root 'compiler/UBE_Compiler_v2/Main.bas'),
         (Join-Path $root 'compiler/UBE_Compiler_v2/UBE_Compiler_v2.UBE'),

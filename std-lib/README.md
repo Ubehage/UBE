@@ -10,20 +10,40 @@ declarations, or public APIs have been imported from it.
 
 ## Current state
 
+UBECore implementation sources live under `src/portable/`. Temporary native
+bootstrap support is kept separately in [`../bootstrap/runtime/`](../bootstrap/runtime/),
+with the file/thread C adapters under `windows/`. They are compiled by the
+bootstrap runtime, rather than listed as UBECore project sources. Their existing
+replacement conditions remain in the file and threading contracts.
+
 UBECore supplies qualified byte, UTF-8, Unicode/cursor, file-input and bounded
 Threads facilities. `Threads.bas` provides fresh identity, liveness, stop, wait
-and yield APIs under [THREADS-CONTRACT.md](THREADS-CONTRACT.md). The current
-source-built bootstrap passes 592 grouped assertions, including actual UBE
+and yield APIs under [THREADS-CONTRACT.md](THREADS-CONTRACT.md). The completed
+threading checkpoint passed 592 grouped bootstrap assertions, including actual UBE
 reference captures, value-copy semantics, failures, roots, TLS and cleanup.
 [CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
-records the exact current cohort and the compiler's separate 5652-assertion
+records that exact cohort and the compiler's separate 5652-assertion
 source-set proof. Source policy, ordering and orchestration remain compiler-owned;
 no executor or compiler source type belongs in UBECore. Full threading, general
 String and native Library packaging are not qualified by this bounded slice.
 
-Instrumented four-worker compiler execution was slower; collector contention
-needs focused follow-up, and no speedup is claimed. All later development-plan
-rows remain proposed and need their own contract and owner review.
+The qualified project-input prerequisite adds ordinary UBE path normalization and
+resolution, captured directory bytes and identity queries on existing file
+tokens. Its refreshed source-built bootstrap passes 619 grouped assertions,
+retaining all earlier checks. [PATH-BYTES-EVIDENCE.md](PATH-BYTES-EVIDENCE.md)
+records the exact scope, tests, cost measurements and remaining limitations.
+Retained parser/CLI/local gates pass 4049/217/41; the expanded compiler
+parallel-source proof passes 6008 native assertions through both stages.
+
+Those counts describe earlier foundation checkpoints. The current integrated
+source cohort passes 785 assertions and all seven retained frontend gates.
+Bounded project intake is qualified, and two complete timing sessions show
+repeatable initial parallel gains accepted under the owner's revised policy.
+See [current frontend evidence](../compiler/UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md).
+Library algorithms and generic facilities remain separate from compiler policy;
+the root synchronization correction belongs to the bootstrap substrate.
+First semantic checking is the next proposed contract. Later plan rows need
+their own contract and owner review.
 
 ## Earlier foundation checkpoints
 

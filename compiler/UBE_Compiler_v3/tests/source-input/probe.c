@@ -8,7 +8,7 @@
 #include <string.h>
 #include <limits.h>
 #include <wchar.h>
-#include "../../../../runtime/value_storage.h"
+#include "../../../../bootstrap/runtime/value_storage.h"
 
 struct position { int32_t byte, scalar, line, column; };
 struct failure { int32_t kind; struct position position; };
@@ -369,11 +369,14 @@ static int files(void) {
     CHECK(ube_gc_root_leave(&roots[1]) && ube_gc_root_leave(&roots[0])); (void)ube_gc_collect(); CHECK(ube_gc_live_allocation_bytes() == 0); return 0;
 }
 
+#include "identity.c"
+
 int main(void) {
     const size_t layouts[] = {sizeof(struct input),sizeof(struct document),sizeof(struct failure),sizeof(struct position),sizeof(struct decoder),sizeof(struct buffer),offsetof(struct input,decoder),offsetof(struct input,cursor),offsetof(struct input,sequence),offsetof(struct input,carriage),offsetof(struct input,content),offsetof(struct input,maximum),offsetof(struct input,pending),offsetof(struct input,ready),offsetof(struct document,content),offsetof(struct document,scalars),offsetof(struct document,lines),offsetof(struct failure,position)};
     CHECK(ube_gc_root_storage_size() == sizeof(root));
     for (size_t i = 0; i < sizeof layouts / sizeof *layouts; ++i) CHECK(source_layout((int32_t)i) == layouts[i]);
     CHECK(vectors() == 0 && domains() == 0 && workers() == 0 && files() == 0);
+    CHECK(identified_files() == 0);
 #ifdef OBSERVE_INPUT
     CHECK(failures() == 0);
     const int32_t sizes[] = {0,1,31,4095,4096,4097,16384,65536};

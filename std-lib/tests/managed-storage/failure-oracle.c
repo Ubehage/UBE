@@ -24,7 +24,13 @@ int main(void) {
     void* destination_root = calloc(1, ube_gc_root_storage_size());
     if (!source_root || !destination_root) { free(source_root); free(destination_root); return 2; }
     const size_t before = ube_gc_live_allocation_bytes();
-    if (!ube_gc_root_enter(source_root, &source) || !ube_gc_root_enter(destination_root, &destination)) return 3;
+    if (!ube_gc_root_enter(source_root, &source)) {
+        free(destination_root); free(source_root); return 3;
+    }
+    if (!ube_gc_root_enter(destination_root, &destination)) {
+        (void)ube_gc_root_leave(source_root);
+        free(destination_root); free(source_root); return 3;
+    }
     seed_error();
     managed_initialize(&source, &destination);
     if (!check_error(77)) return 4;
@@ -49,8 +55,10 @@ int main(void) {
     if (!managed_grow(&destination) || !check_error(77)) return 8;
     puts("grow-retry status:1 err:77");
     managed_growth(&destination);
-    if (!ube_gc_root_leave(destination_root) || !ube_gc_root_leave(source_root)) return 9;
+    int destination_released = ube_gc_root_leave(destination_root);
+    int source_released = ube_gc_root_leave(source_root);
     free(destination_root); free(source_root);
+    if (!destination_released || !source_released) return 9;
     (void)ube_gc_collect();
     if (ube_gc_live_allocation_bytes() != before) { fputs("failed value operation retained storage\n", stderr); return 10; }
     puts("dead-bytes:0");

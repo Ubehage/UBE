@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include "../../../runtime/value_storage.h"
+#include "../../../bootstrap/runtime/value_storage.h"
 extern int32_t test_letter(int32_t),test_fold(int32_t);
 extern int32_t test_cursor(void**,int32_t,int32_t*,int32_t*);
 extern void* ube_array_element(void*,int32_t);

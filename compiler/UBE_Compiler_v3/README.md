@@ -13,19 +13,42 @@ practical. The datatype-definition mechanism must be demonstrated early.
 
 ## Current state
 
+Production code is kept separately from plans and definitions:
+
+| Location | Contents |
+| --- | --- |
+| `src/` | Production UBE modules and classes, including `Main.bas` |
+| `UBE_Compiler_v3.UBE` | Project manifest with ordered `src/` source entries |
+| `tests/` | Fixtures, independent expectations and native test adapters |
+| `tools/` | Build, checking and measurement scripts |
+| Root Markdown files | Reader and contributor guidance, design, plans, contracts and evidence |
+
+The source relocation preserves every production file's bytes and source order.
+Earlier reports retain their original paths and hashes as historical evidence.
+
 This directory contains source input, scanner, source-header, bounded grammar
 and compiler-owned source-set orchestration. `TryParseSources` runs actual UBE
 source workers with budgets 1, 2 and 4, shared immutable owners, private results
-and deterministic complete publication. The current bootstrap passes 592 grouped
-assertions; [concurrency evidence](CONCURRENCY-EVIDENCE.md) records its 5652 native
-assertions, retained parser/CLI gates and exact current identities and limits.
+and deterministic complete publication. The current source-qualified checkpoint
+passes 785 grouped assertions, including bounded project intake, explicit
+UBECore references, the project/jobs CLI sources, expanded consumer proofs and
+the approved caller-retention/materialization regressions.
+Retained parser/CLI/lifetime/concurrency gates also pass on that cohort.
+Both complete timing sessions retain 252 trials and pass all serial and
+small-input guards. Main-corpus gains are 1.21-1.29x at two workers and
+1.30-1.42x at four. These initial results are accepted under the owner's
+2026-11-01 revision; the original 1.5x/2x targets remain optimization goals.
 UBECore supplies reusable storage, Unicode, file and thread facilities without
 compiler source policy.
 
-Instrumented four-worker execution was slower than one-worker execution;
-collector contention is recorded follow-up work, and no speedup is claimed.
-Full grammar, semantic validation, code generation and project/jobs CLI
-integration remain unfinished.
+The approved address-owned root synchronization and coordinator wait correction
+resolve the earlier measured contention sufficiently for this initial acceptance.
+Exact commands, identities, retained failures and limitations are in
+[frontend evidence](FRONTEND-PERFORMANCE-EVIDENCE.md).
+Full grammar, semantic validation and code generation remain unfinished.
+Successful project syntax checks still return the explicit semantic-unavailable
+diagnostic and create no output artifact. Current commands, supported limits and
+remaining gates are in [project evidence](PROJECT-INPUT-EVIDENCE.md).
 
 ## Earlier foundation and parser checkpoints
 
@@ -67,9 +90,9 @@ byte-identical. See [implementation details](PARSER-IMPLEMENTATION.md) and
 [exact evidence and limits](PARSER-NATIVE-EVIDENCE.md). Successful syntax still
 reports semantic checking unavailable; complete-language parsing and code
 generation remain unimplemented. The subsequent bounded concurrency objective is now complete. The
-[development plan](../../project-docs/Development-Plan.md) proposes bounded
-project input and parallel frontend integration next. That row and every later
-row require their own contract and owner review; their gates are not current
+[development plan](../../project-docs/Development-Plan.md) now records bounded
+project input and initial parallel frontend qualification as complete. First
+semantic checking is the next proposed contract; its gates are not current
 capabilities.
 
 An existing stage-zero/v2 route may be used temporarily after its required

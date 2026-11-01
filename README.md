@@ -68,7 +68,6 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 - Is UBE intended to replace Visual Basic, TwinBASIC or other programming languages?<br>
   **No.**<br>
   UBE is being developed just because I want to.<br>
-  I am trying to realize an old dream.
 
 
 
@@ -84,25 +83,16 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-**Working native bootstrap, tested UBECore foundations, and qualified bounded
-parallel source processing.**
+The new compiler can load projects, check supported syntax and process source
+files in parallel. The standard library has working foundations for files,
+text and threads.
 
-Fresh Compiler v3 preserves original source bytes, scans them, and parses the
-first bounded native MODULE grammar. Its compiler-owned `TryParseSources` runs
-that work through actual UBE workers with budgets 1, 2 and 4, shared immutable
-source owners, private results and deterministic complete publication. UBECore
-supplies the reusable byte, Unicode, file and thread facilities.
+Language support is still incomplete, and the new compiler cannot yet produce
+runnable programs. Next is checking that names and data types are used correctly.
 
-Full grammar, semantic checking, code generation and project/jobs CLI integration
-remain unfinished. Source-built v2 is still the bootstrap tool. Instrumented
-four-worker execution was slower than one-worker execution; measured collector
-contention is follow-up work, and no speedup is claimed.
+**UBE is in early development and is not ready for production use.**
 
-**UBE is under active development and is not ready for production use.**
-
-See the [workplan](Workplan.md), [development plan](project-docs/Development-Plan.md)
-and [concurrency evidence](compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
-for the accepted gates, supported limits and proposed next work.
+See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
 ## First public-release goals
 

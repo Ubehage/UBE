@@ -64,6 +64,18 @@ Compiler responsibility:
 2. Publish live local/parameter/result/temporary locations before allocation,
    calls and other required safe points. Leave roots on every normal/error
    exit. Root storage has a bounded, explicitly checked allocation policy.
+   Under the owner-approved
+   [compiler-private caller-retained rule](../compiler/UBE_Compiler_v3/CALLER-ROOT-PROPOSAL.md),
+   a synchronous caller retains each managed ByRef writable location or its
+   precisely traced containing owner for the entire call, including new values
+   written through that location. Retaining only the old value is insufficient.
+   A forwarded ByRef aliases the retained location. The callee omits only the
+   duplicate argument admission and matching cleanup; private, ByVal/incoming,
+   result, capture, borrow-owner, fallback and runtime roots remain. Native test
+   entry adapters independently admit checked holder/owner roots before UBE
+   work and unwind partial failure, including for initially neutral outputs.
+   This does not change collection/barriers, root capacity or the public foreign
+   ABI, and does not permit asynchronous ByRef capture.
 3. Synthesize independent array/record value copying at assignment, ByVal and
    result boundaries. Prepare the new value while the old destination and all
    source/temporary references remain rooted; publish only after success.

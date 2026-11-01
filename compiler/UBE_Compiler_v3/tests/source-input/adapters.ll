@@ -23,6 +23,12 @@ define i32 @source_file(ptr %path, i32 %limit, ptr %document, ptr %failure, ptr 
   %status = zext i1 %ok to i32
   ret i32 %status
 }
+
+define i32 @source_identified_file(ptr %path, i32 %limit, ptr %document, ptr %identity, ptr %failure, ptr %filefailure, ptr %token) {
+  %ok = call i1 @IDENTIFIED_FILE@(ptr %path, i32 %limit, ptr %document, ptr %identity, ptr %failure, ptr %filefailure, ptr %token)
+  %result = zext i1 %ok to i32
+  ret i32 %result
+}
 define i32 @source_scoped(i32 %cancel) {
   %flag = trunc i32 %cancel to i1
   %ok = call i1 @SCOPED@(i1 %flag)

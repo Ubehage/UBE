@@ -64,7 +64,7 @@ owned token; no cancellation scheduler or shared Boolean flag is added. This
 module deliberately adds no second whole-file convenience API.
 
 Ordinary growth, progress, size policy and publication live in UBE. The C file
-under src/win-lib is a bootstrap exception for OS entry, checked token lifetime,
+under `../bootstrap/runtime/windows/` is a bootstrap exception for OS entry, checked token lifetime,
 rooted Byte-array access and OS text conversion. Replace it when UBE/platform
 declarations and compiler-emitted support pass the same gates; it must never
 become a C whole-file loader. Managed arrays use the existing precise-root,

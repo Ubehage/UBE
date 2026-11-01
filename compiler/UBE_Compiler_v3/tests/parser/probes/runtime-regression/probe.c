@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #ifndef UBE_REGRESSION_VALUE_HEADER
-#define UBE_REGRESSION_VALUE_HEADER "../../../../../../runtime/value_storage.h"
+#define UBE_REGRESSION_VALUE_HEADER "../../../../../../bootstrap/runtime/value_storage.h"
 #endif
 #include UBE_REGRESSION_VALUE_HEADER
 extern void* ube_array_element(void*,int32_t);

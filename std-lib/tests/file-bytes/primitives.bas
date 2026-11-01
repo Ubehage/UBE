@@ -5,12 +5,50 @@ Function Main() As Long
         Main = 1
         Exit Function
     End If
+    Dim Directory() As Byte
+    Failure = 8
+    If TryCurrentDirectoryBytes(Directory, Failure) = False Then
+        Main = 7
+        Exit Function
+    End If
+    If Failure <> 0 Or ByteStorageLength(Directory) < 3 Then
+        Main = 7
+        Exit Function
+    End If
     Dim Token As Long = 0
     Dim Length As Long = 0
     If TryOpenByteFile(Path, 257, Token, Length, Failure) = False Then
         Main = 2
         Exit Function
     End If
+    Dim Identity() As Byte
+    Dim RepeatedIdentity() As Byte
+    Failure = 8
+    If TryReadByteFileIdentity(Token, Identity, Failure) = False Then
+        Call TryCloseByteFile(Token, Failure)
+        Main = 8
+        Exit Function
+    End If
+    If ByteStorageLength(Identity) <> 16 Or Failure <> 0 Then
+        Call TryCloseByteFile(Token, Failure)
+        Main = 8
+        Exit Function
+    End If
+    Failure = 8
+    If TryReadByteFileIdentity(Token, RepeatedIdentity, Failure) = False Then
+        Call TryCloseByteFile(Token, Failure)
+        Main = 8
+        Exit Function
+    End If
+    Dim IdentityIndex As Long = 0
+    While IdentityIndex < 16
+        If Identity(IdentityIndex) <> RepeatedIdentity(IdentityIndex) Then
+            Call TryCloseByteFile(Token, Failure)
+            Main = 8
+            Exit Function
+        End If
+        IdentityIndex = IdentityIndex + 1
+    Wend
     Dim Bytes() As Byte
     If TryResizeByteStorage(Bytes, 257, False) = False Then
         Call TryCloseByteFile(Token, Failure)

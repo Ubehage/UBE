@@ -1,4 +1,7 @@
-param([string]$SelectionPath = (Join-Path $PSScriptRoot '../../../bootstrap/out/v2/current.json'))
+param(
+    [string]$SelectionPath = (Join-Path $PSScriptRoot '../../../bootstrap/out/v2/current.json'),
+    [switch]$DiagnosticOnly
+)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
@@ -8,11 +11,11 @@ $project = Join-Path $run 'project'
 New-Item -ItemType Directory -Path $project -Force | Out-Null
 $fixture = Join-Path $root 'compiler/UBE_Compiler_v3/tests/source-input'
 $paths = @('compiler/UBE_Compiler_v3/tools/check-source-input.ps1',
-    'compiler/UBE_Compiler_v3/SourceInput.bas','compiler/UBE_Compiler_v3/SourceFile.bas',
-    'compiler/UBE_Compiler_v3/Main.bas','compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE',
+    'compiler/UBE_Compiler_v3/src/SourceInput.bas','compiler/UBE_Compiler_v3/src/SourceFile.bas',
+    'compiler/UBE_Compiler_v3/src/Main.bas','compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE',
     'compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md','std-lib/UBECore.UBE',
     'compiler/UBE_Compiler_v2/tests/file-input/binding-cases.json',
-    'runtime/bootstrap_runtime.c','std-lib/src/win-lib/file_primitives.c','runtime/value_storage.h',
+    'bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/value_storage.h',
     'std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h',
     'bootstrap/tools/verification.ps1') | ForEach-Object { Join-Path $root $_ }
 $paths += @(Get-ChildItem -LiteralPath $fixture -File | ForEach-Object FullName)
@@ -61,22 +64,28 @@ try {
         $artifact = @($accepted.artifacts | Where-Object path -CEQ $identity.path)
         if ($artifact.Count -ne 1 -or $artifact[0].sha256 -cne $identity.sha256) { throw 'Selected artifact differs from immutable accepted manifest' }
     }
-    foreach ($identity in $accepted.inputs) {
-        if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) { throw "Accepted input changed: $($identity.path)" }
+    if (-not $DiagnosticOnly) {
+        foreach ($identity in $accepted.inputs) {
+            if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) { throw "Accepted input changed: $($identity.path)" }
+        }
     }
-    foreach ($path in @('runtime/bootstrap_runtime.c','std-lib/src/win-lib/file_primitives.c')) {
+    foreach ($path in @('bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/windows/file_primitives.c')) {
         $runtimeInput = @($accepted.inputs | Where-Object path -CEQ (Join-Path $root $path))
         if ($runtimeInput.Count -ne 1 -or $runtimeInput[0].sha256 -cne (Get-ArtifactIdentity (Join-Path $root $path)).sha256) { throw "Instrumented source differs from accepted runtime input: $path" }
     }
-    $inputs += @($accepted.inputs)
+    if ($DiagnosticOnly) {
+        $inputs += @($accepted.inputs | ForEach-Object { Get-ArtifactIdentity $_.path })
+    } else {
+        $inputs += @($accepted.inputs)
+    }
     $stage1 = Join-Path (Split-Path $selection.compiler.path -Parent) 'ube-stage1-v2.exe'
     $stageIdentity = @($accepted.artifacts | Where-Object path -CEQ $stage1)
     if ($stageIdentity.Count -ne 1 -or (Get-ArtifactIdentity $stage1).sha256 -cne $stageIdentity[0].sha256) { throw 'Stage-one compiler identity differs' }
     $inputs += $stageIdentity[0]
     $stages = @($stage1,$selection.compiler.path)
     foreach ($name in @('SourceInput.bas','SourceFile.bas')) {
-        Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/' + $name)) -Destination (Join-Path $project $name)
-        if ((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/' + $name))).sha256) { throw "Production copy differs: $name" }
+        Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/src/' + $name)) -Destination (Join-Path $project $name)
+        if ((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/src/' + $name))).sha256) { throw "Production copy differs: $name" }
     }
     Copy-Item -LiteralPath (Join-Path $fixture 'Entry.bas') -Destination (Join-Path $project 'Entry.bas')
     if ((Get-ArtifactIdentity (Join-Path $project 'Entry.bas')).sha256 -cne (Get-ArtifactIdentity (Join-Path $fixture 'Entry.bas')).sha256) { throw 'Test entry copy differs' }
@@ -99,6 +108,7 @@ try {
     $bindings = @{
         BEGIN=@('BeginSourceInput','i1','ptr,i32'); APPEND=@('AppendSourceInput','i1','ptr,ptr,i32,i32,ptr');
         FINISH=@('TryFinishSourceInput','i1','ptr,ptr,ptr'); FILE=@('TryReadSourceFile','i1','ptr,i32,ptr,ptr,ptr,ptr');
+        IDENTIFIED_FILE=@('TryReadSourceFileIdentity','i1','ptr,i32,ptr,ptr,ptr,ptr,ptr');
         SCOPED=@('ScopedSourceInput','i1','i1'); COPY=@('CopySourceDocument','i1','ptr,ptr');
         FEED=@('FeedUtf8Byte','i1','ptr,i8,ptr,ptr'); RESERVE=@('TryReserveByteBuffer','i1','ptr,i32') }
     $observedRuntime = Join-Path $run 'observed-runtime.o'
@@ -215,14 +225,15 @@ try {
     if ($hashes[0] -cne $hashes[1] -or $compilerHashes[0] -cne $compilerHashes[1]) { throw 'Raw source proof or production compiler LLVM differs between stages' }
     $checks += [pscustomobject]@{ assertion='byte-identical raw LLVM for intact source consumer and complete production manifest through both accepted stages'; passed=$true }
     foreach ($name in @('SourceInput.bas','SourceFile.bas')) {
-        if ((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/' + $name))).sha256) { throw 'Production test copy changed' }
+        if ((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/src/' + $name))).sha256) { throw 'Production test copy changed' }
     }
     if ((Get-ArtifactIdentity (Join-Path $project 'Entry.bas')).sha256 -cne (Get-ArtifactIdentity (Join-Path $fixture 'Entry.bas')).sha256) { throw 'Test entry copy changed' }
     foreach ($identity in $inputs) { if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) { throw "Proof input changed: $($identity.path)" } }
     $success = $true
 } catch { $failure = $_.Exception.Message }
 finally {
-    [pscustomobject]@{ schema='ube-source-input-proof-1'; success=$success; failure=$failure; acceptedSelection=$selection;
+    [pscustomobject]@{ schema='ube-source-input-proof-1'; success=$success; failure=$failure; diagnosticOnly=[bool]$DiagnosticOnly;
+        qualified=($success -and -not $DiagnosticOnly); acceptedSelection=$selection;
         inputs=$inputs; checks=$checks; measurements=$measurements; commands=$commands;
         limits='The C harness proves source-input assertions; explicit production CLI cases separately check envelope/scanner diagnostics and controlled unavailable checking. Full scanner function qualification belongs to the separate scanner gate. No parser, semantic checking or output program is qualified. Native C workers qualify private consumers and immutable sharing, not UBE scheduling. Measured calloc arguments are requested zero initialization, not physical writes. Process working set includes C harness/runtime. Test copies preserve complete production source/envelopes and actual declared UBECore Reference; only generated entry/ABI wrappers instrument test executables.';
         artifacts=@(Get-ChildItem -LiteralPath $run -File -Recurse | ForEach-Object { Get-ArtifactIdentity $_.FullName }) } |
@@ -230,4 +241,4 @@ finally {
     Write-Output "Evidence: $(Join-Path $run 'report.json')"
 }
 if (-not $success) { throw $failure }
-Write-Output "PASS: $($checks.Count) source-input acceptance checks through both accepted stages."
+Write-Output "PASS: $($checks.Count) source-input checks through both accepted stages; diagnosticOnly=$([bool]$DiagnosticOnly)."

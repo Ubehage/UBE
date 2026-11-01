@@ -55,3 +55,25 @@ by unavailable source checking. It never emits a compiler output artifact or
 reports a source program as valid. Unicode paths must arrive through counted
 Unicode command arguments. File primitive gates separately inject short reads,
 I/O/close failures, file mutation, token misuse and cancellation cleanup.
+
+The private `TryReadSourceFileIdentity` construction entry uses that same reader
+body. Its identity may be prepared before a later failure; the enclosing pending
+project owns those outputs and publishes neither as a successful project until
+all work succeeds. Retain the old reader's declaration and every earlier oracle.
+Test independent 16-byte identities on reopen, BOM/UTF-8/newline metadata, old
+document preservation on read/close/identity-allocation failure, explicit close
+retry, primary identity failure retained across a failed close, and actual full
+root-capacity failure followed by retry. Every path drains roots/payload/tokens.
+
+For the same eight file sizes, compare the actual old/new entry observations:
+identity intake performs exactly the old read-call count and UTF-8 Feed count,
+and adds exactly 16 executed payload-copy bytes. It must add no complete document
+copy, extra file read or native reader. These are measured deltas, not counters
+derived from N. The existing original source/file cost ceilings still apply to
+the unchanged non-identity entry. Additions do not remove the earlier oracles.
+
+`check-source-input.ps1 -DiagnosticOnly` pins both accepted compiler artifacts and
+the unchanged runtime while allowing changed target source. It reports
+`diagnosticOnly:true` / `qualified:false`; it cannot refresh source qualification.
+The default gate retains the complete accepted-source audit and is the only
+mode used by the source-built acceptance runner.

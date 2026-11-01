@@ -6,7 +6,7 @@ Attribute UBE_Name = "FileBytes"
 ' success, error and cancellation. Contract: ../../FILE-BYTES-CONTRACT.md.
 ' Failure domain: 0 success; 1 invalid request; 2 invalid path; 3 open/query;
 ' 4 too large; 5 read; 6 premature EOF; 7 close; 8 allocation; 9 stale token;
-' 10 cancellation; 11 grew; 12 missing argument; 13 busy.
+' 10 cancellation; 11 grew; 12 missing argument; 13 busy; 14 unsupported identity.
 ' Success preserves Err. Every failure returns fresh False and sets Err.
 
 ' Borrows counted UTF-8 path; no normalization. Requires Token=0. On failure
@@ -39,4 +39,13 @@ End Function
 ' operation enables UBE policy to publish its failure after external cleanup.
 Intrinsic Function RecordErrorNumber(ByVal Number As Long) As Boolean
 Attribute RecordErrorNumber.UBE_Primitive = "Error.Set"
+End Function
+
+' Borrows an existing token without opening another handle. Returns an independent
+' opaque 16-byte host identity; compare bytes within one request, never decode it
+' as an address or package ID. Failure preserves Result and token ownership;
+' query/storage/Busy failures are fresh. Close with the existing explicit API.
+' OS query runs outside the collector lock. Contract: ../../PATH-BYTES-PROPOSAL.md.
+Intrinsic Function TryReadByteFileIdentity(ByVal Token As Long, ByRef Published() As Byte, ByRef Failure As Long) As Boolean
+Attribute TryReadByteFileIdentity.UBE_Primitive = "File.TryIdentity"
 End Function

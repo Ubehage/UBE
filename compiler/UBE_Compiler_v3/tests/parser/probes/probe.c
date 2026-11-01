@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
-#include "../../../../../runtime/value_storage.h"
+#include "../../../../../bootstrap/runtime/value_storage.h"
 struct position{int32_t byte,scalar,line,column;};
 struct source_failure{int32_t kind;struct position position;};
 struct decoder{int32_t remaining,accumulator,minimum;bool failed;};

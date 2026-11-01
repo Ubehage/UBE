@@ -1,5 +1,33 @@
 # UBECore workplan
 
+## Bootstrap support location - 2026-11-01
+
+The owner moved the temporary file/thread C adapters out of `src/win-lib/`
+and into `../bootstrap/runtime/windows/`, beside the other native bootstrap
+support. UBECore's production source tree contains UBE. Names, bindings,
+contracts and adapter replacement conditions are unchanged. Current source
+qualification passes 785 assertions; strict source/local/project CLI and
+borrowed-lifetime gates pass on the consolidated layout. Exact source identities,
+commands and evidence are in compiler v3 `Progress.md`.
+
+## Qualified project-input consumer - 2026-11-01
+
+The approved PathBytes/FileBytes working-directory and opened-file identity
+facilities are qualified through the current bounded compiler consumer.
+Ordinary path normalization/resolution remains UBE; the two host observations
+stay behind the existing Windows adapter. Compiler source/project policy and
+the single worker budget remain compiler-owned, with no executor in UBECore.
+
+The current source cohort passes785 assertions and all seven retained gates,
+including project CLI1202, native35-case/four-context/375-fault intake and actual
+source concurrency4200 assertions per stage. Both full performance sessions
+show useful gains accepted under the owner's revised starting-point criterion;
+all source-copy/resource/lifetime/regression obligations remain. Detailed current
+scope and exact commands are in the root Workplan.md and compiler evidence.
+Earlier619/638/692 checkpoints remain historical records, not pending work.
+The public API remains the adopted contract; no new library API was added for
+the compiler's root/collector bookkeeping optimization.
+
 ## Owner decision — 2026-10-30
 
 Build a fresh UBECore in `std-lib/`, growing with the compiler's needs.
@@ -12,7 +40,7 @@ bootstrap investigation, and assigned the fresh compiler the v3 name.
 Its design and workplan are under `../compiler/UBE_Compiler_v3/`; previous
 v3/v4 sources, previews and handoffs are under `../compiler/archived/`.
 
-## Current position
+## Earlier foundation checkpoints
 
 - [x] Qualify the owner-approved bounded threading prerequisite. `Threads.bas`
   supplies `TryCurrentThreadId`, `TryThreadIsAlive`, `TryThreadRequestStop`,
@@ -118,20 +146,11 @@ also passed for tracked changes.
 
 ## Exact next action
 
-The compiler's bounded source-set consumer is qualified. The
-[development plan](../project-docs/Development-Plan.md) proposes normal
-`.UBE`/direct-UBECore input and parallel frontend integration next; that row and
-all later rows need their own contract and owner review before implementation.
-Provide additional reusable facilities only when an agreed consumer exposes a
-concrete need. Keep project/reference policy and canonical diagnostics in the
-compiler. Preserve established names, the platform boundary, ordinary value
-semantics and builtin String limits.
-
-Measured collector contention is recorded follow-up work; instrumented
-four-worker execution was slower, and no speedup is claimed. Current exact
-gates, identities and limits are in
-[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
-The dated handoffs below preserve earlier checkpoints and their original counts.
+Preserve the qualified byte/Unicode/file/path/thread foundations and their
+ordinary UBE algorithms. The compiler's next proposed semantic contract must
+identify any concrete reusable numeric/text/storage need before a new UBECore
+slice is selected. Do not implement the full inventory or import compiler policy
+into the library. Existing contracts/names and failure/lifetime/copy tests remain.
 
 ## Unicode and cursor handoff - 2026-10-30
 

@@ -2,8 +2,8 @@
 
 Date: 2026-10-31.
 
-**Status: the first owner-requested concurrency objective is complete; every
-later deliverable remains proposed.** This plan preserves the owner's vision,
+**Status: concurrency and bounded project/parallel frontend input are qualified;
+first semantic checking is the next proposed deliverable.** This plan preserves the owner's vision,
 adopted language rules, established names and separate UBECore/compiler
 responsibilities. It does not approve new language rules, representations,
 phase interfaces or general scheduler APIs.
@@ -13,18 +13,22 @@ compiler-owned `TryParseSources` proof are qualified. Existing UBE source,
 scanner and parser bodies run with budgets 1, 2 and 4 over shared immutable
 owners and private results. Exact current gates and limits are in
 [CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
-This does not complete normal `.UBE` project/reference input or its CLI.
+That earlier proof did not complete normal `.UBE` project/reference input or its CLI.
 
-The proposed next deliverable is bounded `.UBE`/direct-UBECore input and parallel
-frontend integration. It needs its own contract and owner review before
-implementation. Instrumented four-worker execution was slower than one-worker
-execution; measured collector contention is focused follow-up work. Later
-semantic/backend and product rows remain proposed as well.
+The subsequent bounded `.UBE`/direct-UBECore input and parallel frontend
+integration deliverable is now complete: current cohort a732 passes 785 source
+assertions and all seven retained gates. Both complete measurement sessions
+retain 252 trials, all hard guards pass, and repeatable initial gains are accepted
+under the owner's 2026-11-01 numerical-policy revision. Original target misses
+remain recorded. Exact commands and limitations are in
+[frontend evidence](../compiler/UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md).
+First semantic checking needs its own bounded contract and owner review before
+implementation. Later semantic/backend and product rows remain proposed.
 
 On 2026-10-31 the owner approved making useful parallel speedup an explicit
 acceptance requirement. The [parallel performance gate](#parallel-performance-acceptance)
 below belongs to the existing frontend work; its optimization and measurement
-remain unfinished. The completed concurrency correctness proof stays complete.
+are now qualified under that revised policy. Further optimization remains planned.
 
 ## Why this plan exists
 
@@ -195,13 +199,23 @@ performance gate. Pass this gate before declaring the parallel frontend complete
 or beginning substantial semantic/backend growth. It is an exit requirement for
 the existing frontend deliverable, not a new compiler phase or subsystem.
 
-Initial engineering targets, measured against the optimized one-worker path:
+Owner revision,2026-11-01: "The defined 1.5x and 2x improvements are not that
+important. Close is good enough for a start." These numbers remain engineering
+targets, rather than mandatory completion thresholds. Useful, repeatable
+parallel gains may qualify the initial frontend while further optimization
+remains planned. Report actual gains and target shortfalls plainly; this does
+not waive correctness, resource/lifetime behavior, the regression guards or the
+measurement procedure below. No arbitrary lower numerical target is substituted.
+The [acceptance record](../compiler/UBE_Compiler_v3/PERFORMANCE-ACCEPTANCE.md)
+keeps this owner revision separate from the unchanged frozen measurement inputs.
 
-| Workload | Required median result |
+Engineering targets and required guards, measured against the optimized one-worker path:
+
+| Workload | Engineering target or required guard |
 | --- | --- |
-| Representative real source corpus, two workers | At least 1.5 times the one-worker throughput: `T1 / T2 >= 1.5` |
-| Representative real source corpus, four workers | At least twice the one-worker throughput: `T1 / T4 >= 2.0` |
-| Larger balanced source corpus, two/four workers | Meet the same 1.5/2.0 speedup targets |
+| Representative real source corpus, two workers | Target 1.5 times the one-worker throughput; report actual `T1 / T2` |
+| Representative real source corpus, four workers | Target twice the one-worker throughput; report actual `T1 / T4` |
+| Larger balanced source corpus, two/four workers | Report actual gains against the same 1.5/2.0 engineering targets |
 | Optimized one-worker execution | No more than 5% slower than the frozen pre-optimization one-worker baseline |
 | Small source sets, including one source with budget four | No more than 10% slower than the optimized one-worker path; the budget is a maximum, not a requirement to start unnecessary workers |
 
@@ -240,24 +254,27 @@ sample before changing shared behavior. Reusable mechanisms stay in UBECore;
 compiler policy stays in the compiler. Architectural changes still require the
 owner's explicit approval.
 
-Completion requires both sessions to meet the targets on both main corpora,
+Completion requires useful, repeatable parallel gains across both sessions and
+both main corpora under the owner's revised starting-point criterion,
 the single-worker/small-input guards to pass, and all correctness/resource gates
 to remain qualified. Record evidence in the current workplan before marking this
-requirement complete. A failed or inconclusive result remains unfinished; changing
+requirement complete. A failed hard guard or inconclusive result remains unfinished; changing
 the gate requires an explicit owner decision. Approval of this requirement does
 not itself start an optimization goal or approve the other proposed plan rows.
 
-## Proposed next contract: bounded project input and parallel frontend
+## Completed bounded project input and parallel frontend
 
 The first concurrency objective is complete. `TryParseSources` establishes the
 compiler-owned work, sharing, private-output, ordering, cancellation and
 publication path; UBECore retains reusable mechanisms. Its concrete limits and
 observed costs are in `CONCURRENCY-CONSUMER.md` and `CONCURRENCY-EVIDENCE.md`.
 
-The proposed successor is the smallest normal `.UBE` input with ordered native
-MODULE sources and direct explicit UBECore source references. Define source
-identity, relative-path/reference policy, bounded failures, ownership,
-diagnostics and CLI behavior in its own contract for owner review before coding.
+The owner requested the successor: the smallest normal `.UBE` input with ordered
+native MODULE sources and direct explicit UBECore source references. Its adopted
+contracts define source identity, path/reference policy, bounded failures,
+ownership and CLI diagnostics. Initial intake, simultaneous-context, project CLI
+and failure gates now pass; complete source/performance acceptance is recorded
+in the current frontend evidence linked at the start of this plan.
 Feed one canonical source set to the existing operation; do not introduce
 another driver, executor, model copy or independent budget.
 
@@ -266,11 +283,15 @@ diagnostics, original spans, empty/invalid/reference cases, cancellation,
 allocation/admission failures, old-output retention and cleanup. Preserve the
 concurrency and earlier parser gates. Investigate measured collector contention
 with focused reproductions and recorded costs; do not infer a speedup or change
-architecture from instrumented timings alone. This row and all later rows
-remain proposed; no successor implementation is authorized by completing the
-concurrency goal. Semantic work remains the later bounded proposal below.
+architecture from instrumented timings alone. This row is now complete;
+its adopted contract and executed evidence remain the authority for input code.
+`PROJECT-INPUT-CONTRACT.md` and `FRONTEND-PERFORMANCE-EVIDENCE.md` in the compiler
+record that review state and the frozen baseline/focused diagnostics. Later rows
+remain proposed. Semantic work remains the later bounded proposal below.
 The owner-approved parallel performance gate above is part of this row's exit
-criteria and must pass before substantial semantic/backend growth.
+criteria and is accepted under the owner's revised initial-performance policy.
+First semantic checking is the next proposed contract before substantial
+semantic/backend growth; no semantic implementation is authorized by this status.
 
 ## Semantic work prepared next
 
@@ -345,7 +366,8 @@ Before adopting the next execution item, the owner should review:
 - the first semantic/native scope and the decisions deliberately left open.
 
 The first owner-requested concurrency contract and prerequisite proof are now
-qualified. Review the proposed project/frontend input contract before depending
+qualified, as is the subsequent bounded project/frontend input deliverable.
+Review the proposed first semantic-checking contract before depending
 on new policy or APIs. Keep every later row proposed until its own contract,
 dependencies and owner review are ready. No implementation, push, release or new
 compiler generation is authorized merely by adding this planning document.

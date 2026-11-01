@@ -32,7 +32,15 @@ int main(void) {
     const size_t initial = ube_gc_live_allocation_bytes();
     for (int index = 0; index < 4; ++index) {
         roots[index] = calloc(1, ube_gc_root_storage_size());
-        if (!roots[index] || !ube_gc_root_enter(roots[index], slots[index])) return 3;
+        if (!roots[index] || !ube_gc_root_enter(roots[index], slots[index])) {
+            free(roots[index]);
+            while (index > 0) {
+                --index;
+                (void)ube_gc_root_leave(roots[index]);
+                free(roots[index]);
+            }
+            return 3;
+        }
     }
     seed_error();
     managed_initialize_input(&source);
@@ -80,10 +88,12 @@ int main(void) {
     if (!record.data || record.data == record_source.data || record.marker != 123 ||
         managed_first_byte(&record.data) != 65 || ube_err_number() != 77) return 11;
     puts("record-result-retry first:65 marker:123 err:77");
+    int released = 1;
     for (int index = 3; index >= 0; --index) {
-        if (!ube_gc_root_leave(roots[index])) return 12;
+        if (!ube_gc_root_leave(roots[index])) released = 0;
         free(roots[index]);
     }
+    if (!released) return 12;
     if (!no_new_payload(initial)) return 13;
     puts("dead-bytes:0");
     return 0;

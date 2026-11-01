@@ -10,9 +10,12 @@ extern int32_t ube_file_try_open(void* const*,int32_t,int32_t*,int32_t*,int32_t*
 extern int32_t ube_file_try_read(int32_t,void* const*,int32_t,int32_t,int32_t*,int32_t*);
 extern int32_t ube_file_try_close(int32_t*,int32_t*);
 extern int32_t ube_process_try_argument(int32_t,void**,int32_t*);
+extern int32_t ube_process_try_current_directory(void**,int32_t*);
+extern int32_t ube_file_try_identity(int32_t,void**,int32_t*);
 extern void ube_err_set(int32_t,const char*,const char*);
 extern int32_t ube_err_number(void),ube_gc_collect(void),ube_gc_root_enter(void*,void**),ube_gc_root_leave(void*);
 extern size_t ube_gc_root_storage_size(void),ube_gc_live_allocation_bytes(void);
+extern void ube_gc_test_fail_next_allocations(uint32_t);
 extern void* ube_array_element(void*,int32_t);
 extern void ube_file_test_inject(int32_t);
 extern int32_t ube_file_test_open_handles(void),ube_file_test_payloads(void),ube_file_test_reads(void);
@@ -27,18 +30,30 @@ static void seed(void) { ube_err_set(77,"existing","byte-file oracle"); }
 struct worker { void* path; int failed; int marker; };
 static DWORD WINAPI work(LPVOID argument) {
     struct worker* state = argument;
-    void* bytes = NULL;
-    void* root = calloc(1,ube_gc_root_storage_size());
-    if (root == NULL || !ube_gc_root_enter(root,&bytes) || !ube_value_try_resize(&bytes,257,&byte_layout,0)) { state->failed = 1; free(root); return 0; }
+    void* bytes = NULL; void* identity = NULL; void* directory = NULL;
+    void** holders[3]={&bytes,&identity,&directory};
+    size_t stride=ube_gc_root_storage_size(),registered=0;
+    unsigned char* roots=calloc(3,stride);
+    if(roots==NULL) {state->failed=1;return 0;}
+    while(registered<3 && ube_gc_root_enter(roots+registered*stride,holders[registered])) ++registered;
+    if(registered!=3 || !ube_value_try_resize(&bytes,257,&byte_layout,0)) {state->failed=1;goto finished;}
     for (int round = 0; round < 20; ++round) {
         int32_t token=0,length=0,failure=0,got=0;
         ube_err_set(state->marker,"worker","byte-file oracle");
         if (!ube_file_try_open(&state->path,257,&token,&length,&failure) || length != 257 ||
+            !ube_file_try_identity(token,&identity,&failure) || ube_value_array_length(&identity)!=16 || at(identity,0)!=1 ||
+            !ube_process_try_current_directory(&directory,&failure) || ube_value_array_length(&directory)<1 ||
             !ube_file_try_read(token,&bytes,0,257,&got,&failure) || got != 257 ||
             at(bytes,0) != 0 || at(bytes,255) != 255 || at(bytes,256) != 0 ||
-            !ube_file_try_close(&token,&failure) || token != 0 || ube_err_number() != state->marker) { state->failed = 2; break; }
+            !ube_file_try_close(&token,&failure) || token != 0 || ube_err_number() != state->marker) {
+            state->failed = 2;
+            if(token!=0) (void)ube_file_try_close(&token,&failure);
+            break;
+        }
     }
-    (void)ube_gc_root_leave(root); free(root);
+finished:
+    while(registered) (void)ube_gc_root_leave(roots+(--registered)*stride);
+    free(roots);
     return 0;
 }
 int main(void) {
@@ -53,10 +68,71 @@ int main(void) {
     for(int item=0;item<6;++item) CHECK(at(arg,item)==unicode[item]);
     void* prior=arg; CHECK(!ube_process_try_argument(2,&arg,&failure)); CHECK(failure==12 && arg==prior && ube_err_number()==5);
     CHECK(!ube_process_try_argument(-1,&arg,&failure)); CHECK(failure==1 && arg==prior);
+    /* The fixture's absolute path is beneath the separately supplied working
+       directory. This independently checks counted UTF-8 directory transport. */
+    seed(); CHECK(ube_process_try_current_directory(&bad,&failure));
+    CHECK(failure==0 && ube_err_number()==77);
+    int32_t directory_bytes=ube_value_array_length(&bad);
+    CHECK(directory_bytes>0 && ube_value_array_length(&path)>directory_bytes+1);
+    for(int32_t item=0;item<directory_bytes;++item) CHECK(at(bad,item)==at(path,item));
+    CHECK(at(path,directory_bytes)=='\\' || at(path,directory_bytes)=='/');
+    prior=bad;
+    CHECK(!ube_process_try_current_directory(NULL,&failure)); CHECK(failure==1 && bad==prior);
+    CHECK(!ube_process_try_current_directory(&bad,NULL)); CHECK(bad==prior);
+    ube_gc_test_fail_next_allocations(2);
+    CHECK(!ube_process_try_current_directory(&bad,&failure));
+    CHECK(failure==8 && bad==prior && ube_err_number()==7);
+    bad=NULL;
     CHECK(ube_value_try_resize(&bytes,300,&byte_layout,0));
     for(int item=0;item<300;++item) put(bytes,item,91);
     seed(); CHECK(ube_file_try_open(&path,257,&token,&length,&failure)); CHECK(token>0 && length==257 && failure==0 && ube_err_number()==77);
+    const int identity_handles=ube_file_test_open_handles(),identity_payloads=ube_file_test_payloads();
+    CHECK(ube_file_try_identity(token,&arg,&failure));
+    CHECK(failure==0 && ube_err_number()==77 && ube_value_array_length(&arg)==16);
+    unsigned char identity[16];
+    for(int item=0;item<16;++item) identity[item]=at(arg,item);
+    CHECK(identity[0]==1 && identity[1]==0 && identity[2]==0 && identity[3]==0);
+    prior=arg; CHECK(ube_file_try_identity(token,&arg,&failure)); CHECK(arg!=prior);
+    for(int item=0;item<16;++item) CHECK(at(arg,item)==identity[item]);
+    CHECK(ube_file_test_open_handles()==identity_handles && ube_file_test_payloads()==identity_payloads);
+    prior=arg; ube_gc_test_fail_next_allocations(2);
+    CHECK(!ube_file_try_identity(token,&arg,&failure)); CHECK(failure==8 && arg==prior && ube_err_number()==7);
+    CHECK(ube_file_try_identity(token,&arg,&failure)); CHECK(failure==0 && ube_err_number()==7);
+    CHECK(!ube_file_try_identity(token,NULL,&failure)); CHECK(failure==1);
+    CHECK(!ube_file_try_identity(token,&arg,NULL));
+    /* Existing-file identity, not path spelling or content, defines equality. */
+    HANDLE other=CreateFileW(L"other.bin",GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+    CHECK(other!=INVALID_HANDLE_VALUE);
+    DWORD written=0; int wrote=WriteFile(other,"A",1,&written,NULL)!=0 && written==1;
+    CHECK(CloseHandle(other)); CHECK(wrote);
+    CHECK(ube_value_try_resize(&bad,9,&byte_layout,0));
+    for(int item=0;item<9;++item) put(bad,item,(unsigned char)"other.bin"[item]);
+    int32_t other_token=0,other_length=0;
+    CHECK(ube_file_try_open(&bad,257,&other_token,&other_length,&failure));
+    CHECK(ube_file_try_identity(other_token,&arg,&failure));
+    int different=0; for(int item=0;item<16;++item) different|=at(arg,item)!=identity[item];
+    CHECK(different); CHECK(ube_file_try_close(&other_token,&failure));
+    const wchar_t fixture_name[]={0x00e9,0xd83d,0xde42,L'.',L'b',L'i',L'n',0};
+    CHECK(CreateHardLinkW(L"alias.bin",fixture_name,NULL));
+    for(int item=0;item<9;++item) put(bad,item,(unsigned char)"alias.bin"[item]);
+    CHECK(ube_file_try_open(&bad,257,&other_token,&other_length,&failure));
+    CHECK(ube_file_try_identity(other_token,&arg,&failure));
+    for(int item=0;item<16;++item) CHECK(at(arg,item)==identity[item]);
+    CHECK(ube_file_try_close(&other_token,&failure)); bad=NULL;
+    /* Exhaust the real registration capacity; do not fake a failed return. */
+    size_t root_stride=ube_gc_root_storage_size(),entered=0;
+    unsigned char* pressure=calloc(1048576,root_stride); void* neutral=NULL;
+    CHECK(pressure!=NULL);
+    while(entered<1048576 && ube_gc_root_enter(pressure+entered*root_stride,&neutral)) ++entered;
+    CHECK(entered==1048576-4);
+    prior=arg;
+    CHECK(!ube_process_try_current_directory(&arg,&failure)); CHECK(failure==8 && arg==prior);
+    CHECK(!ube_file_try_identity(token,&arg,&failure)); CHECK(failure==8 && arg==prior);
+    while(entered) CHECK(ube_gc_root_leave(pressure+(--entered)*root_stride));
+    free(pressure);
+    CHECK(ube_file_try_identity(token,&arg,&failure));
     CHECK(ube_file_test_hold(token,1));
+    prior=arg; CHECK(!ube_file_try_identity(token,&arg,&failure)); CHECK(failure==13 && arg==prior);
     CHECK(!ube_file_try_read(token,&bytes,0,1,&got,&failure)); CHECK(failure==13 && got==0);
     CHECK(!ube_file_try_close(&token,&failure)); CHECK(failure==13 && token>0);
     CHECK(ube_file_test_hold(token,0));
@@ -69,6 +145,8 @@ int main(void) {
     CHECK(ube_file_try_read(token,&bytes,0,1,&got,&failure)); CHECK(got==0);
     CHECK(!ube_file_try_read(token,&bytes,-1,1,&got,&failure)); CHECK(failure==1 && got==0);
     const int32_t stale=token; CHECK(ube_file_try_close(&token,&failure)); CHECK(token==0 && failure==0);
+    prior=arg; CHECK(!ube_file_try_identity(stale,&arg,&failure)); CHECK(failure==9 && arg==prior);
+    CHECK(!ube_file_try_identity(-1,&arg,&failure)); CHECK(failure==9 && arg==prior);
     CHECK(ube_file_try_close(&token,&failure));
     CHECK(!ube_file_try_read(stale,&bytes,0,1,&got,&failure)); CHECK(failure==9);
     token=stale; CHECK(!ube_file_try_close(&token,&failure)); CHECK(token==stale && failure==9); token=0;

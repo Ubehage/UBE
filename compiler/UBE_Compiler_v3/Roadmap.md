@@ -73,19 +73,18 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
   UBECore retains generic thread/storage mechanisms. `CONCURRENCY-EVIDENCE.md`
   records the current 592-check bootstrap, 5652 concurrency assertions,
   retained parser/CLI gates, exact identities, costs and supported limits.
-- [ ] Proposed: define bounded normal `.UBE`/direct-UBECore source input and
-  connect it to the qualified parallel frontend. Obtain owner review of its own
-  contract before implementation. Investigate measured collector contention;
-  instrumented four-worker execution was slower. This and all later plan rows remain
-  proposed, without authorization for semantic/backend or executor expansion.
-- [ ] Meet the owner-approved
-  [parallel performance gate](../../project-docs/Development-Plan.md#parallel-performance-acceptance)
-  within the existing frontend deliverable: at least 1.5x/2x speedup with two/four
-  workers on representative real and larger balanced corpora, while retaining
-  single-worker/small-input guards and all correctness/resource gates. Use
-  uninstrumented measurements separately from correctness profiling. This exit
-  requirement must pass before substantial semantic/backend growth; the earlier
-  concurrency correctness proof remains complete.
+- [x] Define, implement and qualify bounded normal `.UBE`/direct-UBECore input
+  through the existing parallel frontend. Current source785/strict7 pass;
+  PROJECT-INPUT-EVIDENCE.md records the35-case/four-context/fault/publication scope.
+- [x] Qualify useful repeatable parallel gains under the owner's2026-11-01
+  initial-performance revision. Both complete sessions/252 trials retain all
+  serial/small and correctness/resource gates. Real gains are1.207-1.211x at two
+  workers and1.304-1.335x at four; balanced gains are1.279-1.288x and1.396-1.423x.
+  Original1.5x/2x targets remain future optimization targets, not claimed passes.
+  See PERFORMANCE-ACCEPTANCE.md and FRONTEND-PERFORMANCE-EVIDENCE.md.
+- [ ] Proposed next: define the development plan's bounded First semantic
+  checking contract, beginning with retained declaration details, scopes and
+  selected scalar rules. Implementation remains pending that contract/review.
 
 The 710-entry library inventory is target scope, not an instruction to implement
 all families before the compiler begins. No new compiler phase architecture is
@@ -98,12 +97,16 @@ failure regressions, exact tool/input identities, actual work/copy/allocation
 measurements, cleanup checks and applicable earlier tests. Archive integrity
 and path/syntax checks do not verify a compiler or its generated programs.
 
-## Proposed next action
+## Active next action
 
-Review the bounded project/source-reference input contract proposed in
-[`Development-Plan.md`](../../project-docs/Development-Plan.md). Preserve the
-qualified `TryParseSources` path, canonical source identity, original spans,
-failure/cancellation behavior and earlier gates. Current qualification and
-contention measurements are in `CONCURRENCY-EVIDENCE.md`. This and later rows
-remain proposed. Literal conversion, semantics, conditional selection, deferred
-grammar and backend expansion are separate unfinished work.
+The completed project/frontend deliverable has its exact source/test/measurement
+record in PROJECT-INPUT-EVIDENCE.md and FRONTEND-PERFORMANCE-EVIDENCE.md. Preserve
+its qualified ownership, library boundary, names, determinism and one worker budget.
+
+The next proposed development-plan row is **First semantic checking**. Before
+implementation, inventory the declaration details retained by syntax and define
+the bounded scope/lookup/type/diagnostic contract with independent cases, exact
+spans, failure publication and deterministic private body work. Do not guess
+missing declaration information from node kinds or create another source parser.
+Reusable text/numeric operations belong in UBECore; language policy stays here.
+No semantic/backend code or new phase architecture is authorized by this handoff.

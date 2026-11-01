@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Path $run -Force | Out-Null
 $paths = @('std-lib/tools/check-utf8.ps1','std-lib/src/portable/Utf8.bas',
     'std-lib/tests/utf8/entry.bas','std-lib/tests/utf8/adapters.ll',
     'std-lib/tests/utf8/probe.c','std-lib/tests/utf8/cases.json','std-lib/tests/utf8/allocation-probe.h',
-    'runtime/bootstrap_runtime.c','bootstrap/tools/verification.ps1')
+    'bootstrap/runtime/bootstrap_runtime.c','bootstrap/tools/verification.ps1')
 $inputs = @($paths | ForEach-Object { Get-ArtifactIdentity (Join-Path $root $_) })
 $commands = @()
 $checks = @()
@@ -39,7 +39,7 @@ try {
     $checks += 'exact library body; only the two documented envelope lines removed'
     $instrumentedRuntime = Join-Path $run 'instrumented-runtime.o'
     $instrument = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c',
-        '-include',(Join-Path $root 'std-lib/tests/utf8/allocation-probe.h'),(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$instrumentedRuntime) $root 30
+        '-include',(Join-Path $root 'std-lib/tests/utf8/allocation-probe.h'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$instrumentedRuntime) $root 30
     $commands += $instrument
     if ($instrument.timedOut -or $instrument.exit -ne 0) { throw "Runtime instrumentation failed: $($instrument.stderr)" }
     $hashes = @()

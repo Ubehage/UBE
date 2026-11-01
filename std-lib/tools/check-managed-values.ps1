@@ -45,7 +45,7 @@ try {
     $stageOneIdentity = @($accepted.artifacts | Where-Object path -CEQ $stage1)
     if ($stageOneIdentity.Count -ne 1 -or (Get-ArtifactIdentity $stage1).sha256 -cne $stageOneIdentity[0].sha256) { throw 'Stage-one artifact differs' }
     $paths = @((Join-Path $PSScriptRoot 'check-managed-values.ps1'),(Join-Path $root 'bootstrap/tools/verification.ps1'),
-        (Join-Path $root 'runtime/value_storage.h')) + @(Get-ChildItem -LiteralPath $fixtures -File | ForEach-Object FullName)
+        (Join-Path $root 'bootstrap/runtime/value_storage.h')) + @(Get-ChildItem -LiteralPath $fixtures -File | ForEach-Object FullName)
     $inputs = @($paths | Sort-Object -Unique | ForEach-Object { Get-ArtifactIdentity $_ })
     $suite = Get-Content -LiteralPath (Join-Path $fixtures 'cases.json') -Raw | ConvertFrom-Json
     $stages = @($stage1,$selection.compiler.path)

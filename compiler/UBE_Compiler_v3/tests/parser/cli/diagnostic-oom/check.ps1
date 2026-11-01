@@ -34,6 +34,23 @@ function Invoke-ParserDiagnosticRegression([string]$RawPath,[string[]]$Sources,$
     $helperBodies=[regex]::Matches($raw,'(?ms)^define i1 @'+[regex]::Escape($helper)+'\(ptr %arg\.\d+, ptr %arg\.\d+\) \{\r?\n.*?^\}\r?$')
     $fallbackBodies=[regex]::Matches($raw,'(?ms)^define void @'+[regex]::Escape($fallback)+'\(\) \{\r?\n.*?^\}\r?$')
     if($helperBodies.Count -ne 1 -or $fallbackBodies.Count -ne 1){throw 'Actual diagnostic signatures do not match the checked C adapter'}
+    # Empty position preparation is rootless. A genuine nonempty scalar read
+    # still admits its borrowed array owner; keep these two witnesses distinct.
+    $position=$procedures.TryEnvelopePosition;$header=$procedures.SourceSyntaxHeader;$reader=$procedures.TryReadSourceScalar
+    $positionBodies=[regex]::Matches($raw,'(?ms)^define i1 @'+[regex]::Escape($position)+'\(ptr %arg\.\d+, i32 %arg\.\d+, ptr %arg\.\d+\) \{\r?\n.*?^\}\r?$')
+    $headerBodies=[regex]::Matches($raw,'(?ms)^define ptr @'+[regex]::Escape($header)+'\(i32 %arg\.\d+\) \{\r?\n.*?^\}\r?$')
+    $readerBodies=[regex]::Matches($raw,'(?ms)^define i1 @'+[regex]::Escape($reader)+'\(ptr %arg\.\d+, i32 %arg\.\d+, ptr %arg\.\d+, ptr %arg\.\d+\) \{\r?\n.*?^\}\r?$')
+    if($positionBodies.Count -ne 1 -or $headerBodies.Count -ne 1 -or $readerBodies.Count -ne 1){throw 'Actual diagnostic position/header/scalar-reader signatures differ'}
+    $admission='@ube_(?:gc_root_enter(?:_layout)?|value_root_enter)\('
+    foreach($body in @($helperBodies[0].Value,$positionBodies[0].Value,$headerBodies[0].Value)){
+        if($body -match $admission){throw 'Empty diagnostic path acquired a managed root; review its full-registry success witness'}
+    }
+    $borrow='call i32 @ube_value_root_enter\(ptr %root\.borrow\.\d+, ptr %borrow\.\d+, ptr @ube\.value\.\d+\)'
+    if([regex]::Matches($readerBodies[0].Value,$admission).Count -ne 1 -or [regex]::Matches($readerBodies[0].Value,$borrow).Count -ne 1){throw 'Nonempty diagnostic position witness requires the actual scalar-reader borrow root'}
+    foreach($edge in @(@($helperBodies[0].Value,'call i1 @'+$position+'('),@($helperBodies[0].Value,'call ptr @'+$header+'('),@($positionBodies[0].Value,'call i1 @'+$reader+'('))){
+        if([regex]::Matches($edge[0],[regex]::Escape($edge[1])).Count -ne 1){throw 'Actual diagnostic witness call path differs'}
+    }
+    $footprint=[pscustomobject]@{helper=$helper;position=$position;header=$header;reader=$reader;helperRoots=0;positionRoots=0;headerRoots=0;readerBorrowRoots=1;emptyPath='FirstByte=ContentStart=0 skips scalar reads';nonemptyPath='One valid byte, FirstByte=1 invokes the actual scalar reader'}
     if($helperBodies[0].Value -match '@ube_(long_to_string|string_concat)\('){throw 'Parser diagnostic reintroduced allocating String formatting'}
     if($fallbackBodies[0].Value -match '@ube_(?:gc_root_enter(?:_layout)?|value_root_enter|allocate_string|long_to_string|string_concat)\('){throw 'Static parser fallback requires managed admission or String allocation'}
     foreach($layout in @(@('SourceDocument','ptr, i32, i32, i32'),@('SyntaxFailure','i32, i32, i32'))) {
@@ -47,7 +64,7 @@ function Invoke-ParserDiagnosticRegression([string]$RawPath,[string[]]$Sources,$
     $adapter=Join-Path $Destination 'adapted.ll';[IO.File]::WriteAllText($adapter,$adapted,$utf8)
     $runtime=Join-Path $Destination 'runtime.o';$exe=Join-Path $Destination 'probe.exe'
     $commands=@();$cases=@();$checks=@();$success=$false;$failure=$null
-    $inputPaths=@($RawPath)+@($Sources)+@($Selection.clang.path,$Selection.unicodeRuntime.path,(Join-Path $Repository 'runtime/bootstrap_runtime.c'),(Join-Path $Repository 'runtime/value_storage.h'),(Join-Path $Repository 'std-lib/src/win-lib/file_primitives.c'))
+    $inputPaths=@($RawPath)+@($Sources)+@($Selection.clang.path,$Selection.unicodeRuntime.path,(Join-Path $Repository 'bootstrap/runtime/bootstrap_runtime.c'),(Join-Path $Repository 'bootstrap/runtime/value_storage.h'),(Join-Path $Repository 'bootstrap/runtime/windows/file_primitives.c'))
     $inputPaths+=@(Get-ChildItem -LiteralPath $fixture -File|ForEach-Object FullName)
     $inputs=@($inputPaths|ForEach-Object {$_}|Sort-Object -Unique|ForEach-Object {Get-ArtifactIdentity $_})
     try {
@@ -92,16 +109,24 @@ function Invoke-ParserDiagnosticRegression([string]$RawPath,[string[]]$Sources,$
         $commands+=$actual
         $passed=-not $actual.timedOut -and $actual.exit -eq 0 -and $actual.stdout -ceq "error UBE1210: insufficient syntax storage`n" -and $actual.stderr -ceq "MEASURE runtime malloc:0 calloc:0 realloc:0`n"
         $cases+=[pscustomobject]@{mode='deny';kind='real full root registry';expectedStdout="error UBE1210: insufficient syntax storage`n";actual=$actual;passed=$passed}
-        if(-not $passed){throw 'Real root admission failure did not return fresh False, Err7 and actual static fallback'}
+        if(-not $passed){throw 'Real scalar-reader borrow denial did not return fresh False, Err7 and actual static fallback'}
+        foreach($witness in @('caller-admission','rootless')) {
+            $actual=Invoke-BoundedProcess $exe @('deny',$witness) $Repository 60
+            $commands+=$actual
+            $expected=if($witness -ceq 'rootless'){$messages[101]+" (next lines: line, column, byte)`n1`n1`n0`nerror UBE1210: insufficient syntax storage`n"}else{"error UBE1210: insufficient syntax storage`n"}
+            $passed=-not $actual.timedOut -and $actual.exit -eq 0 -and $actual.stdout -ceq $expected -and $actual.stderr -ceq "MEASURE runtime malloc:0 calloc:0 realloc:0`n"
+            $cases+=[pscustomobject]@{mode='deny';kind=('full registry '+$witness);expectedStdout=$expected;actual=$actual;passed=$passed}
+            if(-not $passed){throw ('Full registry '+$witness+' did not preserve exact output/Err/root/allocation obligations')}
+        }
         foreach($identity in $inputs) {
             $after=Get-ArtifactIdentity $identity.path
             if($after.sha256 -cne $identity.sha256 -or $after.bytes -ne $identity.bytes){throw "Diagnostic regression input changed: $($identity.path)"}
         }
-        $checks=@('All eleven new failure kinds and unknown-kind default have exact headers and numeric coordinates','All successful helpers preserve incoming Err77 and document/failure bytes','Persistent runtime allocator denial causes zero malloc/calloc/realloc attempts','Position preparation failure returns fresh False and preserves Err77','Actual full root registry returns fresh False and Err7, retains every root, and permits actual rootless static fallback','All roots are released and all input identities remain unchanged')
+        $checks=@('All eleven new failure kinds and unknown-kind default have exact headers and numeric coordinates','All successful helpers preserve incoming Err77 and document/failure bytes','Persistent runtime allocator denial causes zero malloc/calloc/realloc attempts','Position preparation failure returns fresh False and preserves Err77','Native caller roots the writable document.bytes location before every entry','Actual registry reaches unchanged1048576 capacity after caller retention; a valid nonempty position reaches genuine scalar-reader borrow denial with fresh Err7 and no root/input leak','A distinct required caller location cannot enter at full capacity and reports fresh Err7 before UBE work','Actual empty helper succeeds at full capacity with exact Err77/revision/root/input preservation before independently testing the rootless static fallback at that same capacity','All roots and nonempty fixture payload are released and all input identities remain unchanged')
         $success=$true
     } catch {$failure=$_.Exception.Message} finally {
         $artifacts=@($adapter,$runtime,$exe|Where-Object {[IO.File]::Exists($_)}|ForEach-Object {Get-ArtifactIdentity $_})
-        $report=[pscustomobject]@{schema='ube-parser-diagnostic-oom-regression-1';success=$success;failure=$failure;helper=$helper;fallback=$fallback;inputs=$inputs;artifacts=$artifacts;checks=$checks;cases=$cases;commands=$commands;scope='Intact actual production UBE helper/fallback bodies and complete production runtime. Only generated native export wrappers and runtime allocation observation differ. Counts cover runtime allocator calls, not CRT internals. Historical pre-fix reports pin Kind5/101 exit70 separately.'}
+        $report=[pscustomobject]@{schema='ube-parser-diagnostic-oom-regression-1';success=$success;failure=$failure;helper=$helper;fallback=$fallback;rootFootprint=$footprint;inputs=$inputs;artifacts=$artifacts;checks=$checks;cases=$cases;commands=$commands;scope='Intact actual production UBE helper/fallback bodies and complete production runtime. Empty rootless success and nonempty scalar-reader borrow denial are distinct full-registry witnesses. Only generated native export wrappers and runtime allocation observation differ. Nonempty setup and payload cleanup are outside measured helper/fallback work. Counts cover runtime allocator calls, not CRT internals. Historical pre-fix reports pin Kind5/101 exit70 separately.'}
         $reportPath=Join-Path $Destination 'report.json'
         [IO.File]::WriteAllText($reportPath,($report|ConvertTo-Json -Depth 25),$utf8)
     }

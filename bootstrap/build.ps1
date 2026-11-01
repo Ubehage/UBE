@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Codegen test build failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Codegen tests failed' }
 
 & gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' '-c' `
-    (Join-Path $root 'runtime/bootstrap_runtime.c') '-o' (Join-Path $out 'bootstrap_runtime.o')
+    (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c') '-o' (Join-Path $out 'bootstrap_runtime.o')
 if ($LASTEXITCODE -ne 0) { throw 'Bootstrap runtime build failed' }
 $errorStateProbe = Join-Path $out 'error-state-probe.exe'
 & gcc '-std=c17' '-Wall' '-Wextra' '-Wpedantic' '-Werror' `
@@ -157,7 +157,7 @@ $gcConcurrencyOutput = & $gcConcurrencyProbe
 if ($LASTEXITCODE -ne 0 -or $gcConcurrencyOutput -ne 'GC concurrency probe passed') {
     throw 'Managed tracing concurrency probe failed'
 }
-& g++ @common '-c' (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') `
+& g++ @common '-c' (Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp') `
     '-o' (Join-Path $out 'bootstrap_unicode_runtime.o')
 if ($LASTEXITCODE -ne 0) { throw 'Bootstrap Unicode runtime build failed' }
 
@@ -1681,8 +1681,8 @@ $v3Rp1BuildManifest = [ordered]@{
     sources = $v3SourceHashes
     core_library_project = (Get-FileHash -LiteralPath $ubeCoreProject -Algorithm SHA256).Hash
     core_library_identity_source = (Get-FileHash -LiteralPath (Join-Path $root 'archive/source-library/src/portable/CoreIdentity.bas') -Algorithm SHA256).Hash
-    runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
-    unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
+    runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
+    unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
     runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_runtime.o') -Algorithm SHA256).Hash
     unicode_runtime_object = (Get-FileHash -LiteralPath (Join-Path $out 'bootstrap_unicode_runtime.o') -Algorithm SHA256).Hash
     llvm_ir = $v3Rp1StageOneIrHash
@@ -1949,8 +1949,8 @@ $v2BootstrapManifest = [ordered]@{
     inputs = [ordered]@{
         project = (Get-FileHash -LiteralPath (Join-Path $v2Project 'UBE_Compiler_v2.UBE') -Algorithm SHA256).Hash
         source = (Get-FileHash -LiteralPath (Join-Path $v2Project 'Main.bas') -Algorithm SHA256).Hash
-        runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
-        unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
+        runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c') -Algorithm SHA256).Hash
+        unicode_runtime_source = (Get-FileHash -LiteralPath (Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp') -Algorithm SHA256).Hash
     }
     artifacts = [ordered]@{
         stage0 = (Get-FileHash -LiteralPath (Join-Path $out 'ubec.exe') -Algorithm SHA256).Hash

@@ -1,5 +1,5 @@
 /* Independent assertions around intact compiled UBE reference procedures. */
-#include "../../../../runtime/bootstrap_runtime.c"
+#include "../../../../bootstrap/runtime/bootstrap_runtime.c"
 
 extern void probe_create(void** output);
 extern void probe_allocate(void** output);

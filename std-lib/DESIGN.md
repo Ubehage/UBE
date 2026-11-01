@@ -26,8 +26,10 @@ evidence are in `BYTE-BUFFER-CONTRACT.md` and `BYTE-BUFFER-EVIDENCE.md`.
 The concrete source-input consumer additionally requires counted UTF-8 command
 arguments/paths and bounded recoverable byte reads with explicit external-token
 ownership. `FILE-BYTES-CONTRACT.md` defines this narrow primitive boundary.
-Declarations are portable; the temporary Windows implementation is isolated in
-`src/win-lib/`. Ordinary source intake, chunk policy and snapshot publication are
+Declarations are portable; the temporary C implementation is isolated in
+`../bootstrap/runtime/windows/`. The owner moved bootstrap support out of the
+library source tree on 2026-11-01. Future UBE platform declarations still belong
+in the appropriate library platform folder. Ordinary source intake, chunk policy and snapshot publication are
 UBE, with compiler text policy outside the library. Shared-library packaging,
 general streams and a replacement builtin String are not prerequisites.
 

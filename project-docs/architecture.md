@@ -128,7 +128,7 @@ The intended repository layout, as implementation begins, is:
 ```text
 compiler/       Self-hosting UBE compiler
 bootstrap/      Stage-zero compiler and reproducible bootstrap scripts
-runtime/        Minimal target and ABI substrate
+bootstrap/runtime/  Temporary native target/ABI substrate and Windows bootstrap adapters
 std-lib/        Fresh standard source library written in UBE
 archive/        Preserved previous source library and integrity snapshot
 docs/           Public offline language manual

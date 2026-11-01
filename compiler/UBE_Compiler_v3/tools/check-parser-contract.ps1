@@ -31,7 +31,9 @@ $diagnosticKinds=@('ExpectedExpression','ExpectedToken','ExpectedIdentifier','Un
 $expectedProofCounts=[ordered]@{
     'native-values'=66;'ordinary-records'=8;'managed-substrate'=8;'managed-values'=52
     'utf8-decoder'=8;'byte-buffer'=13;'byte-buffer-costs'=5;'source-references'=91
-    'entry-admission'=6;'file-bytes'=4;'source-input'=87;'unicode'=8;'scanner'=9
+    'entry-admission'=6;'value-materialization'=25;'caller-retention'=35;'root-registry'=87
+    'file-bytes'=4;'path-bytes'=7;'source-input'=107;'unicode'=8;'scanner'=9
+    'project-manifest'=7;'project-intake'=8;'project-display'=4
     'reference-storage'=26;'reference-order'=2;'scalar-output'=2;'thread-statement'=4
     'thread-references'=28;'expression-stack'=28;'gc-initialization'=1
 }

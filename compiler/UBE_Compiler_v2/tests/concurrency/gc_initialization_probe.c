@@ -7,7 +7,7 @@ static HANDLE denied_event(LPSECURITY_ATTRIBUTES security, BOOL manual, BOOL ini
     return NULL;
 }
 #define CreateEventA denied_event
-#include "../../../../runtime/bootstrap_runtime.c"
+#include "../../../../bootstrap/runtime/bootstrap_runtime.c"
 #undef CreateEventA
 
 /* Ordinary managed roots/objects do not require a callback source event. */

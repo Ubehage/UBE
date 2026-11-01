@@ -40,7 +40,7 @@ function New-ProbeProject([string]$Mode){
     $sourceNames=@('SourceInput.bas')
     if($Mode -ceq 'traversal'){$sourceNames+=@('ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas')}
     $sources=@()
-    foreach($name in $sourceNames){$sources+=Join-Path $root ('compiler/UBE_Compiler_v3/'+$name)}
+    foreach($name in $sourceNames){$sources+=Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name)}
     $sources+=Join-Path $fixture 'SyntaxStorage.bas'
     if($Mode -ceq 'traversal'){$sources+=Join-Path $fixture 'ExpressionTraversal.bas'}
     $sources+=Join-Path $fixture 'Entry.bas'
@@ -59,25 +59,43 @@ function New-ProbeProject([string]$Mode){
     return [pscustomobject]@{directory=$directory;manifest=$manifest;originals=$sources;ordered=@(Get-ProjectSources $manifest)}
 }
 function New-ObservedRuntime{
-    $rawPath=Join-Path $run 'runtime-observed-raw.ll';$observedPath=Join-Path $run 'runtime-observed.ll'
-    $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-Werror','-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),'-S','-emit-llvm',(Join-Path $fixture 'runtime-observed.c'),'-o',$rawPath) 120
-    $raw=[IO.File]::ReadAllText($rawPath)
-    Assert-Fact ([regex]::Matches($raw,'(?m)^@ube_gc_root_count = [^\r\n]*global i64 0, align 8\r?$').Count -eq 1) 'Exact i64 runtime root counter is present'
-    $pattern='(?m)^(?<indent>[ \t]*)store i64 (?<value>[^,\r\n]+), ptr @ube_gc_root_count, align 8(?<suffix>[^\r\n]*)\r?$'
-    $stores=[regex]::Matches($raw,$pattern)
-    Assert-Fact ($stores.Count -ge 3) 'All ordinary runtime root-count store sites are observable' $stores.Count
-    $allStores=[regex]::Matches($raw,'(?m)^[ \t]*store[^\r\n]*ptr @ube_gc_root_count[^\r\n]*\r?$')
-    Assert-Fact ($allStores.Count -eq $stores.Count) 'No runtime root-count store escapes the exact observation signature'
-    if($raw -match '@parser_probe_root_count_changed'){throw 'Unexpected pre-existing root observer'}
-    $observed=[regex]::Replace($raw,$pattern,[Text.RegularExpressions.MatchEvaluator]{param($match)
-        $match.Value+"`n"+$match.Groups['indent'].Value+'call void @parser_probe_root_count_changed(i64 '+$match.Groups['value'].Value+')'
-    })
-    $observed+="`ndeclare void @parser_probe_root_count_changed(i64)`n"
-    if([regex]::Matches($observed,'call void @parser_probe_root_count_changed\(i64 ').Count -ne $stores.Count){throw 'Root observation transform incomplete'}
-    [IO.File]::WriteAllText($observedPath,$observed,$utf8)
-    $object=Join-Path $run 'runtime-observed.o'
+    $rawPath=Join-Path $run 'runtime-observed-raw.ll';$observedPath=Join-Path $run 'runtime-observed.ll';$object=Join-Path $run 'runtime-observed.o'
+    $fixtureRuntime=Join-Path $fixture 'runtime-observed.c'
+    # Keep the unmodified runtime LLVM as a separate provenance artifact.
+    $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-Werror','-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),'-S','-emit-llvm',$fixtureRuntime,'-o',$rawPath) 120
+    $runtime=[IO.File]::ReadAllText((Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')).Replace([string][char]13,'')
+    $count='#define ube_gc_root_count ((size_t)(__atomic_load_n(&ube_root_registry.state,__ATOMIC_SEQ_CST)&UBE_ROOT_COUNT_MASK))'
+    Assert-Fact ([regex]::Matches($runtime,[regex]::Escape($count)).Count -eq 1) 'Exact masked atomic runtime root counter is present'
+    $admission=@'
+        if(__atomic_compare_exchange_n(&ube_root_registry.state,&current,current+1,0,
+                __ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST))return 1;
+'@
+    $removal='(void)__atomic_fetch_sub(&ube_root_registry.state,UINT64_C(1),__ATOMIC_SEQ_CST);'
+    $clear='__atomic_store_n(&ube_root_registry.state,UBE_ROOT_CLOSED,__ATOMIC_SEQ_CST);'
+    $mutations=@($admission,$removal,$clear)
+    $exact=@($mutations|Where-Object {[regex]::Matches($runtime,[regex]::Escape($_)).Count -eq 1})
+    $allMutations=[regex]::Matches($runtime,'__atomic_(?:compare_exchange_n|fetch_sub|store_n)\(&ube_root_registry\.state,')
+    Assert-Fact ($exact.Count -eq 3 -and $allMutations.Count -eq 3) 'Every actual runtime root-count mutation has an exact observation site'
+    if($runtime.Contains('parser_probe_root_count_changed')){throw 'Unexpected prior root observer'}
+    # Callbacks perform TLS/atomic scalar observations only. A successful CAS
+    # supplies its exact count; a later load could miss a concurrent peak.
+    # CLOSED is never exposed as part of the count.
+    $runtime=$runtime.Replace($admission,$admission.Replace('return 1;','{parser_probe_root_count_changed((size_t)((current+1)&UBE_ROOT_COUNT_MASK));return 1;}'))
+    $runtime=$runtime.Replace($removal,'uint64_t observed_previous=__atomic_fetch_sub(&ube_root_registry.state,UINT64_C(1),__ATOMIC_SEQ_CST); parser_probe_root_count_changed((size_t)((observed_previous-1)&UBE_ROOT_COUNT_MASK));')
+    $runtime=$runtime.Replace($clear,$clear+' parser_probe_root_count_changed(0);')
+    Assert-Fact ([regex]::Matches($runtime,[regex]::Escape('parser_probe_root_count_changed(')).Count -eq 3) 'Root observer transform covers every exact count mutation'
+    $runtimePath=Join-Path $run 'runtime-observed.c'
+    $declaration='#include <stddef.h>'+[Environment]::NewLine+'void parser_probe_root_count_changed(size_t);'+[Environment]::NewLine
+    [IO.File]::WriteAllText($runtimePath,$declaration+$runtime,$utf8)
+    $bridge=[IO.File]::ReadAllText($fixtureRuntime)
+    $include='#include "../../../../../bootstrap/runtime/bootstrap_runtime.c"'
+    if([regex]::Matches($bridge,[regex]::Escape($include)).Count -ne 1){throw 'Unique observed runtime include required'}
+    $bridge=$bridge.Replace($include,'#include "runtime-observed.c"')
+    $bridgePath=Join-Path $run 'runtime-observer-bridge.c'
+    [IO.File]::WriteAllText($bridgePath,$bridge,$utf8)
+    $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-Werror','-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),'-I',(Join-Path $root 'bootstrap/runtime'),'-S','-emit-llvm',$bridgePath,'-o',$observedPath) 120
     $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-c','-x','ir',$observedPath,'-o',$object) 120
-    $script:rootObserver=[pscustomobject]@{raw=(Get-ArtifactIdentity $rawPath);observed=(Get-ArtifactIdentity $observedPath);object=(Get-ArtifactIdentity $object);transformedRootCountStores=$stores.Count;scope='Callbacks receive every actual stored global root count under the original runtime lock; no production runtime source is changed.'}
+    $script:rootObserver=[pscustomobject]@{raw=(Get-ArtifactIdentity $rawPath);source=(Get-ArtifactIdentity $runtimePath);bridge=(Get-ArtifactIdentity $bridgePath);observed=(Get-ArtifactIdentity $observedPath);object=(Get-ArtifactIdentity $object);countMutationSites=3;scope='Exact successful reservation, removal and shutdown-clear counts, masked from the packed atomic state. Callbacks execute only in private runtime copies and never acquire heap/stripe locks or allocate.'}
     return $object
 }
 function Assert-Measurements($Rows,[string]$Mode){
@@ -179,8 +197,8 @@ try{
     $inputPaths=@((Join-Path $PSScriptRoot 'check-parser-probes.ps1'),(Join-Path $root 'compiler/UBE_Compiler_v3/PARSER-PROBES.md'),$SelectionPath,$baselineIdentity.path)
     $inputPaths+=@((Get-ChildItem -LiteralPath $fixture -File).FullName)
     $inputPaths+=@($baseline.inputs|ForEach-Object path)
-    $inputPaths+=@('SourceInput.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas'|ForEach-Object {Join-Path $root ('compiler/UBE_Compiler_v3/'+$_)})
-    $inputPaths+=@((Join-Path $root 'std-lib/UBECore.UBE'),(Join-Path $root 'runtime/bootstrap_runtime.c'),(Join-Path $root 'runtime/value_storage.h'),(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'std-lib/tests/byte-storage/allocation-probe.h'),(Join-Path $root 'bootstrap/tools/verification.ps1'))
+    $inputPaths+=@('SourceInput.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas'|ForEach-Object {Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$_)})
+    $inputPaths+=@((Join-Path $root 'std-lib/UBECore.UBE'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),(Join-Path $root 'bootstrap/runtime/value_storage.h'),(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'std-lib/tests/byte-storage/allocation-probe.h'),(Join-Path $root 'bootstrap/tools/verification.ps1'))
     $inputs=@($inputPaths|Sort-Object -Unique|ForEach-Object {Get-ArtifactIdentity $_})
     $oracleCounts=Write-ParserProbeOracles (Split-Path $fixture -Parent) (Join-Path $run 'oracles.h')
     Assert-Fact ($oracleCounts.syntaxTrees -eq 77) 'All 77 frozen syntax shapes have independent postorder/storage oracles' $oracleCounts

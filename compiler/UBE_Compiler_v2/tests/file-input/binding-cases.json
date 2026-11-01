@@ -26,6 +26,16 @@
     {"name":"error-byref-number","role":"Error.Set","header":"Intrinsic Function Bound(ByRef Number As Long) As Boolean","diagnostic":"UBE3232"},
     {"name":"error-integer-number","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Integer) As Boolean","diagnostic":"UBE3232"},
     {"name":"error-long-result","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Long) As Long","diagnostic":"UBE3232"},
-    {"name":"error-extra-argument","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Long, ByVal Extra As Long) As Boolean","diagnostic":"UBE3232"}
+    {"name":"error-extra-argument","role":"Error.Set","header":"Intrinsic Function Bound(ByVal Number As Long, ByVal Extra As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"directory-byval-result","role":"Process.TryCurrentDirectory","header":"Intrinsic Function Bound(ByVal Published() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"directory-integer-result","role":"Process.TryCurrentDirectory","header":"Intrinsic Function Bound(ByRef Published() As Integer, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"directory-byval-failure","role":"Process.TryCurrentDirectory","header":"Intrinsic Function Bound(ByRef Published() As Byte, ByVal Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"directory-long-return","role":"Process.TryCurrentDirectory","header":"Intrinsic Function Bound(ByRef Published() As Byte, ByRef Failure As Long) As Long","diagnostic":"UBE3232"},
+    {"name":"identity-byref-token","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByRef Token As Long, ByRef Published() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"identity-integer-token","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByVal Token As Integer, ByRef Published() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"identity-byval-result","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByVal Token As Long, ByVal Published() As Byte, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"identity-integer-result","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Published() As Integer, ByRef Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"identity-byval-failure","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Published() As Byte, ByVal Failure As Long) As Boolean","diagnostic":"UBE3232"},
+    {"name":"identity-array-return","role":"File.TryIdentity","header":"Intrinsic Function Bound(ByVal Token As Long, ByRef Published() As Byte, ByRef Failure As Long) As Boolean()","diagnostic":"UBE3232"}
   ]
 }

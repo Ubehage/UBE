@@ -99,7 +99,7 @@ signatures. Scheduling, drain policy and source ordering stay ordinary UBE in
 the compiler. No generic executor or second worker budget is introduced.
 
 Bindings use checked signature metadata, not privileged source function names.
-Minimal Windows adapters belong in `std-lib/src/win-lib/thread_primitives.c`;
+Minimal bootstrap Windows adapters live in `bootstrap/runtime/windows/thread_primitives.c`;
 the bootstrap runtime supplies existing TLS, registry and GC mechanisms.
 Boolean-status C adapters use int32_t returns and uint8_t output slots, with
 explicit ABI assertions. Fresh status must use a new error occurrence/revision

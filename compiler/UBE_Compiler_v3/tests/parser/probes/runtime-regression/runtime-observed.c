@@ -1,6 +1,6 @@
 /* Test-only readonly state observations. The included runtime body is intact. */
 #ifndef UBE_REGRESSION_RUNTIME_SOURCE
-#define UBE_REGRESSION_RUNTIME_SOURCE "../../../../../../runtime/bootstrap_runtime.c"
+#define UBE_REGRESSION_RUNTIME_SOURCE "../../../../../../bootstrap/runtime/bootstrap_runtime.c"
 #endif
 #include UBE_REGRESSION_RUNTIME_SOURCE
 

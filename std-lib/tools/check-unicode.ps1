@@ -7,7 +7,7 @@ $run=Join-Path $root ('bootstrap/out/unicode/'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $run | Out-Null
 $data=Join-Path $root 'std-lib/data/unicode/18.0.0'
 $fixture=Join-Path $root 'std-lib/tests/unicode'
-$paths=@('std-lib/tools/check-unicode.ps1','std-lib/tools/generate-unicode.ps1','std-lib/UNICODE-CONTRACT.md','std-lib/src/portable/Unicode.bas','std-lib/src/portable/Utf8Cursor.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/ByteBuffer.bas','std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h','runtime/bootstrap_runtime.c','bootstrap/tools/verification.ps1','bootstrap/include/ube/unicode_case_folding.hpp','bootstrap/include/ube/unicode_letter_ranges.hpp') | ForEach-Object {Join-Path $root $_}
+$paths=@('std-lib/tools/check-unicode.ps1','std-lib/tools/generate-unicode.ps1','std-lib/UNICODE-CONTRACT.md','std-lib/src/portable/Unicode.bas','std-lib/src/portable/Utf8Cursor.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/ByteBuffer.bas','std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h','bootstrap/runtime/bootstrap_runtime.c','bootstrap/tools/verification.ps1','bootstrap/include/ube/unicode_case_folding.hpp','bootstrap/include/ube/unicode_letter_ranges.hpp') | ForEach-Object {Join-Path $root $_}
 $paths+=@(Get-ChildItem -LiteralPath $data,$fixture -File | ForEach-Object FullName)
 $inputs=@($paths|ForEach-Object {Get-ArtifactIdentity $_})
 $checks=@();$commands=@();$measurements=@();$selection=$null;$success=$false;$failure=$null
@@ -61,7 +61,7 @@ try {
     $accepted=Get-Content -LiteralPath $selection.manifest.path -Raw|ConvertFrom-Json
     if(-not $accepted.success){throw 'Selected compiler acceptance failed'}
     foreach($identity in $accepted.inputs){if((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256){throw "Accepted input changed: $($identity.path)"}}
-    $runtimeSource=Get-ArtifactIdentity (Join-Path $root 'runtime/bootstrap_runtime.c')
+    $runtimeSource=Get-ArtifactIdentity (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')
     $acceptedRuntimeSource=@($accepted.inputs|Where-Object path -CEQ $runtimeSource.path)
     if($acceptedRuntimeSource.Count -ne 1 -or $acceptedRuntimeSource[0].sha256 -cne $runtimeSource.sha256){throw 'Instrumented runtime source differs from accepted build input'}
     foreach($identity in @($selection.compiler,$selection.runtime,$selection.unicodeRuntime)){$found=@($accepted.artifacts|Where-Object path -CEQ $identity.path);if($found.Count -ne 1 -or $found[0].sha256 -cne $identity.sha256){throw 'Selected artifact differs from accepted manifest'}}
@@ -78,7 +78,7 @@ try {
     $procedures=@{};$procedureIndex=0
     foreach($path in $sources){foreach($match in [regex]::Matches([IO.File]::ReadAllText($path),'(?m)^(?:Intrinsic )?(?:Sub|Function) ([A-Za-z_][A-Za-z_0-9]*)\b')){if($procedures.ContainsKey($match.Groups[1].Value)){throw 'Duplicate bridge name'};$procedures[$match.Groups[1].Value]='ube.p'+$procedureIndex;++$procedureIndex}}
     $runtime=Join-Path $run 'instrumented-runtime.o'
-    $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c','-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime)
+    $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c','-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime)
     $hashes=@()
     foreach($stage in @($stageOne,$selection.compiler.path)) {
         $index=$hashes.Count+1;$stem=Join-Path $run ('stage'+$index);$ir=$stem+'.ll'

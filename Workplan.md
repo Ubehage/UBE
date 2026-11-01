@@ -12,7 +12,92 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
-## Current priority — 2026-10-31
+## Current priority - 2026-11-01
+
+Owner-requested bootstrap cleanup: consolidate the former root `runtime/`
+folder and the two C adapters from `std-lib/src/win-lib/` under
+`bootstrap/runtime/` (Windows adapters in `windows/`). Build/test paths and
+native include paths are updated; logic and public names remain unchanged.
+Fresh source qualification passes all 785 assertions on cohort `2c0fb05a3c4b4912861db33043acdb40`.
+Strict source/local/project CLI gates pass 104/52/1202 cases/assertions, and the
+borrowed-lifetime gate passes all 56 runs. The 96 focused relocation checks,
+unchanged production LLVM and `git diff --check` complete this filesystem correction.
+Exact commands, current identities and supported limits are in compiler v3 Progress.md.
+
+Owner-requested filesystem cleanup: put fresh v3's production modules/classes
+under `compiler/UBE_Compiler_v3/src/`, separate from plans and definitions.
+The project manifest stays at the v3 root; tests/tools and contributor guidance
+retain their locations. All 24 source files are byte-identical after relocation;
+the ordered manifest and active tool/CLI-oracle paths are updated. Fresh source
+qualification passes all 785 assertions; source/local/project CLI gates pass
+104/52/1202 exact processes/assertions. Both production LLVM stages are identical
+to the accepted pre-relocation CLI. The 122 focused relocation checks and
+`git diff --check` passed. Before the runtime cleanup, this source-folder cohort
+was `47d728ea15684fdd8639e444709df30b`; the current cohort is recorded above.
+Details and exact evidence are in compiler v3's `Progress.md`. This filesystem
+correction changes no language or compiler behavior.
+
+Completed the owner-requested bounded normal `.UBE` input and qualified parallel
+frontend deliverable. The accepted pre-relocation source cohort is
+`a732173e4f3d450cb7a6feaa519af1d3`:785 source acceptance assertions and all seven
+strict retained gates pass. Both complete performance sessions retain252 trials.
+All original serial/small-input guards pass. The owner accepted close initial
+gains on2026-11-01;1.5x/two-worker and2x/four-worker remain optimization targets.
+The original eight numerical target misses remain recorded, with no baseline reset.
+
+- [x] Freeze bounded project/reference, path/identity, source-order, span,
+  diagnostic, CLI, ownership and failure/publication contracts before coding.
+- [x] Freeze representative real/balanced/uneven/small corpora and complete
+  reference streams before optimization; preserve both original baselines.
+- [x] Implement and qualify ordered native MODULE input, direct explicit
+  UBECore references, metadata/discovery and whole-result publication through
+  the same `TryParseSources` worker budget. Current native consumer evidence
+  covers35 cases, four independent contexts and375 observed allocator failures.
+  The optional physical case-sensitive36th case is historical evidence.
+- [x] Qualify the reviewed unused-argument-slot correction, address-owned root
+  synchronization and existing coordinator wait of1ms. Native tests preserve
+  the32-byte root ABI, global1,048,576 capacity, cross-thread cleanup, safe
+  absence and initialization fallback. No additional executor or user ABI was added.
+- [x] Pass fresh source, parser, source/local/project CLI, lifetime and concurrency
+  gates; qualify repeatable useful gains through both complete measurement sessions.
+
+| Corpus | Session1 speedup, two/four workers | Session2 speedup, two/four workers |
+| --- | ---: | ---: |
+| Real25-module corpus | 1.207x /1.304x | 1.211x /1.335x |
+| Balanced32-module corpus | 1.279x /1.396x | 1.288x /1.423x |
+
+Every parallel trial beats every serial trial within its session/main corpus;
+four-worker trials also beat all two-worker trials. Source bytes, deterministic
+results, zero worker source-payload copies, cancellation/drain, old-output
+retention and actual resource-failure obligations remain qualified. Initial
+performance acceptance follows the explicit owner revision, rather than claiming
+the original numerical targets passed. Further optimization remains planned.
+
+The compiler owns project/language policy and orchestration; UBECore owns reusable
+algorithms and generic facilities. Shared owners remain immutable, worker results
+private and publication deterministic under one budget. Root/collector changes
+stay in the approved irreducible bootstrap substrate. Established names remain.
+
+Evidence and exact commands: [project qualification](compiler/UBE_Compiler_v3/PROJECT-INPUT-EVIDENCE.md),
+[performance qualification](compiler/UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md),
+[owner acceptance policy](compiler/UBE_Compiler_v3/PERFORMANCE-ACCEPTANCE.md).
+The final acceptance record is `0340fcdd651b45b5bf7ed1d6cd9fab7a/acceptance.json`
+under `bootstrap/out/frontend-performance/`, SHA-256
+`D0F00D1685929368F7E72E652623AC29F3E9C193E309D3CF93873CDF168FB36B`.
+
+Next proposed work is the existing **First semantic checking** deliverable in
+[the development plan](project-docs/Development-Plan.md#proposed-dependency-order).
+Begin with a bounded contract and an inventory of declaration details retained
+by syntax; preserve source spans, lookup/type rules, library boundaries and the
+qualified concurrency path. No semantic implementation or new executor has begun.
+Full grammar, semantic validation and code generation remain unfinished; a
+successful syntax check still reports semantic checking unavailable and emits
+no executable. The prior push remains `41632c4`; no new push is authorized.
+
+## Historical concurrency checkpoint
+
+The results and then-pending actions below describe the preceding concurrency
+goal. Current project/frontend acceptance and the next action are recorded above.
 
 Completed: the owner-requested bounded compiler-concurrency contract and actual
 UBE-driven proof. Compiler-owned `TryParseSources` uses the existing source,
@@ -22,11 +107,11 @@ the same complete results and canonical first failures. Cancellation and actual
 allocation/root/start/wait failures preserve earlier output and drain workers.
 UBECore retains generic mechanisms without source policy or an executor.
 
-The current source-built bootstrap passes 592 grouped assertions. Bounded
+The then-current source-built bootstrap passed 592 grouped assertions. Bounded
 field-only reference classes and scalar/reference `CallNew` captures preserve
 ordinary independent array/record copies. UBECore's `Threads` Try APIs provide
 fresh identity, liveness, stop, wait and yield status. The current concurrency
-proof passes 5652 native assertions through both stages; retained parser and
+proof passed 5652 native assertions through both stages; retained parser and
 strict CLI gates pass 4049 and 217 checks, and the rebuilt local executable
 passes 41 exact process oracles. Exact commands, identities, costs and limits
 are in [CONCURRENCY-EVIDENCE.md](compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
@@ -41,9 +126,10 @@ all correctness/resource gates retained. Measurement and optimization remain
 unfinished. This is required before the parallel frontend is marked complete
 and before substantial semantic/backend growth; it does not reopen the completed
 concurrency correctness proof or start another implementation goal.
-The [development plan](project-docs/Development-Plan.md) proposes bounded normal
-`.UBE`/direct-UBECore input and parallel frontend integration next. That row and
-every later row remain proposed and need their own contract and owner review.
+The owner has now requested the bounded normal `.UBE`/direct-UBECore frontend
+row in the [development plan](project-docs/Development-Plan.md). Its concrete
+contract requires review before production implementation. Later rows remain
+proposed.
 Full grammar, semantics, backend work and project/jobs CLI integration are not
 capabilities implied by this completed goal.
 

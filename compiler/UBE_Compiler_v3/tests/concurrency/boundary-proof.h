@@ -120,6 +120,12 @@ static int prove_source_boundaries(void **inputs, void **output, void *cancellat
     struct ube_gc_root root = {0};
     if (!require(ube_gc_root_enter(&root, &empty_result), "empty publication owner"))
         return 0;
+    struct ube_gc_root empty_root = {0};
+    /* A neutral writable ByRef holder still needs caller-location retention. */
+    if (!require(ube_gc_root_enter(&empty_root, &empty), "empty input location")) {
+        ube_gc_root_leave(&root);
+        return 0;
+    }
     for (int jobs = 1; jobs <= 4; jobs *= 2) {
         failure = (struct set_failure){5, -1, {0}};
         begin_observation(0, jobs, MODE_NORMAL, cancellation);
@@ -128,11 +134,13 @@ static int prove_source_boundaries(void **inputs, void **output, void *cancellat
         if (!require(ok && failure.kind == 0 && failure.source == -1 && entered == 0 &&
                          capture_bytes == 0 && ube_value_array_length(&empty_result) == 0,
                      "empty set accepted without workers")) {
+            ube_gc_root_leave(&empty_root);
             ube_gc_root_leave(&root);
             return 0;
         }
     }
     if (!require(make_inputs(inputs, 1, -1), "one source for a larger worker budget")) {
+        ube_gc_root_leave(&empty_root);
         ube_gc_root_leave(&root);
         return 0;
     }
@@ -145,6 +153,7 @@ static int prove_source_boundaries(void **inputs, void **output, void *cancellat
     if (!require(ok && failure.kind == 0 && entered == 1 && exited == 1 && maximum_active == 1 &&
                      workers_drained() && output_equal(empty_result, 1) && publication_bytes == 8,
                  "one-source Jobs4 dispatches one worker and publishes one reference")) {
+        ube_gc_root_leave(&empty_root);
         ube_gc_root_leave(&root);
         return 0;
     }
@@ -156,10 +165,12 @@ static int prove_source_boundaries(void **inputs, void **output, void *cancellat
                      *output == old && output_equal(*output, count) && workers_drained(),
                  "nonempty token-zero preserves established scanner domain207 and complete prior "
                  "output")) {
+        ube_gc_root_leave(&empty_root);
         ube_gc_root_leave(&root);
         return 0;
     }
     puts("{\"suite\":\"smallInputs\",\"oneSourceJobsFour\":true,\"zeroTokenKind\":207}");
+    ube_gc_root_leave(&empty_root);
     ube_gc_root_leave(&root);
     if (!require(make_inputs(inputs, count, -1),
                  "restore full production corpus after focused boundary cases"))

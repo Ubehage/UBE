@@ -25,6 +25,7 @@
 | `compiler/README.md` | Current compiler implementation status and boundary |
 | `compiler/UBE_Compiler_v3/` | Fresh active compiler foundation design and workplan |
 | `compiler/archived/` | Previous v3/v4 implementations, release previews, and original-byte snapshot |
+| `bootstrap/runtime/` | Temporary C/C++ bootstrap runtime, ABI header and Windows adapters |
 | `project-docs/Roadmap.md` | Tracks the work from stage zero through a self-hosting compiler, runtime, standard library, debugger, and native IDE |
 | `tests/conformance/` | Compiler-independent requirement and fixture metadata |
 | `std-lib/` | Active fresh UBECore project, boundaries, and resumable workplan |

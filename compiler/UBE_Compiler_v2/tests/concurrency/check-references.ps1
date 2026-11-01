@@ -106,7 +106,7 @@ if($success) {
     foreach($case in $cases){$checks+=[pscustomobject]@{passed=$true;assertion=('native controlled outcomes through source-built stage '+$case.stage)}}
     foreach($case in $rejections){$checks+=[pscustomobject]@{passed=$true;assertion=('controlled '+$case.name+' rejection, stage '+$case.stage)}}
 }
-$report=[pscustomobject]@{success=$success;acceptedSelection=$acceptedSelection;checks=$checks;qualifiedConcurrency=$false;scope='Focused identity/value/return, persistent allocation denial, actual root pressure, neutral access, cleanup and unsupported-construct controls; thread captures still require independent gates.';inputs=$inputs;observer=(Get-ArtifactIdentity (Join-Path $PSScriptRoot 'reference_observer.c'));runtimeSource=(Get-ArtifactIdentity (Join-Path $root 'runtime/bootstrap_runtime.c'));cases=$cases;rejections=$rejections;commands=$commands;failure=$(if($success){''}else{$failure})}
+$report=[pscustomobject]@{success=$success;acceptedSelection=$acceptedSelection;checks=$checks;qualifiedConcurrency=$false;scope='Focused identity/value/return, persistent allocation denial, actual root pressure, neutral access, cleanup and unsupported-construct controls; thread captures still require independent gates.';inputs=$inputs;observer=(Get-ArtifactIdentity (Join-Path $PSScriptRoot 'reference_observer.c'));runtimeSource=(Get-ArtifactIdentity (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'));cases=$cases;rejections=$rejections;commands=$commands;failure=$(if($success){''}else{$failure})}
 $path=Join-Path $run 'report.json';$report | ConvertTo-Json -Depth 18 | Set-Content -LiteralPath $path -Encoding UTF8
 Write-Output ('Evidence: '+$path)
 if(-not $success){throw $failure}

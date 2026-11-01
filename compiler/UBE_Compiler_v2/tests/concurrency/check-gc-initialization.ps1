@@ -17,7 +17,7 @@ if($link.timedOut -or $link.exit -ne 0){throw ('Probe link: '+$link.stderr)}
 $native=Invoke-BoundedProcess $exe @() $root 10
 if($ExpectFatal){$success=(-not $native.timedOut -and $native.exit -eq 70 -and $native.stderr -match 'could not initialize collector lock')}
 else{$success=(-not $native.timedOut -and $native.exit -eq 0 -and $native.stdout.Replace("`r",'') -ceq "PASS managed initialization without callback event; source admission fails cleanly`n" -and $native.stderr -ceq '')}
-$inputs=@($probe,(Join-Path $root 'runtime/bootstrap_runtime.c'),(Join-Path $root 'runtime/value_storage.h'),(Join-Path $root 'std-lib/src/win-lib/thread_primitives.c'),(Join-Path $root 'std-lib/src/win-lib/file_primitives.c') | ForEach-Object {Get-ArtifactIdentity $_})
+$inputs=@($probe,(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),(Join-Path $root 'bootstrap/runtime/value_storage.h'),(Join-Path $root 'bootstrap/runtime/windows/thread_primitives.c'),(Join-Path $root 'bootstrap/runtime/windows/file_primitives.c') | ForEach-Object {Get-ArtifactIdentity $_})
 if($null -ne $acceptedSelection){$null=Get-VerifiedBootstrapSelection $SelectionPath}
 $checks=@();if($success){$checks=@([pscustomobject]@{passed=$true;assertion='denied callback event leaves managed initialization available and source admission controlled'})}
 $report=[pscustomobject]@{success=$success;acceptedSelection=$acceptedSelection;checks=$checks;reproducedFatal=[bool]$ExpectFatal;qualifiedConcurrency=$false;inputs=$inputs;link=$link;native=$native;exe=(Get-ArtifactIdentity $exe)}

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../../../../../runtime/value_storage.h"
+#include "../../../../../bootstrap/runtime/value_storage.h"
 static int deny_allocations;
 void* probe_malloc(size_t n){return deny_allocations?NULL:malloc(n);}
 void* probe_calloc(size_t n,size_t s){return deny_allocations?NULL:calloc(n,s);}

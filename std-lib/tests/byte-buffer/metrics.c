@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../../runtime/value_storage.h"
+#include "../../../bootstrap/runtime/value_storage.h"
 
 struct buffer { void* storage; int32_t count; };
 typedef union { uint64_t alignment; unsigned char bytes[32]; } root_storage;
@@ -101,10 +101,17 @@ static void seed(int32_t number) { ube_err_set(number,"pre-existing error","Byte
 static uint8_t get_byte(void* array, int32_t index) { return __atomic_load_n((uint8_t*)ube_array_element(array,index),__ATOMIC_SEQ_CST); }
 static void put_byte(void* array, int32_t index, uint8_t byte) { __atomic_store_n((uint8_t*)ube_array_element(array,index),byte,__ATOMIC_SEQ_CST); }
 static int root_values(struct buffer* buffer, void** output, root_storage* br, root_storage* or) {
-    return ube_gc_root_enter(br,&buffer->storage) && ube_gc_root_enter(or,output);
+    if (!ube_gc_root_enter(br,&buffer->storage)) return 0;
+    if (!ube_gc_root_enter(or,output)) {
+        (void)ube_gc_root_leave(br);
+        return 0;
+    }
+    return 1;
 }
 static int release_values(root_storage* br, root_storage* or) {
-    return ube_gc_root_leave(or) && ube_gc_root_leave(br);
+    int output_released = ube_gc_root_leave(or);
+    int buffer_released = ube_gc_root_leave(br);
+    return output_released && buffer_released;
 }
 static int prefix_equal(void* array, int32_t n, int32_t modulus) {
     for (int32_t i = 0; i < n; ++i) if (get_byte(array,i) != (uint8_t)(i % modulus)) return 0;
@@ -251,7 +258,7 @@ static DWORD WINAPI worker_main(void* argument) {
     struct buffer buffer = {0}; void* output = NULL;
     root_storage br = {0}, or = {0};
     DWORD failed = 0;
-    if (!root_values(&buffer,&output,&br,&or)) failed = 1;
+    if (!root_values(&buffer,&output,&br,&or)) return 1;
     seed((int32_t)(100 + worker->index));
     for (unsigned round = 0; round < 32 && !failed; ++round) {
         if (!metrics_clear(&buffer) || !metrics_append(&buffer,worker->marker) ||
@@ -298,6 +305,39 @@ static int check_workers(size_t baseline) {
     CHECK(ube_gc_live_allocation_bytes() == 0 && requested_live == baseline && tracking_errors == 0);
     return 0;
 }
+static int check_root_admission(void) {
+    /* Actual registry pressure leaves exactly one admission available. A worker
+       must unwind its first root when the second fails before entering UBE. */
+    const size_t limit = 1048576;
+    root_storage* pressure = calloc(limit,sizeof(*pressure));
+    void* neutral = NULL;
+    CHECK(pressure != NULL);
+    for (size_t i = 0; i < limit; ++i) CHECK(ube_gc_root_enter(&pressure[i],&neutral));
+    struct buffer buffer = {0}; void* output = NULL;
+    root_storage br = {0}, or = {0}, available = {0}, denied = {0};
+    CHECK(!root_values(&buffer,&output,&br,&or));
+    CHECK(ube_gc_root_leave(&pressure[limit - 1]));
+    struct worker argument = {NULL,0,0};
+    HANDLE thread = CreateThread(NULL,0,worker_main,&argument,0,NULL);
+    CHECK(thread != NULL);
+    CHECK(WaitForSingleObject(thread,20000) == WAIT_OBJECT_0);
+    DWORD result = 99;
+    CHECK(GetExitCodeThread(thread,&result) && result == 1);
+    CHECK(CloseHandle(thread));
+    /* Recovery of the only available slot proves no worker-stack root remains. */
+    CHECK(ube_gc_root_enter(&available,&neutral));
+    CHECK(!ube_gc_root_enter(&denied,&neutral));
+    CHECK(ube_gc_root_leave(&available));
+    /* A failed/absent first cleanup must not skip the other admitted root. */
+    CHECK(ube_gc_root_enter(&br,&buffer.storage));
+    CHECK(!release_values(&br,&or));
+    CHECK(ube_gc_root_enter(&available,&neutral));
+    CHECK(!ube_gc_root_enter(&denied,&neutral));
+    CHECK(ube_gc_root_leave(&available));
+    for (size_t i = limit - 1; i > 0; --i) CHECK(ube_gc_root_leave(&pressure[i - 1]));
+    free(pressure);
+    return 0;
+}
 static int functional_subset(void) {
     struct buffer buffer = {0}; void* output = NULL;
     root_storage br = {0}, or = {0};
@@ -322,6 +362,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) CHECK(measure_growth(sizes[i],baseline) == 0);
     CHECK(check_failures(baseline) == 0);
     CHECK(check_workers(baseline) == 0);
+    CHECK(check_root_admission() == 0);
     CHECK(ube_err_number() == 7);
     printf("PASS byte-buffer costs assertions:%u\n",assertions);
     return 0;

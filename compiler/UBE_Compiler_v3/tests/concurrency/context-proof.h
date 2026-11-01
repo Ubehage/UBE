@@ -40,7 +40,7 @@ void observe_context_enter(void *context) {
 
 static int prove_independent_contexts(void *inputs, int count) {
     void *contexts[2] = {NULL, NULL};
-    struct ube_gc_root roots[2] = {{0}};
+    struct ube_gc_root roots[3] = {{0}};
     int64_t ids[2] = {0, 0};
     size_t before_roots = ube_gc_root_count;
     DWORD before_handles = 0, after_handles = 0;
@@ -61,8 +61,14 @@ static int prove_independent_contexts(void *inputs, int count) {
     context_arrived = context_gate = context_bad_hook = 0;
     memset(context_ids, 0, sizeof context_ids);
     memset(context_native, 0, sizeof context_native);
+    /* This ByRef input is a new native holder, distinct from the caller's root. */
+    if (!require(ube_gc_root_enter(&roots[0], &inputs), "independent context input location")) {
+        success = 0;
+        goto cleanup;
+    }
+    ++root_count;
     for (int i = 0; i < 2; ++i) {
-        if (!require(ube_gc_root_enter(&roots[i], &contexts[i]), "private context root")) {
+        if (!require(ube_gc_root_enter(&roots[i + 1], &contexts[i]), "private context root")) {
             success = 0;
             goto cleanup;
         }

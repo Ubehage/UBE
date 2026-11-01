@@ -65,6 +65,20 @@
                       "stdout":  "error UBE1204: expected identifier (next lines: line, column, byte)\n3\n5\n55\n"
                   },
                   {
+                      "name":  "reserved-inline-parameter",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"InlineProbe\"\nFunction F(ByRef Inline As Boolean) As Boolean\nEnd Function\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1204: expected identifier (next lines: line, column, byte)\n3\n18\n72\n"
+                  },
+                  {
+                      "name":  "inline-coordinates-parameter",
+                      "extension":  ".bas",
+                      "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"InlineProbe\"\nFunction F(ByRef InlineCoordinates As Boolean) As Boolean\nEnd Function\n",
+                      "exit":  1,
+                      "stdout":  "error UBE1012: source checking is not implemented\n"
+                  },
+                  {
                       "name":  "for-family-deferred",
                       "extension":  ".bas",
                       "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"CliCase\"\nSub Main()\nFor i = 0 To 2\nPrint i\nNext i\nEnd Sub\n",
@@ -168,22 +182,31 @@
                   }
               ],
     "productionSources":  [
-                              "compiler/UBE_Compiler_v3/SourceInput.bas",
-                              "compiler/UBE_Compiler_v3/SourceFile.bas",
-                              "compiler/UBE_Compiler_v3/ScannerWords.bas",
-                              "compiler/UBE_Compiler_v3/SourceScanner.bas",
-                              "compiler/UBE_Compiler_v3/SourceEnvelope.bas",
-                              "compiler/UBE_Compiler_v3/SyntaxTree.bas",
-                              "compiler/UBE_Compiler_v3/SyntaxExpressions.bas",
-                              "compiler/UBE_Compiler_v3/SyntaxGrammar.bas",
-                              "compiler/UBE_Compiler_v3/SourceSyntax.bas",
-                              "compiler/UBE_Compiler_v3/Main.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceParsing.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceInput.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceFile.bas",
+                              "compiler/UBE_Compiler_v3/src/ScannerWords.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceScanner.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceEnvelope.bas",
+                              "compiler/UBE_Compiler_v3/src/SyntaxTree.bas",
+                              "compiler/UBE_Compiler_v3/src/SyntaxExpressions.bas",
+                              "compiler/UBE_Compiler_v3/src/SyntaxGrammar.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceSyntax.bas",
+                              "compiler/UBE_Compiler_v3/src/ProjectManifest.bas",
+                              "compiler/UBE_Compiler_v3/src/ProjectLoading.bas",
+                              "compiler/UBE_Compiler_v3/src/ProjectDisplay.bas",
+                              "compiler/UBE_Compiler_v3/src/SourceDiagnostics.bas",
+                              "compiler/UBE_Compiler_v3/src/ProjectDiagnostics.bas",
+                              "compiler/UBE_Compiler_v3/src/CommandDispatch.bas",
+                              "compiler/UBE_Compiler_v3/src/Main.bas",
                               "std-lib/src/portable/LibraryIdentity.bas",
                               "std-lib/src/portable/Utf8.bas",
                               "std-lib/src/portable/ByteBuffer.bas",
                               "std-lib/src/portable/FileBytes.bas",
                               "std-lib/src/portable/Unicode.bas",
-                              "std-lib/src/portable/Utf8Cursor.bas"
+                              "std-lib/src/portable/Utf8Cursor.bas",
+                              "std-lib/src/portable/Threads.bas",
+                              "std-lib/src/portable/PathBytes.bas"
                           ],
     "productionExpected":  {
                                "exit":  1,

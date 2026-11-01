@@ -7,7 +7,7 @@ $run = Join-Path $root ('bootstrap/out/byte-storage/' + [Guid]::NewGuid().ToStri
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $fixtures = Join-Path $root 'std-lib/tests/byte-storage'
 $paths = @((Join-Path $PSScriptRoot 'probe-byte-storage.ps1'),(Join-Path $root 'bootstrap/tools/verification.ps1'),
-    (Join-Path $root 'runtime/bootstrap_runtime.c')) + @(Get-ChildItem $fixtures -File | ForEach-Object FullName)
+    (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')) + @(Get-ChildItem $fixtures -File | ForEach-Object FullName)
 $inputs = @($paths | ForEach-Object { Get-ArtifactIdentity $_ })
 $commands = @()
 $obligations = @()
@@ -30,7 +30,7 @@ try {
     $expected = Get-Content (Join-Path $fixtures 'obligations.json') -Raw | ConvertFrom-Json
     $runtime = Join-Path $run 'instrumented-runtime.o'
     $compileRuntime = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c',
-        '-include',(Join-Path $fixtures 'allocation-probe.h'),(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime) $root 30
+        '-include',(Join-Path $fixtures 'allocation-probe.h'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime) $root 30
     $commands += $compileRuntime
     if ($compileRuntime.timedOut -or $compileRuntime.exit -ne 0) { throw $compileRuntime.stderr }
     for ($index = 0; $index -lt 2; $index++) {

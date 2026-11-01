@@ -5,7 +5,7 @@
 #include <string.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include "../../../runtime/value_storage.h"
+#include "../../../bootstrap/runtime/value_storage.h"
 
 extern size_t ube_gc_root_storage_size(void), ube_gc_live_allocation_bytes(void);
 extern int32_t ube_gc_root_leave(void*), ube_gc_collect(void), ube_err_number(void);

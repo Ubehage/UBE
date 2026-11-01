@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Path $run -Force | Out-Null
 $projectDir=Join-Path $run 'project'
 New-Item -ItemType Directory -Path $projectDir | Out-Null
 $productionNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceParsing.bas','SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas','SyntaxTree.bas','SyntaxExpressions.bas','SyntaxGrammar.bas','SourceSyntax.bas')
-foreach($name in $productionNames){Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/'+$name)) -Destination (Join-Path $projectDir $name)}
+foreach($name in $productionNames){Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name)) -Destination (Join-Path $projectDir $name)}
 foreach($name in @('SharedSyntaxWork.cls','SourceContextWork.cls','Entry.bas','ContextEntry.bas')){Copy-Item -LiteralPath (Join-Path $fixture $name) -Destination (Join-Path $projectDir $name)}
 $orderedNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SharedSyntaxWork.cls','SourceContextWork.cls','SourceParsing.bas')+@($productionNames | Where-Object {$_ -notin @('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceParsing.bas')})+@('Entry.bas','ContextEntry.bas')
 $project=Join-Path $projectDir 'SourceParsingConsumer.UBE'
@@ -58,13 +58,16 @@ for($i=0;$i -lt $corpus.Count;++$i){[void]$header.AppendLine('static const unsig
 for($i=0;$i -lt $corpus.Count;++$i){[void]$header.AppendLine('{bytes_'+$i+','+$corpus[$i].Length+'},')}
 [void]$header.AppendLine('};static const int corpus_count='+$corpus.Count+';static const int corpus_depth_case=6;')
 [IO.File]::WriteAllText((Join-Path $run 'corpus.h'),$header.ToString(),[Text.UTF8Encoding]::new($false))
-$runtime=[IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap_runtime.c'))
-if([regex]::Matches($runtime,[regex]::Escape('ube_gc_root_count += 1;')).Count -ne 2){throw 'Root admission observation ABI differs'}
-$runtime=$runtime.Replace('ube_gc_root_count += 1;','ube_gc_root_count += 1; observe_root_count(ube_gc_root_count);')
+$runtime=[IO.File]::ReadAllText((Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'))
+$admission='(?m)^(\s*if\(__atomic_compare_exchange_n\(&ube_root_registry\.state,&current,current\+1,0,\r?\n\s*__ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST\)\))return 1;'
+if([regex]::Matches($runtime,$admission).Count -ne 1){throw 'Root admission observation ABI differs'}
+# Observe the exact successful reservation value while its owner holds a stripe.
+# This callback is atomic-only: it must never acquire the heap lock or allocate.
+$runtime=[regex]::Replace($runtime,$admission,'${1}{observe_root_count((size_t)((current+1)&UBE_ROOT_COUNT_MASK));return 1;}')
 foreach($increment in @('ube_gc_live_bytes += layout->size;','ube_gc_live_bytes += size;')){if([regex]::Matches($runtime,[regex]::Escape($increment)).Count -ne 1){throw 'Payload observation ABI differs'};$runtime=$runtime.Replace($increment,$increment+' observe_payload_count(ube_gc_live_bytes);')}
 foreach($binding in @(@('EnterCriticalSection(&ube_gc_lock);','observe_lock_before(); EnterCriticalSection(&ube_gc_lock); observe_lock_after();'),@('LeaveCriticalSection(&ube_gc_lock);','observe_lock_release(); LeaveCriticalSection(&ube_gc_lock);'))){if([regex]::Matches($runtime,[regex]::Escape($binding[0])).Count -ne 1){throw 'Collector synchronization observation ABI differs'};$runtime=$runtime.Replace($binding[0],$binding[1])}
 [IO.File]::WriteAllText((Join-Path $run 'observed_runtime.c'),$runtime,[Text.UTF8Encoding]::new($false))
-$pinPaths=@($sources)+@($corpusSources | ForEach-Object {Join-Path $root $_})+@($project,$PSCommandPath,$SelectionPath,(Join-Path $root 'runtime/bootstrap_runtime.c'),(Join-Path $root 'runtime/value_storage.h'),(Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-CONSUMER.md'),(Join-Path $root 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'))+@(Get-ChildItem -LiteralPath $fixture -File | ForEach-Object FullName)
+$pinPaths=@($sources)+@($corpusSources | ForEach-Object {Join-Path $root $_})+@($project,$PSCommandPath,$SelectionPath,(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),(Join-Path $root 'bootstrap/runtime/value_storage.h'),(Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-CONSUMER.md'),(Join-Path $root 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'))+@(Get-ChildItem -LiteralPath $fixture -File | ForEach-Object FullName)
 $pinPaths+=Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-CONTRACT.md'
 $pins=@($pinPaths | Sort-Object -Unique | ForEach-Object {Get-ArtifactIdentity $_})
 $qualified=$false;$success=$false;$failure=$null;$commands=@();$path=Join-Path $run 'report.json'
@@ -136,7 +139,7 @@ foreach($stage in $stages){
  for($i=0;$i -lt 5;++$i){[void]$adapter.AppendLine(" i32 $i, label %o$i")};[void]$adapter.AppendLine("]`ninvalid:`n ret ptr null")
  for($i=0;$i -lt 5;++$i){if($raw -notmatch [regex]::Escape('@ube.object.'+$i+' = private constant %ube.gc.layout')){throw 'Missing actual class payload metadata'};[void]$adapter.AppendLine("o${i}:`n ret ptr @ube.object.$i")};[void]$adapter.AppendLine('}')
  [IO.File]::WriteAllText($adaptedPath,$adapted+"`n"+$adapter.ToString(),[Text.UTF8Encoding]::new($false))
- $link=Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-I',$run,'-I',(Join-Path $root 'runtime'),'-x','ir',$adaptedPath,'-x','c',(Join-Path $fixture 'proof.c'),'-x','none',$selection.unicodeRuntime.path,'-o',$exe) $root 180
+ $link=Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-I',$run,'-I',(Join-Path $root 'bootstrap/runtime'),'-x','ir',$adaptedPath,'-x','c',(Join-Path $fixture 'proof.c'),'-x','none',$selection.unicodeRuntime.path,'-o',$exe) $root 180
  $commands+=,$link
  if($link.timedOut -or $link.exit -ne 0){throw ('Native link: '+$link.stdout+$link.stderr)}
  $nativeArguments=@();if($DiagnosticSuite){$nativeArguments+=('--'+$DiagnosticSuite)}

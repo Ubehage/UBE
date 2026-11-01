@@ -10,8 +10,8 @@ $project=Join-Path $run 'project'
 New-Item -ItemType Directory -Path $project -Force | Out-Null
 $utf8=New-Object Text.UTF8Encoding($false,$true)
 $sourceNames=@('SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas')
-$paths=@('compiler/UBE_Compiler_v3/tools/check-scanner.ps1','compiler/UBE_Compiler_v3/SCANNER-CONTRACT.md','std-lib/UBECore.UBE','runtime/bootstrap_runtime.c','runtime/value_storage.h','std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h','bootstrap/tools/verification.ps1')|ForEach-Object {Join-Path $root $_}
-$paths+=@($sourceNames|ForEach-Object {Join-Path $root ('compiler/UBE_Compiler_v3/'+$_)})
+$paths=@('compiler/UBE_Compiler_v3/tools/check-scanner.ps1','compiler/UBE_Compiler_v3/SCANNER-CONTRACT.md','std-lib/UBECore.UBE','bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h','std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h','bootstrap/tools/verification.ps1')|ForEach-Object {Join-Path $root $_}
+$paths+=@($sourceNames|ForEach-Object {Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$_)})
 $paths+=@(Get-ChildItem -LiteralPath $fixture -File|ForEach-Object FullName)
 $paths+=@('tokens.json','envelopes.json','words.json'|ForEach-Object {Join-Path (Split-Path $fixture -Parent) $_})
 $inputs=@();$checks=@();$commands=@();$measurements=@();$success=$false;$failure=$null;$selection=$null;$fixtureCounts=$null
@@ -51,7 +51,7 @@ try {
     $stageIdentity=@($accepted.artifacts|Where-Object path -CEQ $stage1)
     if($stageIdentity.Count -ne 1 -or (Get-ArtifactIdentity $stage1).sha256 -cne $stageIdentity[0].sha256){throw 'Stage-one identity differs'}
     $inputs+=$stageIdentity[0];$stages=@($stage1,$selection.compiler.path)
-    foreach($name in $sourceNames){Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/'+$name)) -Destination (Join-Path $project $name)}
+    foreach($name in $sourceNames){Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name)) -Destination (Join-Path $project $name)}
     Copy-Item -LiteralPath (Join-Path $fixture 'Entry.bas') -Destination (Join-Path $project 'Entry.bas')
     $manifest=Join-Path $project 'ScannerProof.UBE'
     $manifestText="UBE-Project 1`nName = `"ScannerProof`"`nKind = `"Exe`"`nStartup = `"Main`"`n"
@@ -133,7 +133,7 @@ try {
     }
     if($hashes[0] -cne $hashes[1]){throw 'Complete production source raw LLVM differs between stages'}
     $checks+=[pscustomobject]@{assertion='byte-identical raw LLVM through both selected accepted stages';passed=$true}
-    foreach($name in $sourceNames){if((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/'+$name))).sha256){throw 'Complete production copy changed'}}
+    foreach($name in $sourceNames){if((Get-ArtifactIdentity (Join-Path $project $name)).sha256 -cne (Get-ArtifactIdentity (Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name))).sha256){throw 'Complete production copy changed'}}
     foreach($identity in $inputs){if((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256){throw "Proof input changed: $($identity.path)"}}
     $success=$true
 }catch{$failure=$_.Exception.Message}

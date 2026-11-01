@@ -79,6 +79,7 @@ Type SyntaxNode
     OperatorToken As Long
     ResolvedType As Long
     NextProcedureNode As Long
+    ValueSlotUses As Long
 End Type
 
 Type ProcedureDeclarationSyntax
@@ -924,6 +925,7 @@ Function AppendSyntaxNode(ByRef Nodes() As SyntaxNode, ByRef Count As Long, ByRe
     Nodes(Count).OperatorToken = OperatorToken
     Nodes(Count).ResolvedType = 0
     Nodes(Count).NextProcedureNode = -1
+    Nodes(Count).ValueSlotUses = 0
     AppendSyntaxNode = Count
     Count = Count + 1
 End Function
@@ -1923,6 +1925,12 @@ Function PrimitiveBindingRole(ByVal BindingName As String) As Long
     End If
     If EqualsIdentifier(BindingName, "Thread.TryYield") <> 0 Then
         PrimitiveBindingRole = 18
+    End If
+    If EqualsIdentifier(BindingName, "Process.TryCurrentDirectory") <> 0 Then
+        PrimitiveBindingRole = 19
+    End If
+    If EqualsIdentifier(BindingName, "File.TryIdentity") <> 0 Then
+        PrimitiveBindingRole = 20
     End If
 End Function
 
@@ -3532,6 +3540,12 @@ Function ValidateHostBinding(ByRef Tokens() As Token, ByRef Procedures() As Proc
     If Role = 18 Then
         ExpectedSignature = "1:"
     End If
+    If Role = 19 Then
+        ExpectedSignature = "1:r100007,r2"
+    End If
+    If Role = 20 Then
+        ExpectedSignature = "1:v2,r100007,r2"
+    End If
     Dim ResultType As Long = 0
     If Procedures(Index).ProcedureKind = 2 Then
         ResultType = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
@@ -3592,6 +3606,12 @@ Sub HostPrimitiveLlvmSymbol(ByVal Role As Long, ByRef Symbol As String)
     End If
     If Role = 18 Then
         Symbol = "ube_thread_try_yield"
+    End If
+    If Role = 19 Then
+        Symbol = "ube_process_try_current_directory"
+    End If
+    If Role = 20 Then
+        Symbol = "ube_file_try_identity"
     End If
 End Sub
 
@@ -4622,6 +4642,8 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_read(i32, ptr, i32, i32, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_close(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_process_try_argument(i32, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_process_try_current_directory(ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_identity(i32, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_error_set_number(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_read_all_text(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_write_all_text(ptr, ptr)" & NewLine)
@@ -4706,6 +4728,192 @@ Sub EmitNameAddress(ByRef Tokens() As Token, ByRef Procedures() As ProcedureDecl
     End If
 End Sub
 
+' Materialization metadata is conservative: only address-only uses suppress a slot.
+Function HasKnownValueAddress(ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long) As Long
+    HasKnownValueAddress = 0
+    Dim Depth As Long = 0
+    While NodeIndex >= 0 And Depth < ExpressionDepthLimit()
+        Dim Kind As Long = Nodes(NodeIndex).NodeKind
+        If Kind = 12 Then
+            If Nodes(NodeIndex).ResolvedType >= 1000 Then
+                HasKnownValueAddress = 1
+            End If
+            Exit Function
+        End If
+        If Kind <> 14 And Kind <> 13 Then
+            Exit Function
+        End If
+        NodeIndex = Nodes(NodeIndex).LeftNode
+        Depth = Depth + 1
+    Wend
+End Function
+
+Function NoteValueSlotUse(ByRef Nodes() As SyntaxNode, ByVal NodeCount As Long, ByVal NodeIndex As Long, ByVal UseKind As Long) As Long
+    NoteValueSlotUse = 1
+    If NodeIndex = -1 Then
+        Exit Function
+    End If
+    If NodeIndex < 0 Or NodeIndex >= NodeCount Then
+        NoteValueSlotUse = 0
+        Exit Function
+    End If
+    If Nodes(NodeIndex).ResolvedType >= 1000 Then
+        Nodes(NodeIndex).ValueSlotUses = Nodes(NodeIndex).ValueSlotUses Or UseKind
+    End If
+End Function
+
+' Records the existing verified call lowerer's exact positional address uses.
+Function PrepareCallArgumentUses(ByRef Nodes() As SyntaxNode, ByVal NodeCount As Long, ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByVal ParameterCount As Long) As Long
+    PrepareCallArgumentUses = 0
+    If TokenCount < 0 Or ProcedureCount < 0 Or ParameterCount < 0 Then
+        Exit Function
+    End If
+    Dim ProcedureIndex As Long = 0
+    While ProcedureIndex < ProcedureCount
+        If Procedures(ProcedureIndex).NameToken < 0 Or Procedures(ProcedureIndex).NameToken >= TokenCount Then
+            Exit Function
+        End If
+        ProcedureIndex = ProcedureIndex + 1
+    Wend
+    Dim NodeIndex As Long = 0
+    While NodeIndex < NodeCount
+        If Nodes(NodeIndex).NodeKind = 13 Then
+            Dim Callee As Long = Nodes(NodeIndex).LeftNode
+            Dim CalledProcedure As Long = -1
+            If Callee >= 0 Then
+            If Nodes(Callee).NodeKind = 12 And Nodes(Callee).ResolvedType < 100000 Then
+                Dim NameToken As Long = Nodes(Callee).SourceToken
+                If NameToken >= 0 And NameToken < TokenCount Then
+                    CalledProcedure = FindProcedureByToken(Tokens, Procedures, ProcedureCount, NameToken)
+                End If
+            End If
+            End If
+            Dim Link As Long = Nodes(NodeIndex).RightNode
+            Dim Count As Long = 0
+            While Link >= 0
+                If Link >= NodeCount Or Count >= NodeCount Then
+                    Exit Function
+                End If
+                If Nodes(Link).NodeKind <> 17 Then
+                    Exit Function
+                End If
+                Count = Count + 1
+                Link = Nodes(Link).RightNode
+            Wend
+            If CalledProcedure >= 0 Then
+                Dim First As Long = Procedures(CalledProcedure).FirstParameter
+                If First < 0 Or First > ParameterCount Or Count <> Procedures(CalledProcedure).ParameterCount Then
+                    CalledProcedure = -1
+                Else
+                    If Count > ParameterCount - First Then
+                        CalledProcedure = -1
+                    End If
+                End If
+            End If
+            Link = Nodes(NodeIndex).RightNode
+            Dim Index As Long = 0
+            While Link >= 0
+                Dim UseKind As Long = 2
+                If CalledProcedure >= 0 Then
+                    Dim Formal As Long = Procedures(CalledProcedure).FirstParameter + Index
+                    If Parameters(Formal).OwnerProcedure = CalledProcedure Then
+                        If Parameters(Formal).PassingMode = 1 Or Parameters(Formal).PassingMode = 3 Then
+                            Dim Actual As Long = Nodes(Link).LeftNode
+                            If Actual >= 0 Then
+                                If HasKnownValueAddress(Nodes, Actual) <> 0 Then
+                                    UseKind = 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+                Nodes(Link).ValueSlotUses = Nodes(Link).ValueSlotUses Or UseKind
+                Index = Index + 1
+                Link = Nodes(Link).RightNode
+            Wend
+        End If
+        NodeIndex = NodeIndex + 1
+    Wend
+    PrepareCallArgumentUses = 1
+End Function
+
+Function PrepareValueSlotUses(ByRef Nodes() As SyntaxNode, ByVal NodeCount As Long, ByRef Locals() As LocalDeclarationSyntax, ByVal LocalCount As Long, ByRef Statements() As StatementSyntax, ByVal StatementCount As Long, ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Parameters() As ParameterSyntax, ByVal ParameterCount As Long) As Long
+    PrepareValueSlotUses = 0
+    If NodeCount < 0 Or NodeCount > 200000 Then
+        Exit Function
+    End If
+    Dim NodeIndex As Long = 0
+    While NodeIndex < NodeCount
+        If Nodes(NodeIndex).LeftNode < -1 Or Nodes(NodeIndex).LeftNode >= NodeCount Or Nodes(NodeIndex).RightNode < -1 Or Nodes(NodeIndex).RightNode >= NodeCount Then
+            Exit Function
+        End If
+        Nodes(NodeIndex).ValueSlotUses = 0
+        NodeIndex = NodeIndex + 1
+    Wend
+    If PrepareCallArgumentUses(Nodes, NodeCount, Tokens, TokenCount, Procedures, ProcedureCount, Parameters, ParameterCount) = 0 Then
+        Exit Function
+    End If
+    NodeIndex = 0
+    While NodeIndex < NodeCount
+        Dim Child As Long = Nodes(NodeIndex).LeftNode
+        Dim UseKind As Long = 2
+        If Child <> -1 Then
+            If Child < 0 Or Child >= NodeCount Then
+                Exit Function
+            End If
+            Dim ChildType As Long = Nodes(Child).ResolvedType
+            If Nodes(NodeIndex).NodeKind = 14 Then
+                If ChildType >= 1000 And IsReferenceType(ChildType) = 0 Then
+                    If HasKnownValueAddress(Nodes, Child) <> 0 Then
+                        UseKind = 1
+                    End If
+                End If
+            End If
+            If Nodes(NodeIndex).NodeKind = 13 And ChildType >= 100000 Then
+                If HasKnownValueAddress(Nodes, Child) <> 0 Then
+                    UseKind = 1
+                End If
+            End If
+        End If
+        If Nodes(NodeIndex).NodeKind = 17 And Nodes(NodeIndex).ValueSlotUses = 1 Then
+            UseKind = 1
+        End If
+        If NoteValueSlotUse(Nodes, NodeCount, Child, UseKind) = 0 Then
+            Exit Function
+        End If
+        If NoteValueSlotUse(Nodes, NodeCount, Nodes(NodeIndex).RightNode, 2) = 0 Then
+            Exit Function
+        End If
+        NodeIndex = NodeIndex + 1
+    Wend
+    Dim StatementIndex As Long = 0
+    While StatementIndex < StatementCount
+        If NoteValueSlotUse(Nodes, NodeCount, Statements(StatementIndex).ValueNode, 2) = 0 Then
+            Exit Function
+        End If
+        If NoteValueSlotUse(Nodes, NodeCount, Statements(StatementIndex).TargetNode, 2) = 0 Then
+            Exit Function
+        End If
+        StatementIndex = StatementIndex + 1
+    Wend
+    Dim LocalIndex As Long = 0
+    While LocalIndex < LocalCount
+        If NoteValueSlotUse(Nodes, NodeCount, Locals(LocalIndex).InitializerNode, 2) = 0 Then
+            Exit Function
+        End If
+        LocalIndex = LocalIndex + 1
+    Wend
+    PrepareValueSlotUses = 1
+End Function
+
+Function NeedsValueSlot(ByRef Nodes() As SyntaxNode, ByVal NodeIndex As Long) As Long
+    NeedsValueSlot = 0
+    If Nodes(NodeIndex).ResolvedType >= 1000 And Nodes(NodeIndex).ValueSlotUses <> 1 Then
+        NeedsValueSlot = 1
+    End If
+End Function
+
+
 Sub EmitValueSlot(ByVal Slot As String, ByVal TypeId As Long, ByRef Chunks() As String, ByRef ChunkCount As Long, ByRef ChunkCapacity As Long, ByVal NewLine As String)
     Dim LlvmType As String = ""
     Call LlvmTypeName(TypeId, LlvmType)
@@ -4743,7 +4951,10 @@ Sub EmitProcedureRoots(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByR
             ParameterSlot = "param." & LongToString(ParameterIndex)
             Call EmitValueRoot("incoming." & LongToString(ParameterIndex), ParameterType, "%incoming." & LongToString(ParameterIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
         End If
+        ' Callers retain ByRef storage and containing owners; only storage is local.
+        If Parameters(ParameterIndex).PassingMode = 2 Or Operation = 0 Then
         Call EmitValueRoot(ParameterSlot, ParameterType, "%" & ParameterSlot, Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
+        End If
         ParameterIndex = ParameterIndex + 1
     Wend
     If Procedures(Owner).ProcedureKind = 2 Then
@@ -4760,7 +4971,7 @@ Sub EmitProcedureRoots(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByR
     Wend
     Dim NodeIndex As Long = Procedures(Owner).FirstNode
     While NodeIndex >= 0
-        If Nodes(NodeIndex).ResolvedType >= 1000 Then
+        If NeedsValueSlot(Nodes, NodeIndex) <> 0 Then
             Call EmitValueRoot("value." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, "%value." & LongToString(NodeIndex), Operation, Types, TypeCount, Chunks, ChunkCount, ChunkCapacity, NewLine)
         End If
         If Nodes(NodeIndex).NodeKind = 13 And Nodes(NodeIndex).LeftNode >= 0 Then
@@ -4884,7 +5095,7 @@ Sub EmitProcedureHeader(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, By
     Wend
     Dim NodeIndex As Long = Procedures(ProcedureIndex).FirstNode
     While NodeIndex >= 0
-        If Nodes(NodeIndex).ResolvedType >= 1000 Then
+        If NeedsValueSlot(Nodes, NodeIndex) <> 0 Then
             Call EmitValueSlot("value." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
             Call EmitValueSlot("scratch." & LongToString(NodeIndex), Nodes(NodeIndex).ResolvedType, Chunks, ChunkCount, ChunkCapacity, NewLine)
         End If
@@ -7108,6 +7319,11 @@ Function Main() As Long
     End If
     If VerifyProgramIr(Tokens, Procedures, ProcedureCount, IrProcedures, IrInstructions, IrInstructionCount, Diagnostics, DiagnosticCount) = 0 Then
         Call ReportProjectDiagnostics(Sources, SourcePathCount, Diagnostics, DiagnosticCount)
+        Main = 1
+        Exit Function
+    End If
+    If PrepareValueSlotUses(SyntaxNodes, SyntaxNodeCount, LocalDeclarations, LocalDeclarationCount, Statements, StatementCount, Tokens, TokenCount, Procedures, ProcedureCount, Parameters, ParameterCount) = 0 Then
+        Print InputPath & "(1,1): error UBE4001: LLVM emission encountered an unsupported verified IR instruction"
         Main = 1
         Exit Function
     End If

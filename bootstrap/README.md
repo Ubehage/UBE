@@ -10,6 +10,22 @@ runtime gate is claimed by the archive relocation checks.
 This directory contains the temporary C++ implementation used to bootstrap the
 self-hosting UBE compiler. It requires a C++17-capable GCC installation.
 
+## Source layout
+
+| Location | Purpose |
+| --- | --- |
+| `src/`, `include/` | Temporary C++ seed compiler and its headers |
+| `runtime/` | Bootstrap C runtime, Unicode C++ support and managed-value ABI header |
+| `runtime/windows/` | Temporary C adapters for Windows file and thread operations |
+| `tests/`, `tools/` | Bootstrap fixtures and supporting tools |
+| `out/` | Generated builds and qualification evidence |
+
+The owner consolidated native bootstrap support here on 2026-11-01. The former
+root `runtime/` folder and C files from `std-lib/src/win-lib/` now live in
+`bootstrap/runtime/`. Library algorithms remain in UBECore's UBE source;
+the adapters retain their documented replacement conditions. Earlier immutable
+reports and snapshots retain their original paths and hashes.
+
 ## Current bounded v2 build
 
 Build the current seed/runtime and source-built v2, with fixed-point and native
@@ -23,15 +39,15 @@ Each run has a separate `bootstrap/out/v2/` directory. A passing run updates
 `bootstrap/out/v2/current.json`; no backup compiler is needed. Use
 `compile-v2.ps1 -Source <source.bas|project.UBE> -Output <program.exe>` for a
 native program, and `tests/v2_usage_tests.ps1` for that helper's acceptance test.
-The gate now passes 501 grouped assertions, including scalar/native values, managed
+The gate now passes 785 grouped assertions, including scalar/native values, managed
 storage, UBECore decoder/buffer behavior/costs, direct source references,
 recoverable byte-file input and the fresh source/scanner/Unicode consumer. All proofs
 must pass before selection changes.
 The bounded production parser also passes its separate native and CLI gates;
 see [the parser evidence](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md)
 for exact commands, both-stage results, failure/cost bounds and the qualified
-local `bootstrap/out/v3/ube.exe`. Those parser checks are additional to the 501
-foundation assertions; semantic checking and code generation remain unavailable.
+local `bootstrap/out/v3/ube.exe`. Those parser checks are additional to the 785
+source assertions; semantic checking and code generation remain unavailable.
 The C runtime is compiled with the already-required Clang Windows target so its
 fixed per-thread error record uses native TLS. First-error publication must work
 without heap allocation; GCC's emulated TLS does not meet that requirement on the

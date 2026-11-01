@@ -5,7 +5,7 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $root 'bootstrap/tools/verification.ps1')
 $run = Join-Path $root ('bootstrap/out/managed-storage/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
-$paths = @('runtime/bootstrap_runtime.c','runtime/value_storage.h','std-lib/tests/managed-storage/substrate.c',
+$paths = @('bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h','std-lib/tests/managed-storage/substrate.c',
     'std-lib/tests/managed-storage/error-bookkeeping.c',
     'std-lib/tests/managed-storage/copy-probe.h',
     'compiler/UBE_Compiler_v3/tests/parser/probes/runtime-regression/check.ps1',
@@ -38,7 +38,7 @@ try {
         }
     }
     $checks += [pscustomobject]@{ assertion = 'selected compiler and runtime object identities match the immutable accepted manifest'; passed = $true }
-    $runtimeSource = Join-Path $root 'runtime/bootstrap_runtime.c'
+    $runtimeSource = Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'
     $runtimeIdentity = @($accepted.inputs | Where-Object path -CEQ $runtimeSource)
     if ($runtimeIdentity.Count -gt 1) { throw 'Selected manifest duplicates the runtime source identity' }
     if ($runtimeIdentity.Count -eq 1 -and $runtimeIdentity[0].sha256 -ceq (Get-ArtifactIdentity $runtimeSource).sha256) {
@@ -51,7 +51,7 @@ try {
     }
     $productionIr = Join-Path $run 'production-runtime.ll'
     $production = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-Werror','-S','-emit-llvm',
-        (Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$productionIr) $root 30
+        (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$productionIr) $root 30
     $commands += $production
     if ($production.timedOut -or $production.exit -ne 0) { throw $production.stderr }
     $productionText = [IO.File]::ReadAllText($productionIr)
@@ -63,7 +63,7 @@ try {
     $checks += [pscustomobject]@{ assertion = 'default production runtime has no copy-observer overhead; error record is native LLVM thread_local with no emutls allocation'; passed = $true }
     $runtime = Join-Path $run 'runtime.o'
     $compile = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-c',
-        '-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime) $root 30
+        '-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime) $root 30
     $commands += $compile
     if ($compile.timedOut -or $compile.exit -ne 0) { throw $compile.stderr }
     $exe = Join-Path $run 'substrate.exe'

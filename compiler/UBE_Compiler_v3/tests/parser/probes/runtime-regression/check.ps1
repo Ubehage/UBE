@@ -8,12 +8,16 @@ $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../../../..'))
 . (Join-Path $root 'bootstrap/tools/verification.ps1')
-if(-not $RuntimeSourcePath){$RuntimeSourcePath=Join-Path $root 'runtime/bootstrap_runtime.c'}
+if(-not $RuntimeSourcePath){$RuntimeSourcePath=Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'}
 if(-not $SelectionPath){$SelectionPath=Join-Path $root 'bootstrap/out/v2/current.json'}
 $RuntimeSourcePath=[IO.Path]::GetFullPath($RuntimeSourcePath)
 $runtimeDirectory=Split-Path $RuntimeSourcePath -Parent
 $runtimeHeader=Join-Path $runtimeDirectory 'value_storage.h'
-$fileAdapter=[IO.Path]::GetFullPath((Join-Path $runtimeDirectory '../std-lib/src/win-lib/file_primitives.c'))
+$fileAdapter=[IO.Path]::GetFullPath((Join-Path $runtimeDirectory 'windows/file_primitives.c'))
+if($ExpectedOldFailure){
+    # The exact retained before-fix snapshot keeps its original directory layout.
+    $fileAdapter=[IO.Path]::GetFullPath((Join-Path $runtimeDirectory '../std-lib/src/win-lib/file_primitives.c'))
+}
 $run=Join-Path $root ('bootstrap/out/runtime-regression/'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $run|Out-Null
 $paths=@($RuntimeSourcePath,$runtimeHeader,$fileAdapter,$SelectionPath,(Join-Path $root 'bootstrap/tools/verification.ps1'))+@(Get-ChildItem -LiteralPath $PSScriptRoot -File|ForEach-Object FullName)

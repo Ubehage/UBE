@@ -1,5 +1,5 @@
 /* Observe the complete production runtime without replacing its root behavior. */
-#include "../../../../../../runtime/bootstrap_runtime.c"
+#include "../../../../../../bootstrap/runtime/bootstrap_runtime.c"
 
 /* Read real registry state under its ordinary lock, never a synthetic counter. */
 size_t diagnostic_root_count(void) {

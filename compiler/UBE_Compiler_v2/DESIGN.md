@@ -139,9 +139,27 @@ and proof: `../../std-lib/NATIVE-TYPE-PROPOSAL.md` and
 The approved managed-storage work derives precise reference offsets from the
 existing type graph. Array slots are traced references; finite records derive
 their offsets from their fields. Inline record cycles diagnose. Compiler-owned
-roots cover local, parameter, result, temporary and borrowed-owner locations
-before safe points and leave on every procedure exit. A borrowed array element
-keeps the old owning array rooted even if its holder is replaced during a call.
+roots cover live local, ByVal parameter, result, temporary and borrowed-owner
+locations before safe points and leave on every procedure exit. Before a
+synchronous compiler-private call, the caller retains each managed ByRef
+writable location or its precisely traced containing owner throughout the call,
+including newly assigned values. Retaining only the old referent is insufficient.
+Forwarded ByRef arguments alias the same retained location. The callee omits
+only its duplicate argument registration and matching cleanup; neutral argument
+root storage and every private, incoming, result and borrowed-owner root remain.
+A borrowed array element keeps the old owning array rooted even if its holder
+is replaced during a call. Address-only expressions omit value/scratch storage
+only after bounded conservative materialization analysis; actual values, copies,
+ByRef argument temporaries and fallback/borrow owners remain retained.
+
+Native test adapters must admit checked roots for writable managed holders
+before entry, including neutral outputs, and retain containing owners through
+return. Partial admission failure unwinds before UBE work. This is the
+owner-approved [caller-retained private rule](../UBE_Compiler_v3/CALLER-ROOT-PROPOSAL.md),
+not a public foreign ABI or asynchronous ByRef permission. The focused
+`tests/caller-retention` regression checks nested output assignment followed by
+actual collection before a new read, forwarding, exact aliases and replaced
+containing owners, with independent missing-root controls.
 
 Assignment, ByVal preparation and result boundaries synthesize independent
 copies from runtime value descriptors. New values are prepared while the old
@@ -184,3 +202,26 @@ semantics. The native wrapper observes its fresh slot and returns a controlled
 error if admission failed, independently of stale Err. Partial roots unwind
 through the existing common exit. Exact native/capacity/cleanup results and the
 470-check gate are in `../UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.
+
+## Address-owned root synchronization
+
+The owner-approved and qualified bootstrap runtime uses 4096 root-address heads
+and 64 recursive lock stripes. Root storage address determines ownership, so a
+creator can register a capture and a worker can remove it. The public root
+layout remains 32 bytes and the global capacity remains 1,048,576. Packed atomic
+capacity/closure admission prevents over-capacity and shutdown races. Collector
+owner identity gates foreign admission outside stripes while allowing existing
+recursive collector callbacks. Whole-registry tracing, component alias clearing
+and shutdown detach each use their defined simultaneous freeze interval; no
+user callback, heap lookup/allocation or heap-lock acquisition occurs while
+holding only a stripe. Leave compares registered addresses before dereferencing
+the sought storage, retaining safe absent and cross-thread cleanup.
+
+Partial lock initialization cleans up and permanently selects the old recursive
+heap-mutex path. Net fixed metadata growth is 36,912 bytes; all 16 target layout
+assertions, native failure/collection/lifecycle controls and complete source and
+frontend gates pass. This is irreducible bootstrap synchronization, with no new
+language rule, public root ABI, TLS registry or executor. Exact contract,
+acceptance, identities and limitations are in
+[`../UBE_Compiler_v3/ROOT-REGISTRY-PROPOSAL.md`](../UBE_Compiler_v3/ROOT-REGISTRY-PROPOSAL.md)
+and [frontend evidence](../UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md).

@@ -1,38 +1,120 @@
 # UBE Compiler v3 progress
 
+## Consolidated bootstrap runtime - 2026-11-01
+
+The owner requested that bootstrap-native support be kept in the bootstrap
+folder. The former root `runtime/` files now live in `bootstrap/runtime/`:
+`bootstrap_runtime.c`, `bootstrap_unicode_runtime.cpp` and `value_storage.h`.
+The former UBECore C adapters now live in `bootstrap/runtime/windows/`:
+`file_primitives.c` and `thread_primitives.c`. The old directories are gone;
+UBECore's production source tree contains UBE. Future UBE platform libraries
+remain library work; this move changes no public API or language behavior.
+
+Build/test paths, native includes, parent input inventory and current guidance
+are updated. All 24 relocated v3 UBE files retain their original bytes. A focused
+review passes 96 checks, including syntax of 32 edited PowerShell scripts and
+byte-identical before/current preprocessed C runtime. The historical before-fix
+regression mode keeps its pinned snapshot's original path layout.
+
+Current source cohort: `2c0fb05a3c4b4912861db33043acdb40`, manifest SHA-256
+`2D6B6082C7647DE7D380BEB35C1FAFB057A312F6056C0A9D552CC7E540772D51`.
+`rtk proxy powershell -NoProfile -File bootstrap/build-v2.ps1`: PASS, 785 source
+acceptance assertions. Subsequent strict maintained gates all pass:
+
+- `compiler/UBE_Compiler_v3/tools/check-parser-cli.ps1`: 104 exact process cases
+  plus all diagnostic controls; both stages' production LLVM is identical to
+  the qualified pre-runtime-relocation CLI.
+- `compiler/UBE_Compiler_v3/tools/check-local-cli.ps1 -CliReport <source CLI report>`:
+  all 52 exact process oracles with the qualified stage-two executable.
+- `compiler/UBE_Compiler_v3/tools/check-project-cli.ps1`: all 1202 assertions.
+- `compiler/UBE_Compiler_v3/tools/check-borrowed-lifetimes.ps1`: all 56 native
+  runs and its negative unowned-watch control.
+
+These commands use `rtk proxy powershell -NoProfile -File`. Complete command
+records, logs, report identities, exact path-edit backups and preprocessing
+comparisons are in
+`bootstrap/out/runtime-relocation/9ab2b6bb253e4e17b0c042b88d2db589/`.
+The report paths are:
+
+- `bootstrap/out/parser-cli/8223b27728b84529adda41b9a0f95a45/report.json`
+- `bootstrap/out/local-cli/6b912f000fbf4ae5a1d3ec9483ee6a73/report.json`
+- `bootstrap/out/project-cli/16e952bc59c0419bb1273537692876e7/report.json`
+- `bootstrap/out/borrowed-lifetimes/da0f3f17d9604a868f9e868b2965379f/report.json`
+
+Earlier source-layout and frontend/performance records below retain their own
+cohorts and original paths. No performance measurement was rerun for these
+filesystem corrections. The accepted initial parallel results and next proposed
+semantic-checking contract remain unchanged. No push is authorized.
+
+## Qualified source-folder layout - 2026-11-01
+
+The owner requested filesystem separation of code from plans and definitions.
+All 24 production modules/classes now live under `src/`; the project file stays
+at the v3 root with the same source order and `src/` entries. Plans, contracts,
+evidence and contributor guidance retain their locations. Tests/tools remain
+separate. Every moved source file is byte-identical; active tool and CLI-oracle
+paths are updated. No production names or behavior changed.
+
+Fresh qualification:
+
+- `rtk proxy powershell -NoProfile -File bootstrap/build-v2.ps1`: PASS, all 785
+  source acceptance assertions. Current cohort `47d728ea15684fdd8639e444709df30b`;
+  manifest SHA-256 `2AFF9EA62482FDED74F21A64AC81A6885A2230F67678409A199151D948C6AF57`.
+- `check-parser-cli.ps1`: PASS, 104 exact source CLI processes and all diagnostic
+  controls. Both stages' production LLVM is byte-identical to the accepted
+  pre-relocation CLI, as well as to each other.
+- `check-local-cli.ps1 -CliReport <new source CLI report>`: PASS, all 52 process
+  oracles using the qualified stage-two executable.
+- `check-project-cli.ps1`: PASS, all 1202 project CLI assertions.
+- Focused relocation review: PASS, 122 checks of source hashes, exact path-only
+  reference edits, manifest entries and syntax of all 36 PowerShell scripts.
+- `rtk proxy git -c core.safecrlf=false diff --check`: PASS.
+
+Commands above use `rtk proxy powershell -NoProfile -File` and the maintained
+scripts under `compiler/UBE_Compiler_v3/tools/`. Complete relocation identities,
+before-edit copies, command records and reports are retained under
+`bootstrap/out/v3-source-relocation/49d3aecd4aa44286a1fecc4130338eb5/`.
+Earlier a732 full frontend/performance qualification below remains the original
+accepted record. Performance was not remeasured for this byte-preserving move;
+no new speedup result is claimed. The next proposed semantic contract is unchanged.
+
 ## Current objective
 
-The owner-requested bounded compiler-concurrency objective is complete.
-`CONCURRENCY-CONTRACT.md`, `CONCURRENCY-BOOTSTRAP.md` and
-`CONCURRENCY-CONSUMER.md` define the accepted scope. Compiler-owned
-`TryParseSources` runs existing source/scanner/parser bodies through actual UBE
-workers with budgets 1, 2 and 4, immutable source owners, private results,
-canonical diagnostics and complete publication. Failure/cancellation retains
-earlier output and drains admitted workers. UBECore owns generic thread/storage
-APIs, not this source policy or an executor.
+The owner-requested bounded project input and qualified parallel frontend is
+complete under the revised initial-performance criterion. Cohort
+`a732173e4f3d450cb7a6feaa519af1d3` passes785 source assertions and all seven
+strict retained gates. The project/jobs path uses the existing compiler-owned
+`TryParseSources` budget, immutable owners/private outputs, deterministic spans
+and failures, complete publication, cancellation/drain and old-output retention.
+UBECore retains generic facilities without compiler source policy or an executor.
 
-The current bootstrap passes 592 grouped assertions; concurrency passes 5652
-native assertions through both stages. Retained parser and strict CLI gates pass
-4049 and 217 checks; all 41 local process oracles pass. Exact current tool/source/
-artifact identities, commands, costs and limits are in
-[CONCURRENCY-EVIDENCE.md](CONCURRENCY-EVIDENCE.md).
+The current project consumer proof covers35 cases, four independent contexts and
+375 observed allocator failures. The optional physical case-sensitive36th case
+is historical, not part of this current qualification. Parser1769 checks retain
+all188 cases and every capacity0..58/200/206/207 through both stages (1350
+attempts). Source CLI104 exact processes and58 diagnostic controls, local52,
+project CLI1202, lifetime56 and concurrency4200 assertions per stage pass.
 
-Instrumented four-worker execution was slower than one-worker execution;
-measured collector contention remains focused follow-up work. The proposed next
-deliverable is bounded `.UBE`/direct-UBECore input and parallel frontend
-integration. That row and all later rows need their own contract and owner
-review before implementation. Full grammar, semantics, code generation and
-project/jobs CLI integration remain unfinished.
+Both complete uninstrumented sessions retain252 trials and pass all serial/small
+guards. Real-corpus two/four-worker speedups are1.207x/1.304x and1.211x/1.335x;
+balanced gains are1.279x/1.396x and1.288x/1.423x. All parallel trial ranges are
+faster than serial, and four workers improve over two. The original1.5x/2x
+targets remain missed; the owner explicitly accepted close initial results.
+The frozen harness/reports and both baselines remain unchanged. See
+[current acceptance policy](PERFORMANCE-ACCEPTANCE.md) and
+[performance evidence](FRONTEND-PERFORMANCE-EVIDENCE.md) for the decision,
+archive, exact identities, distributions, resource costs and remaining limits.
 
-The owner subsequently approved an explicit
-[parallel performance gate](../../project-docs/Development-Plan.md#parallel-performance-acceptance).
-Its initial targets are 1.5x speedup with two workers and 2x with four, measured
-without instrumentation on both representative real and larger balanced corpora.
-Single-worker/small-input regression guards and all correctness/resource gates
-also apply. This requirement is unfinished and must pass before substantial
-semantic/backend growth. The next performance work must freeze its baseline and
-measurement procedure and diagnose contention narrowly; no optimization goal or
-architectural change has been started by this planning approval.
+Applied changes are the conservative unused-argument-slot correction, the
+approved address-owned root registry with collection gating/fallback, and the
+existing coordinator's1ms wait. No spelling cache, scalar-read fusion, private
+procedure aggregation, second executor or public ABI change was adopted.
+The32-byte root ABI/global1,048,576 capacity and real failure coverage remain.
+
+Full grammar, semantic validation and native code generation remain unfinished.
+Successful syntax checks return the explicit semantic-unavailable diagnostic
+and create no output artifact. Later rows remain proposed until their bounded
+contracts/dependencies and owner review are ready. No further push was authorized.
 
 ## Earlier foundation and parser checkpoints
 
@@ -78,7 +160,7 @@ proofs. It did not rerun native behavior. Exact scanner commands, accepted hashe
 measurements and supported limits remain in `SCANNER-EVIDENCE.md`; the earlier
 470-check result remains historical in `SOURCE-INPUT-EVIDENCE.md`.
 
-## Current state
+## Earlier source/header state
 
 The production manifest adds `SourceOwner.cls`, `SourceWork.cls`,
 `SourceCancellation.cls` and `SourceParsing.bas` to the existing source,
@@ -163,12 +245,16 @@ historical evidence. At that checkpoint, the full Library/native envelope, built
 CallNew scheduling and complete language were unqualified. That record preserves
 the foundation before later source-input and concurrency work.
 
-## Proposed next action
+## Active next action
 
-Review a bounded normal `.UBE`/direct-UBECore source-input contract and its
-parallel frontend integration under
-[`Development-Plan.md`](../../project-docs/Development-Plan.md). Preserve the
-qualified worker path, original value semantics, names and layer boundaries.
-Investigate measured collector contention with focused evidence. This row and
-every later deliverable remain proposed; the completed goal does not authorize
-successor implementation, semantic/backend growth or a general executor.
+The completed project/frontend deliverable has its exact source/test/measurement
+record in PROJECT-INPUT-EVIDENCE.md and FRONTEND-PERFORMANCE-EVIDENCE.md. Preserve
+its qualified ownership, library boundary, names, determinism and one worker budget.
+
+The next proposed development-plan row is **First semantic checking**. Before
+implementation, inventory the declaration details retained by syntax and define
+the bounded scope/lookup/type/diagnostic contract with independent cases, exact
+spans, failure publication and deterministic private body work. Do not guess
+missing declaration information from node kinds or create another source parser.
+Reusable text/numeric operations belong in UBECore; language policy stays here.
+No semantic/backend code or new phase architecture is authorized by this handoff.

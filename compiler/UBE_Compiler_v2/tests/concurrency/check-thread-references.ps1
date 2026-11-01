@@ -23,7 +23,7 @@ $commands=@();$cases=@();$rejections=@();$success=$false
 $utf8=[Text.UTF8Encoding]::new($false)
 try {
     $runtime=Join-Path $run 'bootstrap_runtime.o'
-    $runtimeCompile=Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c',(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime) $root 60;$commands+=$runtimeCompile
+    $runtimeCompile=Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-c',(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime) $root 60;$commands+=$runtimeCompile
     if($runtimeCompile.timedOut -or $runtimeCompile.exit -ne 0){throw ('Runtime compile: '+$runtimeCompile.stderr)}
     foreach($stage in $Stages) {
         $compiler=$compilerPaths[$stage-1]
@@ -99,7 +99,7 @@ define i64 @probe_start_fraction(ptr %owner, double %fraction) {
     $success=$true
 } catch {$failure=$_.Exception.Message}
 $paths=@('ThreadReferences.UBE','ByteOwner.cls','thread-references.bas' | ForEach-Object {Join-Path $PSScriptRoot $_})
-$paths+=@('std-lib/UBECore.UBE','std-lib/src/win-lib/thread_primitives.c','runtime/bootstrap_runtime.c','runtime/value_storage.h')
+$paths+=@('std-lib/UBECore.UBE','bootstrap/runtime/windows/thread_primitives.c','bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h')
 $paths+=@(Get-ChildItem -LiteralPath (Join-Path $root 'std-lib/src/portable') -Filter '*.bas' | ForEach-Object {$_.FullName})
 $paths+=@(Join-Path $PSScriptRoot 'thread_reference_observer.c')
 $inputs=@($paths | ForEach-Object {Get-ArtifactIdentity $_})

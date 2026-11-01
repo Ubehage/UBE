@@ -68,7 +68,7 @@ function Assert-Cli([int]$Stage,[string]$Executable,[string[]]$Arguments,[int]$E
 try {
     $definitionPath=Join-Path $fixture 'cases.json'
     $definition=Get-Content -LiteralPath $definitionPath -Raw -Encoding UTF8|ConvertFrom-Json
-    Assert-Fact ($definition.schema -ceq 'ube-parser-cli-cases-1' -and $definition.cases.Count -eq 22 -and $definition.productionSources.Count -eq 16) 'Independent CLI cases and real-source cohort have the expected complete shape'
+    Assert-Fact ($definition.schema -ceq 'ube-parser-cli-cases-1' -and $definition.cases.Count -eq 24 -and $definition.productionSources.Count -eq 25) 'Independent CLI cases and real-source cohort have the expected complete shape'
     $selection=Get-Content -LiteralPath $SelectionPath -Raw|ConvertFrom-Json
     Assert-Fact ($selection.schema -ceq 'ube-v2-current-1') 'Selected source-built compiler identity has expected schema'
     foreach($property in $selection.PSObject.Properties){if($property.Name -ne 'schema'){Assert-Identity $property.Value}}
@@ -131,7 +131,7 @@ try {
         $diagnostics+=$diagnostic
         $inputs+=@($diagnostic.inputs)
         $artifacts+=@($diagnostic.artifacts)+@($diagnostic.report)
-        Assert-Fact ($diagnostic.cases -eq 27) "Stage $($stage+1) actual diagnostic helper passes all allocation-denial and real-admission controls" $diagnostic
+        Assert-Fact ($diagnostic.cases -eq 29) "Stage $($stage+1) actual diagnostic helper passes all allocation-denial and real-admission controls" $diagnostic
     }
     Assert-Fact ($hashes.Count -eq 2 -and $hashes[0].sha256 -ceq $hashes[1].sha256 -and $hashes[0].bytes -eq $hashes[1].bytes) 'Both accepted bootstrap stages emit byte-identical raw production LLVM' $hashes
     foreach($identity in $inputs){Assert-Identity $identity}

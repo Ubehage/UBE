@@ -96,6 +96,7 @@ try {
         (Get-ChildItem (Join-Path $root 'std-lib/tests/utf8') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/byte-buffer') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/file-bytes') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/path-bytes') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/unicode') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/data/unicode') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/src') -Recurse -File).FullName
@@ -103,6 +104,7 @@ try {
         (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md')
         (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md')
         (Join-Path $root 'std-lib/THREADS-CONTRACT.md')
+        (Join-Path $root 'std-lib/PATH-BYTES-PROPOSAL.md')
         (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md')
         (Join-Path $root 'std-lib/tools/check-native-type.ps1')
         (Join-Path $root 'std-lib/tools/check-value-record.ps1')
@@ -114,6 +116,7 @@ try {
         (Join-Path $root 'std-lib/tools/check-byte-buffer.ps1')
         (Join-Path $root 'std-lib/tools/check-byte-buffer-costs.ps1')
         (Join-Path $root 'std-lib/tools/check-file-bytes.ps1')
+        (Join-Path $root 'std-lib/tools/check-path-bytes.ps1')
         (Join-Path $root 'std-lib/tools/check-unicode.ps1')
         (Join-Path $root 'std-lib/tools/generate-unicode.ps1')
         (Join-Path $root 'std-lib/UNICODE-CONTRACT.md')
@@ -121,13 +124,16 @@ try {
         (Join-Path $PSScriptRoot 'build-v2.ps1')
         (Join-Path $PSScriptRoot 'compile-v2.ps1')
         (Join-Path $PSScriptRoot 'tools/verification.ps1')
-        (Join-Path $root 'runtime/bootstrap_runtime.c')
-        (Join-Path $root 'runtime/value_storage.h')
-        (Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp')
+        (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')
+        (Join-Path $root 'bootstrap/runtime/value_storage.h')
+        (Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp')
+        (Join-Path $root 'bootstrap/runtime/windows/file_primitives.c')
+        (Join-Path $root 'bootstrap/runtime/windows/thread_primitives.c')
     )
     $inputs = @($inputPaths | Where-Object {
         [IO.Path]::GetExtension($_) -in @('.bas','.cls','.UBE','.c','.cpp','.h','.hpp','.ps1','.json','.ll') -or
         $_ -eq (Join-Path $root 'std-lib/THREADS-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/PATH-BYTES-PROPOSAL.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md') -or
         $_ -eq (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/tests/byte-buffer/ORACLES.md') -or
@@ -135,7 +141,17 @@ try {
         $_ -eq (Join-Path $root 'std-lib/tests/file-bytes/ORACLES.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/source-reference/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/entry-admission/CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/value-materialization/CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/caller-retention/CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/root-registry/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/PROJECT-INPUT-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/PROJECT-DIAGNOSTICS.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/PROJECT-METADATA-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/PROJECT-DISPLAY-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/PROJECT-CLI-IMPLEMENTATION.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/tests/project-input/CONTEXT-COVERAGE.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/tests/project-input/ORACLES.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/tests/source-input/ORACLES.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/SCANNER-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/tests/scanner/native/ORACLES.md') -or
@@ -153,8 +169,8 @@ try {
     $unicode = Join-Path $run 'bootstrap_unicode_runtime.o'
     Write-Output 'Building current seed/runtime and running seed regressions.'
     Assert-Success (Invoke-Recorded $gxx ($common + $backend + @((Join-Path $PSScriptRoot 'src/main.cpp'),'-o',$seed)) 60) 'Seed build'
-    Assert-Success (Invoke-Recorded $clang @('--target=x86_64-w64-windows-gnu','-std=c17','-Wall','-Wextra','-Wpedantic','-Werror','-c',(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime) 60) 'Runtime build'
-    Assert-Success (Invoke-Recorded $gxx ($common + @('-c',(Join-Path $root 'runtime/bootstrap_unicode_runtime.cpp'),'-o',$unicode)) 60) 'Unicode runtime build'
+    Assert-Success (Invoke-Recorded $clang @('--target=x86_64-w64-windows-gnu','-std=c17','-Wall','-Wextra','-Wpedantic','-Werror','-c',(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime) 60) 'Runtime build'
+    Assert-Success (Invoke-Recorded $gxx ($common + @('-c',(Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp'),'-o',$unicode)) 60) 'Unicode runtime build'
     $unitSources = @($lex, $parse, $semantic, $backend)
     $unitNames = @('lexer','parser','semantic','codegen')
     for ($index = 0; $index -lt $unitNames.Count; $index++) {
@@ -316,8 +332,15 @@ try {
         @('byte-buffer-costs','std-lib/tools/check-byte-buffer-costs.ps1'),
         @('source-references','compiler/UBE_Compiler_v2/tests/source-reference/check.ps1'),
         @('entry-admission','compiler/UBE_Compiler_v2/tests/entry-admission/check.ps1'),
+        @('value-materialization','compiler/UBE_Compiler_v2/tests/value-materialization/check.ps1'),
+        @('caller-retention','compiler/UBE_Compiler_v2/tests/caller-retention/check.ps1'),
+        @('root-registry','compiler/UBE_Compiler_v2/tests/root-registry/check.ps1'),
         @('file-bytes','std-lib/tools/check-file-bytes.ps1'),
+        @('path-bytes','std-lib/tools/check-path-bytes.ps1'),
         @('source-input','compiler/UBE_Compiler_v3/tools/check-source-input.ps1'),
+        @('project-manifest','compiler/UBE_Compiler_v3/tools/check-project-manifest.ps1'),
+        @('project-intake','compiler/UBE_Compiler_v3/tools/check-project-intake.ps1'),
+        @('project-display','compiler/UBE_Compiler_v3/tools/check-project-display.ps1'),
         @('unicode','std-lib/tools/check-unicode.ps1'),
         @('scanner','compiler/UBE_Compiler_v3/tools/check-scanner.ps1'),
         @('reference-storage','compiler/UBE_Compiler_v2/tests/concurrency/check-references.ps1'),
@@ -330,6 +353,12 @@ try {
         $proofTimeout = 60
         if ($proof[0] -in @('source-references','source-input','unicode','scanner')) { $proofTimeout = 900 }
         if ($proof[0] -eq 'thread-references') { $proofTimeout = 180 }
+        if ($proof[0] -in @('value-materialization','caller-retention')) { $proofTimeout = 180 }
+        if ($proof[0] -eq 'root-registry') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'path-bytes') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'project-manifest') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'project-intake') { $proofTimeout = 900 }
+        if ($proof[0] -eq 'project-display') { $proofTimeout = 180 }
         $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-SelectionPath',$candidatePath)
         if ($proof[0] -eq 'thread-statement') { $proofArguments += '-RequireNative' }
         $record = Invoke-Recorded $shell $proofArguments $proofTimeout
@@ -345,6 +374,9 @@ try {
         }
         if ($proof[0] -eq 'managed-substrate' -and -not $report.sourceBuildCurrent) {
             throw 'Managed substrate proof is not bound to the current source-build inputs'
+        }
+        if ($proof[0] -eq 'root-registry' -and $report.checks.Count -ne 87) {
+            throw 'Root registry proof must retain all86 deterministic cases and the legacy native oracle'
         }
         foreach ($check in $report.checks) {
             # The existing decoder report records completed assertions as text.

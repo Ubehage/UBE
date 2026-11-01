@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../../../../runtime/value_storage.h"
+#include "../../../../../bootstrap/runtime/value_storage.h"
 
 struct position { int32_t byte, scalar, line, column; };
 struct failure { int32_t kind; struct position position; };

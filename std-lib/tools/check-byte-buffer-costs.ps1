@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Path $run -Force | Out-Null
 $paths = @('std-lib/tools/check-byte-buffer-costs.ps1','std-lib/src/portable/Utf8.bas','std-lib/src/portable/ByteBuffer.bas',
     'std-lib/tests/byte-buffer/metrics.c','std-lib/tests/byte-buffer/metrics-entry.bas','std-lib/tests/byte-buffer/metrics-adapters.ll',
     'std-lib/tests/byte-buffer/ORACLES.md','std-lib/BYTE-BUFFER-CONTRACT.md',
-    'runtime/bootstrap_runtime.c','runtime/value_storage.h','std-lib/tests/managed-storage/copy-probe.h',
+    'bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h','std-lib/tests/managed-storage/copy-probe.h',
     'std-lib/tests/byte-storage/allocation-probe.h','bootstrap/tools/verification.ps1')
 $inputs = @($paths | ForEach-Object { Get-ArtifactIdentity (Join-Path $root $_) })
 $commands = @(); $checks = @(); $measurements = @()
@@ -45,8 +45,8 @@ try {
     foreach ($identity in $accepted.inputs) {
         if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) { throw "Accepted source input changed: $($identity.path)" }
     }
-    $runtimeInput = @($accepted.inputs | Where-Object path -CEQ (Join-Path $root 'runtime/bootstrap_runtime.c'))
-    if ($runtimeInput.Count -ne 1 -or $runtimeInput[0].sha256 -cne (Get-ArtifactIdentity (Join-Path $root 'runtime/bootstrap_runtime.c')).sha256) { throw 'Instrumented runtime source differs from accepted runtime source' }
+    $runtimeInput = @($accepted.inputs | Where-Object path -CEQ (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'))
+    if ($runtimeInput.Count -ne 1 -or $runtimeInput[0].sha256 -cne (Get-ArtifactIdentity (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')).sha256) { throw 'Instrumented runtime source differs from accepted runtime source' }
     $inputs += @($accepted.inputs)
     $stage1 = Join-Path (Split-Path $selection.compiler.path -Parent) 'ube-stage1-v2.exe'
     $stageOne = @($accepted.artifacts | Where-Object path -CEQ $stage1)
@@ -63,7 +63,7 @@ try {
     [IO.File]::WriteAllText($source,$body + [IO.File]::ReadAllText((Join-Path $root 'std-lib/tests/byte-buffer/metrics-entry.bas')),(New-Object Text.UTF8Encoding($false)))
     $instrumented = Join-Path $run 'observed-runtime.o'
     $null = Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2','-std=c11','-Wall','-Wextra','-Werror','-c',
-        '-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$instrumented)
+        '-include',(Join-Path $root 'std-lib/tests/managed-storage/copy-probe.h'),(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$instrumented)
     $hashes = @()
     $stages = @($stage1,$selection.compiler.path)
     for ($index = 0; $index -lt 2; ++$index) {

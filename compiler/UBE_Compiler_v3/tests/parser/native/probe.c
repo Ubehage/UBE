@@ -8,7 +8,7 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
-#include "../../../../../runtime/value_storage.h"
+#include "../../../../../bootstrap/runtime/value_storage.h"
 
 struct position { int32_t byte,scalar,line,column; };
 struct source_failure { int32_t kind;struct position position; };

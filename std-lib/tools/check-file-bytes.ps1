@@ -8,8 +8,9 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $root 'bootstrap/tools/verification.ps1')
 $run = Join-Path $root ('bootstrap/out/file-bytes/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
-$names = @('runtime/bootstrap_runtime.c','runtime/value_storage.h',
-    'std-lib/src/win-lib/file_primitives.c','std-lib/src/portable/FileBytes.bas',
+$names = @('bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h',
+    'bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/thread_primitives.c','std-lib/src/portable/FileBytes.bas',
+    'std-lib/src/portable/PathBytes.bas','std-lib/PATH-BYTES-PROPOSAL.md',
     'std-lib/FILE-BYTES-CONTRACT.md','std-lib/tests/file-bytes/ORACLES.md',
     'std-lib/tests/file-bytes/native.c','std-lib/tests/file-bytes/primitives.bas',
     'std-lib/tools/check-file-bytes.ps1','bootstrap/tools/verification.ps1')
@@ -21,15 +22,15 @@ try {
         $identity = $selection.$name
         if ((Get-ArtifactIdentity $identity.path).sha256 -cne $identity.sha256) { throw "Selected artifact changed: $name" }
     }
-    $inputs += $selection.clang
+    $inputs += @($selection.clang,$selection.unicodeRuntime)
     $runtime = Join-Path $run 'runtime-test.o'
     $compile = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-std=c17','-Wall','-Wextra','-Wpedantic','-Werror',
-        '-DUBE_FILE_TESTING','-c',(Join-Path $root 'runtime/bootstrap_runtime.c'),'-o',$runtime) $root 60
+        '-DUBE_FILE_TESTING','-c',(Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c'),'-o',$runtime) $root 60
     $commands += $compile
     if ($compile.timedOut -or $compile.exit -ne 0) { throw "Instrumented runtime failed: $($compile.stderr)" }
     $native = Join-Path $run 'native.exe'
     $link = Invoke-BoundedProcess $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2',
-        '-Wall','-Wextra','-Werror','-I',(Join-Path $root 'runtime'),
+        '-Wall','-Wextra','-Werror','-I',(Join-Path $root 'bootstrap/runtime'),
         (Join-Path $root 'std-lib/tests/file-bytes/native.c'),$runtime,$selection.unicodeRuntime.path,'-o',$native) $root 30
     $commands += $link
     if ($link.timedOut -or $link.exit -ne 0) { throw "Native oracle failed to build: $($link.stderr)" }
@@ -38,12 +39,21 @@ try {
     $payload = New-Object byte[] 257
     for ($index=0; $index -lt 257; $index++) { $payload[$index] = $index % 256 }
     [IO.File]::WriteAllBytes($fixture,$payload)
-    $execute = Invoke-BoundedProcess $native @($fixture,$unicode) $root 30
+    $execute = Invoke-BoundedProcess $native @($fixture,$unicode) $run 30
     $commands += $execute
     if ($execute.timedOut -or $execute.exit -ne 0 -or $execute.stderr -cne '' -or $execute.stdout -notmatch '^PASS file primitives [0-9]+ assertions\r?\n$') {
         throw "Native file oracle failed: $($execute | ConvertTo-Json -Compress -Depth 4)"
     }
-    $checks += [pscustomobject]@{ assertion = 'native independent bytes/status/Err/failure atomicity/resource tokens/Unicode arguments/cleanup/four workers'; passed=$true; output=$execute.stdout }
+    $unicodeDirectory=Join-Path $run ($unicode+'_cwd')
+    $null=New-Item -ItemType Directory -Path $unicodeDirectory
+    $unicodeFixture=Join-Path $unicodeDirectory ($unicode+'.bin')
+    [IO.File]::WriteAllBytes($unicodeFixture,$payload)
+    $unicodeExecute=Invoke-BoundedProcess $native @($unicodeFixture,$unicode) $unicodeDirectory 30
+    $commands+=$unicodeExecute
+    if($unicodeExecute.timedOut -or $unicodeExecute.exit -ne 0 -or $unicodeExecute.stderr -cne '' -or $unicodeExecute.stdout -notmatch '^PASS file primitives [0-9]+ assertions\r?\n$'){
+        throw "Unicode-directory native file oracle failed: $($unicodeExecute | ConvertTo-Json -Compress -Depth 4)"
+    }
+    $checks += [pscustomobject]@{ assertion = 'native independent bytes/status/Err/failure atomicity/resource tokens/Unicode arguments and directory capture/open-file identity equality, distinct files and hard links/real allocation and full root-capacity failures/cleanup/four workers'; passed=$true; output=$execute.stdout; unicodeDirectoryOutput=$unicodeExecute.stdout }
     if (-not $NativeOnly) {
         $accepted = Get-Content -LiteralPath $selection.manifest.path -Raw | ConvertFrom-Json
         if (-not $accepted.success) { throw 'Selected source gate did not succeed' }
@@ -54,7 +64,7 @@ try {
             if ($artifact.Count -ne 1 -or (Get-ArtifactIdentity $stage).sha256 -cne $artifact[0].sha256) { throw "Stage artifact differs from accepted source gate: $stage" }
         }
         $body = ''
-        foreach ($name in @('Utf8','ByteBuffer','FileBytes')) {
+        foreach ($name in @('Utf8','ByteBuffer','FileBytes','PathBytes')) {
             $source = Join-Path $root ('std-lib/src/portable/' + $name + '.bas')
             $inputs += Get-ArtifactIdentity $source
             $lines = [IO.File]::ReadAllText($source).Replace("`r`n","`n") -split "`n"
