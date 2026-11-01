@@ -20,11 +20,12 @@
     <p class="lede">UBE is under active development and is not ready for production use.</p>
 
     <h2>What works today</h2>
-    <p>The preserved UBE Compiler v2 builds the self-hosting Compiler v3 Release Preview 7. RP7 compiles typed native programs with managed values and objects, thread-local errors, cooperative threads, synchronization, synchronous events, and form/control component lifetime. Its clean Windows x86-64 build reproduces byte-identical self-hosted LLVM and the exact 16-module <code>UBECore</code> slice.</p>
+    <p>The fresh Compiler v3 reads native module source, checks a bounded syntax subset, loads executable project manifests with one explicit UBECore source reference, and processes sources with one through four workers. Accepted syntax still ends with <a href="../tools/ube1012.html" data-doc-path="tools/ube1012.html">UBE1012</a>: semantic checking is unavailable. It does not generate executable programs.</p>
+    <p>Current UBECore has qualified source foundations for owned bytes, UTF-8 decoding, Unicode operations, file input, path handling and bounded thread operations. A full released library, general String replacement and complete synchronization catalog are not available. See the <a href="../library/index.html" data-doc-path="library/index.html">library reference</a> for exact source scope.</p>
 
     <h2>What comes next</h2>
-    <p>Compiler v3 RP8 must complete project/resource and compiled-library packaging, the remaining UBE 1.0 surface, debugger metadata, and the portability boundary. The complete standard library and non-Windows targets remain in development.</p>
-
+    <p>First semantic checking is the active approved deliverable. Its bounded contract covers selected declarations, names, integer/Boolean expressions, assignments and calls. The contract and its independent cases are preparation evidence, not an implemented checker. Complete language support, native code generation, library packaging, source-level debugging and the native IDE remain unfinished.</p>
+    <p>The earlier v3/v4 implementations and release previews are archived. Their results are historical and do not establish what the fresh compiler supports.</p>
     <div class="callout">
       <strong>Documentation status</strong>
       <strong>Specified</strong> means that UBE 1.0 behavior is settled. It does not mean compiler v3 implements it yet. Each page separately states implementation availability.
@@ -40,7 +41,7 @@
       <a href="goals.html" data-doc-path="about/goals.html">← Previous: Goals and principles</a>
       <a href="compiler-generations.html" data-doc-path="about/compiler-generations.html">Next: Development and releases →</a>
     </nav>
-    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-10-23</footer>
+    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-11-01</footer>
   </main>
 </body>
 </html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-article-id="tools.resources-libraries">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resources and compiled libraries - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#tools/resources-libraries.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="tools/index.html">Compiler and tools</a> / Resources and compiled libraries</nav>
+    <h1>Resources and compiled libraries</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0 - fresh v3 packaging unavailable</span></div>
+<p class="lede">Resource sidecars keep binary assets out of source text. Compiled-library bundles pair native code with explicit target and interface identities.</p>
+<h2>Resource sidecars (.UBR)</h2><p>Keep pictures, icons and other binary payloads in a sidecar such as <code>MainWindow.UBR</code>, normally beside the owning form/control source. List every sidecar explicitly in the project:</p><pre><code>Resource = "src/MainWindow.UBR"</code></pre><p>Designer text refers to a named entry rather than embedding bytes or trusting an unchecked offset. Unreferenced sidecars are not searched or embedded automatically.</p>
+<h2>Specified container framing</h2><p><code>UBE-Resource 1</code> is little-endian. Its 16-byte header consists of the eight magic bytes <code>UBEUBR1</code> followed by LF, a 32-bit unsigned entry count and a 32-bit unsigned directory length. Each directory record holds a 16-bit unsigned ASCII name length, a zero 16-bit flags field, 64-bit unsigned payload offset and length, 64 uppercase ASCII hexadecimal SHA-256 characters, and the name bytes. These field widths describe the file format, not additional UBE scalar types.</p><p>Names contain 1 through 255 ASCII letters, digits, underscores, hyphens or dots. Records use strict ordinal name order. Payloads immediately follow the directory in that order, with no gaps or trailing bytes. A container is limited to 64 MiB and 1,024 entries. Readers validate lengths, ranges, ordering and hashes before exposing any data; malformed or unsupported input requires a controlled diagnostic.</p>
+<h2>Compiled-library bundles (.UBL)</h2><p><code>UBE-LibraryBundle 1</code> uses the same framing with magic <code>UBEUBL1</code> followed by LF. It contains exactly three entries in canonical order:</p><table><thead><tr><th>Entry</th><th>Contents</th></tr></thead><tbody><tr><td>Artifact</td><td>Target-specific native library</td></tr><tr><td>Interface</td><td>Canonical public declaration record</td></tr><tr><td>Manifest</td><td>UTF-8 compatibility and artifact metadata</td></tr></tbody></table>
+<p>Metadata includes package name, semantic version, language version, intrinsic ABI, target triple, object format, pointer width, public-interface SHA-256 and artifact SHA-256. A matching bundle format alone does not make two targets or interfaces compatible.</p>
+<h2>Explicit references and compatibility</h2><pre><code>Reference = "vendor/TextTools/TextTools.UBE"
+LibraryReference = "vendor/TextTools/TextTools.UBL|1.4.0|0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"</code></pre><p>The specified LibraryReference form requires the path, semantic version and exact uppercase 64-digit interface hash. The selected target must match. The documented paired source-reference form supplies declarations explicitly; no registry, network or library filename supplies missing metadata. The canonical core package name is <code>UBECore</code>. Package, language, source format, compiler and intrinsic ABI versions are separate identities.</p>
+<h2>Current availability</h2><p>These formats remain normative definitions preserved from the earlier work. Archived preview evidence does not establish an active packager or linker. The fresh-v3 checker reports Resource, LibraryReference and other packaging facilities as unimplemented; it creates no native artifact. No resource or bundle generation command is promised here.</p><p>See <a href="project-manifests.html" data-doc-path="tools/project-manifests.html">project manifests</a> and <a href="source-checking.html" data-doc-path="tools/source-checking.html">current checking limits</a>.</p>
+<footer class="article-footer">Article ID: tools.resources-libraries - Last reviewed 2026-11-01. Sources: lang-doc/project-files.md and project-docs/versioning.md.</footer></main></body></html>

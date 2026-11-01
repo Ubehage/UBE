@@ -1,0 +1,28 @@
+<!doctype html><html lang="en" data-article-id="language.variable-hooks"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Variable access hooks - UBE documentation</title><link rel="stylesheet" href="../../assets/css/tokens.css"><link rel="stylesheet" href="../../assets/css/base.css"><link rel="stylesheet" href="../../assets/css/article.css"><script src="../../assets/js/article.js" defer></script></head><body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../index.html#language/topics/variable-hooks.html">UBE documentation</a></header><main id="content" class="article"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="language/topics/index.html">Language reference</a> / Variable access hooks</nav>
+<h1>Variable access hooks</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0 - fresh v3 execution unavailable</span></div>
+<p class="lede">Attach procedures to reads and writes of a stored variable while callers keep ordinary variable syntax. The variable still owns real backing storage.</p>
+<h2>Syntax</h2><pre><code>Private Temperature As Double
+    On Get TemperatureRead
+    On Set TemperatureWritten
+End Variable
+
+Private Function TemperatureRead(ByRef Storage As Double) As Double
+    TemperatureRead = Storage
+End Function
+
+Private Sub TemperatureWritten(ByRef Storage As Double, ByVal Value As Double)
+    Storage = Value
+End Sub
+
+Public Sub Main()
+    Temperature = 20
+    Dim Observed As Double = Temperature
+End Sub</code></pre>
+<p>This specified example has not been executed with fresh v3. Assignment calls TemperatureWritten once; the initializer's read calls TemperatureRead once and obtains 20.</p>
+<h2>Signatures and behavior</h2><p>For a variable of type T, the get hook is <code>Function GetHook(ByRef Storage As T) As T</code> and the set hook is <code>Sub SetHook(ByRef Storage As T, ByVal Value As T)</code>. Parameter names do not matter. Each hook occurs at most once and its procedure name resolves in the declaration's lexical scope.</p>
+<p>Reading calls the get hook and uses its return value. Assignment evaluates the right side once, then calls the set hook. Missing hooks use direct storage. A read/modify/write operation performs one hooked read followed by one hooked write. Initialization writes storage before hooks become active.</p>
+<h2>Backing storage and aliases</h2><p>Only the privileged Storage parameter bypasses the hooks. Ordinary uses of Temperature inside either hook remain hooked and can recurse. The privileged parameter may be forwarded ByRef, but taking the hooked variable's address or passing it to an ordinary ByRef parameter is a compile-time error because that could bypass its hooks.</p>
+<h2>Placement, arrays and lifetime</h2><p>Stored module, class and local variables can have hooks. A hook on an array variable observes the array value, not individual elements. Array-element hooks and first-class accessor references are reserved for a later version. Hooks retain ordinary storage ownership and thread rules; adding hooks does not synchronize shared mutable state.</p>
+<h2>Errors and optimization</h2><p>Hooks are side-effecting. Optimization must preserve their number and order relative to observable operations. Recoverable hook failures follow the normal <a href="../../learn/errors.html" data-doc-path="learn/errors.html">Err and explicit trapping rules</a>. Reading the ordinary variable name inside its own hook can re-enter it; hooks do not create automatic recursion suppression.</p>
+<p>See also <a href="properties-members.html" data-doc-path="language/topics/properties-members.html">properties and members</a> and <a href="procedures-parameters.html" data-doc-path="language/topics/procedures-parameters.html">ByRef parameters</a>.</p>
+<footer class="article-footer">Article ID: language.variable-hooks - Last reviewed 2026-11-01. Source: lang-doc/language-spec.md section 7.</footer></main></body></html>

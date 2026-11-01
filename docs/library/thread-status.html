@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-article-id="library.thread-status">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fresh-status thread operations - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#library/thread-status.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / Fresh-status thread operations</nav>
+    <h1>Fresh-status thread operations</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Current UBECore source - bounded Windows bootstrap</span></div>
+<p class="lede">These operations report whether a thread request succeeded separately from the value it returned. They work with existing UBE thread identities and cooperative stopping.</p>
+<h2>Declarations</h2><pre><code>Function TryCurrentThreadId(ByRef Id As LongLong) As Boolean
+Function TryThreadIsAlive(ByVal Id As LongLong, ByRef Alive As Boolean) As Boolean
+Function TryThreadRequestStop(ByVal Id As LongLong, ByRef Requested As Boolean) As Boolean
+Function TryThreadStopRequested(ByRef Requested As Boolean) As Boolean
+Function TryThreadWait(ByVal Id As LongLong, ByVal Timeout As LongLong, ByRef Completed As Boolean) As Boolean
+Function TryThreadYield() As Boolean</code></pre>
+<h2>Return values and errors</h2><p><code>True</code> means the request was processed and any output is fresh. It preserves incoming <code>Err</code>. <code>False</code> preserves the old output and records a new error occurrence. An earlier error number, including the same number as a later error, is not a success test.</p>
+<p>Identities are positive <code>LongLong</code> program values, never operating-system handles or pointers. Zero and unknown identities fail. A completed issued worker can still be queried: a successful liveness query returns <code>Alive = False</code>; a successful stop request can return <code>Requested = False</code> because the worker already completed.</p>
+<h2>Waiting and ownership</h2><p><code>Timeout</code> is milliseconds from 0 through 4,294,967,295, or <code>-1</code> for indefinite waiting. Self-wait and other values fail. A successful request with <code>Completed = False</code> means timeout or interruption. It does not mean the worker finished. Only <code>True</code> with <code>Completed = True</code> permits completion cleanup and provides visibility of the worker's preceding actions.</p>
+<h2>Example</h2><p>This specified caller fragment assumes <code>WorkerId</code> is an issued worker identity. It has not been executed as a manual example with the fresh compiler.</p><pre><code>Dim Completed As Boolean = False
+If TryThreadWait(WorkerId, -1, Completed) Then
+    If Completed Then
+        ' Worker is finished; its retained inputs may now be released.
+    End If
+Else
+    ' Handle the failed request; keep the worker's state alive.
+End If</code></pre>
+<h2>Thread safety and availability</h2><p>Stop requests are sticky and cooperative. Stop admitting work, request stopping where appropriate, then drain workers before releasing shared inputs. These calls borrow output storage for the call and retain no source or compiler state. Callers synchronize shared mutable outputs.</p>
+<p>The bounded source implementations and native/UBE thread tests are recorded in the current UBECore evidence. No released standalone library binary is available. This API is not the complete <a href="threading.html" data-doc-path="library/threading.html">specified threading and synchronization library</a>, and does not provide an executor or choose a worker budget.</p>
+    <footer class="article-footer">Article ID: library.thread-status - Last reviewed 2026-11-01. Sources: std-lib/THREADS-CONTRACT.md, src/portable/Threads.bas and compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md in the repository.</footer>
+  </main>
+</body>
+</html>

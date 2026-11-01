@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-article-id="diagnostic.ube1012">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UBE1012: source checking is not implemented - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#tools/ube1012.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="tools/index.html">Compiler and tools</a> / UBE1012: source checking is not implemented</nav>
+    <h1>UBE1012: source checking is not implemented</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Fresh Compiler v3 - error</span></div>
+<p class="lede">The compiler reached the boundary of its available checking support. This diagnostic does not identify a syntax mistake in your program.</p>
+<h2>Message</h2><pre><code>error UBE1012: source checking is not implemented</code></pre>
+<h2>When it occurs</h2><p>After supported source or project syntax has been accepted, the fresh v3 still cannot perform full semantic checking or code generation. The command returns exit code <code>1</code> and creates no executable.</p>
+<h2>Example</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "Main"
+
+Public Sub Main()
+End Sub</code></pre><p>This minimal source can reach UBE1012 through <code>ube --check Main.bas</code>. The result does not prove that entry-point binding or the whole language has been checked.</p>
+<h2>What to do</h2><p>Keep your source. No source rewrite removes this implementation boundary. Use <a href="source-checking.html" data-doc-path="tools/source-checking.html">the current checking commands</a> to diagnose supported input, and consult <a href="../about/status.html" data-doc-path="about/status.html">project status</a> before expecting a runnable program.</p>
+    <footer class="article-footer">Article ID: diagnostic.ube1012 - Last reviewed 2026-11-01. Sources: compiler/UBE_Compiler_v3/PROJECT-DIAGNOSTICS.md and src/CommandDispatch.bas in the repository.</footer>
+  </main>
+</body>
+</html>

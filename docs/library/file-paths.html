@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-article-id="library.file-paths">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Counted-byte files and paths - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#library/file-paths.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / Counted-byte files and paths</nav>
+    <h1>Counted-byte files and paths</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Current UBECore source - bounded Windows bootstrap</span></div>
+<p class="lede">Read uninterpreted file bytes and resolve strict UTF-8 paths without using zero-terminated source text. File tokens have explicit ownership and must be closed.</p>
+<h2>File and argument declarations</h2><pre><code>Function TryOpenByteFile(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean
+Function TryReadByteFile(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean
+Function TryCloseByteFile(ByRef Token As Long, ByRef Failure As Long) As Boolean
+Function TryCommandArgument(ByVal Index As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean</code></pre>
+<p>Start with <code>Token = 0</code>. Open checks file size against <code>MaximumBytes</code> before allocating read scratch storage. Read borrows destination storage and accepts at most 65,536 bytes per call. <code>Start</code> is a zero-based payload offset, independent of the array's language lower bound. A positive short read is progress; zero bytes means EOF. Failure preserves destination bytes and returns <code>ReadCount = 0</code>.</p>
+<p>Command arguments exclude the executable, use zero-based indexes and publish independent arrays only on success. File contents remain uninterpreted bytes. Paths are strict UTF-8 without embedded NUL.</p>
+<h2>Close explicitly</h2><p>Copying a token does not duplicate its resource. Close after success, failure and cancellation. Closing zero succeeds. If close genuinely fails, the token remains owned for retry. Failed opening cleanup can also return an owned nonzero token despite <code>False</code>; check and close it. Neither garbage collection nor leaving scope closes the file.</p>
+<h2>Path declarations</h2><pre><code>Function TryCurrentDirectoryBytes(ByRef Published() As Byte, ByRef Failure As Long) As Boolean
+Function TryNormalizeRelativePathBytes(ByRef Path() As Byte, ByRef Published() As Byte, ByRef LeadingParents As Long, ByRef Failure As Long) As Boolean
+Function TryResolvePathBytes(ByRef BaseDirectory() As Byte, ByRef Path() As Byte, ByRef Published() As Byte, ByRef Failure As Long) As Boolean
+Function TryReadByteFileIdentity(ByVal Token As Long, ByRef Published() As Byte, ByRef Failure As Long) As Boolean</code></pre>
+<p>Capture the working directory once; later resolution uses that captured absolute base. Normalization is lexical and performs no file access: it accepts relative paths, removes redundant separators and <code>.</code>, cancels component/<code>..</code> pairs, and retains/counts remaining leading parents. For example, <code>src/../Main.bas</code> becomes <code>Main.bas</code>; <code>../shared/./Main.bas</code> becomes <code>../shared/Main.bas</code> with one leading parent.</p>
+<p>Resolve combines a relative path with an absolute base or normalizes an already absolute path. Current roots are drive roots such as <code>C:/</code> and UNC roots such as <code>//server/share/</code>. Parent components cannot remove the root. Drive-relative paths and device namespaces are unsupported. The maintained Windows implementation reads both separators and writes <code>/</code>. It preserves spelling without environment expansion, case folding or Unicode normalization.</p>
+<p>Identity borrows an existing open token, opens no additional handle and publishes 16 opaque bytes. Compare the complete result within the request; do not persist, decode or use it as an address. The caller still owns the token on success or failure. Lexical normalization does not establish physical containment across links, and identity is not a filesystem snapshot.</p>
+<h2>Status, errors and lifetime</h2><p>Use the fresh Boolean and <code>Failure</code>, not stale <code>Err</code>. Success preserves incoming <code>Err</code>. Path callers seed <code>Failure = 8</code> and, where present, <code>LeadingParents = 0</code> before managed entry. Path failure preserves old published arrays and resets <code>LeadingParents</code> to zero. Results are independent arrays; input references are borrowed only for the call. Keep output variables distinct from inputs and other outputs.</p>
+<table><thead><tr><th>Path Failure</th><th>Meaning</th></tr></thead><tbody><tr><td>0</td><td>Success</td></tr><tr><td>1 / 2</td><td>Invalid request / malformed path</td></tr><tr><td>3 / 4</td><td>Host observation failure / path too long</td></tr><tr><td>8 / 9</td><td>Storage admission failure / invalid or stale token</td></tr><tr><td>13 / 14</td><td>Token busy / unsupported host facility</td></tr></tbody></table>
+<p>Paths are limited to 131,068 UTF-8 bytes and 32,767 UTF-16 code units on the maintained host. Independent calls may share immutable bytes; synchronize mutable arrays and follow token busy rules. The source APIs have bounded Windows qualification; other platforms and a released library binary remain unavailable.</p>
+    <footer class="article-footer">Article ID: library.file-paths - Last reviewed 2026-11-01. Sources: std-lib/FILE-BYTES-CONTRACT.md, PATH-BYTES-PROPOSAL.md and PATH-BYTES-EVIDENCE.md in the repository.</footer>
+  </main>
+</body>
+</html>

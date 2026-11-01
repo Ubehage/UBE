@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-article-id="library.foundation-utilities">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scalar and byte-key utilities - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#library/foundation-utilities.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / Scalar and byte-key utilities</nav>
+    <h1>Scalar and byte-key utilities</h1>
+    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Current source contracts - coordinated qualification pending</span></div>
+<p class="lede">These UBECore contracts define reusable capacity planning, scalar encoding, checked integers and ordering over byte spans. They do not define UBE language typing or name lookup.</p>
+<p>Source modules and maintained gates exist. Some prerequisite or candidate proofs are recorded separately; a coordinated current-source acceptance is still required before treating all these utilities as a qualified compiler dependency. This page makes no new implementation or execution claim.</p>
+<h2>Storage capacity</h2><pre><code>Function TryGetStorageCapacity(ByVal Capacity As Long, ByVal Required As Long, ByVal Maximum As Long, ByRef Prepared As Long) As Boolean</code></pre>
+<p>Reject negative inputs or <code>Required &gt; Maximum</code>, preserving Prepared and Err. Otherwise return sufficient geometric capacity. Existing sufficient capacity is unchanged even if it exceeds Maximum: Maximum bounds the requested logical count. Empty storage starts at 8, clamped to Maximum; positive capacity doubles from its actual size until sufficient, clamping before overflow. The routine allocates nothing and does not resize storage.</p>
+<pre><code>' Caller fragment; not an executed manual example.
+Dim Prepared As Long = 99
+If TryGetStorageCapacity(3, 4, 100, Prepared) Then
+    ' Prepared is 6; a positive starting capacity doubles from itself.
+End If</code></pre>
+<h2>Encode one Unicode scalar</h2><pre><code>Function TryEncodeUtf8Scalar(ByVal Scalar As Long, ByRef B0 As Byte, ByRef B1 As Byte, ByRef B2 As Byte, ByRef B3 As Byte, ByRef Width As Long) As Boolean</code></pre>
+<p>On True, Width is 1 through 4 and unused slots are zero. U+0000 produces one zero byte. Negative values, surrogate code points and values above U+10FFFF return False, preserving all five outputs. Noncharacters and unassigned code points are valid scalar values. Outputs must be distinct. Both success and failure preserve Err; the operation allocates nothing and retains no state.</p>
+<h2>Checked signed integers</h2><pre><code>Function TryDecodeDecimalInteger(ByRef Bytes() As Byte, ByVal FirstByte As Long, ByVal ByteCount As Long, ByVal Negative As Boolean, ByVal Minimum As LongLong, ByVal Maximum As LongLong, ByRef Result As LongLong, ByRef Failure As Long) As Boolean
+Function TryEvaluateInteger(ByVal Operation As Long, ByVal Left As LongLong, ByVal Right As LongLong, ByVal Minimum As LongLong, ByVal Maximum As LongLong, ByRef Result As LongLong, ByRef Failure As Long) As Boolean
+Function CompareIntegers(ByVal Left As LongLong, ByVal Right As LongLong) As Long</code></pre>
+<p>Decode borrows an immutable zero-based byte span containing only ASCII digits. The sign is separate; whitespace, signs, suffixes and non-ASCII digits are format errors. Ordered Minimum/Maximum bounds are inclusive. Negative accumulation permits the signed 64-bit minimum without constructing its positive magnitude. Leading zeroes and negative zero are valid. Stop at the first format/range failure.</p>
+<p>Evaluation accepts a range containing zero and checks operands/results before arithmetic. Unary operations ignore Right. Division truncates toward zero; remainder has the dividend's sign. Comparison returns exactly -1, 0 or 1 without subtraction overflow.</p>
+<table><thead><tr><th>Operation</th><th>Meaning</th></tr></thead><tbody><tr><td>1 / 2 / 3</td><td>Add / subtract / multiply</td></tr><tr><td>4 / 5</td><td>Integer division / remainder</td></tr><tr><td>6 / 7 / 8</td><td>Negate Left / identity Left / bitwise Not Left</td></tr><tr><td>9 / 10 / 11</td><td>Bitwise And / Or / Xor</td></tr><tr><td>12 / 13</td><td>Bitwise Eqv / Imp</td></tr></tbody></table>
+<p>Successful Try calls replace Result, set Failure to zero and preserve Err. Failure preserves Result: 1 is invalid domain, 2 is decimal format, 3 is range, 4 is division/remainder by zero, and 5 is managed admission. Domain/format/range failures preserve old Err. Before decoder managed entry, callers seed <code>Failure = 5</code>; an actual admission failure retains runtime Err 7. Result and Failure must be distinct and may not alias input bytes. Scalar evaluation and comparison require no managed allocation.</p>
+<h2>Partitioned byte keys</h2><pre><code>Type ByteKey
+    Partition As Long
+    FirstByte As Long
+    ByteCount As Long
+    Value As Long
+End Type
+
+Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyCount As Long, ByVal MaximumKeys As Long, ByRef Order() As Long, ByRef Failure As Long) As Boolean
+Function TryFindByteKeyRange(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef FirstMatch As Long, ByRef MatchCount As Long, ByRef Failure As Long) As Boolean</code></pre>
+<p>Order the selected key prefix by numeric Partition, then unsigned byte lexicographic order. Shorter equal prefixes come first; equal keys retain input-index order. Value is an uninterpreted caller ID and does not affect sorting. Order contains input indexes, not Value fields. Empty keys and zero bytes are valid; no encoding or case folding is applied.</p>
+<p>Lookup returns a position/count in Order; a miss has zero count and the insertion position. It requires the unchanged sorted constructor result for the same immutable arena/key prefix. It validates visited indexes/spans but does not rescan all records to prove sorting. Retain the bytes and keys: owning an index vector alone does not retain its targets.</p>
+<p>Both APIs return fresh status, set Failure to zero on success and preserve Err. Failure preserves the complete previous Order or both lookup outputs. Failure 1 is domain, 2 is caller budget, and 5 is managed admission/allocation. Seed Failure to 5 before managed entry. Outputs must be distinct and must not alias inputs. Synchronize mutable shared state; independent calls may borrow shared immutable arrays. Construction uses private storage and one complete publication; lookup allocates nothing.</p>
+    <footer class="article-footer">Article ID: library.foundation-utilities - Last reviewed 2026-11-01. Sources: std-lib/STORAGE-CAPACITY-CONTRACT.md, UTF8-ENCODING-CONTRACT.md, SIGNED-INTEGER-CONTRACT.md and BYTE-KEY-CONTRACT.md in the repository.</footer>
+  </main>
+</body>
+</html>

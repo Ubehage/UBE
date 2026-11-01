@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-article-id="library.byte-buffer">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ByteBuffer - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#library/byte-buffer.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / ByteBuffer</nav>
+    <h1>ByteBuffer</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Current UBECore source - no released library binary</span></div>
+<p class="lede">Build an owned byte sequence incrementally and take independent snapshots without treating zero bytes as terminators.</p><h2>Availability</h2>
+<p>Current ByteBuffer source operations have bounded functional, allocation-failure, ownership and independent-instance concurrency qualification through both accepted bootstrap stages. They supply owned byte storage and independent snapshots. This is source qualification; a standalone released library binary and fresh-v3 execution of user programs are not yet available.</p>
+<p>A zero-initialized <code>ByteBuffer</code> is empty. Logical length and allocated capacity are different: clearing retains capacity. Its fields are reserved implementation state; use these procedures rather than editing them. Assignment, ByVal and results follow independent value semantics. One caller owns each mutable instance; synchronize shared mutation.</p>
+<pre><code>Function ByteBufferLength(ByRef Buffer As ByteBuffer) As Long
+Function ByteBufferCapacity(ByRef Buffer As ByteBuffer) As Long
+Function TryReserveByteBuffer(ByRef Buffer As ByteBuffer, ByVal MinimumCapacity As Long) As Boolean
+Function TryAppendByte(ByRef Buffer As ByteBuffer, ByVal Value As Byte) As Boolean
+Function TryAppendBytes(ByRef Buffer As ByteBuffer, ByRef Source() As Byte, ByVal SourceStart As Long, ByVal ByteCount As Long) As Boolean
+Function ClearByteBuffer(ByRef Buffer As ByteBuffer) As Boolean
+Function TrySnapshotByteBuffer(ByRef Buffer As ByteBuffer, ByRef Result() As Byte) As Boolean
+Function TryCountUtf8Scalars(ByRef Buffer As ByteBuffer, ByRef ScalarCount As Long) As Boolean</code></pre>
+<p>Append accepts every byte, including zero. Range positions are zero-based payload offsets from Source's first stored byte; an empty range is valid at its end. Source may be the buffer's own storage, including overlap. Reserve grows capacity without changing logical bytes. Clear changes logical length to zero without secure erasure. Length and capacity return -1 for detectable malformed state.</p>
+<p>Snapshot publishes exactly the logical bytes into an independent array; later buffer reuse cannot change it. Result must not alias Buffer's storage holder. UTF-8 counting strictly validates the logical input without normalization or replacement. It returns False with a neutral ScalarCount for malformed or truncated UTF-8. ScalarCount must not alias Buffer fields.</p>
+<p>The API returns a fresh False for invalid state/ranges or failed allocation, preserving existing buffer contents, count and capacity. Snapshot failure also preserves the old Result. Domain rejection and success preserve incoming Err; ordinary allocation failure reports Err 7 after collection/retry. Instrumented tests check these results, actual allocation/copy operations at ten input sizes through 65,536 bytes, and four native caller threads using independent builders with shared immutable input. Shared mutable access still requires synchronization. No procedure retains an input reference or owns an external resource.</p>
+<h2>Example</h2><p>This source-contract example has not been executed as a manual example. It requires the explicitly referenced UBECore modules.</p><pre><code>Public Sub Main()
+    Dim Buffer As ByteBuffer
+    Dim Snapshot() As Byte
+    If TryAppendByte(Buffer, 65) Then
+        If TryAppendByte(Buffer, 0) Then
+            If TrySnapshotByteBuffer(Buffer, Snapshot) Then
+                ' Snapshot contains exactly two bytes: 65 and 0.
+                Call ClearByteBuffer(Buffer)
+                ' Snapshot still contains those same two bytes.
+            End If
+        End If
+    End If
+End Sub</code></pre>
+<p><a href="utf8.html" data-doc-path="library/utf8.html">Decode and validate UTF-8</a> when the logical bytes represent text. ByteBuffer itself permits arbitrary bytes.</p>
+    <footer class="article-footer">Article ID: library.byte-buffer - Last reviewed 2026-11-01. Sources: std-lib/BYTE-BUFFER-CONTRACT.md and BYTE-BUFFER-EVIDENCE.md in the repository.</footer>
+  </main>
+</body>
+</html>

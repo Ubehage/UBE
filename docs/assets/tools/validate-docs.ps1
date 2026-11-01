@@ -57,7 +57,11 @@ foreach ($file in $htmlFiles) {
             'Language definition 0.3',
             'Status verified against language definition 0.3',
             'rules are not yet frozen',
-            'complete conversion table, ranges, rounding, and text rules are not yet frozen'
+            'complete conversion table, ranges, rounding, and text rules are not yet frozen',
+            'Release Preview 7 is the current development baseline',
+            'This behavior is implemented and verified in Compiler v3 RP7',
+            'Verified with Compiler v3 RP7',
+            'Its byte layout is not yet frozen'
         )) {
             if ($content.IndexOf($stalePhrase, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
                 Add-Failure "$relative contains stale pre-1.0 wording: $stalePhrase."
@@ -134,7 +138,10 @@ $requiredNormativeCoverage = @{
     'language/topics/procedures-parameters.html' = @('name := expression', 'ParamArray Values() As Variant', 'evaluated exactly once')
     'language/topics/data-values.html' = @('String * 0', '65,535-character', 'materializes automatically')
     'language/topics/properties-members.html' = @('one logical property', 'no Shared class-member surface', 'evaluated once')
-    'tools/project-manifests.html' = @('Reference =', 'StartupForm', 'direct and non-transitive', 'not yet frozen')
+    'tools/project-manifests.html' = @('Reference =', 'StartupForm', 'direct and non-transitive', 'LibraryReference', '.UBL')
+    'tools/source-checking.html' = @('--check', '--jobs', 'UBE1012', 'No output program is created')
+    'tools/resources-libraries.html' = @('UBE-Resource 1', 'UBE-LibraryBundle 1', '1,024 entries', 'LibraryReference')
+    'language/topics/variable-hooks.html' = @('On Get', 'On Set', 'End Variable', 'privileged Storage parameter')
     'migration/index.html' = @('DefBool', 'targeted migration diagnostic')
 }
 foreach ($coveragePath in $requiredNormativeCoverage.Keys) {

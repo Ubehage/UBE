@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-article-id="library.utf8">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UTF-8 and Unicode scalars - UBE documentation</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/article.css">
+  <script src="../assets/js/article.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to article</a>
+  <header class="standalone-header"><a href="../index.html#library/utf8.html">UBE documentation</a></header>
+  <main id="content" class="article">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / UTF-8 and Unicode scalars</nav>
+    <h1>UTF-8 and Unicode scalars</h1>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Current UBECore source - no released library binary</span></div>
+<p class="lede">Decode a stream of bytes into Unicode scalar values, validate complete input, and use versioned letter and simple-fold operations.</p><h2 id="utf8-decoder">Incremental UTF-8 decoding</h2><p><strong>Implemented in current UBECore source.</strong> The decoder procedures have been tested through both accepted Compiler v2 stages. A released library build is not yet available.</p>
+<p><code>Utf8Decoder</code> stores the state of one byte stream. A zero-initialized value is ready to use. Copies have independent state; synchronize access if multiple threads share one mutable decoder.</p>
+<pre><code>Sub ResetUtf8Decoder(ByRef Decoder As Utf8Decoder)
+Function FeedUtf8Byte(ByRef Decoder As Utf8Decoder, ByVal Value As Byte, ByRef Scalar As Long, ByRef Complete As Boolean) As Boolean
+Function FinishUtf8Decoder(ByRef Decoder As Utf8Decoder) As Boolean</code></pre>
+<p>Feed bytes in order. A True result accepts the byte; <code>Complete</code> tells you whether <code>Scalar</code> contains a complete Unicode scalar value. When Complete is False, Scalar is zero. U+0000 is valid data, so use Complete to distinguish it from an incomplete sequence. Chunk boundaries can occur between any bytes.</p>
+<p>Call Finish at the end of the stream to detect truncation. Invalid input returns False and leaves the decoder failed until Reset. Outputs are neutral on failure. These validation predicates preserve Err and do not allocate. Output arguments must not alias decoder fields; use Reset rather than editing those fields.</p>
+<p>The decoder rejects overlong sequences, surrogate code points and values above U+10FFFF. It performs no normalization, replacement, BOM removal or line-ending conversion. The decoder itself owns no storage; ByteBuffer is a separate source component. An immutable Text type and builtin String replacement are not provided by these components.</p>
+<h2 id="unicode-scalars">Unicode scalar helpers</h2>
+<p><strong>Implemented and exhaustively tested through both accepted Compiler v2 stages.</strong> These ordinary UBE procedures use checked-in Unicode 18.0.0 data and require no runtime table initialization.</p>
+<pre><code>Function IsUnicodeLetter(ByVal Scalar As Long) As Boolean
+Function SimpleFoldUnicode(ByVal Scalar As Long) As Long
+Function TryReadSourceScalar(ByRef Bytes() As Byte, ByVal ByteOffset As Long, ByRef Scalar As Long, ByRef ScalarWidth As Long) As Boolean</code></pre>
+<p>IsUnicodeLetter accepts categories Lu, Ll, Lt, Lm and Lo; invalid scalar values return False. SimpleFoldUnicode uses default simple C/S mappings, excludes full expansions and Turkic alternatives, and leaves unlisted or invalid values unchanged. Neither operation normalizes text or uses locale casing. Both preserve Err.</p>
+<p>TryReadSourceScalar borrows an immutable, zero-based byte array for one call. On True, Scalar contains one Unicode scalar and ScalarWidth is its original UTF-8 byte count, from 1 through 4. EOF, invalid offsets and malformed or truncated UTF-8 return False with neutral validation outputs. Use the fresh Boolean result before consuming outputs. No source cursor is changed and no reference is retained.</p>
+<p>The helpers allocate and copy no payload. Independent calls can share immutable bytes; synchronize input mutation. Scalar and ScalarWidth must be distinct output variables and must not alias input storage. Tests cover every Unicode scalar, all one-byte and two-byte sequences, malformed boundaries, Err, cleanup and four independent native workers. A released standalone library binary is not yet available.</p>
+<h2>Example</h2><p>This source-contract example feeds the UTF-8 encoding of U+20AC (the euro sign). It has not been executed as a manual example with fresh v3.</p><pre><code>Public Sub Main()
+    Dim Decoder As Utf8Decoder
+    Dim Scalar As Long
+    Dim Complete As Boolean
+    Dim Accepted As Boolean
+    Accepted = FeedUtf8Byte(Decoder, 226, Scalar, Complete)
+    If Accepted Then Accepted = FeedUtf8Byte(Decoder, 130, Scalar, Complete)
+    If Accepted Then Accepted = FeedUtf8Byte(Decoder, 172, Scalar, Complete)
+    If Accepted AndAlso Complete Then
+        ' Scalar is 8364, or U+20AC.
+        Accepted = FinishUtf8Decoder(Decoder)
+    End If
+End Sub</code></pre><p>After the first two accepted bytes, <code>Complete</code> is False. After the third, it is True and <code>Scalar</code> is 8364. An isolated lead byte is not a complete text stream; call Finish to detect truncation.</p>
+<p>For scalar encoding and its separate qualification status, see <a href="foundation-utilities.html" data-doc-path="library/foundation-utilities.html">scalar and byte-key utilities</a>.</p>
+    <footer class="article-footer">Article ID: library.utf8 - Last reviewed 2026-11-01. Sources: std-lib/BYTE-TEXT-CONTRACT.md, UNICODE-CONTRACT.md and their evidence files in the repository.</footer>
+  </main>
+</body>
+</html>

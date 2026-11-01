@@ -161,6 +161,7 @@ window.UBE_DOCS = {
         { id: "language.symbols", title: "Symbols and operators", path: "language/symbols/index.html", aliases: ["punctuation", "type characters", "operator symbols"] },
         { id: "language.keywords", title: "Language words by category", path: "language/topics/keywords.html" },
         { id: "language.declarations", title: "Declarations", path: "language/topics/declarations.html" },
+        { id: "language.variable-hooks", title: "Variable access hooks", path: "language/topics/variable-hooks.html", aliases: ["On Get", "On Set", "backing storage", "End Variable"] },
         { id: "language.properties-members", title: "Properties and members", path: "language/topics/properties-members.html" },
         { id: "language.types", title: "Types", path: "language/topics/types.html" },
         { id: "language.data-values", title: "Arrays, strings, and custom datatypes", path: "language/topics/data-values.html" },
@@ -180,6 +181,11 @@ window.UBE_DOCS = {
       title: "Core library",
       path: "library/index.html",
       children: [
+        { id: "library.byte-buffer", title: "ByteBuffer", path: "library/byte-buffer.html", aliases: ["TryAppendByte", "TrySnapshotByteBuffer", "owned bytes"] },
+        { id: "library.utf8", title: "UTF-8 and Unicode scalars", path: "library/utf8.html", aliases: ["Utf8Decoder", "FeedUtf8Byte", "SimpleFoldUnicode", "IsUnicodeLetter"] },
+        { id: "library.file-paths", title: "Counted-byte files and paths", path: "library/file-paths.html", aliases: ["TryOpenByteFile", "TryResolvePathBytes", "TryCurrentDirectoryBytes", "PathBytes"] },
+        { id: "library.thread-status", title: "Fresh-status thread operations", path: "library/thread-status.html", aliases: ["TryThreadWait", "TryCurrentThreadId", "TryThreadRequestStop"] },
+        { id: "library.foundation-utilities", title: "Scalar and byte-key utilities", path: "library/foundation-utilities.html", aliases: ["TryGetStorageCapacity", "TryEncodeUtf8Scalar", "TryDecodeDecimalInteger", "TryEvaluateInteger", "CompareIntegers", "TryOrderByteKeys", "ByteKey"] },
         { id: "library.memory", title: "Managed memory and CollectGarbage", path: "library/memory.html", aliases: ["garbage collection", "class terminate"] },
         { id: "library.variant-inspection", title: "Variant inspection", path: "library/variant-inspection.html", aliases: ["isempty", "isnull", "empty", "null"] },
         { id: "library.threading", title: "Threading and synchronization", path: "library/threading.html", aliases: ["threadwait", "thread event", "semaphore", "message queue", "atomic"] }
@@ -190,7 +196,10 @@ window.UBE_DOCS = {
       title: "Compiler and tools",
       path: "tools/index.html",
       children: [
+        { id: "tools.source-checking", title: "Check source and projects", path: "tools/source-checking.html", aliases: ["--check", "--jobs", "command line", "CLI"] },
         { id: "tools.project-manifests", title: "Project manifests", path: "tools/project-manifests.html", aliases: [".UBE", "Reference", "StartupForm"] },
+        { id: "tools.resources-libraries", title: "Resources and compiled libraries", path: "tools/resources-libraries.html", aliases: [".UBR", ".UBL", "LibraryReference", "interface hash"] },
+        { id: "diagnostic.ube1012", title: "UBE1012: source checking is not implemented", path: "tools/ube1012.html" },
         { id: "diagnostic.ube1001", title: "UBE1001: source contains a NUL byte", path: "tools/ube1001.html" }
       ]
     },
