@@ -45,13 +45,21 @@ rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
   budget, canonical failures, cancellation/drain and complete publication.
   Compiler `TryParseSources` owns orchestration; UBECore Threads supplies generic
   mechanisms. [CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
-  records the exact current gates and limits, including collector contention.
+  records that checkpoint's gates and limits, including collector contention.
 
-The [development plan](../project-docs/Development-Plan.md) proposes bounded
-normal `.UBE`/direct-UBECore input and parallel frontend integration next.
-Every later row remains proposed; the completed concurrency goal does not
-authorize successor implementation or new APIs. Review each bounded contract
-before coding. Preserve existing names, layer separation and qualified gates.
+- [x] Qualify bounded normal `.UBE`/direct-UBECore project input and the initial
+  parallel frontend under the owner's revised performance policy. Historical
+  measurements and limitations remain in the frontend evidence.
+- [x] Qualify First semantic checking and the existing check path for the
+  contracted scalar/native MODULE subset. Final cohort 88d passes the maintained
+  native/process/resource/retained gates; see SEMANTIC-EVIDENCE.md.
+- [ ] Prepare and review the existing First checked native executable row's
+  bounded lowering, backend, ABI/runtime-error and tool-handoff contracts after
+  semantic checking. No backend implementation is included in the completed goal.
+
+The [development plan](../project-docs/Development-Plan.md) remains the dependency
+order. Preserve naming, layer separation, original spans, immutable owners and
+the qualified worker budget. Later rows need their own review and evidence.
 
 The earlier roadmap is retained under `archived/compiler-history/Roadmap.md`.
 It is historical scope and evidence, not the fresh compiler's execution plan.

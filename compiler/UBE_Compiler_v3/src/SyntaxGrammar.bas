@@ -308,6 +308,8 @@ Function TryGrammarTerminator(ByRef Document As SourceDocument, ByRef Tokens() A
     If TrySyntaxPeek(Document, Tokens, State) = False Then
         Exit Function
     End If
+    State.WrittenKindFirst = State.Cursor.Token.First.ByteOffset
+    State.WrittenKindLast = State.Cursor.Token.Last.ByteOffset
     LastByte = State.Cursor.Token.Last.ByteOffset
     If EndKind = 1 Then
         If TrySyntaxAt(Document, Tokens, State, "If", Matches) = False Then
@@ -853,11 +855,22 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
             Exit Function
         End If
         Dim ParameterFirst As Long = State.Cursor.Token.First.ByteOffset
-        Dim SavedCount As Long = State.Count
+        Dim ParameterNode As Long = -1
+        Dim ParameterTail As Long = -1
+        If TrySyntaxNewNode(State, 56, ParameterFirst, ParameterFirst, ParameterNode) = False Then
+            Exit Function
+        End If
         If TrySyntaxAt(Document, Tokens, State, "Optional", Matches) = False Then
             Exit Function
         End If
         If Matches Then
+            Dim OptionalNode As Long = -1
+            If TrySyntaxKeyword(State, OptionalNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, ParameterNode, OptionalNode, ParameterTail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
             If TryGrammarSpace(Document, Tokens, State) = False Then
                 Exit Function
@@ -877,6 +890,13 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
             End If
         End If
         If Matches Then
+            Dim PassingNode As Long = -1
+            If TrySyntaxKeyword(State, PassingNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, ParameterNode, PassingNode, ParameterTail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
             If TryGrammarSpace(Document, Tokens, State) = False Then
                 Exit Function
@@ -884,14 +904,22 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
         End If
         Dim NameFirst As Long = 0
         Dim NameLast As Long = 0
-        If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast) = False Then
+        Dim NameNode As Long = -1
+        If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast, NameNode) = False Then
+            Exit Function
+        End If
+        If TrySyntaxAttach(State, ParameterNode, NameNode, ParameterTail) = False Then
             Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, "(", Matches) = False Then
             Exit Function
         End If
         If Matches Then
-            If TryGrammarRank(Document, Tokens, State) = False Then
+            Dim ShapeNode As Long = -1
+            If TryGrammarRank(Document, Tokens, State, ShapeNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, ParameterNode, ShapeNode, ParameterTail) = False Then
                 Exit Function
             End If
         End If
@@ -899,7 +927,11 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
             Exit Function
         End If
         If Matches Then
-            If TryGrammarAs(Document, Tokens, State, False, False) = False Then
+            Dim Clause As Long = -1
+            If TryGrammarAs(Document, Tokens, State, False, False, Clause) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, ParameterNode, Clause, ParameterTail) = False Then
                 Exit Function
             End If
         End If
@@ -907,18 +939,15 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
             Exit Function
         End If
         If Matches Then
-            Call SyntaxConsume(State.Cursor, State.Metrics)
             Dim DefaultNode As Long = -1
-            If TryParseSyntaxExpression(Document, Tokens, State, DefaultNode) = False Then
+            If TryGrammarInitializer(Document, Tokens, State, DefaultNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, ParameterNode, DefaultNode, ParameterTail) = False Then
                 Exit Function
             End If
         End If
-        Dim ParameterLast As Long = State.Cursor.LastByte
-        State.Count = SavedCount
-        Dim ParameterNode As Long = -1
-        If TrySyntaxNewNode(State, 56, ParameterFirst, ParameterLast, ParameterNode) = False Then
-            Exit Function
-        End If
+        State.Pending(0).Nodes(ParameterNode).LastByte = State.Cursor.LastByte
         If TrySyntaxAttach(State, Root, ParameterNode, Tail) = False Then
             Exit Function
         End If
@@ -937,10 +966,14 @@ Function TryGrammarParameters(ByRef Document As SourceDocument, ByRef Tokens() A
 End Function
 
 ' Builds procedure header, metadata, body and the written terminator.
-Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByVal IsIntrinsic As Boolean, ByRef Root As Long) As Boolean
+Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByVal IsIntrinsic As Boolean, ByVal Modifiers As Long, ByRef Root As Long) As Boolean
     TryGrammarProcedure = False
     Dim IsFunction As Boolean = False
     If TrySyntaxAt(Document, Tokens, State, "Function", IsFunction) = False Then
+        Exit Function
+    End If
+    Dim WrittenKind As Long = -1
+    If TrySyntaxKeyword(State, WrittenKind) = False Then
         Exit Function
     End If
     Call SyntaxConsume(State.Cursor, State.Metrics)
@@ -949,8 +982,9 @@ Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As
     End If
     Dim NameFirst As Long = 0
     Dim NameLast As Long = 0
+    Dim NameNode As Long = -1
     Dim RawNameLast As Long = State.Cursor.Token.Last.ByteOffset
-    If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast) = False Then
+    If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast, NameNode) = False Then
         Exit Function
     End If
     If IsFunction = False And NameLast > RawNameLast Then
@@ -975,8 +1009,12 @@ Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As
         Exit Function
     End If
     Dim HeaderTail As Long = -1
-    Dim NameNode As Long = -1
-    If TrySyntaxNewNode(State, 1, NameFirst, NameLast, NameNode) = False Then
+    If Modifiers >= 0 Then
+        If TrySyntaxAttach(State, Header, Modifiers, HeaderTail) = False Then
+            Exit Function
+        End If
+    End If
+    If TrySyntaxAttach(State, Header, WrittenKind, HeaderTail) = False Then
         Exit Function
     End If
     If TrySyntaxAttach(State, Header, NameNode, HeaderTail) = False Then
@@ -1004,14 +1042,17 @@ Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As
             Exit Function
         End If
         Dim ResultFirst As Long = State.Cursor.Token.First.ByteOffset
-        Dim SavedCount As Long = State.Count
-        If TryGrammarAs(Document, Tokens, State, False, True) = False Then
+        Dim Clause As Long = -1
+        If TryGrammarAs(Document, Tokens, State, False, True, Clause) = False Then
             Exit Function
         End If
         Dim ResultLast As Long = State.Cursor.LastByte
-        State.Count = SavedCount
         Dim ResultType As Long = -1
         If TrySyntaxNewNode(State, 57, ResultFirst, ResultLast, ResultType) = False Then
+            Exit Function
+        End If
+        Dim ResultTail As Long = -1
+        If TrySyntaxAttach(State, ResultType, Clause, ResultTail) = False Then
             Exit Function
         End If
         If TrySyntaxAttach(State, Header, ResultType, HeaderTail) = False Then
@@ -1079,6 +1120,14 @@ Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As
     If TrySyntaxNewNode(State, 58, EndFirst, EndLast, EndMarker) = False Then
         Exit Function
     End If
+    Dim EndWord As Long = -1
+    Dim EndTail As Long = -1
+    If TrySyntaxNewNode(State, 78, State.WrittenKindFirst, State.WrittenKindLast, EndWord) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, EndMarker, EndWord, EndTail) = False Then
+        Exit Function
+    End If
     If TrySyntaxAttach(State, Root, EndMarker, RootTail) = False Then
         Exit Function
     End If
@@ -1087,7 +1136,7 @@ Function TryGrammarProcedure(ByRef Document As SourceDocument, ByRef Tokens() As
 End Function
 
 ' Distinguishes native representation headers from nonempty field-only Types.
-Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByRef Root As Long) As Boolean
+Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByVal Modifiers As Long, ByRef Root As Long) As Boolean
     TryGrammarType = False
     If TryGrammarTake(Document, Tokens, State, "Type") = False Then
         Exit Function
@@ -1097,8 +1146,9 @@ Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As Sour
     End If
     Dim NameFirst As Long = 0
     Dim NameLast As Long = 0
+    Dim NameNode As Long = -1
     Dim RawNameLast As Long = State.Cursor.Token.Last.ByteOffset
-    If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast) = False Then
+    If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast, NameNode) = False Then
         Exit Function
     End If
     If NameLast > RawNameLast Then
@@ -1119,9 +1169,10 @@ Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As Sour
         Exit Function
     End If
     Dim Tail As Long = -1
-    Dim NameNode As Long = -1
-    If TrySyntaxNewNode(State, 1, NameFirst, NameLast, NameNode) = False Then
-        Exit Function
+    If Modifiers >= 0 Then
+        If TrySyntaxAttach(State, Root, Modifiers, Tail) = False Then
+            Exit Function
+        End If
     End If
     If TrySyntaxAttach(State, Root, NameNode, Tail) = False Then
         Exit Function
@@ -1171,7 +1222,7 @@ Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As Sour
             End If
             Dim FieldFirst As Long = State.Cursor.Token.First.ByteOffset
             Dim FieldNode As Long = -1
-            If TryGrammarVariable(Document, Tokens, State, FieldFirst, False, True, FieldNode) = False Then
+            If TryGrammarVariable(Document, Tokens, State, FieldFirst, False, True, -1, FieldNode) = False Then
                 Exit Function
             End If
             If TrySyntaxAttach(State, Root, FieldNode, Tail) = False Then
@@ -1194,6 +1245,14 @@ Function TryGrammarType(ByRef Document As SourceDocument, ByRef Tokens() As Sour
     If TrySyntaxNewNode(State, 58, EndFirst, EndLast, Marker) = False Then
         Exit Function
     End If
+    Dim EndKeyword As Long = -1
+    Dim EndTail As Long = -1
+    If TrySyntaxNewNode(State, 78, State.WrittenKindFirst, State.WrittenKindLast, EndKeyword) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, Marker, EndKeyword, EndTail) = False Then
+        Exit Function
+    End If
     If TrySyntaxAttach(State, Root, Marker, Tail) = False Then
         Exit Function
     End If
@@ -1208,6 +1267,8 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
         Exit Function
     End If
     Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
+    Dim Modifiers As Long = -1
+    Dim ModifierTail As Long = -1
     Dim Matches As Boolean = False
     If TrySyntaxAt(Document, Tokens, State, "Option", Matches) = False Then
         Exit Function
@@ -1255,6 +1316,9 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
         End If
     End If
     If HasVisibility Then
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
         If TryGrammarSpace(Document, Tokens, State) = False Then
             Exit Function
@@ -1269,6 +1333,9 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
             TryGrammarModuleItem = SyntaxFail(State, 102)
             Exit Function
         End If
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
         If TryGrammarSpace(Document, Tokens, State) = False Then
             Exit Function
@@ -1281,6 +1348,9 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
     If Matches Then
         If Exported Then
             TryGrammarModuleItem = SyntaxFail(State, 102)
+            Exit Function
+        End If
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
             Exit Function
         End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
@@ -1305,6 +1375,9 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
         InlineModifier = True
     End If
     If Matches Then
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
         If TryGrammarSpace(Document, Tokens, State) = False Then
             Exit Function
@@ -1317,6 +1390,9 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
     If IsIntrinsic Then
         If StaticModifier Or InlineModifier Or Exported Then
             TryGrammarModuleItem = SyntaxFail(State, 102)
+            Exit Function
+        End If
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
             Exit Function
         End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
@@ -1334,7 +1410,7 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
         End If
     End If
     If ProcedureWord Then
-        TryGrammarModuleItem = TryGrammarProcedure(Document, Tokens, State, FirstByte, IsIntrinsic, Root)
+        TryGrammarModuleItem = TryGrammarProcedure(Document, Tokens, State, FirstByte, IsIntrinsic, Modifiers, Root)
         Exit Function
     End If
     If IsIntrinsic Then
@@ -1346,34 +1422,40 @@ Function TryGrammarModuleItem(ByRef Document As SourceDocument, ByRef Tokens() A
         Exit Function
     End If
     If StaticModifier Then
-        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Root)
+        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Modifiers, Root)
         Exit Function
     End If
     If TrySyntaxAt(Document, Tokens, State, "Type", Matches) = False Then
         Exit Function
     End If
     If Matches Then
-        TryGrammarModuleItem = TryGrammarType(Document, Tokens, State, FirstByte, Root)
+        TryGrammarModuleItem = TryGrammarType(Document, Tokens, State, FirstByte, Modifiers, Root)
         Exit Function
     End If
     If TrySyntaxAt(Document, Tokens, State, "Const", Matches) = False Then
         Exit Function
     End If
     If Matches Then
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
-        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, True, False, Root)
+        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, True, False, Modifiers, Root)
         Exit Function
     End If
     If TrySyntaxAt(Document, Tokens, State, "Dim", Matches) = False Then
         Exit Function
     End If
     If Matches Then
+        If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
-        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Root)
+        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Modifiers, Root)
         Exit Function
     End If
     If HasVisibility And (State.Cursor.Token.Kind = 1 Or State.Cursor.Token.Kind = 6) Then
-        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Root)
+        TryGrammarModuleItem = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Modifiers, Root)
         Exit Function
     End If
     Dim Deferred As Boolean = False
@@ -1723,7 +1805,7 @@ End Function
 
 ' Suffixes are retained in the typed-name extent, while name identity remains
 ' independent. Only an immediately adjacent scalar type character is consumed.
-Function TryGrammarTypedName(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByRef FirstByte As Long, ByRef LastByte As Long) As Boolean
+Function TryGrammarTypedName(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByRef FirstByte As Long, ByRef LastByte As Long, ByRef Root As Long) As Boolean
     TryGrammarTypedName = False
     If TrySyntaxPeek(Document, Tokens, State) = False Then
         Exit Function
@@ -1734,6 +1816,9 @@ Function TryGrammarTypedName(ByRef Document As SourceDocument, ByRef Tokens() As
     End If
     FirstByte = State.Cursor.Token.First.ByteOffset
     LastByte = State.Cursor.Token.Last.ByteOffset
+    If TrySyntaxNewNode(State, 1, FirstByte, LastByte, Root) = False Then
+        Exit Function
+    End If
     Call SyntaxConsume(State.Cursor, State.Metrics)
     If TrySyntaxPeek(Document, Tokens, State) = False Then
         Exit Function
@@ -1741,7 +1826,11 @@ Function TryGrammarTypedName(ByRef Document As SourceDocument, ByRef Tokens() As
     If State.Cursor.Token.Kind = 7 And State.Cursor.Token.First.ByteOffset = LastByte And State.Cursor.Token.Last.ByteOffset = LastByte + 1 Then
         Dim Character As Long = Document.Bytes(LastByte)
         If Character = 37 Or Character = 38 Or Character = 94 Or Character = 33 Or Character = 35 Or Character = 64 Or Character = 36 Then
+            If TrySyntaxTypeCharacter(State, Root, LastByte, State.Cursor.Token.Last.ByteOffset) = False Then
+                Exit Function
+            End If
             LastByte = State.Cursor.Token.Last.ByteOffset
+            State.Pending(0).Nodes(Root).LastByte = LastByte
             Call SyntaxConsume(State.Cursor, State.Metrics)
         End If
     End If
@@ -1749,77 +1838,31 @@ Function TryGrammarTypedName(ByRef Document As SourceDocument, ByRef Tokens() As
 End Function
 
 ' Accepts rank punctuation independently of later type and rank restrictions.
-Function TryGrammarRank(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState) As Boolean
+Function TryGrammarRank(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByRef Root As Long) As Boolean
     TryGrammarRank = False
+    If TrySyntaxPeek(Document, Tokens, State) = False Then
+        Exit Function
+    End If
+    Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
     If TryGrammarTake(Document, Tokens, State, "(") = False Then
         Exit Function
     End If
-    Dim Comma As Boolean = False
-    If TrySyntaxAt(Document, Tokens, State, ",", Comma) = False Then
+    If TrySyntaxNewNode(State, 79, FirstByte, FirstByte, Root) = False Then
         Exit Function
     End If
-    While Comma
-        Call SyntaxConsume(State.Cursor, State.Metrics)
-        If TrySyntaxAt(Document, Tokens, State, ",", Comma) = False Then
-            Exit Function
-        End If
-    Wend
-    TryGrammarRank = TryGrammarTake(Document, Tokens, State, ")")
-End Function
-
-' Declaration array syntax has either rank punctuation or complete bounds;
-' numeric expressions are never accepted as a parameter rank.
-Function TryGrammarArray(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal RankOnly As Boolean) As Boolean
-    TryGrammarArray = False
-    If RankOnly Then
-        TryGrammarArray = TryGrammarRank(Document, Tokens, State)
-        Exit Function
-    End If
-    If TryGrammarTake(Document, Tokens, State, "(") = False Then
-        Exit Function
-    End If
-    Dim Matches As Boolean = False
-    If TrySyntaxAt(Document, Tokens, State, ")", Matches) = False Then
-        Exit Function
-    End If
-    If Matches Then
-        Call SyntaxConsume(State.Cursor, State.Metrics)
-        TryGrammarArray = True
-        Exit Function
-    End If
-    If TrySyntaxAt(Document, Tokens, State, ",", Matches) = False Then
-        Exit Function
-    End If
-    If Matches Then
-        While Matches
-            Call SyntaxConsume(State.Cursor, State.Metrics)
-            If TrySyntaxAt(Document, Tokens, State, ",", Matches) = False Then
-                Exit Function
-            End If
-        Wend
-        TryGrammarArray = TryGrammarTake(Document, Tokens, State, ")")
-        Exit Function
-    End If
+    Dim Tail As Long = -1
     Dim More As Boolean = True
-    Dim Ignored As Long = -1
     While More
-        If TryParseSyntaxExpression(Document, Tokens, State, Ignored) = False Then
+        If TrySyntaxPeek(Document, Tokens, State) = False Then
             Exit Function
         End If
-        If TrySyntaxAt(Document, Tokens, State, "To", Matches) = False Then
+        Dim AtByte As Long = State.Cursor.Token.First.ByteOffset
+        Dim DimensionNode As Long = -1
+        If TrySyntaxNewNode(State, 82, AtByte, AtByte, DimensionNode) = False Then
             Exit Function
         End If
-        If Matches Then
-            If TryGrammarSpace(Document, Tokens, State) = False Then
-                Exit Function
-            End If
-            Call SyntaxConsume(State.Cursor, State.Metrics)
-            If TryGrammarSpace(Document, Tokens, State) = False Then
-                Exit Function
-            End If
-            If TryParseSyntaxExpression(Document, Tokens, State, Ignored) = False Then
-                Exit Function
-            End If
+        If TrySyntaxAttach(State, Root, DimensionNode, Tail) = False Then
+            Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, ",", More) = False Then
             Exit Function
@@ -1828,32 +1871,139 @@ Function TryGrammarArray(ByRef Document As SourceDocument, ByRef Tokens() As Sou
             Call SyntaxConsume(State.Cursor, State.Metrics)
         End If
     Wend
-    TryGrammarArray = TryGrammarTake(Document, Tokens, State, ")")
+    If TryGrammarTake(Document, Tokens, State, ")") = False Then
+        Exit Function
+    End If
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
+    TryGrammarRank = True
+End Function
+
+' Declaration array syntax has either rank punctuation or complete bounds;
+' numeric expressions are never accepted as a parameter rank.
+Function TryGrammarArray(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal RankOnly As Boolean, ByRef Root As Long) As Boolean
+    TryGrammarArray = False
+    If RankOnly Then
+        TryGrammarArray = TryGrammarRank(Document, Tokens, State, Root)
+        Exit Function
+    End If
+    If TrySyntaxPeek(Document, Tokens, State) = False Then
+        Exit Function
+    End If
+    Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
+    Dim Matches As Boolean = False
+    If TryGrammarTake(Document, Tokens, State, "(") = False Then
+        Exit Function
+    End If
+    If TrySyntaxNewNode(State, 79, FirstByte, FirstByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
+    If TrySyntaxAt(Document, Tokens, State, ")", Matches) = False Then
+        Exit Function
+    End If
+    Dim RankSyntax As Boolean = Matches
+    If Matches = False Then
+        If TrySyntaxAt(Document, Tokens, State, ",", RankSyntax) = False Then
+            Exit Function
+        End If
+    End If
+    Dim More As Boolean = True
+    While More
+        If TrySyntaxPeek(Document, Tokens, State) = False Then
+            Exit Function
+        End If
+        Dim AtByte As Long = State.Cursor.Token.First.ByteOffset
+        Dim DimensionNode As Long = -1
+        If TrySyntaxNewNode(State, 82, AtByte, AtByte, DimensionNode) = False Then
+            Exit Function
+        End If
+        If RankSyntax = False Then
+            Dim Bound As Long = -1
+            Dim BoundTail As Long = -1
+            If TryParseSyntaxExpression(Document, Tokens, State, Bound) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, DimensionNode, Bound, BoundTail) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAt(Document, Tokens, State, "To", Matches) = False Then
+                Exit Function
+            End If
+            If Matches Then
+                If TryGrammarSpace(Document, Tokens, State) = False Then
+                    Exit Function
+                End If
+                Call SyntaxConsume(State.Cursor, State.Metrics)
+                If TryGrammarSpace(Document, Tokens, State) = False Then
+                    Exit Function
+                End If
+                If TryParseSyntaxExpression(Document, Tokens, State, Bound) = False Then
+                    Exit Function
+                End If
+                If TrySyntaxAttach(State, DimensionNode, Bound, BoundTail) = False Then
+                    Exit Function
+                End If
+            End If
+            State.Pending(0).Nodes(DimensionNode).LastByte = State.Cursor.LastByte
+        End If
+        If TrySyntaxAttach(State, Root, DimensionNode, Tail) = False Then
+            Exit Function
+        End If
+        If TrySyntaxAt(Document, Tokens, State, ",", More) = False Then
+            Exit Function
+        End If
+        If More Then
+            Call SyntaxConsume(State.Cursor, State.Metrics)
+        End If
+    Wend
+    If TryGrammarTake(Document, Tokens, State, ")") = False Then
+        Exit Function
+    End If
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
+    TryGrammarArray = True
 End Function
 
 ' Validates an As type phrase with the caller-permitted New/result rank.
-Function TryGrammarAs(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal AllowNew As Boolean, ByVal AllowRank As Boolean) As Boolean
+Function TryGrammarAs(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal AllowNew As Boolean, ByVal AllowRank As Boolean, ByRef Root As Long) As Boolean
     TryGrammarAs = False
+    If TrySyntaxPeek(Document, Tokens, State) = False Then
+        Exit Function
+    End If
+    Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
     If TryGrammarSpacedTake(Document, Tokens, State, "As") = False Then
         Exit Function
     End If
     If TryGrammarSpace(Document, Tokens, State) = False Then
         Exit Function
     End If
+    If TrySyntaxNewNode(State, 80, FirstByte, FirstByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
     Dim Matches As Boolean = False
     If AllowNew Then
         If TrySyntaxAt(Document, Tokens, State, "New", Matches) = False Then
             Exit Function
         End If
         If Matches Then
+            Dim NewNode As Long = -1
+            If TrySyntaxKeyword(State, NewNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Root, NewNode, Tail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
             If TryGrammarSpace(Document, Tokens, State) = False Then
                 Exit Function
             End If
         End If
     End If
-    Dim Ignored As Long = -1
-    If TrySyntaxTypeName(Document, Tokens, State, Ignored) = False Then
+    Dim TypeNode As Long = -1
+    If TrySyntaxTypeName(Document, Tokens, State, TypeNode) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, Root, TypeNode, Tail) = False Then
         Exit Function
     End If
     If AllowRank Then
@@ -1861,24 +2011,40 @@ Function TryGrammarAs(ByRef Document As SourceDocument, ByRef Tokens() As Source
             Exit Function
         End If
         If Matches Then
-            If TryGrammarRank(Document, Tokens, State) = False Then
+            Dim ShapeNode As Long = -1
+            If TryGrammarRank(Document, Tokens, State, ShapeNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Root, ShapeNode, Tail) = False Then
                 Exit Function
             End If
         End If
     End If
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
     TryGrammarAs = True
 End Function
 
-' Declaration internals are validated directly; the logical leaf retains their
-' exact original spelling. Temporary validation nodes are never published.
-Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByVal IsConstant As Boolean, ByVal IsField As Boolean, ByRef Root As Long) As Boolean
+' Declaration internals are validated once and retained as ordered declarators.
+' The original logical projection remains a leaf; all physical detail is owned.
+Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal FirstByte As Long, ByVal IsConstant As Boolean, ByVal IsField As Boolean, ByVal Modifiers As Long, ByRef Root As Long) As Boolean
     TryGrammarVariable = False
-    Dim SavedCount As Long = State.Count
+    Dim NodeKind As Long = 54
+    If IsConstant Then
+        NodeKind = 55
+    End If
+    If IsField Then
+        NodeKind = 53
+    End If
+    If TrySyntaxNewNode(State, NodeKind, FirstByte, FirstByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
+    If Modifiers >= 0 Then
+        If TrySyntaxAttach(State, Root, Modifiers, Tail) = False Then
+            Exit Function
+        End If
+    End If
     Dim More As Boolean = True
-    Dim NameFirst As Long = 0
-    Dim NameLast As Long = 0
-    Dim Matches As Boolean = False
-    Dim Ignored As Long = -1
     Dim FirstItem As Boolean = True
     While More
         If TrySyntaxPeek(Document, Tokens, State) = False Then
@@ -1891,9 +2057,21 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
             End If
         End If
         FirstItem = False
-        If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast) = False Then
+        Dim NameFirst As Long = 0
+        Dim NameLast As Long = 0
+        Dim NameNode As Long = -1
+        If TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast, NameNode) = False Then
             Exit Function
         End If
+        Dim Item As Long = -1
+        Dim ItemTail As Long = -1
+        If TrySyntaxNewNode(State, 77, NameFirst, NameLast, Item) = False Then
+            Exit Function
+        End If
+        If TrySyntaxAttach(State, Item, NameNode, ItemTail) = False Then
+            Exit Function
+        End If
+        Dim Matches As Boolean = False
         If TrySyntaxAt(Document, Tokens, State, "(", Matches) = False Then
             Exit Function
         End If
@@ -1902,7 +2080,11 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
                 TryGrammarVariable = SyntaxFail(State, 102)
                 Exit Function
             End If
-            If TryGrammarArray(Document, Tokens, State, False) = False Then
+            Dim ShapeNode As Long = -1
+            If TryGrammarArray(Document, Tokens, State, False, ShapeNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Item, ShapeNode, ItemTail) = False Then
                 Exit Function
             End If
         End If
@@ -1910,7 +2092,11 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
             Exit Function
         End If
         If Matches Then
-            If TryGrammarAs(Document, Tokens, State, IsField = False, False) = False Then
+            Dim Clause As Long = -1
+            If TryGrammarAs(Document, Tokens, State, IsField = False, False, Clause) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Item, Clause, ItemTail) = False Then
                 Exit Function
             End If
         Else
@@ -1927,8 +2113,11 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
                 TryGrammarVariable = SyntaxFail(State, 103)
                 Exit Function
             End If
-            Call SyntaxConsume(State.Cursor, State.Metrics)
-            If TryParseSyntaxExpression(Document, Tokens, State, Ignored) = False Then
+            Dim InitializerNode As Long = -1
+            If TryGrammarInitializer(Document, Tokens, State, InitializerNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Item, InitializerNode, ItemTail) = False Then
                 Exit Function
             End If
         Else
@@ -1936,6 +2125,10 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
                 TryGrammarVariable = SyntaxFail(State, 102)
                 Exit Function
             End If
+        End If
+        State.Pending(0).Nodes(Item).LastByte = State.Cursor.LastByte
+        If TrySyntaxAttach(State, Root, Item, Tail) = False Then
+            Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, ",", More) = False Then
             Exit Function
@@ -1948,16 +2141,8 @@ Function TryGrammarVariable(ByRef Document As SourceDocument, ByRef Tokens() As 
             Call SyntaxConsume(State.Cursor, State.Metrics)
         End If
     Wend
-    Dim LastByte As Long = State.Cursor.LastByte
-    State.Count = SavedCount
-    Dim NodeKind As Long = 54
-    If IsConstant Then
-        NodeKind = 55
-    End If
-    If IsField Then
-        NodeKind = 53
-    End If
-    TryGrammarVariable = TrySyntaxNewNode(State, NodeKind, FirstByte, LastByte, Root)
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
+    TryGrammarVariable = True
 End Function
 
 ' Retains inert metadata after validating its qualified target and values.
@@ -1967,15 +2152,21 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
         Exit Function
     End If
     Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
-    Dim SavedCount As Long = State.Count
     If TryGrammarTake(Document, Tokens, State, "Attribute") = False Then
         Exit Function
     End If
     If TryGrammarSpace(Document, Tokens, State) = False Then
         Exit Function
     End If
-    Dim Ignored As Long = -1
-    If TrySyntaxQualifiedName(Document, Tokens, State, Ignored) = False Then
+    If TrySyntaxNewNode(State, 52, FirstByte, FirstByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Target As Long = -1
+    Dim Tail As Long = -1
+    If TrySyntaxQualifiedName(Document, Tokens, State, Target) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, Root, Target, Tail) = False Then
         Exit Function
     End If
     If TryGrammarTake(Document, Tokens, State, "=") = False Then
@@ -1986,9 +2177,11 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
         If TrySyntaxPeek(Document, Tokens, State) = False Then
             Exit Function
         End If
+        Dim ValueFirst As Long = State.Cursor.Token.First.ByteOffset
         Dim TokenKind As Long = State.Cursor.Token.Kind
         Dim DateCandidate As Boolean = TokenKind = 14
         Dim Matches As Boolean = False
+        Dim ValueNode As Long = -1
         If DateCandidate = False Then
             If TrySyntaxAt(Document, Tokens, State, "#", DateCandidate) = False Then
                 Exit Function
@@ -2000,8 +2193,12 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
             If TrySyntaxDateLiteral(Document, Tokens, State, DateFirst, DateLast) = False Then
                 Exit Function
             End If
+            If TrySyntaxNewNode(State, 2, DateFirst, DateLast, ValueNode) = False Then
+                Exit Function
+            End If
         Else
             Dim Signed As Boolean = False
+            Dim NegativeSign As Boolean = False
             If TrySyntaxAt(Document, Tokens, State, "+", Signed) = False Then
                 Exit Function
             End If
@@ -2009,6 +2206,7 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
                 If TrySyntaxAt(Document, Tokens, State, "-", Signed) = False Then
                     Exit Function
                 End If
+                NegativeSign = Signed
             End If
             If Signed Then
                 Call SyntaxConsume(State.Cursor, State.Metrics)
@@ -2056,7 +2254,40 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
                 TryGrammarAttribute = SyntaxFail(State, 102)
                 Exit Function
             End If
+            Dim ValueKind As Long = 2
+            If TokenKind = 1 Or TokenKind = 6 Then
+                ValueKind = 1
+            End If
+            If TrySyntaxNewNode(State, ValueKind, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, ValueNode) = False Then
+                Exit Function
+            End If
+            If Signed Then
+                Dim SignKind As Long = 4
+                If NegativeSign Then
+                    SignKind = 5
+                End If
+                Dim SignedNode As Long = -1
+                Dim SignTail As Long = -1
+                If TrySyntaxNewNode(State, SignKind, ValueFirst, State.Cursor.Token.Last.ByteOffset, SignedNode) = False Then
+                    Exit Function
+                End If
+                If TrySyntaxAttach(State, SignedNode, ValueNode, SignTail) = False Then
+                    Exit Function
+                End If
+                ValueNode = SignedNode
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
+        End If
+        Dim AttributeValue As Long = -1
+        Dim ValueTail As Long = -1
+        If TrySyntaxNewNode(State, 84, ValueFirst, State.Cursor.LastByte, AttributeValue) = False Then
+            Exit Function
+        End If
+        If TrySyntaxAttach(State, AttributeValue, ValueNode, ValueTail) = False Then
+            Exit Function
+        End If
+        If TrySyntaxAttach(State, Root, AttributeValue, Tail) = False Then
+            Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, ",", More) = False Then
             Exit Function
@@ -2065,15 +2296,18 @@ Function TryGrammarAttribute(ByRef Document As SourceDocument, ByRef Tokens() As
             Call SyntaxConsume(State.Cursor, State.Metrics)
         End If
     Wend
-    Dim LastByte As Long = State.Cursor.LastByte
-    State.Count = SavedCount
-    TryGrammarAttribute = TrySyntaxNewNode(State, 52, FirstByte, LastByte, Root)
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
+    TryGrammarAttribute = True
 End Function
 
 ' Recognizes option spellings while leaving semantic policy to later checking.
 Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByRef Root As Long) As Boolean
     TryGrammarOption = False
     Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
+    If TrySyntaxNewNode(State, 51, FirstByte, FirstByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
     If TryGrammarTake(Document, Tokens, State, "Option") = False Then
         Exit Function
     End If
@@ -2085,17 +2319,26 @@ Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As So
         Exit Function
     End If
     If Matches Then
+        If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
         If TrySyntaxAt(Document, Tokens, State, "On", Matches) = False Then
             Exit Function
         End If
         If Matches Then
+            If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
         Else
             If TrySyntaxAt(Document, Tokens, State, "Off", Matches) = False Then
                 Exit Function
             End If
             If Matches Then
+                If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                    Exit Function
+                End If
                 Call SyntaxConsume(State.Cursor, State.Metrics)
             End If
         End If
@@ -2104,6 +2347,9 @@ Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As So
             Exit Function
         End If
         If Matches Then
+            If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
             If TrySyntaxAt(Document, Tokens, State, "Binary", Matches) = False Then
                 Exit Function
@@ -2122,12 +2368,18 @@ Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As So
                 TryGrammarOption = SyntaxFail(State, 102)
                 Exit Function
             End If
+            If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
         Else
             If TrySyntaxAt(Document, Tokens, State, "Base", Matches) = False Then
                 Exit Function
             End If
             If Matches Then
+                If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                    Exit Function
+                End If
                 Call SyntaxConsume(State.Cursor, State.Metrics)
                 If TrySyntaxAt(Document, Tokens, State, "0", Matches) = False Then
                     Exit Function
@@ -2141,9 +2393,18 @@ Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As So
                     TryGrammarOption = SyntaxFail(State, 102)
                     Exit Function
                 End If
+                If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                    Exit Function
+                End If
                 Call SyntaxConsume(State.Cursor, State.Metrics)
             Else
+                If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
+                    Exit Function
+                End If
                 If TryGrammarTake(Document, Tokens, State, "Private") = False Then
+                    Exit Function
+                End If
+                If TryGrammarOptionValue(Document, Tokens, State, Root, Tail) = False Then
                     Exit Function
                 End If
                 If TryGrammarTake(Document, Tokens, State, "Module") = False Then
@@ -2152,7 +2413,8 @@ Function TryGrammarOption(ByRef Document As SourceDocument, ByRef Tokens() As So
             End If
         End If
     End If
-    TryGrammarOption = TrySyntaxNewNode(State, 51, FirstByte, State.Cursor.LastByte, Root)
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte
+    TryGrammarOption = True
 End Function
 
 ' Appends argument and omission nodes in source order with constant linking work.
@@ -2287,6 +2549,8 @@ Function TryGrammarSimpleStatement(ByRef Document As SourceDocument, ByRef Token
         Exit Function
     End If
     Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
+    Dim Modifiers As Long = -1
+    Dim ModifierTail As Long = -1
     Dim Matches As Boolean = False
     Dim ExplicitCall As Boolean = False
     Dim AssignmentKind As Long = 40
@@ -2351,16 +2615,22 @@ Function TryGrammarSimpleStatement(ByRef Document As SourceDocument, ByRef Token
             End If
         End If
         If Matches Then
+            If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
-            TryGrammarSimpleStatement = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Root)
+            TryGrammarSimpleStatement = TryGrammarVariable(Document, Tokens, State, FirstByte, False, False, Modifiers, Root)
             Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, "Const", Matches) = False Then
             Exit Function
         End If
         If Matches Then
+            If TryGrammarRememberModifier(State, Modifiers, ModifierTail) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
-            TryGrammarSimpleStatement = TryGrammarVariable(Document, Tokens, State, FirstByte, True, False, Root)
+            TryGrammarSimpleStatement = TryGrammarVariable(Document, Tokens, State, FirstByte, True, False, Modifiers, Root)
             Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, "Exit", Matches) = False Then
@@ -2411,8 +2681,16 @@ Function TryGrammarSimpleStatement(ByRef Document As SourceDocument, ByRef Token
                 TryGrammarSimpleStatement = SyntaxFail(State, 102)
                 Exit Function
             End If
+            Dim ExitWord As Long = -1
+            If TrySyntaxKeyword(State, ExitWord) = False Then
+                Exit Function
+            End If
             Call SyntaxConsume(State.Cursor, State.Metrics)
-            TryGrammarSimpleStatement = TrySyntaxNewNode(State, 59, FirstByte, State.Cursor.LastByte, Root)
+            If TrySyntaxNewNode(State, 59, FirstByte, State.Cursor.LastByte, Root) = False Then
+                Exit Function
+            End If
+            Dim ExitTail As Long = -1
+            TryGrammarSimpleStatement = TrySyntaxAttach(State, Root, ExitWord, ExitTail)
             Exit Function
         End If
         If TrySyntaxAt(Document, Tokens, State, "GoTo", Matches) = False Then
@@ -2708,3 +2986,57 @@ Function TryGrammarSimpleStatement(ByRef Document As SourceDocument, ByRef Token
     TryGrammarSimpleStatement = True
 End Function
 
+
+
+' Prefix words are retained only after their existing grammar decision.
+Function TryGrammarRememberModifier(ByRef State As SyntaxState, ByRef Root As Long, ByRef Tail As Long) As Boolean
+    TryGrammarRememberModifier = False
+    If Root < 0 Then
+        If TrySyntaxNewNode(State, 85, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, Root) = False Then
+            Exit Function
+        End If
+    End If
+    Dim WordNode As Long = -1
+    If TrySyntaxKeyword(State, WordNode) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, Root, WordNode, Tail) = False Then
+        Exit Function
+    End If
+    State.Pending(0).Nodes(Root).LastByte = State.Cursor.Token.Last.ByteOffset
+    TryGrammarRememberModifier = True
+End Function
+
+' Shares the existing expression grammar for a written initializer/default.
+Function TryGrammarInitializer(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByRef Root As Long) As Boolean
+    TryGrammarInitializer = False
+    Dim FirstByte As Long = State.Cursor.Token.First.ByteOffset
+    Call SyntaxConsume(State.Cursor, State.Metrics)
+    Dim ExpressionNode As Long = -1
+    If TryParseSyntaxExpression(Document, Tokens, State, ExpressionNode) = False Then
+        Exit Function
+    End If
+    If TrySyntaxNewNode(State, 81, FirstByte, State.Cursor.LastByte, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
+    TryGrammarInitializer = TrySyntaxAttach(State, Root, ExpressionNode, Tail)
+End Function
+
+
+' Retains recognized option parts, including the numeric Base value.
+Function TryGrammarOptionValue(ByRef Document As SourceDocument, ByRef Tokens() As SourceToken, ByRef State As SyntaxState, ByVal Parent As Long, ByRef Tail As Long) As Boolean
+    TryGrammarOptionValue = False
+    If TrySyntaxPeek(Document, Tokens, State) = False Then
+        Exit Function
+    End If
+    Dim Kind As Long = 78
+    If State.Cursor.Token.Kind = 3 Then
+        Kind = 2
+    End If
+    Dim Part As Long = -1
+    If TrySyntaxNewNode(State, Kind, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, Part) = False Then
+        Exit Function
+    End If
+    TryGrammarOptionValue = TrySyntaxAttach(State, Parent, Part, Tail)
+End Function

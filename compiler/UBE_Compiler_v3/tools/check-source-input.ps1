@@ -190,14 +190,14 @@ try {
             $checks += [pscustomobject]@{ stage=$index+1; assertion=('host signature rejects ' + $case.name); passed=$true }
         }
         $compilerIr = $stem + '-compiler.ll'; $compilerExe = $stem + '-compiler.exe'
-        $null = Invoke-Recorded $stages[$index] @((Join-Path $root 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'),$compilerIr) 300
-        $null = Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2',$compilerIr,$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$compilerExe)
+        $null = Invoke-Recorded $stages[$index] @((Join-Path $root 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'),$compilerIr) 900
+        $null = Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2',$compilerIr,$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$compilerExe) 300
         $unicode = Join-Path $run 'source-名-é.bas'
         $validSource = "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Main`"`r`nSub Main()`r`n    Dim " + [char]945 + " As Long`r`n    " + [char]945 + " = 1`r`nEnd Sub`r`n"
         [IO.File]::WriteAllBytes($unicode,([byte[]]@(239,187,191) + (New-Object Text.UTF8Encoding($false)).GetBytes($validSource)))
         Assert-Process $compilerExe @() 2 "usage: ube --check <source-file>`n" "stage $($index+1): missing command arguments"
         Assert-Process $compilerExe @('--unknown',$unicode) 2 "usage: ube --check <source-file>`n" "stage $($index+1): unsupported command"
-        Assert-Process $compilerExe @('--check',$unicode) 1 "error UBE1012: source checking is not implemented`n" "stage $($index+1): Unicode path exact bytes intake followed by controlled unsupported checking"
+        Assert-Process $compilerExe @('--check',$unicode) 0 '' "stage $($index+1): Unicode path/BOM/CRLF exact intake and supported scalar checking"
         $cliHeader = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Main`"`n"
         $cliCases = @(
             @{name='headerless';source="Option Explicit On`n";message="source(1,1): error UBE1100: missing source header at byte 0`n"},
@@ -235,7 +235,7 @@ finally {
     [pscustomobject]@{ schema='ube-source-input-proof-1'; success=$success; failure=$failure; diagnosticOnly=[bool]$DiagnosticOnly;
         qualified=($success -and -not $DiagnosticOnly); acceptedSelection=$selection;
         inputs=$inputs; checks=$checks; measurements=$measurements; commands=$commands;
-        limits='The C harness proves source-input assertions; explicit production CLI cases separately check envelope/scanner diagnostics and controlled unavailable checking. Full scanner function qualification belongs to the separate scanner gate. No parser, semantic checking or output program is qualified. Native C workers qualify private consumers and immutable sharing, not UBE scheduling. Measured calloc arguments are requested zero initialization, not physical writes. Process working set includes C harness/runtime. Test copies preserve complete production source/envelopes and actual declared UBECore Reference; only generated entry/ABI wrappers instrument test executables.';
+        limits='The C harness proves source-input assertions; explicit production CLI cases separately check envelope/scanner diagnostics and one independently specified scalar success. Full parser/semantic graph qualification belongs to separate maintained gates; no output program is qualified here. Native C workers qualify private consumers and immutable sharing, not UBE scheduling. Measured calloc arguments are requested zero initialization, not physical writes. Process working set includes C harness/runtime. Test copies preserve complete production source/envelopes and actual declared UBECore Reference; only generated entry/ABI wrappers instrument test executables.';
         artifacts=@(Get-ChildItem -LiteralPath $run -File -Recurse | ForEach-Object { Get-ArtifactIdentity $_.FullName }) } |
         ConvertTo-Json -Depth 14 | Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
     Write-Output "Evidence: $(Join-Path $run 'report.json')"

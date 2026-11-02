@@ -1,56 +1,531 @@
 {
-  "schema": "ube-project-cli-cases-1",
-  "source": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\n",
-  "project": "UBE-Project 1\nName = \"App\"\nKind = \"Exe\"\nStartup = \"Main\"\nSource = \"Main.bas\"\n",
-  "semantic": "error UBE1012: source checking is not implemented\n",
-  "projectUsage": "usage: ube --check <project.UBE> [--jobs N] (N: 1..4)\n",
-  "sourceUsage": "usage: ube --check <source-file>\n",
-  "cases": [
-    {"name":"default","args":["--check","{project}"],"output":"semantic","exit":1},
-    {"name":"jobs-one","args":["--check","{project}","--jobs","1"],"output":"semantic","exit":1},
-    {"name":"jobs-two","args":["--check","{project}","--jobs","2"],"output":"semantic","exit":1},
-    {"name":"jobs-three","args":["--check","{project}","--jobs","3"],"output":"semantic","exit":1},
-    {"name":"jobs-four","args":["--check","{project}","--jobs","4"],"output":"semantic","exit":1},
-    {"name":"leading-zeroes","args":["--check","{project}","--jobs","0004"],"output":"semantic","exit":1},
-    {"name":"upper-extension","args":["--check","{upper}"],"output":"semantic","exit":1},
-    {"name":"unicode-path","args":["--check","{unicode}","--jobs","2"],"output":"semantic","exit":1},
-    {"name":"explicit-ubecore","append":"Reference = \"../../../../../../std-lib/UBECore.UBE\"\n","args":["--check","{project}","--jobs","4"],"output":"semantic","exit":1},
-    {"name":"no-arguments","args":[],"output":"sourceUsage","exit":2},
-    {"name":"missing-path","args":["--check"],"output":"sourceUsage","exit":2},
-    {"name":"missing-budget","args":["--check","{project}","--jobs"],"output":"projectUsage","exit":2},
-    {"name":"empty-budget","args":["--check","{project}","--jobs",""],"output":"projectUsage","exit":2},
-    {"name":"zero","args":["--check","{project}","--jobs","0"],"output":"projectUsage","exit":2},
-    {"name":"five","args":["--check","{project}","--jobs","5"],"output":"projectUsage","exit":2},
-    {"name":"negative","args":["--check","{project}","--jobs","-1"],"output":"projectUsage","exit":2},
-    {"name":"plus","args":["--check","{project}","--jobs","+1"],"output":"projectUsage","exit":2},
-    {"name":"fraction","args":["--check","{project}","--jobs","1.0"],"output":"projectUsage","exit":2},
-    {"name":"space","args":["--check","{project}","--jobs"," 1"],"output":"projectUsage","exit":2},
-    {"name":"overflow","args":["--check","{project}","--jobs","999999999999999999999999999999999999"],"output":"projectUsage","exit":2},
-    {"name":"option-case","args":["--check","{project}","--Jobs","2"],"output":"projectUsage","exit":2},
-    {"name":"unknown-option","args":["--check","{project}","--threads","2"],"output":"projectUsage","exit":2},
-    {"name":"repeated-option","args":["--check","{project}","--jobs","2","--jobs","4"],"output":"projectUsage","exit":2},
-    {"name":"source-jobs","args":["--check","{source}","--jobs","2"],"output":"sourceUsage","exit":2},
-    {"name":"wrong-check","args":["--Check","{project}"],"output":"projectUsage","exit":2},
-    {"name":"future-version","replace":["UBE-Project 1","UBE-Project 2"],"code":1301,"message":"project format version is not implemented","line":1,"column":13,"byte":12},
-    {"name":"bad-header","replace":["UBE-Project 1","junk"],"code":1300,"message":"missing or malformed project header","line":1,"column":1,"byte":0},
-    {"name":"unknown-key","append":"Mystery = \"x\"\n","code":1303,"message":"unknown project key","line":6,"column":1,"byte":77},
-    {"name":"duplicate-name","append":"Name = \"Again\"\n","code":1304,"message":"duplicate scalar project key","line":6,"column":1,"byte":77},
-    {"name":"malformed-entry","append":"Bad\n","code":1302,"message":"malformed project entry","line":6,"column":4,"byte":80},
-    {"name":"missing-source-key","replace":["Source = \"Main.bas\"\n",""],"code":1305,"message":"missing required project key","line":5,"column":1,"byte":57},
-    {"name":"invalid-kind","replace":["Kind = \"Exe\"","Kind = \"Dll\""],"code":1306,"message":"invalid project value","line":3,"column":9,"byte":35},
-    {"name":"unsupported-resource","append":"Resource = \"Thing.bin\"\n","code":1307,"message":"project input facility is not implemented","line":6,"column":1,"byte":77},
-    {"name":"absolute-source","replace":["Main.bas","C:/outside.bas"],"code":1308,"message":"invalid project path","line":5,"column":11,"byte":67},
-    {"name":"duplicate-source","append":"Source = \"./Main.bas\"\n","code":1312,"message":"duplicate project source path","line":6,"column":11,"byte":87},
-    {"name":"duplicate-source-name","append":"Source = \"Copy.bas\"\n","files":[{"path":"Copy.bas","source":true}],"errorPath":"Copy.bas","code":1316,"message":"duplicate source identity in package","line":2,"column":22,"byte":41},
-    {"name":"self-reference","append":"Reference = \"App.UBE\"\n","code":1313,"message":"invalid project reference","line":6,"column":14,"byte":90},
-    {"name":"reference-executable","append":"Reference = \"Referenced.UBE\"\n","files":[{"path":"Referenced.UBE","text":"UBE-Project 1\nName = \"Other\"\nKind = \"Exe\"\nStartup = \"Main\"\nSource = \"Main.bas\"\n"}],"code":1313,"message":"invalid project reference","line":6,"column":14,"byte":90},
-    {"name":"reference-cycle","append":"Reference = \"Core/UBECore.UBE\"\n","files":[{"path":"Core/UBECore.UBE","text":"UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\nReference = \"../App.UBE\"\n"},{"path":"Core/Core.bas","source":true,"sourceName":"Core"}],"errorPath":"Core/UBECore.UBE","code":1314,"message":"project reference cycle","line":5,"column":14,"byte":81},
-    {"name":"package-collision","replace":["Name = \"App\"","Name = \"ubecore\""],"append":"Reference = \"Core/UBECore.UBE\"\n","files":[{"path":"Core/UBECore.UBE","text":"UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\n"},{"path":"Core/Core.bas","source":true,"sourceName":"Core"}],"errorPath":"Core/UBECore.UBE","code":1315,"message":"duplicate package identity","line":2,"column":8,"byte":21},
-    {"name":"missing-further-reference","append":"Reference = \"Core/UBECore.UBE\"\nReference = \"Missing.UBE\"\n","files":[{"path":"Core/UBECore.UBE","text":"UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\n"},{"path":"Core/Core.bas","source":true,"sourceName":"Core"}],"code":1311,"message":"cannot read project input","line":7,"column":14,"byte":121},
-    {"name":"manifest-byte-limit","manifestByteCount":1048577,"code":1309,"message":"project resource limit exceeded","line":1,"column":1,"byte":0},
-    {"name":"invalid-utf8-manifest","bytes":[255],"inputLine":"source(1,1): error UBE1005: invalid UTF-8 at byte 0\n"},
-    {"name":"bom-crlf-unknown","append":"Mystery = \"x\"\n","bom":true,"crlf":true,"code":1303,"message":"unknown project key","line":6,"column":1,"byte":85},
-    {"name":"source-scanner","sourceSuffix":"~\n","sourceLine":"source(3,1): error UBE1100: unexpected character at byte 48\n"},
-    {"name":"source-deferred","sourceReplace":["MODULE","CLASS"],"sourceExtension":".cls","sourceHeader":"error UBE1200: source syntax family is not implemented (next lines: line, column, byte)","line":1,"column":14,"byte":13}
-  ]
+    "schema":  "ube-project-cli-cases-1",
+    "source":  "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"Main\"\n",
+    "project":  "UBE-Project 1\nName = \"App\"\nKind = \"Exe\"\nStartup = \"Main\"\nSource = \"Main.bas\"\n",
+    "semantic":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n3\n1\n48\n",
+    "projectUsage":  "usage: ube --check \u003cproject.UBE\u003e [--jobs N] (N: 1..4)\n",
+    "sourceUsage":  "usage: ube --check \u003csource-file\u003e\n",
+    "cases":  [
+                  {
+                      "name":  "default",
+                      "args":  [
+                                   "--check",
+                                   "{project}"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "jobs-one",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "1"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "jobs-two",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "2"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "jobs-three",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "3"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "jobs-four",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "4"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "leading-zeroes",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "0004"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "upper-extension",
+                      "args":  [
+                                   "--check",
+                                   "{upper}"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "unicode-path",
+                      "args":  [
+                                   "--check",
+                                   "{unicode}",
+                                   "--jobs",
+                                   "2"
+                               ],
+                      "output":  "semantic",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "explicit-ubecore",
+                      "append":  "Reference = \"../../../../../../std-lib/UBECore.UBE\"\n",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "4"
+                               ],
+                      "output":  "semanticCore",
+                      "exit":  1
+                  },
+                  {
+                      "name":  "no-arguments",
+                      "args":  [
+
+                               ],
+                      "output":  "sourceUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "missing-path",
+                      "args":  [
+                                   "--check"
+                               ],
+                      "output":  "sourceUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "missing-budget",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "empty-budget",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   ""
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "zero",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "0"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "five",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "5"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "negative",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "-1"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "plus",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "+1"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "fraction",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "1.0"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "space",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   " 1"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "overflow",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "999999999999999999999999999999999999"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "option-case",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--Jobs",
+                                   "2"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "unknown-option",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--threads",
+                                   "2"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "repeated-option",
+                      "args":  [
+                                   "--check",
+                                   "{project}",
+                                   "--jobs",
+                                   "2",
+                                   "--jobs",
+                                   "4"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "source-jobs",
+                      "args":  [
+                                   "--check",
+                                   "{source}",
+                                   "--jobs",
+                                   "2"
+                               ],
+                      "output":  "sourceUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "wrong-check",
+                      "args":  [
+                                   "--Check",
+                                   "{project}"
+                               ],
+                      "output":  "projectUsage",
+                      "exit":  2
+                  },
+                  {
+                      "name":  "future-version",
+                      "replace":  [
+                                      "UBE-Project 1",
+                                      "UBE-Project 2"
+                                  ],
+                      "code":  1301,
+                      "message":  "project format version is not implemented",
+                      "line":  1,
+                      "column":  13,
+                      "byte":  12
+                  },
+                  {
+                      "name":  "bad-header",
+                      "replace":  [
+                                      "UBE-Project 1",
+                                      "junk"
+                                  ],
+                      "code":  1300,
+                      "message":  "missing or malformed project header",
+                      "line":  1,
+                      "column":  1,
+                      "byte":  0
+                  },
+                  {
+                      "name":  "unknown-key",
+                      "append":  "Mystery = \"x\"\n",
+                      "code":  1303,
+                      "message":  "unknown project key",
+                      "line":  6,
+                      "column":  1,
+                      "byte":  77
+                  },
+                  {
+                      "name":  "duplicate-name",
+                      "append":  "Name = \"Again\"\n",
+                      "code":  1304,
+                      "message":  "duplicate scalar project key",
+                      "line":  6,
+                      "column":  1,
+                      "byte":  77
+                  },
+                  {
+                      "name":  "malformed-entry",
+                      "append":  "Bad\n",
+                      "code":  1302,
+                      "message":  "malformed project entry",
+                      "line":  6,
+                      "column":  4,
+                      "byte":  80
+                  },
+                  {
+                      "name":  "missing-source-key",
+                      "replace":  [
+                                      "Source = \"Main.bas\"\n",
+                                      ""
+                                  ],
+                      "code":  1305,
+                      "message":  "missing required project key",
+                      "line":  5,
+                      "column":  1,
+                      "byte":  57
+                  },
+                  {
+                      "name":  "invalid-kind",
+                      "replace":  [
+                                      "Kind = \"Exe\"",
+                                      "Kind = \"Dll\""
+                                  ],
+                      "code":  1306,
+                      "message":  "invalid project value",
+                      "line":  3,
+                      "column":  9,
+                      "byte":  35
+                  },
+                  {
+                      "name":  "unsupported-resource",
+                      "append":  "Resource = \"Thing.bin\"\n",
+                      "code":  1307,
+                      "message":  "project input facility is not implemented",
+                      "line":  6,
+                      "column":  1,
+                      "byte":  77
+                  },
+                  {
+                      "name":  "absolute-source",
+                      "replace":  [
+                                      "Main.bas",
+                                      "C:/outside.bas"
+                                  ],
+                      "code":  1308,
+                      "message":  "invalid project path",
+                      "line":  5,
+                      "column":  11,
+                      "byte":  67
+                  },
+                  {
+                      "name":  "duplicate-source",
+                      "append":  "Source = \"./Main.bas\"\n",
+                      "code":  1312,
+                      "message":  "duplicate project source path",
+                      "line":  6,
+                      "column":  11,
+                      "byte":  87
+                  },
+                  {
+                      "name":  "duplicate-source-name",
+                      "append":  "Source = \"Copy.bas\"\n",
+                      "files":  [
+                                    {
+                                        "path":  "Copy.bas",
+                                        "source":  true
+                                    }
+                                ],
+                      "errorPath":  "Copy.bas",
+                      "code":  1316,
+                      "message":  "duplicate source identity in package",
+                      "line":  2,
+                      "column":  22,
+                      "byte":  41
+                  },
+                  {
+                      "name":  "self-reference",
+                      "append":  "Reference = \"App.UBE\"\n",
+                      "code":  1313,
+                      "message":  "invalid project reference",
+                      "line":  6,
+                      "column":  14,
+                      "byte":  90
+                  },
+                  {
+                      "name":  "reference-executable",
+                      "append":  "Reference = \"Referenced.UBE\"\n",
+                      "files":  [
+                                    {
+                                        "path":  "Referenced.UBE",
+                                        "text":  "UBE-Project 1\nName = \"Other\"\nKind = \"Exe\"\nStartup = \"Main\"\nSource = \"Main.bas\"\n"
+                                    }
+                                ],
+                      "code":  1313,
+                      "message":  "invalid project reference",
+                      "line":  6,
+                      "column":  14,
+                      "byte":  90
+                  },
+                  {
+                      "name":  "reference-cycle",
+                      "append":  "Reference = \"Core/UBECore.UBE\"\n",
+                      "files":  [
+                                    {
+                                        "path":  "Core/UBECore.UBE",
+                                        "text":  "UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\nReference = \"../App.UBE\"\n"
+                                    },
+                                    {
+                                        "path":  "Core/Core.bas",
+                                        "source":  true,
+                                        "sourceName":  "Core"
+                                    }
+                                ],
+                      "errorPath":  "Core/UBECore.UBE",
+                      "code":  1314,
+                      "message":  "project reference cycle",
+                      "line":  5,
+                      "column":  14,
+                      "byte":  81
+                  },
+                  {
+                      "name":  "package-collision",
+                      "replace":  [
+                                      "Name = \"App\"",
+                                      "Name = \"ubecore\""
+                                  ],
+                      "append":  "Reference = \"Core/UBECore.UBE\"\n",
+                      "files":  [
+                                    {
+                                        "path":  "Core/UBECore.UBE",
+                                        "text":  "UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\n"
+                                    },
+                                    {
+                                        "path":  "Core/Core.bas",
+                                        "source":  true,
+                                        "sourceName":  "Core"
+                                    }
+                                ],
+                      "errorPath":  "Core/UBECore.UBE",
+                      "code":  1315,
+                      "message":  "duplicate package identity",
+                      "line":  2,
+                      "column":  8,
+                      "byte":  21
+                  },
+                  {
+                      "name":  "missing-further-reference",
+                      "append":  "Reference = \"Core/UBECore.UBE\"\nReference = \"Missing.UBE\"\n",
+                      "files":  [
+                                    {
+                                        "path":  "Core/UBECore.UBE",
+                                        "text":  "UBE-Project 1\nName = \"UBECore\"\nKind = \"Library\"\nSource = \"Core.bas\"\n"
+                                    },
+                                    {
+                                        "path":  "Core/Core.bas",
+                                        "source":  true,
+                                        "sourceName":  "Core"
+                                    }
+                                ],
+                      "code":  1311,
+                      "message":  "cannot read project input",
+                      "line":  7,
+                      "column":  14,
+                      "byte":  121
+                  },
+                  {
+                      "name":  "manifest-byte-limit",
+                      "manifestByteCount":  1048577,
+                      "code":  1309,
+                      "message":  "project resource limit exceeded",
+                      "line":  1,
+                      "column":  1,
+                      "byte":  0
+                  },
+                  {
+                      "name":  "invalid-utf8-manifest",
+                      "bytes":  [
+                                    255
+                                ],
+                      "inputLine":  "source(1,1): error UBE1005: invalid UTF-8 at byte 0\n"
+                  },
+                  {
+                      "name":  "bom-crlf-unknown",
+                      "append":  "Mystery = \"x\"\n",
+                      "bom":  true,
+                      "crlf":  true,
+                      "code":  1303,
+                      "message":  "unknown project key",
+                      "line":  6,
+                      "column":  1,
+                      "byte":  85
+                  },
+                  {
+                      "name":  "source-scanner",
+                      "sourceSuffix":  "~\n",
+                      "sourceLine":  "source(3,1): error UBE1100: unexpected character at byte 48\n"
+                  },
+                  {
+                      "name":  "source-deferred",
+                      "sourceReplace":  [
+                                            "MODULE",
+                                            "CLASS"
+                                        ],
+                      "sourceExtension":  ".cls",
+                      "sourceHeader":  "error UBE1200: source syntax family is not implemented (next lines: line, column, byte)",
+                      "line":  1,
+                      "column":  14,
+                      "byte":  13
+                  }
+              ],
+    "semanticCore":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n282\n"
 }

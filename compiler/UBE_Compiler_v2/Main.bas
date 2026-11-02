@@ -4627,6 +4627,12 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_checked_div_i32(i32, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_checked_mod_i32(i32, i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_checked_neg_i32(i32)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_add_i64(i64, i64)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_sub_i64(i64, i64)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_mul_i64(i64, i64)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_div_i64(i64, i64)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_mod_i64(i64, i64)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i64 @ube_checked_neg_i64(i64)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_string_concat(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_string_compare(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_string_length(ptr)" & NewLine)
@@ -5569,7 +5575,11 @@ Sub EmitOperatorValue(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
                 Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_neg_i32(i32 " & UnaryOperand & ")" & NewLine)
                 Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
             Else
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = sub " & UnaryLlvmType & " 0, " & UnaryOperand & NewLine)
+                If UnaryTypeId = 5 Then
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i64 @ube_checked_neg_i64(i64 " & UnaryOperand & ")" & NewLine)
+                Else
+                    Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = sub " & UnaryLlvmType & " 0, " & UnaryOperand & NewLine)
+                End If
             End If
             Exit Sub
         End If
@@ -5667,7 +5677,7 @@ Sub EmitOperatorValue(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
             TypeId = 1
             Exit Sub
         End If
-        If LeftTypeId = 2 Or LeftTypeId = 4 Then
+        If LeftTypeId = 2 Or LeftTypeId = 4 Or LeftTypeId = 5 Then
             Dim ArithmeticHelper As String = ""
             If BinaryOperator = "+" Then
                 ArithmeticHelper = "add"
@@ -5685,10 +5695,16 @@ Sub EmitOperatorValue(ByRef Tokens() As Token, ByRef Nodes() As SyntaxNode, ByVa
                 ArithmeticHelper = "mod"
             End If
             If ArithmeticHelper <> "" Then
-                Call EmitIntegerConversion(LeftTypeId, 2, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Call EmitIntegerConversion(RightTypeId, 2, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
-                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call i32 @ube_checked_" & ArithmeticHelper & "_i32(i32 " & LeftOperand & ", i32 " & RightOperand & ")" & NewLine)
-                Call EmitIntegerConversion(2, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Dim ArithmeticType As Long = 2
+                Dim ArithmeticLlvm As String = "i32"
+                If LeftTypeId = 5 Then
+                    ArithmeticType = 5
+                    ArithmeticLlvm = "i64"
+                End If
+                Call EmitIntegerConversion(LeftTypeId, ArithmeticType, LeftOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call EmitIntegerConversion(RightTypeId, ArithmeticType, RightOperand, Body, BodyCount, BodyCapacity, State, NewLine)
+                Call AppendText(Body, BodyCount, BodyCapacity, "  " & Operand & " = call " & ArithmeticLlvm & " @ube_checked_" & ArithmeticHelper & "_" & ArithmeticLlvm & "(" & ArithmeticLlvm & " " & LeftOperand & ", " & ArithmeticLlvm & " " & RightOperand & ")" & NewLine)
+                Call EmitIntegerConversion(ArithmeticType, TypeId, Operand, Body, BodyCount, BodyCapacity, State, NewLine)
                 Exit Sub
             End If
         End If
@@ -6797,10 +6813,45 @@ Function ValidateSourceDeclarationBoundaries(ByRef Tokens() As Token, ByRef Sour
     ValidateSourceDeclarationBoundaries = 1
 End Function
 
-' Source references deliberately expose a closed Public-only subset. Reject
-' unsupported syntax before the old global lookup can grant extra visibility.
+' Private library procedures are callable only inside their original module.
+' The bootstrap still has one global name table: duplicate names remain rejected.
+Function IsBootstrapPrivateProcedure(ByRef Tokens() As Token, ByVal HeaderToken As Long) As Long
+    IsBootstrapPrivateProcedure = 0
+    Dim Cursor As Long = HeaderToken - 1
+    While Cursor >= 0
+        If Tokens(Cursor).TokenKind = 4 Then
+            Exit Function
+        End If
+        If EqualsKeyword(Tokens(Cursor).Spelling, "Private") <> 0 Then
+            IsBootstrapPrivateProcedure = 1
+            Exit Function
+        End If
+        Cursor = Cursor - 1
+    Wend
+End Function
+
+' Reject unsupported syntax and out-of-module private uses before global lookup.
 Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As Long, ByRef Sources() As SourceFile, ByVal SourceCount As Long, ByRef PackageNames() As String, ByVal PackageCount As Long, ByRef Types() As TypeDeclarationSyntax, ByVal TypeCount As Long, ByRef Procedures() As ProcedureDeclarationSyntax, ByVal ProcedureCount As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
     ValidateBootstrapPackages = 0
+    Dim PrivateDeclarations() As Long
+    Dim PrivateSources() As Long
+    Dim PrivateCount As Long = 0
+    If PackageCount > 1 And ProcedureCount > 0 Then
+        ReDim PrivateDeclarations(ProcedureCount - 1)
+        ReDim PrivateSources(ProcedureCount - 1)
+        Dim CollectPrivate As Long = 0
+        While CollectPrivate < ProcedureCount
+            Dim PrivateOwner As Long = FindSourceIndex(Sources, SourceCount, Tokens(Procedures(CollectPrivate).NameToken).StartByte)
+            If PrivateOwner >= 0 Then
+                If Sources(PrivateOwner).PackageId > 0 And IsBootstrapPrivateProcedure(Tokens, Procedures(CollectPrivate).HeaderToken) <> 0 Then
+                    PrivateDeclarations(PrivateCount) = CollectPrivate
+                    PrivateSources(PrivateCount) = PrivateOwner
+                    PrivateCount = PrivateCount + 1
+                End If
+            End If
+            CollectPrivate = CollectPrivate + 1
+        Wend
+    End If
     Dim Index As Long = 0
     Dim InProcedure As Long = 0
     Dim InType As Long = 0
@@ -6824,6 +6875,17 @@ Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As 
             End If
         End If
         If PackageCount > 1 And Tokens(Index).TokenKind = 1 Then
+            Dim PrivateIndex As Long = 0
+            While PrivateIndex < PrivateCount
+                If PrivateSources(PrivateIndex) <> SourceIndex Then
+                    Dim PrivateProcedure As Long = PrivateDeclarations(PrivateIndex)
+                    If EqualsIdentifier(Tokens(Index).Spelling, Tokens(Procedures(PrivateProcedure).NameToken).Spelling) <> 0 Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5023", Tokens(Index).StartByte, Tokens(Index).ByteLength, "private library procedure is accessible only inside its declaring module")
+                        Exit Function
+                    End If
+                End If
+                PrivateIndex = PrivateIndex + 1
+            Wend
             If Index + 1 < TokenCount Then
                 If Tokens(Index + 1).Spelling = "." Then
                     Dim NameIndex As Long = 0
@@ -6848,12 +6910,12 @@ Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As 
         If PackageId > 0 And Tokens(Index).TokenKind = 1 Then
             Dim Word As String = Tokens(Index).Spelling
             If LineStart <> 0 Then
-                If EqualsKeyword(Word, "Private") <> 0 Or EqualsKeyword(Word, "Friend") <> 0 Or EqualsKeyword(Word, "Global") <> 0 Or EqualsKeyword(Word, "Option") <> 0 Then
+                If EqualsKeyword(Word, "Friend") <> 0 Or EqualsKeyword(Word, "Global") <> 0 Or EqualsKeyword(Word, "Option") <> 0 Then
                     Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5023", Tokens(Index).StartByte, Tokens(Index).ByteLength, "referenced packages require the Public-only bootstrap declaration subset")
                     Exit Function
                 End If
                 Dim HeaderIndex As Long = Index
-                If EqualsKeyword(Word, "Public") <> 0 Then
+                If EqualsKeyword(Word, "Public") <> 0 Or EqualsKeyword(Word, "Private") <> 0 Then
                     HeaderIndex = HeaderIndex + 1
                 End If
                 If HeaderIndex < TokenCount Then
@@ -6862,6 +6924,12 @@ Function ValidateBootstrapPackages(ByRef Tokens() As Token, ByVal TokenCount As 
                     End If
                 End If
                 Dim HeaderWord As String = Tokens(HeaderIndex).Spelling
+                If EqualsKeyword(Word, "Private") <> 0 Then
+                    If InProcedure <> 0 Or InType <> 0 Or (EqualsKeyword(HeaderWord, "Sub") = 0 And EqualsKeyword(HeaderWord, "Function") = 0) Then
+                        Call AppendDiagnostic(Diagnostics, DiagnosticCount, "UBE5023", Tokens(Index).StartByte, Tokens(Index).ByteLength, "only private procedures are supported in referenced bootstrap modules")
+                        Exit Function
+                    End If
+                End If
                 If Sources(SourceIndex).IsReference <> 0 Then
                     HeaderWord = "Attribute"
                 End If

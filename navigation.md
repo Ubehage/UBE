@@ -24,6 +24,7 @@
 | `lang-doc/bootstrap-profile.md` | Required subset for bootstrapping the UBE-written compiler |
 | `compiler/README.md` | Current compiler implementation status and boundary |
 | `compiler/UBE_Compiler_v3/` | Fresh active compiler foundation design and workplan |
+| `compiler/UBE_Compiler_v3/SEMANTIC-CONTRACT.md` | First semantic checking proposal, parser inventory, independent cases and definition evidence for owner review |
 | `compiler/archived/` | Previous v3/v4 implementations, release previews, and original-byte snapshot |
 | `bootstrap/runtime/` | Temporary C/C++ bootstrap runtime, ABI header and Windows adapters |
 | `project-docs/Roadmap.md` | Tracks the work from stage zero through a self-hosting compiler, runtime, standard library, debugger, and native IDE |

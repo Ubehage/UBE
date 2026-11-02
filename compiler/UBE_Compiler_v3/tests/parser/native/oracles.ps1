@@ -5,6 +5,7 @@ function Write-NativeParserOracles([string]$FixtureDirectory,[string]$Destinatio
     $kinds=@{Name=1;Literal=2;Group=3;Positive=4;Negative=5;Not=6;Power=7;Multiply=8;Divide=9;IntegerDivide=10;Modulo=11;Add=12;Subtract=13;Concat=14;Equal=15;NotEqual=16;Less=17;LessEqual=18;Greater=19;GreaterEqual=20;Like=21;Is=22;IsNot=23;And=24;AndAlso=25;Or=26;OrElse=27;Xor=28;Eqv=29;Imp=30;AddressOf=31;New=32;LeadingMember=33;Member=34;Bang=35;NamedArgument=36;TypeOfIs=37;Call=38;CallNew=39;Assign=40;LetAssign=41;SetAssign=42;CallStatement=43;CallKeyword=44;Module=45;Block=46;Parameters=47;StatementList=48;Print=49;Header=50;Option=51;Attribute=52;Field=53;VariableDecl=54;ConstantDecl=55;Parameter=56;ResultType=57;EndMarker=58;Exit=59;Label=60;Goto=61;Return=62;RecordType=63;NativeType=64;Procedure=65;IntrinsicProcedure=66;IfLine=67;IfBlock=68;ElseIf=69;Else=70;While=71;With=72;Omitted=73;TypeName=74}
     $diagnostics=@{ExpectedExpression=101;ExpectedToken=102;UnexpectedToken=103;ExpectedIdentifier=104;InvalidCallSyntax=105;UnterminatedBlock=106;UnexpectedTerminator=107}
     $kinds.LSetAssign=75;$kinds.RSetAssign=76
+    $kinds.Declarator=77;$kinds.Keyword=78;$kinds.ArrayShape=79;$kinds.AsClause=80;$kinds.Initializer=81;$kinds.Dimension=82;$kinds.TypeCharacter=83;$kinds.AttributeValue=84;$kinds.Modifiers=85
     $entries=@{expression=1;statement=2;unit=3}
     $text=New-Object Text.StringBuilder
     $rows=New-Object 'System.Collections.Generic.List[string]'
@@ -20,19 +21,24 @@ function Write-NativeParserOracles([string]$FixtureDirectory,[string]$Destinatio
         return @($first,$last)
     }
     function Emit-Shape($Shape){
+        if($Shape -isnot [array] -or $Shape.Count -lt 2){throw 'Expected an independently authored [kind,witness,...children] node'}
         if(-not $kinds.ContainsKey([string]$Shape[0])){throw 'Unknown independent logical kind'}
+        if(-not $spans.ContainsKey([string]$Shape[1])){throw 'Unknown independent source witness'}
         $children=New-Object 'System.Collections.Generic.List[int]'
         for($child=2;$child -lt $Shape.Count;++$child){$children.Add((Emit-Shape $Shape[$child]))}
         $span=$spans[[string]$Shape[1]];$id=$nodes.Count
+        $previous=$span[0]
+        foreach($childId in $children){$child=$nodes[$childId];if($child.first -lt $previous -or $child.last -gt $span[1]){throw 'Expected child spans must be contained and source-ordered'};$previous=$child.last}
         $nodes.Add([pscustomobject]@{kind=$kinds[[string]$Shape[0]];first=$span[0];last=$span[1];children=$children.ToArray()})
         return $id
     }
     $frozenCount=0
-    foreach($file in @('expressions.json','statements.json','units.json','native/complex-unit.json','native/additional-cases.json','native/versions.json')){
+    foreach($file in @('expressions.json','statements.json','units.json','native/complex-unit.json','native/additional-cases.json','native/versions.json','native/declaration-details.json')){
         $definition=Get-Content -LiteralPath (Join-Path $FixtureDirectory $file) -Raw -Encoding UTF8|ConvertFrom-Json
         $isFrozen=-not $file.StartsWith('native/')
         if(($isFrozen -and $definition.schema -cne 'ube-parser-cases-1') -or (-not $isFrozen -and $definition.schema -cne 'ube-parser-native-cases-1')){throw 'Wrong parser fixture schema'}
         foreach($case in $definition.cases){
+            if($file -ceq 'native/declaration-details.json' -and (-not $case.PSObject.Properties['compareDetails'] -or $case.compareDetails -isnot [bool] -or -not $case.compareDetails)){throw 'Every declaration-detail fixture requires exact physical comparison'}
             $index=$cases.Count;$bytes=$utf8.GetBytes([string]$case.source)
             $payload='0';if($bytes.Length){$payload=$bytes -join ','}
             [void]$text.AppendLine("static const uint8_t source_$index[] = {$payload};")
@@ -56,7 +62,8 @@ function Write-NativeParserOracles([string]$FixtureDirectory,[string]$Destinatio
             }
             ++$counts[[string]$case.outcome]
             if($isFrozen){++$frozenCount}
-            $rows.Add('{"'+$case.name+'",source_'+$index+','+$bytes.Length+','+$entries[[string]$case.entry]+','+$outcome+','+$nodePointer+','+$nodes.Count+','+$root+','+$expected+','+$checkFailureSpan+'}')
+            $details=0;if($case.PSObject.Properties['compareDetails'] -and $case.compareDetails){$details=1}
+            $rows.Add('{"'+$case.name+'",source_'+$index+','+$bytes.Length+','+$entries[[string]$case.entry]+','+$outcome+','+$nodePointer+','+$nodes.Count+','+$root+','+$expected+','+$checkFailureSpan+','+$details+'}')
             $cases.Add([pscustomobject]@{name=$case.name;entry=$case.entry;outcome=$case.outcome;sourceBytes=$bytes.Length;nodeCount=$nodes.Count})
         }
     }

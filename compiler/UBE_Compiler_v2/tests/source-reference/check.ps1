@@ -105,6 +105,17 @@ try {
     Test-Project 'short-name-line-regression' (Exe-Project 'ShortName' 'Source = "ShortName.bas"') '' 'UBE5021'
     Write-Fixture 'library/Library.bas' (Native-Module 'Library' "Function Value() As Long`nValue = 23`nEnd Function") | Out-Null
     Test-Project 'direct-default-public' $project "23`n"
+    Write-Fixture 'library/Library.bas' (Native-Module 'Library' "Private Function HiddenValue() As Long`nHiddenValue = 23`nEnd Function`nFunction Value() As Long`nValue = HiddenValue()`nEnd Function") | Out-Null
+    Test-Project 'private-own-module' $project "23`n"
+    Write-Fixture 'PrivateUse.bas' (Native-Module 'PrivateUse' "Function Main() As Long`nPrint HiddenValue()`nMain = 0`nEnd Function") | Out-Null
+    Test-Project 'private-executable-denied' (Exe-Project 'PrivateUse' 'Source = "PrivateUse.bas"' $reference) '' 'UBE5023'
+    Write-Fixture 'library/Other.bas' (Native-Module 'Other' "Function OtherLibraryValue() As Long`nOtherLibraryValue = HiddenValue()`nEnd Function") | Out-Null
+    Write-Fixture 'library/Library.UBE' ($library + "Source = `"Other.bas`"`n") | Out-Null
+    Test-Project 'private-peer-module-denied' $project '' 'UBE5023'
+    Write-Fixture 'library/Library.UBE' $library | Out-Null
+    Write-Fixture 'library/Library.bas' (Native-Module 'Library' "Private Intrinsic Function HiddenLength(ByRef Values() As Byte) As Long`nAttribute HiddenLength.UBE_Primitive = `"Array.Length`"`nEnd Function`nFunction Value() As Long`nDim Values() As Byte`nReDim Values(22)`nValue = HiddenLength(Values)`nEnd Function") | Out-Null
+    Test-Project 'private-intrinsic-own-module' $project "23`n"
+    Write-Fixture 'library/Library.bas' (Native-Module 'Library' "Function Value() As Long`nValue = 23`nEnd Function") | Out-Null
     Write-Fixture 'library/Library.UBE' (([string][char]0xFEFF) + $library) | Out-Null
     Test-Project 'bom-library-manifest' $project "23`n"
     Write-Fixture 'library/Library.UBE' $library | Out-Null

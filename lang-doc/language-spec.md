@@ -202,6 +202,24 @@ fixed-length strings require an `As` clause. Integer literal suffixes are `%`,
 `&`, and `^`; UBE does not accept the unrelated VB.NET suffixes for unsigned
 fixed-width types that UBE does not define.
 
+Owner-confirmed integer-literal rule (2026-11-01): an unsuffixed decimal integer
+literal uses a statically known destination datatype where that numeric context
+is available. The context applies to literals within an arithmetic expression,
+not just a literal assigned directly. Thus
+`Dim x As LongLong = 2147483647 + 1` uses LongLong literals and succeeds; it must
+not overflow through an unnecessary intermediate Long calculation. An explicit
+literal suffix remains authoritative. If an unsuffixed literal does not fit a
+narrower destination context, select a wider integer type that holds it rather
+than rejecting the literal merely for exceeding the destination. Thus
+`Dim x As Integer = 40000 - 10000` calculates 30000 in a suitable wider type and
+then converts that result to Integer. Without a destination context, an
+unsuffixed integer value uses Long when it fits, otherwise LongLong; a value
+outside every supported integer type's range is a compile-time error. Final
+destination conversion retains the checked conversion rules. The bounded first
+semantic contract enumerates the included integer contexts and independent
+boundary cases; it does not settle deferred noninteger operator domains or
+hexadecimal/octal bit-pattern interpretation by inheriting bootstrap behavior.
+
 `String * n` is legal only for `String`; `n` is a nonnegative compile-time
 decimal integer counting Unicode scalar values. Zero is a valid length. UBE
 does not impose VB6's historical 65,535-character ceiling, but rejects a size
@@ -698,6 +716,19 @@ Err. Exact limits, failure codes, alias restrictions and the temporary Windows
 adapter removal condition are in
 [`../std-lib/FILE-BYTES-CONTRACT.md`](../std-lib/FILE-BYTES-CONTRACT.md).
 
+### 6.3 Scalar declaration initializers
+
+An ordinary scalar variable declaration establishes neutral storage before
+evaluating its initializer. `Dim x As Integer = expression` has the same
+declaration and assignment behavior as `Dim x As Integer` followed by
+`x = expression` in the same scope. Its unsuffixed literal types, arithmetic,
+destination conversion, evaluation order and error handling are the ordinary
+assignment rules. The variable exists during initializer evaluation and is not
+removed by a recoverable runtime failure. Compile-time-invalid programs still
+receive their specified diagnostics; a failure to establish storage is a
+separate controlled resource failure. This addition does not redefine object
+construction, Static initialization or constant declarations.
+
 ## 7. Variable access hooks
 
 A stored module, class, or local variable may attach named procedures to reads
@@ -795,6 +826,17 @@ call procedures or properties, access object members, raise events, or depend
 on runtime or locale state. Dependencies must be acyclic. Evaluation uses the
 same exact types, checked arithmetic, and failure rules as runtime execution;
 an operation that would set `Err` is a compile-time error.
+
+Literal-only integer arithmetic is evaluated during compilation and reduced to
+a typed constant even in an ordinary variable initializer or assignment, at
+every optimization level. For example, `40000 - 10000` reduces to 30000 before
+conversion to an Integer destination, in both declaration-initializer and
+separate-assignment forms. Folding preserves the selected arithmetic types,
+grouping, evaluation/error rules and original diagnostic/debug locations; it
+does not silently widen explicit suffixes or reassociate runtime expressions.
+Provable overflow, division by zero and impossible destination conversions are
+compile-time errors in these ordinary expressions too. Runtime-dependent
+failures retain the neutral-result and thread-local Err rules.
 
 ### 8.1 Compatibility built-ins and value conversion
 

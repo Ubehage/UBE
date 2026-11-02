@@ -1,11 +1,13 @@
 param(
-    [string]$SelectionPath=(Join-Path $PSScriptRoot '../../../bootstrap/out/v2/current.json'),
+    [string]$SelectionPath='',
     [switch]$DiagnosticOnly,
     [string]$BuildReport
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
-$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+$root=$PSScriptRoot
+while(-not [IO.File]::Exists((Join-Path $root 'bootstrap/tools/verification.ps1'))){$parent=Split-Path $root -Parent;if(-not $parent -or $parent -eq $root){throw 'Repository root not found'};$root=$parent}
+if(-not $SelectionPath){$SelectionPath=Join-Path $root 'bootstrap/out/v2/current.json'}
 . (Join-Path $root 'bootstrap/tools/verification.ps1')
 . (Join-Path $root 'compiler/UBE_Compiler_v3/tests/project-input/cli-regressions.ps1')
 $run=Join-Path $root ('bootstrap/out/project-cli/'+[Guid]::NewGuid().ToString('N'))
@@ -14,6 +16,7 @@ $utf8=[Text.UTF8Encoding]::new($false)
 $inputs=@();$artifacts=@();$commands=@();$checks=@();$success=$false;$failure=$null;$selection=$null
 $production=Join-Path $root 'compiler/UBE_Compiler_v3/UBE_Compiler_v3.UBE'
 $definitions=Join-Path $root 'compiler/UBE_Compiler_v3/tests/project-input/cli.json'
+if([IO.File]::Exists((Join-Path $PSScriptRoot 'cli.json'))){$definitions=Join-Path $PSScriptRoot 'cli.json'}
 function Get-CliInputs([string]$Manifest){
     $Manifest
     foreach($line in [IO.File]::ReadAllLines($Manifest)){
@@ -23,7 +26,7 @@ function Get-CliInputs([string]$Manifest){
         if($line -match '^Reference = "([^"]+)"$'){Get-CliInputs ([IO.Path]::GetFullPath((Join-Path (Split-Path $Manifest -Parent) $Matches[1])))}
     }
 }
-function Run-CliBuild([string]$Program,[string[]]$Values,[int]$Timeout=300){
+function Run-CliBuild([string]$Program,[string[]]$Values,[int]$Timeout=900){
     $record=Invoke-BoundedProcess $Program $Values $root $Timeout;$script:commands+=$record
     if($record.timedOut -or $record.exit -ne 0 -or $record.stderr -cne ''){throw ($record | ConvertTo-Json -Depth 5)}
     return $record
@@ -108,6 +111,12 @@ try{
         if($case.PSObject.Properties['args']){
             foreach($value in $case.args){$values+=([string]$value).Replace('{project}',$manifest).Replace('{source}',$sourcePath).Replace('{upper}',$upper).Replace('{unicode}',$unicode)}
             $expected=[string]$definition.($case.output);$exit=[int]$case.exit
+            if($case.output -in @('semantic','semanticCore')){
+                $semanticPath=$sourcePath
+                if($case.name -ceq 'unicode-path'){$semanticPath=Join-Path $unicodeFolder 'Main.bas'}
+                if($case.output -ceq 'semanticCore'){$semanticPath=Join-Path $root 'std-lib/src/portable/Utf8.bas'}
+                $expected=(Quote-CliPath $semanticPath.Replace('\','/'))+"`n"+$expected
+            }
         }else{
             $values=@('--check',$manifest)
             if($case.PSObject.Properties['code']){

@@ -24,7 +24,7 @@ struct syntax_failure { int32_t kind,first,last; };
 struct syntax_metrics { int32_t reads,actions,names,pending,depth; };
 struct expression_frame { int32_t integers[8];bool flags[4];int32_t call_kind; };
 struct control_frame { int32_t integers[7];bool flags[3]; };
-struct parser_case { const char* name;const uint8_t* source;int32_t bytes,entry,success;const struct syntax_node* nodes;int32_t count,root;struct syntax_failure failure;int32_t check_failure_span; };
+struct parser_case { const char* name;const uint8_t* source;int32_t bytes,entry,success;const struct syntax_node* nodes;int32_t count,root;struct syntax_failure failure;int32_t check_failure_span,compare_details; };
 typedef union { uint64_t alignment;uint8_t bytes[32]; } root;
 #include "oracles.h"
 extern int32_t parser_begin(struct input*,int32_t),parser_append(struct input*,void**,int32_t,int32_t,struct source_failure*),parser_finish(struct input*,struct document*,struct source_failure*);
@@ -121,6 +121,54 @@ static int source_equal(const struct source_owner* owner,const uint8_t* bytes,in
 /* All actual nodes must form one ordered, span-contained tree, including
    details omitted by a leaf Header logical witness. This detects hidden nodes,
    sharing, cycles, detached records and corrupt child/sibling counts. */
+static int retained_shape(const struct syntax_result* result,struct syntax_node node){
+    int32_t kinds[8]={0},count=0,child=node.first_child;
+    /* Variable declarations, ranks and type components can be wide. Validate
+       their repeated domain here without allocating a second expected tree. */
+    for(int32_t i=0;i<node.children;++i){
+        struct syntax_node n=*(struct syntax_node*)ube_array_element(result->nodes,child);
+        if(node.kind==47&&n.kind!=56)return 0;
+        if(node.kind==79&&n.kind!=82)return 0;
+        if(node.kind==85&&n.kind!=78)return 0;
+        if((node.kind==54||node.kind==55)&&!(n.kind==77||(i==0&&n.kind==85)))return 0;
+        if(node.kind==52&&!(i==0?(n.kind==1||n.kind==34):n.kind==84))return 0;
+        if(node.kind==74&&!(n.kind==1||(i>0&&i==node.children-1&&n.kind==2)))return 0;
+        if(node.kind==82&&(n.kind<1||n.kind>39))return 0;
+        if(node.kind==65||node.kind==66){
+            if(i==0){if(n.kind!=50||n.children<2)return 0;}
+            else if(i==node.children-1){if(n.kind!=58)return 0;}
+            else if(node.kind==65&&i==node.children-2){if(n.kind!=46)return 0;}
+            else if(n.kind!=52)return 0;
+        }
+        if(count<8)kinds[count]=n.kind;++count;child=n.next_sibling;
+    }
+    switch(node.kind){
+        case 1:return count==0||(count==1&&kinds[0]==83);
+        case 47:return 1;
+        case 51:return (count==1||count==2)&&kinds[0]==78&&(count==1||kinds[1]==78||kinds[1]==2);
+        case 52:return count>=2;
+        case 53:return count==1&&kinds[0]==77;
+        case 54:case 55:return count>=1&&(kinds[0]==77||count>=2);
+        case 56:case 77:{int32_t i=0;if(node.kind==56)while(i<count&&i<2&&kinds[i]==78)++i;
+            if(i>=count||count>7||kinds[i++]!=1)return 0;
+            if(i<count&&kinds[i]==79)++i;if(i<count&&kinds[i]==80)++i;if(i<count&&kinds[i]==81)++i;return i==count;}
+        case 57:return count==1&&kinds[0]==80;
+        case 58:case 59:return count==1&&kinds[0]==78;
+        case 74:return count>=1&&kinds[0]==1;
+        case 65:return count>=3;
+        case 66:return count>=2;
+        case 78:case 83:return count==0;
+        case 79:case 85:return count>=1;
+        case 80:{int32_t i=0;if(count>0&&kinds[0]==78)++i;if(i>=count||kinds[i++]!=74)return 0;if(i<count&&kinds[i]==79)++i;return i==count;}
+        case 81:return count==1&&kinds[0]>=1&&kinds[0]<=39;
+        case 82:return count==0?node.first==node.last:count<=2&&node.first<node.last;
+        case 84:return count==1&&(kinds[0]==1||kinds[0]==2||kinds[0]==4||kinds[0]==5);
+        case 50:{if(count==0)return 1;int32_t i=0;if(count>5)return 0;if(kinds[i]==85)++i;
+            if(i>=count||kinds[i++]!=78||i>=count||kinds[i++]!=1)return 0;
+            if(i<count&&kinds[i]==47)++i;if(i<count&&kinds[i]==57)++i;return i==count;}
+        default:return 1;
+    }
+}
 static int graph_valid(const struct syntax_result* result,int32_t bytes) {
     if(result->count<1||result->root<0||result->root>=result->count||ube_value_array_length(&result->nodes)!=result->count)return 0;
     uint8_t* seen=calloc((size_t)result->count,1);int32_t* pending=malloc((size_t)result->count*sizeof *pending);if(!seen||!pending){free(seen);free(pending);return 0;}
@@ -128,21 +176,48 @@ static int graph_valid(const struct syntax_result* result,int32_t bytes) {
     struct syntax_node root_node=*(struct syntax_node*)ube_array_element(result->nodes,result->root);if(root_node.next_sibling!=-1)valid=0;
     while(count&&valid){int32_t index=pending[--count];if(index<0||index>=result->count||seen[index]){valid=0;break;}seen[index]=1;++visited;
         struct syntax_node node=*(struct syntax_node*)ube_array_element(result->nodes,index);
-        if(node.kind<1||node.first<0||node.last<node.first||node.last>bytes||node.children<0||node.children>=result->count){valid=0;break;}
+        if(node.kind<1||node.kind>85||node.first<0||node.last<node.first||node.last>bytes||node.children<0||node.children>=result->count){valid=0;break;}
+        if(node.kind>=77){
+            int lo=0,hi=0;
+            switch(node.kind){case 77:lo=1;hi=4;break;case 79:lo=1;hi=1048576;break;case 80:lo=1;hi=3;break;case 81:case 84:lo=1;hi=1;break;case 82:hi=2;break;case 85:lo=1;hi=5;break;default:break;}
+            if(node.children<lo||node.children>hi||(node.first==node.last&&node.kind!=82)||(node.kind==83&&node.last-node.first!=1)){valid=0;break;}
+        }
         int32_t child=node.first_child,previous=node.first;
         for(int32_t i=0;i<node.children;++i){if(child<0||child>=result->count||count>=result->count){valid=0;break;}struct syntax_node item=*(struct syntax_node*)ube_array_element(result->nodes,child);if(item.first<previous||item.last>node.last){valid=0;break;}previous=item.last;pending[count++]=child;child=item.next_sibling;}
-        if(child!=-1)valid=0;
+        if(child!=-1||!valid)valid=0;
+        else if(!retained_shape(result,node))valid=0;
     }
     valid=valid&&visited==result->count;free(seen);free(pending);return valid;
 }
 struct node_pair { int32_t actual,expected; };
+static int original_leaf(int32_t kind){
+    return kind==1||kind==51||kind==52||kind==53||kind==54||kind==55||kind==56||kind==57||kind==58||kind==59||kind==74;
+}
+static int32_t original_child(void* nodes,int32_t child,int32_t parent){
+    while(child>=0){struct syntax_node n=*(struct syntax_node*)ube_array_element(nodes,child);
+        if(!((parent==50&&(n.kind==78||n.kind==85))||((parent==63||parent==64)&&n.kind==85)))break;
+        child=n.next_sibling;
+    }return child;
+}
 static int graph_equal(void* published,const struct parser_case* expected,int32_t source_id) {
+#ifdef NEGATIVE_PARSER_DETAIL_MODE
+    struct parser_case wrong_mode=*expected;wrong_mode.compare_details=0;expected=&wrong_mode;fprintf(stderr,"NEGATIVE_PARSER_DETAIL_MODE\n");
+#endif
     if(ube_value_array_length(&published)!=1)return 0;struct syntax_result result=*(struct syntax_result*)ube_array_element(published,0);
-    if(result.source!=source_id||!graph_valid(&result,expected->bytes))return 0;
+    if(result.source!=source_id||!graph_valid(&result,expected->bytes)||(expected->compare_details&&result.count!=expected->count))return 0;
     struct node_pair* pending=malloc((size_t)expected->count*sizeof *pending);if(!pending)return 0;
     int32_t count=1,visited=0;pending[0]=(struct node_pair){result.root,expected->root};int equal=1;
     while(count&&equal){struct node_pair pair=pending[--count];if(pair.expected<0||pair.expected>=expected->count){equal=0;break;}
         struct syntax_node actual=*(struct syntax_node*)ube_array_element(result.nodes,pair.actual);struct syntax_node wanted=expected->nodes[pair.expected];
+#ifdef NEGATIVE_PARSER_DETAIL_KIND
+        if(actual.kind>=77){++actual.kind;fprintf(stderr,"NEGATIVE_PARSER_DETAIL_KIND\n");}
+#endif
+#ifdef NEGATIVE_PARSER_DETAIL_SPAN
+        if(actual.kind>=77){++actual.first;fprintf(stderr,"NEGATIVE_PARSER_DETAIL_SPAN\n");}
+#endif
+#ifdef NEGATIVE_PARSER_DETAIL_MISSING
+        if(actual.kind==77){--actual.children;fprintf(stderr,"NEGATIVE_PARSER_DETAIL_MISSING\n");}
+#endif
 #ifdef NEGATIVE_PARSER_KIND
         if(!visited){++actual.kind;fprintf(stderr,"NEGATIVE_PARSER_KIND\n");}
 #endif
@@ -150,12 +225,13 @@ static int graph_equal(void* published,const struct parser_case* expected,int32_
         if(!visited){++actual.first;fprintf(stderr,"NEGATIVE_PARSER_SPAN\n");}
 #endif
         ++visited;if(actual.kind!=wanted.kind||actual.first!=wanted.first||actual.last!=wanted.last){fprintf(stderr,"%s kind/span actual %d[%d,%d] expected %d[%d,%d]\n",expected->name,actual.kind,actual.first,actual.last,wanted.kind,wanted.first,wanted.last);equal=0;break;}
-        /* The contract permits Header witnesses to select no detail children.
-           No other kind gets a selective or prefix comparison. */
-        if(wanted.kind==50&&wanted.children==0)continue;
-        if(actual.children!=wanted.children){fprintf(stderr,"%s kind%d children actual%d expected%d\n",expected->name,actual.kind,actual.children,wanted.children);equal=0;break;}
+        /* Preserve the frozen old view while detailed cases require every
+           physical node. All physical nodes are validated before projection. */
+        if(!expected->compare_details&&wanted.children==0&&(wanted.kind==50||original_leaf(wanted.kind)))continue;
+        if(expected->compare_details&&actual.children!=wanted.children){fprintf(stderr,"%s kind%d children actual%d expected%d\n",expected->name,actual.kind,actual.children,wanted.children);equal=0;break;}
         int32_t a=actual.first_child,e=wanted.first_child;
-        for(int32_t i=0;i<wanted.children;++i){if(a<0||e<0||count>=expected->count){equal=0;break;}pending[count++]=(struct node_pair){a,e};a=((struct syntax_node*)ube_array_element(result.nodes,a))->next_sibling;e=expected->nodes[e].next_sibling;}
+        if(!expected->compare_details)a=original_child(result.nodes,a,wanted.kind);
+        for(int32_t i=0;i<wanted.children;++i){if(a<0||e<0||count>=expected->count){equal=0;break;}pending[count++]=(struct node_pair){a,e};a=((struct syntax_node*)ube_array_element(result.nodes,a))->next_sibling;if(!expected->compare_details)a=original_child(result.nodes,a,wanted.kind);e=expected->nodes[e].next_sibling;}
         if(a!=-1||e!=-1)equal=0;
     }
     equal=equal&&visited==expected->count;free(pending);return equal;
@@ -348,7 +424,7 @@ static int control_cost_sample(const char* family,int32_t size) {
     else{for(int32_t i=0;i<size;++i){memcpy(bytes+count,prefix,strlen(prefix));count+=(int32_t)strlen(prefix);}memcpy(bytes+count,"Print a\n",8);count+=8;for(int32_t i=0;i<size;++i){memcpy(bytes+count,suffix,strlen(suffix));count+=(int32_t)strlen(suffix);}}
     struct environment value;CHECK(environment_open(&value,bytes,count)==0);struct syntax_failure failure;struct syntax_metrics metrics;seed();observation_start(0);int ok=invoke(&value,entry,1000000,1000000,256,&failure,&metrics);observation_stop();int expected_failure=entry==2&&size>256?2:0;
     if(ok!=(expected_failure==0)||failure.kind!=expected_failure)fprintf(stderr,"control %s%d got%d kind%d [%d,%d] expected%d\n",family,size,ok,failure.kind,failure.first,failure.last,expected_failure);
-    CHECK(ok==(expected_failure==0)&&failure.kind==expected_failure&&ube_err_number()==77);int32_t nodes=0;if(ok){struct syntax_result result=*(struct syntax_result*)ube_array_element(value.output,0);nodes=result.count;CHECK(nodes==expected_nodes&&parser_control_shape(value.output,family,size,count,811));}else CHECK(old_equal(value.output,value.old,value.previous.nodes,value.previous,value.previous_nodes)&&parser_control_depth_failure(family,size,&failure));
+    CHECK(ok==(expected_failure==0)&&failure.kind==expected_failure&&ube_err_number()==77);int32_t nodes=0;if(ok){struct syntax_result result=*(struct syntax_result*)ube_array_element(value.output,0);nodes=result.count;CHECK(nodes==expected_nodes+(entry==3?2:0)&&parser_control_shape(value.output,family,size,count,811));}else CHECK(old_equal(value.output,value.old,value.previous.nodes,value.previous,value.previous_nodes)&&parser_control_depth_failure(family,size,&failure));
     CHECK((size_t)metrics.reads==observed.events[1]&&metrics.reads>0&&metrics.actions>0);print_observation(family,size,ube_value_array_length(&value.tokens),nodes,ok,&failure,&metrics);CHECK(source_equal(&value.source,bytes,count));CHECK(environment_close(&value)==0);free(bytes);return 0;
 }
 static int opaque_cost_sample(const char* family,int32_t size) {
@@ -359,8 +435,10 @@ static int opaque_cost_sample(const char* family,int32_t size) {
     if(expected_count==3){member=expression_expected_node(expected_nodes,&expected_nodes_count,54,50,count-1,-1,-1);}
     else{CHECK(strlen(prefix)==36);int32_t name=expression_expected_node(expected_nodes,&expected_nodes_count,1,54,58,-1,-1);int32_t parameter=expression_expected_node(expected_nodes,&expected_nodes_count,56,59,expression_end,-1,-1);int32_t parameters=expression_expected_node(expected_nodes,&expected_nodes_count,47,58,expression_end+1,parameter,-1);int32_t procedure_header=expression_expected_node(expected_nodes,&expected_nodes_count,50,50,expression_end+1,name,parameters);int32_t block=expression_expected_node(expected_nodes,&expected_nodes_count,46,expression_end+2,expression_end+2,-1,-1);int32_t end=expression_expected_node(expected_nodes,&expected_nodes_count,58,expression_end+2,count-1,-1,-1);member=expression_expected_node(expected_nodes,&expected_nodes_count,65,50,count-1,procedure_header,block);expected_nodes[block].next_sibling=end;++expected_nodes[member].children;}
     int32_t root=expression_expected_node(expected_nodes,&expected_nodes_count,45,0,count,header,member);CHECK(expected_nodes_count==expected_count);struct parser_case expected={.name=family,.bytes=count,.nodes=expected_nodes,.count=expected_nodes_count,.root=root};
-    struct environment value;CHECK(environment_open(&value,bytes,count)==0);struct syntax_failure failure;struct syntax_metrics metrics;seed();observation_start(0);int ok=invoke(&value,3,1000000,1000000,256,&failure,&metrics);observation_stop();CHECK(ok&&failure.kind==0&&ube_err_number()==77&&graph_equal(value.output,&expected,811));CHECK(observed.maximum_live_nodes>=(size_t)expected_count&&observed.events[2]>=(size_t)expected_count);if(size>=64)CHECK(observed.maximum_live_nodes>4*(size_t)expected_count);
-    print_observation(family,size,ube_value_array_length(&value.tokens),expected_nodes_count,ok,&failure,&metrics);CHECK(source_equal(&value.source,bytes,count));CHECK(environment_close(&value)==0);free(bytes);return 0;
+    struct environment value;CHECK(environment_open(&value,bytes,count)==0);struct syntax_failure failure;struct syntax_metrics metrics;seed();observation_start(0);int ok=invoke(&value,3,1000000,1000000,256,&failure,&metrics);observation_stop();CHECK(ok&&failure.kind==0&&ube_err_number()==77&&graph_equal(value.output,&expected,811));
+    struct syntax_result actual=*(struct syntax_result*)ube_array_element(value.output,0);int32_t physical=2*size+(strcmp(family,"default")==0?17:strcmp(family,"bound")==0?11:10);
+    CHECK(actual.count==physical&&observed.maximum_live_nodes==(size_t)physical&&observed.events[2]>=(size_t)physical);
+    print_observation(family,size,ube_value_array_length(&value.tokens),actual.count,ok,&failure,&metrics);CHECK(source_equal(&value.source,bytes,count));CHECK(environment_close(&value)==0);free(bytes);return 0;
 }
 static int costs(void) {
     const int32_t sizes[]={1,8,64,1024,16384};size_t rows=0;for(size_t i=0;i<sizeof sizes/sizeof *sizes;++i){CHECK(cost_sample("flat",sizes[i])==0);++rows;CHECK(cost_sample("wide",sizes[i])==0);++rows;}

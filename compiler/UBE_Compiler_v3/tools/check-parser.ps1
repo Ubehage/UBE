@@ -100,7 +100,8 @@ function Assert-Measurements($Rows){
             $payload=24*[long]$row.nodes;$pendingPayload=24*[long]$row.maximumLiveNodes
             Assert-Fact ($row.nodes -gt 0 -and $row.events[2] -ge $row.nodes -and $row.maximumLiveNodes -ge $row.nodes -and $row.events[2] -ge $row.maximumLiveNodes) 'Successful output and maximum live pending nodes are covered by executed writes'
             if(@('flat','wide','groups','prefix','power','mixed') -ccontains $row.family){Assert-Fact ($row.events[2] -eq $row.nodes -and $row.maximumLiveNodes -eq $row.nodes) 'Pure expression writes and live-node maximum equal final logical nodes'}
-            if(@('initializer','default','bound') -ccontains $row.family -and $row.size -ge 64){Assert-Fact ($row.maximumLiveNodes -gt 4*$row.nodes) 'Opaque validation directly measures pending-node storage substantially larger than final output'}
+            Assert-Fact ($row.nodes -le 6*[long]$row.tokens+8) 'Published syntax detail satisfies the preset physical-node/token bound'
+            if(@('initializer','default','bound') -ccontains $row.family){Assert-Fact ($row.maximumLiveNodes -eq $row.nodes) 'Validated declaration expressions remain in the complete published output rather than discarded scratch nodes'}
             if($row.nodes -gt 1){Assert-Fact ($row.events[3] -gt 0 -and $row.events[8] -ge $row.nodes-1) 'Node reads and child attachment observations are connected to executed tree construction'}
             Assert-Fact ($row.growthCopiesByRole[2] -le 2*$pendingPayload+8*24) 'Actual node growth copies satisfy predefined maximum-live geometric bound'
             Assert-Fact ($row.trimCopiesByRole[2] -eq $payload) 'Exact trim copies the logical node payload once'
@@ -192,7 +193,7 @@ try{
     if($baseline){$paths+=@($baseline.inputs|ForEach-Object path)}
     $inputs=@($paths|Sort-Object -Unique|ForEach-Object {Get-ArtifactIdentity $_})
     $oracleCounts=Write-NativeParserOracles (Split-Path $fixture -Parent) (Join-Path $run 'oracles.h')
-    Assert-Fact ($oracleCounts.frozenCaseCount -eq 116 -and $oracleCounts.supplementalCaseCount -eq 72) 'All frozen and focused supplemental parser cases retain independently resolved expected source spans and shapes' $oracleCounts
+    Assert-Fact ($oracleCounts.frozenCaseCount -eq 116 -and $oracleCounts.supplementalCaseCount -eq 84) 'All frozen and focused supplemental parser cases retain independently resolved expected source spans and shapes' $oracleCounts
     foreach($name in $sourceNames){[IO.File]::Copy((Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name)),(Join-Path $project $name))}
     [IO.File]::Copy((Join-Path $fixture 'Entry.bas'),(Join-Path $project 'Entry.bas'))
     $manifest=Join-Path $project 'ParserAcceptance.UBE';$manifestText="UBE-Project 1`nName = `"ParserAcceptance`"`nKind = `"Exe`"`nStartup = `"Main`"`n"
@@ -242,6 +243,13 @@ try{
                     $exe=$stem+'-negative-'+$negative.ToLowerInvariant()+'.exe';$null=Invoke-Recorded $selection.clang.path (@('--target=x86_64-w64-windows-gnu','-O2','-I',$run,('-DNEGATIVE_PARSER_'+$negative),'-x','ir',$adapted,'-x','c',(Join-Path $fixture 'probe.c'),'-std=c11','-Wall','-Wextra','-Werror','-x','none',$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$exe)) 120
                     $rejected=Invoke-BoundedProcess $exe @('--case','additive-binds-less-tightly-than-multiplication') $root 30;$commands.Add($rejected)
                     Assert-Fact (-not $rejected.timedOut -and $rejected.exit -eq 1 -and $rejected.stderr.Contains('NEGATIVE_PARSER_'+$negative) -and $rejected.stderr.Contains('parser assertion')) "Stage$($stage+1) native comparator rejects deliberately wrong $negative"
+                }
+                foreach($negative in @('DETAIL_KIND','DETAIL_SPAN','DETAIL_MISSING','DETAIL_MODE')){
+                    $exe=$stem+'-negative-'+$negative.ToLowerInvariant()+'.exe'
+                    $null=Invoke-Recorded $selection.clang.path (@('--target=x86_64-w64-windows-gnu','-O2','-I',$run,('-DNEGATIVE_PARSER_'+$negative),'-x','ir',$adapted,'-x','c',(Join-Path $fixture 'probe.c'),'-std=c11','-Wall','-Wextra','-Werror','-x','none',$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$exe)) 120
+                    $case='details-multiple-declarators';if($negative -ceq 'DETAIL_MODE'){$case='details-parameters-default-result'}
+                    $rejected=Invoke-BoundedProcess $exe @('--case',$case) $root 30;$commands.Add($rejected)
+                    Assert-Fact (-not $rejected.timedOut -and $rejected.exit -eq 1 -and $rejected.stderr.Contains('NEGATIVE_PARSER_'+$negative) -and $rejected.stderr.Contains('parser assertion')) "Stage$($stage+1) native full-detail comparator rejects deliberately wrong $negative"
                 }
             }
             $hashes+=(Get-ArtifactIdentity $ir).sha256

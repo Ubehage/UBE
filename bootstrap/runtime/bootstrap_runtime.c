@@ -4387,6 +4387,53 @@ int32_t ube_checked_neg_i32(int32_t value) {
     return -value;
 }
 
+/* Signed 64-bit machine arithmetic used by the source-built bootstrap. Test
+   bounds before evaluating the operation: neither C overflow nor LLVM poison
+   may provide a language result. Success preserves the thread's existing Err. */
+int64_t ube_checked_add_i64(int64_t left, int64_t right) {
+    if ((right > 0 && left > INT64_MAX - right) ||
+        (right < 0 && left < INT64_MIN - right))
+        return ube_integer_error(6, "addition overflow");
+    return left + right;
+}
+
+int64_t ube_checked_sub_i64(int64_t left, int64_t right) {
+    if ((right > 0 && left < INT64_MIN + right) ||
+        (right < 0 && left > INT64_MAX + right))
+        return ube_integer_error(6, "subtraction overflow");
+    return left - right;
+}
+
+int64_t ube_checked_mul_i64(int64_t left, int64_t right) {
+    const uint64_t left_magnitude = left < 0 ? (uint64_t)(-(left + 1)) + 1 : (uint64_t)left;
+    const uint64_t right_magnitude = right < 0 ? (uint64_t)(-(right + 1)) + 1 : (uint64_t)right;
+    const int negative = (left < 0) != (right < 0);
+    const uint64_t limit = negative ? UINT64_C(1) << 63 : (uint64_t)INT64_MAX;
+    if (right_magnitude != 0 && left_magnitude > limit / right_magnitude)
+        return ube_integer_error(6, "multiplication overflow");
+    const uint64_t magnitude = left_magnitude * right_magnitude;
+    if (!negative) return (int64_t)magnitude;
+    if (magnitude == (UINT64_C(1) << 63)) return INT64_MIN;
+    return -(int64_t)magnitude;
+}
+
+int64_t ube_checked_div_i64(int64_t left, int64_t right) {
+    if (right == 0) return ube_integer_error(11, "division by zero");
+    if (left == INT64_MIN && right == -1) return ube_integer_error(6, "division overflow");
+    return left / right;
+}
+
+int64_t ube_checked_mod_i64(int64_t left, int64_t right) {
+    if (right == 0) return ube_integer_error(11, "remainder division by zero");
+    if (left == INT64_MIN && right == -1) return 0;
+    return left % right;
+}
+
+int64_t ube_checked_neg_i64(int64_t value) {
+    if (value == INT64_MIN) return ube_integer_error(6, "negation overflow");
+    return -value;
+}
+
 static char* ube_string_concat_impl(const char* left, const char* right,
                                     int managed) {
     if (left == NULL) left = "";

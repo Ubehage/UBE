@@ -1,0 +1,4 @@
+#define main catalog_base_main
+#include "probe.c"
+#undef main
+int main(void){const char* sources[]={"UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nOption Explicit On\nOption Explicit Off\nSub Main()\nEnd Sub\n","UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nOption Compare Binary\nOption Compare Database\nSub Main()\nEnd Sub\n"};const int codes[]={1423,1424};size_t wrong=0;for(size_t i=0;i<2;++i){struct environment e;CHECK(open(&e,sources[i],NULL,0)==0);struct failure f={.kind=5,.code=1428};int ok=catalog_build(e.input,&f);if(ok||f.code!=codes[i]){fprintf(stderr,"catalog known invalid option case%zu actual=%d:%d:%d expected=%d\n",i,ok,f.kind,f.code,codes[i]);++wrong;}CHECK(close_env(&e)==0);}if(wrong)return 1;printf("PASS catalog known invalid option assertions:%u\n",assertions);return 0;}

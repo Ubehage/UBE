@@ -25,7 +25,7 @@ Dim Prepared As Long = 99
 If TryGetStorageCapacity(3, 4, 100, Prepared) Then
     ' Prepared is 6; a positive starting capacity doubles from itself.
 End If</code></pre>
-<h2>Encode one Unicode scalar</h2><pre><code>Function TryEncodeUtf8Scalar(ByVal Scalar As Long, ByRef B0 As Byte, ByRef B1 As Byte, ByRef B2 As Byte, ByRef B3 As Byte, ByRef Width As Long) As Boolean</code></pre>
+<h2>Encode one Unicode scalar</h2><pre><code>Function TryEncodeUtf8Scalar(ByVal Scalar As Long, ByRef B0 As Byte, ByRef B1 As Byte, ByRef B2 As Byte, ByRef B3 As Byte, ByRef ScalarWidth As Long) As Boolean</code></pre>
 <p>On True, Width is 1 through 4 and unused slots are zero. U+0000 produces one zero byte. Negative values, surrogate code points and values above U+10FFFF return False, preserving all five outputs. Noncharacters and unassigned code points are valid scalar values. Outputs must be distinct. Both success and failure preserve Err; the operation allocates nothing and retains no state.</p>
 <h2>Checked signed integers</h2><pre><code>Function TryDecodeDecimalInteger(ByRef Bytes() As Byte, ByVal FirstByte As Long, ByVal ByteCount As Long, ByVal Negative As Boolean, ByVal Minimum As LongLong, ByVal Maximum As LongLong, ByRef Result As LongLong, ByRef Failure As Long) As Boolean
 Function TryEvaluateInteger(ByVal Operation As Long, ByVal Left As LongLong, ByVal Right As LongLong, ByVal Minimum As LongLong, ByVal Maximum As LongLong, ByRef Result As LongLong, ByRef Failure As Long) As Boolean

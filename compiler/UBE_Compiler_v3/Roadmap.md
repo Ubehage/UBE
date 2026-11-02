@@ -82,9 +82,28 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
   workers and1.304-1.335x at four; balanced gains are1.279-1.288x and1.396-1.423x.
   Original1.5x/2x targets remain future optimization targets, not claimed passes.
   See PERFORMANCE-ACCEPTANCE.md and FRONTEND-PERFORMANCE-EVIDENCE.md.
-- [ ] Proposed next: define the development plan's bounded First semantic
-  checking contract, beginning with retained declaration details, scopes and
-  selected scalar rules. Implementation remains pending that contract/review.
+- [x] Prepare the bounded First semantic checking contract and actual retained-
+  syntax inventory with independent cases and future native obligations.
+  `SEMANTIC-CONTRACT.md`, `SEMANTIC-SYNTAX-INVENTORY.md` and
+  `SEMANTIC-EVIDENCE.md` record definition evidence and review boundaries.
+- [x] Obtain owner review of that concrete contract before the required parser
+  detail extension, measured semantic storage probes and checker implementation.
+  Preparation does not complete the semantic-checking deliverable.
+  Basic scope/foundation-first order is accepted. Review actual remaining
+  behavior questions individually using the owner's VB6-default guidance;
+  wider literal types and declaration-before-initializer behavior are confirmed.
+- [x] Retain and independently qualify declaration details in the existing
+  parser under SYNTAX-DETAILS.md, preserving old syntax observations and the
+  failure/resource/ownership gates. The strict 1,879-check native gate passes
+  for source cohort04c; see SEMANTIC-SYNTAX-INVENTORY.md.
+- [x] Measure and select semantic storage/lookup foundations; integrate the
+  generic numeric, byte-key, capacity and UTF-8 facilities in UBECore.
+- [x] Qualify the bounded checker, shared worker controller and check-path
+  diagnostics on accepted cohort 88d. Maintained native/process/resource/cost/
+  sharing gates and retained proofs pass; see SEMANTIC-EVIDENCE.md.
+- [ ] Prepare and review bounded lowering/backend/tool-handoff contracts for
+  the existing First checked native executable deliverable. Executable generation
+  is outside the completed checker goal.
 
 The 710-entry library inventory is target scope, not an instruction to implement
 all families before the compiler begins. No new compiler phase architecture is
@@ -99,14 +118,9 @@ and path/syntax checks do not verify a compiler or its generated programs.
 
 ## Active next action
 
-The completed project/frontend deliverable has its exact source/test/measurement
-record in PROJECT-INPUT-EVIDENCE.md and FRONTEND-PERFORMANCE-EVIDENCE.md. Preserve
-its qualified ownership, library boundary, names, determinism and one worker budget.
-
-The next proposed development-plan row is **First semantic checking**. Before
-implementation, inventory the declaration details retained by syntax and define
-the bounded scope/lookup/type/diagnostic contract with independent cases, exact
-spans, failure publication and deterministic private body work. Do not guess
-missing declaration information from node kinds or create another source parser.
-Reusable text/numeric operations belong in UBECore; language policy stays here.
-No semantic/backend code or new phase architecture is authorized by this handoff.
+Prepare and review First checked native executable's small included/deferred
+program set, lowering from the qualified semantic result, target ABI/native-value
+and runtime-error behavior, LLVM validation and tool/cancel/publication failures.
+Author independent value/exit/failure oracles before implementation. Keep the
+existing dependency order, library/compiler responsibilities, original spans,
+qualified immutable owners/private results and shared worker budget.

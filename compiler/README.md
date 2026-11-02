@@ -1,24 +1,26 @@
 # UBE compiler projects
 
 [`UBE_Compiler_v3/`](UBE_Compiler_v3/README.md) is the fresh active compiler,
-named by the owner on 2026-10-30. Its qualified foundations include bounded
-compiler-owned parallel source processing through actual UBE workers with
-budgets 1, 2 and 4. Immutable owners, private results, canonical failures,
-atomic publication and cancellation/drain preserve earlier output on failure.
-UBECore retains reusable byte, Unicode, file and thread facilities.
+named by the owner on 2026-10-30. It includes project/reference intake,
+source/scanner/parser processing and bounded scalar/native MODULE semantic
+checking through the existing check command. The production implementation is
+qualified for that bounded scope; exact final reports are in semantic evidence.
 
-[CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md) records current
-qualification, retained earlier gates and measured limits. Instrumented
-four-worker execution was slower; collector contention needs focused follow-up,
-and no speedup is claimed. Full grammar, semantics, code generation and project/
-jobs CLI integration remain incomplete.
+Compiler-owned orchestration keeps immutable inputs, private results, canonical
+diagnostics and complete publication under one worker budget. UBECore supplies
+reusable Unicode, numeric, storage, file and thread facilities. Earlier qualified
+frontend performance results remain recorded separately; no semantic speedup
+claim follows from them.
 
-The [development plan](../project-docs/Development-Plan.md) preserves the owner's
-layer and naming requirements. Its first owner-requested concurrency objective
-is complete. All later rows, including proposed bounded project/frontend input,
-need their own contract and owner review before implementation. Current handoff
-is in [`UBE_Compiler_v3/Progress.md`](UBE_Compiler_v3/Progress.md).
+The exact checking scope, retained gates and completion status are in
+[SEMANTIC-EVIDENCE.md](UBE_Compiler_v3/SEMANTIC-EVIDENCE.md) and
+[Progress.md](UBE_Compiler_v3/Progress.md). Successful supported checks create no
+executable; the real compiler/Core source, full grammar and native code generation
+remain outside this bounded subset.
 
+The [development plan](../project-docs/Development-Plan.md) keeps the next existing
+row, First checked native executable, dependent on a qualified semantic result
+and reviewed bounded lowering/backend/tool contracts. It is not started here.
 [`archived/`](archived/README.md) preserves the previous v3/v4 source, plans,
 tests and v3 release previews. Historical names, source hashes and build output
 identify that old line; they must not be mistaken for the fresh v3's status.

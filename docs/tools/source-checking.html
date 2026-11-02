@@ -16,9 +16,9 @@
     <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="tools/index.html">Compiler and tools</a> / Check source and projects</nav>
     <h1>Check source and projects</h1>
     <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Fresh Compiler v3 - Windows x86-64 development tool</span></div>
-<p class="lede">The fresh Compiler v3 reads native source and a bounded project format, then checks supported syntax. It cannot yet validate a complete program or generate an executable.</p>
+<p class="lede">The fresh Compiler v3 reads native source and a bounded project format, then checks the supported declarations, names, types and procedure bodies. A successful check covers the bounded subset below; it does not generate or run an executable.</p>
 <h2>Prerequisites</h2>
-<p>Use the repository's qualified development executable at <code>bootstrap/out/v3/ube.exe</code>. This manual does not provide a standalone compiler installation. Contributor build prerequisites and qualification procedures are maintained in <code>bootstrap/README.md</code> and <code>compiler/UBE_Compiler_v3/tools/</code>. The historical <code>bootstrap/build.ps1</code> route selects archived compiler source; it does not build the fresh v3.</p>
+<p>Use <code>bootstrap/out/v3/ube.exe</code> only after the repository's current source CLI qualification and local replay have installed that exact executable. A retained binary from an earlier checkout may still report the old syntax-only boundary. This manual does not provide a standalone compiler installation. Contributor build prerequisites and qualification procedures are maintained in <code>bootstrap/README.md</code> and <code>compiler/UBE_Compiler_v3/tools/</code>. The historical <code>bootstrap/build.ps1</code> route selects archived compiler source; it does not build the fresh v3.</p>
 <h2>Commands</h2>
 <pre><code>./bootstrap/out/v3/ube.exe --check path/to/Main.bas
 ./bootstrap/out/v3/ube.exe --check path/to/App.UBE
@@ -28,21 +28,25 @@
 <h2>Current project subset</h2>
 <p>The root manifest must have <code>Kind = "Exe"</code>, <code>Startup = "Main"</code>, a name and at least one source. It may explicitly reference one direct source library whose manifest name is <code>UBECore</code> and whose kind is <code>Library</code>. No library is found implicitly. Source processing follows root manifest order, then reference manifest order.</p>
 <p>Native <code>MODULE</code> source has the qualified parser subset. Full grammar, conditional branch selection, other source kinds and designer input remain incomplete. Other libraries, transitive references, groups, resources, compiled libraries and startup forms are outside this project consumer. A valid unsupported facility is reported as unavailable; that does not make it invalid UBE.</p>
-<p>The checker reads project structure and syntax. It does not establish that <code>Main</code> binds correctly, names exist, assignments have compatible types, exports are valid, or referenced library bodies have passed semantic checking. <code>Optimization</code> and <code>DebugInformation</code> values can be retained as metadata without generating code.</p>
+<h2>Current semantic subset</h2>
+<p>Checking covers Boolean, Byte, Integer, Long and LongLong variables and constants; supported Sub and Function declarations; explicit types and visibility; names and calls across the admitted modules and direct reference; compatible assignments and parameters; and the executable's required parameterless <code>Sub Main()</code> or <code>Function Main() As Long</code>. It checks all declarations and bodies, including unused ones and the admitted reference's bodies.</p>
+<p>Supported expressions include decimal integers, Boolean values, selected checked integer arithmetic and comparisons, Boolean and bitwise operators. Literal-only integer arithmetic is reduced during checking, and provable overflow or division by zero is rejected. Supported statements include ordinary assignments, calls, If/ElseIf/Else, While and matching Exit statements. Positional, named, optional and omitted scalar arguments, exact ByRef storage and individually parenthesized ByRef temporaries are covered. Selected opaque native types backed by Byte, Integer or Long and their explicit Value.Pack/Value.Unpack declarations are also checked.</p>
+<p>Arrays, field records, String and the other scalar/object types, classes, properties, general intrinsics, Print, other control flow and many other full-language facilities remain unavailable. An unsupported declaration or body prevents success even when unused. The complete production UBECore and compiler sources exceed this subset: merely accepting their project or syntax does not validate them. <code>Optimization</code> and <code>DebugInformation</code> remain metadata; no program code is generated.</p>
 <h2>Results and exit codes</h2>
 <table><thead><tr><th>Exit code</th><th>Meaning today</th></tr></thead><tbody>
-<tr><td>1</td><td>Rejected, unsupported, cancelled or unfinished checking. Even accepted syntax ends with UBE1012.</td></tr>
+<tr><td>0</td><td>The entire input passed the bounded check. Standard output and standard error are empty.</td></tr>
+<tr><td>1</td><td>A source/project error, deferred facility, cancellation, resource limit or other failure prevented a complete check.</td></tr>
 <tr><td>2</td><td>Invalid invocation or command-argument transport failure.</td></tr>
 </tbody></table>
-<pre><code>error UBE1012: source checking is not implemented</code></pre>
-<p>That message means the syntax step reached the current semantic-checking boundary. It is not a successful build. No output program is created, and exit zero is not currently a successful-check outcome. See <a href="ube1012.html" data-doc-path="tools/ube1012.html">UBE1012</a>.</p>
+<p>No output program is created. A successful check also creates no intermediate or sidecar files. Exit zero means semantic acceptance of this supported subset, not complete UBE 1.0 support or successful runtime execution.</p>
+<p>An ordinary semantic diagnostic identifies a fault in supported code, such as an undeclared name or a constant outside its selected integer range. A deferred diagnostic, such as <code>UBE1433: datatype semantics are not implemented</code>, identifies an implementation limit and does not declare the full-language construct invalid. Earlier input and syntax diagnostics retain their meanings. <a href="ube1012.html" data-doc-path="tools/ube1012.html">UBE1012</a> documents the historical syntax-only boundary.</p>
 <h2>Paths and limits</h2>
 <p>Source paths must remain within their manifest's lexical directory tree. Relative references may reach a sibling library. Containment is lexical: junctions and symbolic links can reach outside that tree. Opened-file identities detect aliases and duplicates within the qualified policy; the checker does not promise a filesystem snapshot.</p>
 <p>Current request ceilings are 1 MiB per manifest, two packages, 256 sources, 16 MiB per source, 64 MiB total source bytes, 4 MiB total declared/resolved path bytes, and 8 MiB retained manifest/path/name bytes. Counted UTF-8 paths are limited to 131,068 bytes and the maintained Windows adapter's UTF-16 bound. These are development resource limits, not language limits.</p>
 <h2>Diagnostics</h2>
 <p>Project errors identify the owning input, original one-based line and Unicode-scalar column, and zero-based byte offset. Parallel source failures are selected in canonical source order. A filename is quoted and control characters are escaped. Error codes and exact messages are scoped to the compiler that emitted them; preserved v2 diagnostics are not a fresh-v3 catalog.</p>
 <p>Read the <a href="project-manifests.html" data-doc-path="tools/project-manifests.html">complete specified project format</a> separately from this implemented subset.</p>
-    <footer class="article-footer">Article ID: tools.source-checking - Last reviewed 2026-11-01. Sources: compiler/UBE_Compiler_v3/PROJECT-INPUT-EVIDENCE.md, PROJECT-INPUT-CONTRACT.md and PROJECT-DIAGNOSTICS.md in the repository.</footer>
+    <footer class="article-footer">Article ID: tools.source-checking - Last reviewed 2026-11-02. Sources: compiler/UBE_Compiler_v3/SEMANTIC-CONTRACT.md, SEMANTIC-DIAGNOSTICS.md, PROJECT-INPUT-CONTRACT.md and maintained native/process gates in the repository. Current local CLI replay qualification is required.</footer>
   </main>
 </body>
 </html>

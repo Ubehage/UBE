@@ -30,7 +30,10 @@ fixtures; every source in a build with a Reference must use a native envelope.
 No compatibility import or arbitrary reserved UBE attribute is inferred.
 
 Referenced modules expose only ordinary Public/default-Public procedures and
-Types. Private/Friend/Global/Option/module-storage declarations, classes and
+Types. Private procedures (including an already supported intrinsic binding)
+may be called only inside their declaring source module; their identifiers in
+any other module are conservatively rejected before global binding. Private
+types, Friend/Global/Option/module-storage declarations, classes and
 other top-level constructs are rejected in referenced modules. Native
 intrinsic bindings and record fields retain their existing qualified subset.
 Module/package qualification is not supported by this bootstrap route and is

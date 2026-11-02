@@ -59,18 +59,21 @@ Select tools by source/artifact hash, supported subset, flags, runtime/toolchain
 identity and test results. The old version label alone is not a trust proof.
 The current-source stage-zero/v2 route is qualified for the bounded subset in
 `CONCURRENCY-BOOTSTRAP.md` and earlier adopted foundation contracts.
-`bootstrap/build-v2.ps1` passes 592 grouped assertions. Both source-built stages
-are retained by exact identity; this is not complete language, class or thread
-support. Unsupported features continue to diagnose rather than being silently
-accepted. `CONCURRENCY-EVIDENCE.md` identifies current tools and retained gates.
+Historical bootstrap/concurrency records retain their exact assertion counts and
+identities. The bounded semantic checker passes its final maintained gates on
+accepted cohort 88d; SEMANTIC-EVIDENCE.md records its 894-assertion bootstrap and
+native/process/resource/retained proofs. Neither
+bootstrap compilation nor a component gate establishes full language, class or
+thread support. Unsupported facilities continue to diagnose explicitly.
 
 Archived v3 preview names and existing `bootstrap/out/ube-v3-*` products belong
-to the old implementation. The fresh line has a qualified source reader, scanner,
-envelope recognizer and bounded native MODULE parser, but no public compiler
-release identity. `CONCURRENCY-EVIDENCE.md` records current bootstrap, bounded
-concurrency and retained parser/CLI qualification. `PARSER-NATIVE-EVIDENCE.md`
-preserves the earlier parser checkpoint. Successful syntax still
-reports semantic checking unavailable; code generation remains future work.
+to the old implementation. The fresh line has a source reader, scanner, envelope recognizer, bounded native
+MODULE parser and qualified bounded scalar/native semantic checker, with no
+public compiler release identity. `CONCURRENCY-EVIDENCE.md` preserves the earlier bootstrap/concurrency checkpoint
+and its retained parser/CLI qualification. `PARSER-NATIVE-EVIDENCE.md`
+preserves the earlier parser checkpoint. At that earlier checkpoint, successful syntax reported checking unavailable.
+The integrated bounded check path supersedes that status; code generation
+remains future work.
 Do not overwrite archived previews.
 
 ## Measured first grammar consumer
@@ -85,20 +88,20 @@ The test-only command stream is an oracle bridge, not a required production
 intermediate or public ABI. The production consumer is now qualified; its exact
 scope and remaining deferred families are recorded in `PARSER-NATIVE-EVIDENCE.md`.
 
-## Qualified concurrency and proposed next work
+## Qualified concurrency and current semantic work
 
-The owner identified UBECore/compiler mixing, naming drift and failed
-multithreading as failures of earlier attempts. The first owner-requested
-bounded UBE-driven concurrency proof is now qualified under
-`CONCURRENCY-CONTRACT.md`, `CONCURRENCY-BOOTSTRAP.md` and
-`CONCURRENCY-CONSUMER.md`. Compiler-owned source/work references preserve
-immutable input lifetime and private complete results; UBECore supplies generic
-thread/storage mechanisms. No general executor, shared mutable compiler model
-or new phase API is adopted. Instrumented four-worker execution was slower;
-measured collector contention remains focused follow-up work.
+Compiler-owned source/work references preserve immutable inputs, private complete
+results, one bounded worker budget and deterministic publication. UBECore owns
+generic thread/storage mechanisms. The project/reference path and initial
+parallel frontend were subsequently qualified under their own contracts and
+performance evidence; historical instrumented contention results remain history.
 
-The [development plan](../../project-docs/Development-Plan.md) proposes bounded
-normal project/source-reference input next. That row and every later row remain
-proposed and need their own contract and owner review. Full grammar, semantics,
-backend work and project/jobs CLI integration are not implied by the qualified
-source-set API.
+The bounded semantic checker now reuses that same controller and ownership
+boundary in qualified production. No general
+executor, global mutable semantic model or replacement architecture is implied.
+
+The next existing development-plan row is First
+checked native executable. Specify its bounded program set, lowering, target ABI,
+runtime-error and backend/tool-handoff contracts before code. Preserve original
+spans and qualified ownership throughout; current semantic acceptance cannot be
+reused as proof of LLVM/native execution or full compiler/Core support.

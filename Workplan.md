@@ -12,7 +12,81 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
-## Current priority - 2026-11-01
+## Current priority - 2026-11-02
+
+- [x] Complete the owner-approved **First semantic checking** deliverable for
+  the bounded scalar/native MODULE subset, including the existing check command,
+  shared source-worker controller and exact native/process/resource gates.
+  Accepted source-built cohort: `88d1906a667645fa87f885c3a117e52f`.
+  [Semantic evidence](compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md) records the
+  exact reports, source/tool/artifact identities, retained failure and scope.
+- [ ] Prepare and review the next existing **First checked native executable**
+  deliverable's bounded lowering, backend, ABI/runtime-error and tool-handoff
+  contracts with independent native/failure oracles. No backend implementation
+  is part of the completed semantic goal.
+
+The checker accepts the contracted native MODULE projects and one explicit
+direct library reference, selected Boolean/integer expressions and statements,
+calls, constants and opaque native values backed by Byte/Integer/Long.
+Successful checks return exit 0 with empty output and create no executable.
+Earlier frontend failures retain their behavior; unsupported facilities defer.
+The full compiler and actual UBECore source exceed this subset. Full grammar,
+native generation and a semantic speedup claim remain outside this result.
+
+UBECore owns the qualified generic SignedIntegers, ByteKeys, StorageCapacity and
+Utf8Encoding facilities. Immutable source owners, private results, canonical
+merge and the existing bounded worker budget remain the implementation rules.
+Ordinary behavior follows VB6 unless an established UBE definition conflicts.
+
+### Historical preparation and bootstrap identities
+
+The dated checkpoints below preserve their original source/tool/artifact
+identities. Their then-current capability and next-action statements describe
+those checkpoints; the current implementation status is the section above.
+
+The declaration-detail prerequisite was qualified on cohort
+`04c889304e52467bbf597ac84269317e` with 1,879 parser checks and 104 source CLI
+cases. The reusable-library foundation build passed 894 assertions on cohort
+`3d4622079d9d476d9aad890dfa8593e8`, manifest SHA-256
+`70B1F55EF276E2DAA12EB2939775E2FFA7AB7B68A0DCDC59476D16FEF55D1392`.
+The before-edit 90-file snapshot remains
+`bootstrap/out/semantic-baseline/549405a6379c411eaedfda49e1932ce9/`.
+These are retained foundation records, not final acceptance of later inputs.
+
+## Completed preparation and owner behavior review - 2026-11-01
+
+The owner requested preparation of the existing **First semantic checking**
+deliverable. The review package is now in
+[`SEMANTIC-CONTRACT.md`](compiler/UBE_Compiler_v3/SEMANTIC-CONTRACT.md) and
+[`SEMANTIC-SYNTAX-INVENTORY.md`](compiler/UBE_Compiler_v3/SEMANTIC-SYNTAX-INVENTORY.md),
+with independent cases, source evidence and future native obligations under
+`compiler/UBE_Compiler_v3/tests/semantic/`. Exact executed checks and their limits
+are in [`SEMANTIC-EVIDENCE.md`](compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md).
+This records the earlier review preparation; definition consistency alone did not implement or qualify the later checker.
+
+The owner confirmed unsuffixed decimal integer destination typing, including
+literals within arithmetic, and Long/LongLong defaults on 2026-11-01. That rule
+is synchronized into the normative specification/conversion table and manual.
+The bounded contract makes remaining context/representation limits explicit.
+
+Owner review additionally confirmed that literals must use types able to hold
+their values even when the destination is narrower. `Dim x As Integer =
+40000 - 10000` behaves like a declaration followed by an ordinary assignment:
+declare neutral storage first, calculate in a suitable wider integer type,
+then convert 30000 to Integer. A recoverable initializer failure does not
+undeclare the variable. Basic scope/foundation-first order is accepted; remaining
+behavior questions are reviewed individually, using VB6 unless an established
+UBE definition conflicts. The owner confirmed rejection of provable faults,
+including known final overflow in ordinary initializers/assignments. Literal-
+only integer calculations must reduce to constants during compilation; 40000 -
+10000 becomes 30000 before destination conversion. Runtime-dependent failures
+retain the established Err behavior. These are definition changes, not a claim
+that fresh v3 already implements the semantic checker.
+
+The owner subsequently approved implementation; the active next action is
+recorded above. This paragraph records the preceding preparation checkpoint.
+
+## Completed filesystem cleanups - 2026-11-01
 
 Owner-requested bootstrap cleanup: consolidate the former root `runtime/`
 folder and the two C adapters from `std-lib/src/win-lib/` under
@@ -85,14 +159,11 @@ The final acceptance record is `0340fcdd651b45b5bf7ed1d6cd9fab7a/acceptance.json
 under `bootstrap/out/frontend-performance/`, SHA-256
 `D0F00D1685929368F7E72E652623AC29F3E9C193E309D3CF93873CDF168FB36B`.
 
-Next proposed work is the existing **First semantic checking** deliverable in
-[the development plan](project-docs/Development-Plan.md#proposed-dependency-order).
-Begin with a bounded contract and an inventory of declaration details retained
-by syntax; preserve source spans, lookup/type rules, library boundaries and the
-qualified concurrency path. No semantic implementation or new executor has begun.
-Full grammar, semantic validation and code generation remain unfinished; a
-successful syntax check still reports semantic checking unavailable and emits
-no executable. The prior push remains `41632c4`; no new push is authorized.
+At this completed frontend checkpoint, First semantic checking was the next
+deliverable and successful syntax reported checking unavailable. That is
+historical behavior, superseded by the integrated bounded check path described
+in the current priority. Full grammar and native code generation remain future
+work. No new push is authorized.
 
 ## Historical concurrency checkpoint
 

@@ -83,12 +83,20 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-The new compiler can load projects, check supported syntax and process source
-files in parallel. The standard library has working foundations for files,
-text and threads.
+The first bounded semantic-checking step is complete. The new compiler loads
+projects, processes source files in parallel, and checks names, types,
+integer/Boolean expressions, calls and statements in the supported subset.
+It folds literal-only integer arithmetic during compilation and rejects known
+arithmetic and conversion faults. The checker passes its native, CLI, resource,
+lifetime and concurrency gates through both source-built bootstrap stages;
+see the [verification record](compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md).
+The standard library provides tested file, text, numeric, storage and thread
+foundations.
 
-Language support is still incomplete, and the new compiler cannot yet produce
-runnable programs. Next is checking that names and data types are used correctly.
+Language support is incomplete. The checker still defers the full compiler and
+standard-library source, and fresh v3 does not yet produce runnable programs.
+The next planned deliverable is a first small native
+executable, beginning with review of the lowering and backend/tool contracts.
 
 **UBE is in early development and is not ready for production use.**
 

@@ -852,6 +852,9 @@ Function TrySyntaxNameSuffix(ByRef Document As SourceDocument, ByRef Tokens() As
     Suffix = Suffix Or Matches
     If Suffix Then
         State.Pending(0).Nodes(NodeId).LastByte = State.Cursor.Token.Last.ByteOffset
+        If TrySyntaxTypeCharacter(State, NodeId, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset) = False Then
+            Exit Function
+        End If
         Call SyntaxConsume(State.Cursor, State.Metrics)
         TrySyntaxNameSuffix = True
         Exit Function
@@ -943,6 +946,9 @@ Function TrySyntaxNameSuffix(ByRef Document As SourceDocument, ByRef Tokens() As
     End If
     If Suffix Then
         State.Pending(0).Nodes(NodeId).LastByte = Original.Token.Last.ByteOffset
+        If TrySyntaxTypeCharacter(State, NodeId, Original.Token.First.ByteOffset, Original.Token.Last.ByteOffset) = False Then
+            Exit Function
+        End If
     Else
         State.Cursor = Original
         If Ambiguous Then
@@ -1121,6 +1127,17 @@ Function TrySyntaxTypeName(ByRef Document As SourceDocument, ByRef Tokens() As S
     If TrySyntaxAt(Document, Tokens, State, "String", IsString) = False Then
         Exit Function
     End If
+    If TrySyntaxNewNode(State, 74, FirstByte, State.Cursor.Token.Last.ByteOffset, Root) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
+    Dim Component As Long = -1
+    If TrySyntaxNewNode(State, 1, FirstByte, State.Cursor.Token.Last.ByteOffset, Component) = False Then
+        Exit Function
+    End If
+    If TrySyntaxAttach(State, Root, Component, Tail) = False Then
+        Exit Function
+    End If
     Call SyntaxConsume(State.Cursor, State.Metrics)
     Dim LastByte As Long = State.Cursor.LastByte
     Dim More As Boolean = True
@@ -1137,6 +1154,12 @@ Function TrySyntaxTypeName(ByRef Document As SourceDocument, ByRef Tokens() As S
             Dim TokenKind As Long = State.Cursor.Token.Kind
             If TokenKind <> 1 And TokenKind <> 2 And TokenKind <> 6 Then
                 TrySyntaxTypeName = SyntaxFail(State, 104)
+                Exit Function
+            End If
+            If TrySyntaxNewNode(State, 1, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, Component) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Root, Component, Tail) = False Then
                 Exit Function
             End If
             LastByte = State.Cursor.Token.Last.ByteOffset
@@ -1169,11 +1192,19 @@ Function TrySyntaxTypeName(ByRef Document As SourceDocument, ByRef Tokens() As S
                 State.Metrics.NameReads = State.Metrics.NameReads + 1
                 AtByte = AtByte + 1
             Wend
+            Dim SizeNode As Long = -1
+            If TrySyntaxNewNode(State, 2, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, SizeNode) = False Then
+                Exit Function
+            End If
+            If TrySyntaxAttach(State, Root, SizeNode, Tail) = False Then
+                Exit Function
+            End If
             LastByte = State.Cursor.Token.Last.ByteOffset
             Call SyntaxConsume(State.Cursor, State.Metrics)
         End If
     End If
-    TrySyntaxTypeName = TrySyntaxNewNode(State, 74, FirstByte, LastByte, Root)
+    State.Pending(0).Nodes(Root).LastByte = LastByte
+    TrySyntaxTypeName = True
 End Function
 
 ' Pushes one scalar continuation within independent depth and workspace budgets.

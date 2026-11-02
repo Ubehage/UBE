@@ -29,7 +29,7 @@ Earlier reports retain their original paths and hashes as historical evidence.
 This directory contains source input, scanner, source-header, bounded grammar
 and compiler-owned source-set orchestration. `TryParseSources` runs actual UBE
 source workers with budgets 1, 2 and 4, shared immutable owners, private results
-and deterministic complete publication. The current source-qualified checkpoint
+and deterministic complete publication. The earlier source-qualified frontend checkpoint
 passes 785 grouped assertions, including bounded project intake, explicit
 UBECore references, the project/jobs CLI sources, expanded consumer proofs and
 the approved caller-retention/materialization regressions.
@@ -45,10 +45,17 @@ The approved address-owned root synchronization and coordinator wait correction
 resolve the earlier measured contention sufficiently for this initial acceptance.
 Exact commands, identities, retained failures and limitations are in
 [frontend evidence](FRONTEND-PERFORMANCE-EVIDENCE.md).
-Full grammar, semantic validation and code generation remain unfinished.
-Successful project syntax checks still return the explicit semantic-unavailable
-diagnostic and create no output artifact. Current commands, supported limits and
-remaining gates are in [project evidence](PROJECT-INPUT-EVIDENCE.md).
+The production check path now performs the approved bounded scalar/native MODULE
+semantic check after frontend admission, qualified on accepted source-built
+cohort 88d through its maintained gates. Successful checks return exit 0 with
+empty stdout/stderr and
+create no executable or intermediate output. Invalid/deferred inputs retain
+their specified diagnostics, and earlier frontend failures pass through unchanged.
+
+The full production compiler and actual UBECore source exceed this subset and
+remain deferred. Full grammar and native code generation remain unfinished.
+Current scope and exact proof status are in [semantic evidence](SEMANTIC-EVIDENCE.md);
+[project evidence](PROJECT-INPUT-EVIDENCE.md) retains the earlier intake checkpoint.
 
 ## Earlier foundation and parser checkpoints
 
@@ -62,8 +69,8 @@ storage, incremental UTF-8 decoding and ByteBuffer growth/snapshots; the complet
 source-only foundation snapshot passed 296 assertions. See
 [that checkpoint's evidence](../../std-lib/BYTE-BUFFER-EVIDENCE.md).
 The consumer extends this foundation using recoverable byte-file input and
-actual direct UBECore source references. A successful intake still returns the
-explicit unavailable-check diagnostic; it never claims a source program passed.
+actual direct UBECore source references. At that checkpoint, successful intake returned the
+explicit unavailable-check diagnostic; it did not claim a source program passed.
 
 The scanner/source-header implementation passes its 102 original hand-authored
 vectors, 12 focused regressions and 174 word roles through both source-built
@@ -87,13 +94,14 @@ all 10412 real-root capacities, allocator failures, private workers, cleanup and
 cases and 54 diagnostic controls; the local `bootstrap/out/v3/ube.exe` passes the
 same 41 process oracles. Both native-test and production raw LLVM pairs are
 byte-identical. See [implementation details](PARSER-IMPLEMENTATION.md) and
-[exact evidence and limits](PARSER-NATIVE-EVIDENCE.md). Successful syntax still
-reports semantic checking unavailable; complete-language parsing and code
-generation remain unimplemented. The subsequent bounded concurrency objective is now complete. The
-[development plan](../../project-docs/Development-Plan.md) now records bounded
-project input and initial parallel frontend qualification as complete. First
-semantic checking is the next proposed contract; its gates are not current
-capabilities.
+[exact evidence and limits](PARSER-NATIVE-EVIDENCE.md). At that checkpoint, successful syntax
+reported semantic checking unavailable; complete-language parsing and code
+generation remain unimplemented. The subsequent bounded concurrency, project input and initial parallel frontend
+deliverables are qualified. The owner-approved [semantic contract](SEMANTIC-CONTRACT.md)
+is implemented and qualified in production for its bounded scope.
+Definition-only records remain historical prerequisites; they are distinct from
+the later native/process checker evidence. The [development plan](../../project-docs/Development-Plan.md)
+keeps the next native-executable contract review separate from this checker.
 
 An existing stage-zero/v2 route may be used temporarily after its required
 language subset passes independent small tests. This permission does not

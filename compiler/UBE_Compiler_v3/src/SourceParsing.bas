@@ -25,16 +25,6 @@ Intrinsic Function TryCopySourceWorks(ByRef Destination() As SourceWork, ByRef S
 Attribute TryCopySourceWorks.UBE_Primitive = "Array.TryCopy"
 End Function
 
-' Private bounded active native IDs, owned until confirmed completion.
-Intrinsic Function TryResizeSourceThreadIds(ByRef Values() As LongLong, ByVal Count As Long, ByVal KeepValues As Boolean) As Boolean
-Attribute TryResizeSourceThreadIds.UBE_Primitive = "Array.TryResize"
-End Function
-
-' Private source association for the same active slots and worker budget.
-Intrinsic Function TryResizeSourceIndexes(ByRef Values() As Long, ByVal Count As Long, ByVal KeepValues As Boolean) As Boolean
-Attribute TryResizeSourceIndexes.UBE_Primitive = "Array.TryResize"
-End Function
-
 ' Observes sticky native stop without interpreting another thread's Err.
 Function TryContinueSourceWork(ByVal Work As SourceWork) As Boolean
     TryContinueSourceWork = False
@@ -214,105 +204,70 @@ Function TryParseSources(ByRef Inputs() As SourceOwner, ByVal Jobs As Long, ByVa
         End If
         Index = Index + 1
     Wend
-    Dim Ids() As LongLong
-    Dim SourceIndexes() As Long
-    If TryResizeSourceThreadIds(Ids, Jobs, False) = False Or TryResizeSourceIndexes(SourceIndexes, Jobs, False) = False Then
+    Dim Slots As SourceWorkerSlots
+    If TryInitializeSourceWorkerSlots(Slots, Jobs, Count) = False Then
         Exit Function
     End If
     Failure = EmptyFailure
     Failure.SourceId = -1
-    Dim NextSource As Long = 0
-    Dim Active As Long = 0
-    Dim StopAdmission As Boolean = False
-    While Active > 0 Or (NextSource < Count And StopAdmission = False)
-        If Cancellation.Requested Then
-            Call RecordSourceSetFailure(Failure, 4, -1)
-            StopAdmission = True
+    Dim Finished As Boolean = False
+    Dim Slot As Long = -1
+    Dim SourceIndex As Long = -1
+    Dim Action As Long = 0
+    Dim WorkAccepted As Boolean = False
+    While Finished = False
+        Action = NextSourceWorkerAction(Slots, Cancellation.Requested, True, Slot, SourceIndex)
+        If Slots.FirstInfrastructureKind <> 0 Then
+            Call RecordSourceSetFailure(Failure, Slots.FirstInfrastructureKind, Slots.FirstInfrastructureSource)
         End If
-        While Active < Jobs And NextSource < Count And StopAdmission = False
-            If Cancellation.Requested Then
-                Call RecordSourceSetFailure(Failure, 4, -1)
-                StopAdmission = True
-            Else
-                Dim Slot As Long = 0
-                While Slot < Jobs And Ids(Slot) <> 0
-                    Slot = Slot + 1
-                Wend
+        If Action = 1 Then
                 Set Work = Nothing
-                Dim WorkAccepted As Boolean = Work Is Nothing
+                WorkAccepted = Work Is Nothing
                 If WorkAccepted Then
-                    Set Work = Pending(NextSource)
-                    WorkAccepted = Work Is Pending(NextSource)
+                    Set Work = Pending(SourceIndex)
+                    WorkAccepted = Work Is Pending(SourceIndex)
                 End If
                 If WorkAccepted = False Then
-                    Call RecordSourceSetFailure(Failure, 5, NextSource)
-                    StopAdmission = True
+                    Call RecordSourceWorkerFailure(Slots, 5, SourceIndex)
                 Else
                     Dim Id As LongLong = CallNew ProcessSourceWork(Work)
-                    If Id = 0 Then
-                        Call RecordSourceSetFailure(Failure, 2, NextSource)
-                        StopAdmission = True
-                    Else
-                        Ids(Slot) = Id
-                        SourceIndexes(Slot) = NextSource
-                        NextSource = NextSource + 1
-                        Active = Active + 1
-                    End If
+                    Call CommitSourceWorkerAdmission(Slots, Slot, Id)
                 End If
-            End If
-        Wend
-        Index = 0
-        While Index < Jobs
-            If Ids(Index) <> 0 Then
-                If StopAdmission Then
-                    Dim Requested As Boolean = False
-                    If TryThreadRequestStop(Ids(Index), Requested) = False Then
-                        Call RecordSourceSetFailure(Failure, 6, SourceIndexes(Index))
-                    End If
+        Else
+            If Action = 2 Then
+                Set Work = Nothing
+                WorkAccepted = Work Is Nothing
+                If WorkAccepted Then
+                    Set Work = Pending(SourceIndex)
+                    WorkAccepted = Work Is Pending(SourceIndex)
                 End If
-                Dim Completed As Boolean = False
-                If TryThreadWait(Ids(Index), 1, Completed) = False Then
-                    Call RecordSourceSetFailure(Failure, 6, SourceIndexes(Index))
-                    StopAdmission = True
+                If WorkAccepted = False Then
+                    Call RecordSourceWorkerFailure(Slots, 5, SourceIndex)
                 Else
-                    If Completed Then
-                        Set Work = Nothing
-                        WorkAccepted = Work Is Nothing
-                        If WorkAccepted Then
-                            Set Work = Pending(SourceIndexes(Index))
-                            WorkAccepted = Work Is Pending(SourceIndexes(Index))
-                        End If
-                        If WorkAccepted = False Then
-                            Call RecordSourceSetFailure(Failure, 5, SourceIndexes(Index))
-                            StopAdmission = True
+                    If Work.State <> 1 Then
+                        If Work.State = 3 Then
+                            Call RecordSourceWorkerFailure(Slots, 4, SourceIndex)
                         Else
-                            If Work.State <> 1 Then
-                                If Work.State = 3 Then
-                                    Call RecordSourceSetFailure(Failure, 4, SourceIndexes(Index))
-                                    StopAdmission = True
-                                Else
-                                    If Work.State = 0 Or Work.Failure.Kind = 5 Then
-                                        Call RecordSourceSetFailure(Failure, 5, SourceIndexes(Index))
-                                        StopAdmission = True
-                                    Else
-                                        If Failure.Kind = 0 Or (Failure.Kind = 3 And SourceIndexes(Index) < Failure.SourceId) Then
-                                            Failure.Kind = 3
-                                            Failure.SourceId = SourceIndexes(Index)
-                                            Failure.UnitFailure = Work.Failure
-                                        End If
-                                    End If
+                            If Work.State = 0 Or Work.Failure.Kind = 5 Then
+                                Call RecordSourceWorkerFailure(Slots, 5, SourceIndex)
+                            Else
+                                If Failure.Kind = 0 Or (Failure.Kind = 3 And SourceIndex < Failure.SourceId) Then
+                                    Failure.Kind = 3
+                                    Failure.SourceId = SourceIndex
+                                    Failure.UnitFailure = Work.Failure
                                 End If
                             End If
                         End If
-                        Ids(Index) = 0
-                        Active = Active - 1
                     End If
                 End If
+            Else
+                If Action = 3 Then
+                Finished = True
+                End If
             End If
-            Index = Index + 1
-        Wend
-        If Active > 0 Then
-            Call TryThreadYield()
+        End If
+        If Slots.FirstInfrastructureKind <> 0 Then
+            Call RecordSourceSetFailure(Failure, Slots.FirstInfrastructureKind, Slots.FirstInfrastructureSource)
         End If
     Wend
     If Failure.Kind <> 0 Then

@@ -14,7 +14,7 @@ $run=Join-Path $root ('bootstrap/out/project-intake/'+[Guid]::NewGuid().ToString
 $project=Join-Path $run 'project'
 $null=New-Item -ItemType Directory $project -Force
 $utf8=[Text.UTF8Encoding]::new($false)
-$names=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceParsing.bas','SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas','SyntaxTree.bas','SyntaxExpressions.bas','SyntaxGrammar.bas','SourceSyntax.bas','ProjectManifest.bas','ProjectPackage.cls','ProjectSource.cls','ProjectInput.cls','ProjectSyntax.cls','ProjectLoading.bas')
+$names=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceWorkerSlots.bas','SourceParsing.bas','SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas','SyntaxTree.bas','SyntaxExpressions.bas','SyntaxGrammar.bas','SourceSyntax.bas','ProjectManifest.bas','ProjectPackage.cls','ProjectSource.cls','ProjectInput.cls','ProjectSyntax.cls','ProjectLoading.bas')
 $inputs=@();$commands=@();$checks=@();$success=$false;$failure=$null;$selection=$null
 $caseSensitiveEvidence=$null;$caseSensitiveFixture=$null
 function Run-IntakeProcess([string]$Program,[string[]]$Values,[int]$Timeout=300){

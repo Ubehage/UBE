@@ -1,0 +1,9 @@
+#define main catalog_base_main
+#include "probe.c"
+#undef main
+extern int32_t catalog_make_cancellation(int32_t,void**),catalog_build_cancellable(void*,void*,struct failure*);
+extern int32_t ube_thread_try_current_id(int64_t*),ube_thread_try_request_stop(int64_t,uint8_t*);
+static _Thread_local void* cancellation;
+static _Thread_local size_t polls,request_at;
+void catalog_poll(void){++polls;if(cancellation&&polls==request_at)__atomic_store_n((uint8_t*)cancellation,1,__ATOMIC_SEQ_CST);}
+int main(void){struct environment e;CHECK(open(&e,detailed,reference,1)==0&&built(&e)==0);e.old=e.input;e.input=NULL;uint64_t hash=hash_catalog(e.old);root cancellation_root={0};CHECK(ube_gc_root_enter(&cancellation_root,&cancellation));const size_t points[]={1,2,8,64};for(size_t i=0;i<4;++i){CHECK(remake(&e,2,1)==0&&catalog_make_cancellation(0,&cancellation)&&cancellation);polls=0;request_at=points[i];struct failure f={.kind=5,.code=1428};CHECK(!catalog_build_cancellable(e.input,cancellation,&f)&&f.kind==4&&f.code==1429&&polls==request_at&&hash_catalog(e.old)==hash);e.input=NULL;cancellation=NULL;(void)ube_gc_collect();}CHECK(remake(&e,2,1)==0&&catalog_make_cancellation(1,&cancellation));polls=0;request_at=SIZE_MAX;struct failure f={.kind=5,.code=1428};CHECK(!catalog_build_cancellable(e.input,cancellation,&f)&&f.kind==4&&f.code==1429&&polls==1&&hash_catalog(e.old)==hash);cancellation=NULL;CHECK(remake(&e,2,1)==0);int64_t id=0;uint8_t requested=0;CHECK(ube_thread_try_current_id(&id)&&id>0&&ube_thread_try_request_stop(id,&requested)&&requested);polls=0;request_at=SIZE_MAX;f=(struct failure){.kind=5,.code=1428};CHECK(!catalog_build(e.input,&f)&&f.kind==4&&f.code==1429&&polls==1&&hash_catalog(e.old)==hash);CHECK(ube_gc_root_leave(&cancellation_root));CHECK(close_env(&e)==0);printf("PASS catalog cancellation assertions:%u points:6\n",assertions);return 0;}

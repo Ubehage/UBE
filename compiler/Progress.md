@@ -2,28 +2,20 @@
 
 ## Current work
 
-The owner-requested bounded compiler-concurrency objective is complete.
-Compiler-owned `TryParseSources` uses existing source/scanner/parser bodies
-with budgets 1, 2 and 4, shared immutable source owners, private results and
-deterministic complete publication. UBECore supplies generic Threads APIs;
-source policy, task decomposition and canonical diagnostics stay in the
-compiler. Field-only reference classes and bounded scalar/reference `CallNew`
-captures are qualified bootstrap prerequisites, not complete class/threading
-support.
+First semantic checking is complete for the approved scalar/native MODULE
+subset. The production check command, private body results and shared worker
+controller pass their maintained native/process/resource/retained gates on
+accepted cohort `88d1906a667645fa87f885c3a117e52f`. Exact proofs and limits are in
+[semantic evidence](UBE_Compiler_v3/SEMANTIC-EVIDENCE.md).
 
-The current bootstrap passes 592 grouped assertions; concurrency passes 5652
-native assertions through both stages. Retained parser and strict CLI gates
-pass 4049 and 217 checks; all 41 local process oracles pass. Exact current
-commands, source/tool/artifact identities, costs and limits are in
-[CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+The full compiler/Core source, deferred language families and executable output
+remain outside this result. The next existing deliverable is First checked
+native executable. Begin with reviewed bounded lowering/backend/ABI/runtime-error
+and tool-handoff contracts, preserving established names, original spans,
+library/compiler responsibilities and qualified ownership/concurrency.
 
-Instrumented four-worker execution was slower; collector contention is explicit
-follow-up work, without a speedup claim. Full grammar, semantics, code generation
-and project/jobs CLI integration remain unfinished. The
-[development plan](../project-docs/Development-Plan.md) proposes bounded project/
-frontend input next; that row and every later row remain proposed and need their
-own contract and owner review. Detailed handoff is in
-`UBE_Compiler_v3/Progress.md` and `../std-lib/ROADMAP.md`.
+Older records below describe their named checkpoints; their unavailable-checking
+messages and then-next actions are historical.
 
 ## Earlier foundation and parser checkpoints
 

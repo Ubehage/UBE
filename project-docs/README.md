@@ -6,10 +6,12 @@ This directory contains internal project-level documentation:
   library, debugger, IDE, and repository boundaries.
 - [Roadmap.md](Roadmap.md) tracks the repository-wide development sequence.
 - [Development-Plan.md](Development-Plan.md) preserves the fresh compiler/library
-  execution proposal and ownership/naming boundaries. The first owner-requested
-  bounded concurrency objective is complete; every later row, including project/
-  frontend integration, remains proposed. Exact current qualification is in
-  [CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
+  execution order and ownership/naming boundaries. Bounded concurrency and
+  project/parallel frontend input are qualified. The bounded semantic checker
+  is qualified for its approved scalar/native MODULE scope. Exact current
+  scope is in [SEMANTIC-EVIDENCE.md](../compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md);
+  the next native-executable row still requires reviewed lowering/backend/tool
+  contracts.
 
 - [versioning.md](versioning.md) defines the independent compiler, language,
   project-format, intrinsic-ABI, and source-library compatibility identities.

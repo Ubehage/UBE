@@ -61,6 +61,8 @@ Type SyntaxState
     IfCondition As Boolean
     InlineElse As Boolean
     AmbiguousSuffixByte As Long
+    WrittenKindFirst As Long
+    WrittenKindLast As Long
     TokenCount As Long
     SourceLength As Long
     Cursor As SyntaxCursor
@@ -92,30 +94,8 @@ End Function
 ' Capacity policy is checked before multiplication. A resource limit is distinct
 ' from allocation failure. Required=0 does not require storage.
 Function TrySyntaxCapacity(ByVal Capacity As Long, ByVal Required As Long, ByVal Maximum As Long, ByRef Prepared As Long) As Boolean
-    TrySyntaxCapacity = False
     Prepared = Capacity
-    If Capacity < 0 Or Required < 0 Or Maximum < 0 Or Required > Maximum Then
-        Exit Function
-    End If
-    If Required > Prepared Then
-        If Prepared = 0 Then
-            Prepared = 8
-            If Prepared > Maximum Then
-                Prepared = Maximum
-            End If
-        End If
-        While Prepared < Required
-            If Prepared > 1073741823 Then
-                Prepared = Maximum
-            Else
-                Prepared = Prepared * 2
-                If Prepared > Maximum Then
-                    Prepared = Maximum
-                End If
-            End If
-        Wend
-    End If
-    TrySyntaxCapacity = True
+    TrySyntaxCapacity = TryGetStorageCapacity(Capacity, Required, Maximum, Prepared)
 End Function
 
 ' Records the current original token extent as the first required failure.
@@ -276,6 +256,23 @@ Function TrySyntaxAttach(ByRef State As SyntaxState, ByVal Parent As Long, ByVal
     Tail = Child
     State.Metrics.Transitions = State.Metrics.Transitions + 1
     TrySyntaxAttach = True
+End Function
+
+' Retains a suffix already selected by the existing declaration/expression
+' grammar. The original Name extent includes it; no suffix is inferred later.
+Function TrySyntaxTypeCharacter(ByRef State As SyntaxState, ByVal NameNode As Long, ByVal FirstByte As Long, ByVal LastByte As Long) As Boolean
+    TrySyntaxTypeCharacter = False
+    Dim CharacterNode As Long = -1
+    If TrySyntaxNewNode(State, 83, FirstByte, LastByte, CharacterNode) = False Then
+        Exit Function
+    End If
+    Dim Tail As Long = -1
+    TrySyntaxTypeCharacter = TrySyntaxAttach(State, NameNode, CharacterNode, Tail)
+End Function
+
+' Captures one already recognized grammar word without advancing the cursor.
+Function TrySyntaxKeyword(ByRef State As SyntaxState, ByRef Root As Long) As Boolean
+    TrySyntaxKeyword = TrySyntaxNewNode(State, 78, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.Last.ByteOffset, Root)
 End Function
 
 ' Token entry for callers which already hold qualified source/token views.

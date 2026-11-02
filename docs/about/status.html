@@ -20,11 +20,11 @@
     <p class="lede">UBE is under active development and is not ready for production use.</p>
 
     <h2>What works today</h2>
-    <p>The fresh Compiler v3 reads native module source, checks a bounded syntax subset, loads executable project manifests with one explicit UBECore source reference, and processes sources with one through four workers. Accepted syntax still ends with <a href="../tools/ube1012.html" data-doc-path="tools/ube1012.html">UBE1012</a>: semantic checking is unavailable. It does not generate executable programs.</p>
+    <p>The fresh Compiler v3 reads native module source, checks a bounded syntax subset, loads executable project manifests with one explicit UBECore source reference, and processes sources with one through four workers. The bounded semantic implementation checks selected scalar declarations, names, assignments, calls and procedure bodies; wholly supported input can pass with exit zero after the current CLI qualification and local replay. See <a href="../tools/source-checking.html" data-doc-path="tools/source-checking.html">checking scope and prerequisites</a>. It does not generate executable programs.</p>
     <p>Current UBECore has qualified source foundations for owned bytes, UTF-8 decoding, Unicode operations, file input, path handling and bounded thread operations. A full released library, general String replacement and complete synchronization catalog are not available. See the <a href="../library/index.html" data-doc-path="library/index.html">library reference</a> for exact source scope.</p>
 
     <h2>What comes next</h2>
-    <p>First semantic checking is the active approved deliverable. Its bounded contract covers selected declarations, names, integer/Boolean expressions, assignments and calls. The contract and its independent cases are preparation evidence, not an implemented checker. Complete language support, native code generation, library packaging, source-level debugging and the native IDE remain unfinished.</p>
+    <p>Current work qualifies the bounded semantic implementation against its independent native and process gates. Unsupported datatypes, declarations and bodies remain deferred and prevent a successful check. Complete language support, native code generation, library packaging, source-level debugging and the native IDE remain unfinished.</p>
     <p>The earlier v3/v4 implementations and release previews are archived. Their results are historical and do not establish what the fresh compiler supports.</p>
     <div class="callout">
       <strong>Documentation status</strong>
@@ -41,7 +41,7 @@
       <a href="goals.html" data-doc-path="about/goals.html">← Previous: Goals and principles</a>
       <a href="compiler-generations.html" data-doc-path="about/compiler-generations.html">Next: Development and releases →</a>
     </nav>
-    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-11-01</footer>
+    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-11-02</footer>
   </main>
 </body>
 </html>

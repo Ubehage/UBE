@@ -15,10 +15,10 @@ $run=Join-Path $root ('bootstrap/out/source-set-proof/'+[Guid]::NewGuid().ToStri
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $projectDir=Join-Path $run 'project'
 New-Item -ItemType Directory -Path $projectDir | Out-Null
-$productionNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceParsing.bas','SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas','SyntaxTree.bas','SyntaxExpressions.bas','SyntaxGrammar.bas','SourceSyntax.bas')
+$productionNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceWorkerSlots.bas','SourceParsing.bas','SourceInput.bas','SourceFile.bas','ScannerWords.bas','SourceScanner.bas','SourceEnvelope.bas','SyntaxTree.bas','SyntaxExpressions.bas','SyntaxGrammar.bas','SourceSyntax.bas')
 foreach($name in $productionNames){Copy-Item -LiteralPath (Join-Path $root ('compiler/UBE_Compiler_v3/src/'+$name)) -Destination (Join-Path $projectDir $name)}
 foreach($name in @('SharedSyntaxWork.cls','SourceContextWork.cls','Entry.bas','ContextEntry.bas')){Copy-Item -LiteralPath (Join-Path $fixture $name) -Destination (Join-Path $projectDir $name)}
-$orderedNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SharedSyntaxWork.cls','SourceContextWork.cls','SourceParsing.bas')+@($productionNames | Where-Object {$_ -notin @('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceParsing.bas')})+@('Entry.bas','ContextEntry.bas')
+$orderedNames=@('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SharedSyntaxWork.cls','SourceContextWork.cls','SourceWorkerSlots.bas','SourceParsing.bas')+@($productionNames | Where-Object {$_ -notin @('SourceOwner.cls','SourceWork.cls','SourceCancellation.cls','SourceWorkerSlots.bas','SourceParsing.bas')})+@('Entry.bas','ContextEntry.bas')
 $project=Join-Path $projectDir 'SourceParsingConsumer.UBE'
 $projectLines=@('UBE-Project 1','Name = "SourceParsingConsumer"','Kind = "Exe"','Startup = "Main"','Reference = "../../../../../std-lib/UBECore.UBE"')+@($orderedNames | ForEach-Object {'Source = "'+$_+'"'})
 [IO.File]::WriteAllText($project,($projectLines -join "`n")+"`n",[Text.UTF8Encoding]::new($false))

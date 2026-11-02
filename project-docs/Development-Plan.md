@@ -3,7 +3,8 @@
 Date: 2026-10-31.
 
 **Status: concurrency and bounded project/parallel frontend input are qualified;
-first semantic checking is the next proposed deliverable.** This plan preserves the owner's vision,
+First semantic checking is complete for its bounded scalar/native MODULE scope
+on accepted source-built cohort 88d.** This plan preserves the owner's vision,
 adopted language rules, established names and separate UBECore/compiler
 responsibilities. It does not approve new language rules, representations,
 phase interfaces or general scheduler APIs.
@@ -16,15 +17,24 @@ owners and private results. Exact current gates and limits are in
 That earlier proof did not complete normal `.UBE` project/reference input or its CLI.
 
 The subsequent bounded `.UBE`/direct-UBECore input and parallel frontend
-integration deliverable is now complete: current cohort a732 passes 785 source
+integration deliverable was qualified at cohort a732, with 785 source
 assertions and all seven retained gates. Both complete measurement sessions
 retain 252 trials, all hard guards pass, and repeatable initial gains are accepted
 under the owner's 2026-11-01 numerical-policy revision. Original target misses
 remain recorded. Exact commands and limitations are in
 [frontend evidence](../compiler/UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md).
-First semantic checking needs its own bounded contract and owner review before
-implementation. Later semantic/backend and product rows remain proposed.
+First semantic checking now has an owner-approved bounded contract and production
+implementation. Its source/parser detail, measured reusable foundations, catalog,
+expression/call/constant/statement consumers, diagnostics and existing check
+command are qualified on accepted cohort 88d. Maintained native/process/resource/
+retained gates pass for those exact unchanged inputs. [Semantic evidence](../compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md)
+and [progress](../compiler/UBE_Compiler_v3/Progress.md) distinguish successful
+historical runs from the final bounded acceptance record.
 
+The next existing row is First checked native
+executable. Its bounded lowering/backend/tool-handoff contract must be reviewed
+before implementation. Later language, managed-value and product rows remain
+proposed; no new phase, scheduler, generation or public API is introduced here.
 On 2026-10-31 the owner approved making useful parallel speedup an explicit
 acceptance requirement. The [parallel performance gate](#parallel-performance-acceptance)
 below belongs to the existing frontend work; its optimization and measurement
@@ -83,8 +93,10 @@ trees remain historical. No new compiler generation is proposed.
 Exact commands, identities, scope and failure evidence are in
 [PARSER-NATIVE-EVIDENCE.md](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md).
 These preserve the plan's starting point. Current source-cohort qualification
-and retained earlier-gate reruns are in `CONCURRENCY-EVIDENCE.md`. The fresh
-compiler does not yet semantically check or compile programs. The parser is not
+and retained earlier-gate reruns for that checkpoint are in CONCURRENCY-EVIDENCE.md.
+At that point the fresh compiler did not semantically check programs. The later
+bounded checker is integrated as recorded above; native compilation remains
+future work. The parser is not
 the full grammar: pending conditionals, other source kinds, designer syntax and
 the other deferred families remain explicit unfinished work.
 
@@ -287,52 +299,43 @@ architecture from instrumented timings alone. This row is now complete;
 its adopted contract and executed evidence remain the authority for input code.
 `PROJECT-INPUT-CONTRACT.md` and `FRONTEND-PERFORMANCE-EVIDENCE.md` in the compiler
 record that review state and the frozen baseline/focused diagnostics. Later rows
-remain proposed. Semantic work remains the later bounded proposal below.
+remain proposed beyond the subsequently approved First semantic checking row.
 The owner-approved parallel performance gate above is part of this row's exit
 criteria and is accepted under the owner's revised initial-performance policy.
-First semantic checking is the next proposed contract before substantial
-semantic/backend growth; no semantic implementation is authorized by this status.
+The bounded checker now uses this qualified path and passes its exact final
+gates as recorded above.
 
-## Semantic work prepared next
+## Bounded semantic implementation and the next reviewed contract
 
-The first semantic contract should remain small enough to assess independently.
-The proposed starting scope is native MODULE declarations, procedure/local scope,
-mandatory explicit types, selected Boolean/integer expressions, simple assignments,
-procedure results and carefully bounded calls. Exact supported types/operators and
-call forms must be enumerated before implementation; this paragraph is not that
-acceptance contract.
+SEMANTIC-CONTRACT.md fixes the supported/deferred boundary and independent
+acceptance obligations. The parser retains the required declaration/parameter/
+attribute detail without a second source parser. Canonical name/type preparation
+freezes before private body work, and the existing controller supplies bounded
+admission, cancellation/drain and deterministic complete publication.
 
-Before choosing semantic storage, check what the qualified parser actually retains.
-Some declaration/parameter/Header nodes intentionally keep opaque original spans
-after validating and discarding private detail. Inventory the name, suffix, type,
-modifier, default, argument-parenthesis and attribute information binding needs.
-Make any required syntax-detail extension explicit and rerun its gates; do not
-guess declarations from node kinds, change witnesses silently, or create a second
-independent source parser inside the checker.
+The implementation covers selected Boolean/integer expressions, required literal
+folding, explicit conversions, calls/defaults/ByRef modes, statements and adopted
+opaque native values in native MODULE sources. Original spans and declaration
+identity survive folding. Compile-time known faults diagnose; future execution
+of runtime-dependent operations must preserve the established neutral/Err rules.
+String, arrays/field-only records, native CLASS, full compiler/Core support and
+the other listed deferred families are not legalized by this deliverable.
 
-Name resolution must follow the frozen declaration regions and lookup order,
-Unicode simple folding, bracket/suffix identity, accessibility and ambiguity rules.
-Block placement must not accidentally create C-style declaration regions; source
-or reference order never breaks an ambiguous-name tie. Exact ByRef identity,
-parenthesized temporaries and ordinary library calls remain the specified behavior.
+The owner confirmed contextual/default decimal integer typing, destination
+propagation through arithmetic, sufficiently wide intermediate literal types,
+declaration-before-initialization and compile-time reduction/rejection of known
+literal computations. Those approved definitions remain authoritative; bootstrap
+permissiveness and host/LLVM behavior supply no replacement language rule.
 
-Literal syntax, invariant value decoding, constant evaluation and target range
-checking are distinct obligations. Reusable numeric/text algorithms belong in
-UBECore; language literal grammar, operator selection and compile-time diagnostics
-remain compiler policy. No host locale, bootstrap permissiveness or LLVM undefined
-behavior supplies a language rule. Required constant failure is a diagnostic;
-runtime-dependent failure retains neutral-result/Err semantics.
-
-Define valid, invalid and deferred cases before implementation: folded duplicate
-names, undeclared names, implicit typing, `Option Explicit Off`, suffix conflicts,
-nonassignable targets, type/constant range boundaries, wrong call arguments and
-procedure-result/terminator rules as the selected scope requires. Invalid syntax,
-semantic error, valid-but-deferred feature, domain/resource failure and storage
-failure must remain distinguishable.
-
-Declaration publication and body work must be designed for the qualified shared
-budget and deterministic result ownership. A second executor or a mutable global
-semantic model is not an implicit consequence of adding a checker.
+With bounded semantic checking qualified, prepare the
+existing **First checked native executable** row. Specify a small included/
+deferred program set, lowering from the checked result, ABI/native-value and
+runtime-error behavior, LLVM validation, deterministic output, tool invocation
+and atomic artifact publication. Independently author exact exit/results and
+tool/full-disk/cancellation failure cases before implementation. Preserve old
+artifacts on failure and original spans for later debugging. Review those bounded
+contracts before any backend work; this plan does not select a new phase API,
+IR architecture, executor, runtime subsystem or language extension.
 
 ## How each item becomes complete
 
@@ -365,9 +368,10 @@ Before adopting the next execution item, the owner should review:
 - the preserved naming conventions and separate UBECore/compiler responsibilities;
 - the first semantic/native scope and the decisions deliberately left open.
 
-The first owner-requested concurrency contract and prerequisite proof are now
-qualified, as is the subsequent bounded project/frontend input deliverable.
-Review the proposed first semantic-checking contract before depending
-on new policy or APIs. Keep every later row proposed until its own contract,
-dependencies and owner review are ready. No implementation, push, release or new
+The first owner-requested concurrency contract and prerequisite proof are
+qualified, as is the subsequent bounded project/frontend deliverable. The
+owner-approved bounded semantic implementation is complete within its contracted
+scope and evidence. Review the next existing
+native-executable lowering/backend/tool contract before implementation. Keep
+later rows proposed until their own dependencies and owner review are ready. No implementation, push, release or new
 compiler generation is authorized merely by adding this planning document.

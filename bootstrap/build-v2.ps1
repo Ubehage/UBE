@@ -98,12 +98,20 @@ try {
         (Get-ChildItem (Join-Path $root 'std-lib/tests/file-bytes') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/path-bytes') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/unicode') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/signed-integers') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/byte-keys') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/scalar-storage') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/data/unicode') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/src') -Recurse -File).FullName
         (Join-Path $root 'std-lib/UBECore.UBE')
         (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md')
         (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md')
         (Join-Path $root 'std-lib/THREADS-CONTRACT.md')
+        (Join-Path $root 'std-lib/SIGNED-INTEGER-CONTRACT.md')
+        (Join-Path $root 'std-lib/BYTE-KEY-CONTRACT.md')
+        (Join-Path $root 'std-lib/STORAGE-CAPACITY-CONTRACT.md')
+        (Join-Path $root 'std-lib/UTF8-ENCODING-CONTRACT.md')
+        (Join-Path $root 'compiler/UBE_Compiler_v3/tests/semantic/native/CONTRACT.md')
         (Join-Path $root 'std-lib/PATH-BYTES-PROPOSAL.md')
         (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md')
         (Join-Path $root 'std-lib/tools/check-native-type.ps1')
@@ -118,6 +126,9 @@ try {
         (Join-Path $root 'std-lib/tools/check-file-bytes.ps1')
         (Join-Path $root 'std-lib/tools/check-path-bytes.ps1')
         (Join-Path $root 'std-lib/tools/check-unicode.ps1')
+        (Join-Path $root 'std-lib/tools/check-signed-integers.ps1')
+        (Join-Path $root 'std-lib/tools/check-byte-keys.ps1')
+        (Join-Path $root 'std-lib/tools/check-scalar-storage.ps1')
         (Join-Path $root 'std-lib/tools/generate-unicode.ps1')
         (Join-Path $root 'std-lib/UNICODE-CONTRACT.md')
         (Join-Path $root 'std-lib/tests/byte-storage/allocation-probe.h')
@@ -133,6 +144,11 @@ try {
     $inputs = @($inputPaths | Where-Object {
         [IO.Path]::GetExtension($_) -in @('.bas','.cls','.UBE','.c','.cpp','.h','.hpp','.ps1','.json','.ll') -or
         $_ -eq (Join-Path $root 'std-lib/THREADS-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/SIGNED-INTEGER-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/BYTE-KEY-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/STORAGE-CAPACITY-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/UTF8-ENCODING-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/tests/semantic/native/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/PATH-BYTES-PROPOSAL.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v3/CONCURRENCY-BOOTSTRAP.md') -or
         $_ -eq (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md') -or
@@ -141,6 +157,7 @@ try {
         $_ -eq (Join-Path $root 'std-lib/tests/file-bytes/ORACLES.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/source-reference/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/entry-admission/CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/wide-integers/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/value-materialization/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/caller-retention/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/root-registry/CONTRACT.md') -or
@@ -332,6 +349,11 @@ try {
         @('byte-buffer-costs','std-lib/tools/check-byte-buffer-costs.ps1'),
         @('source-references','compiler/UBE_Compiler_v2/tests/source-reference/check.ps1'),
         @('entry-admission','compiler/UBE_Compiler_v2/tests/entry-admission/check.ps1'),
+        @('wide-integers','compiler/UBE_Compiler_v2/tests/wide-integers/check.ps1'),
+        @('signed-integers','std-lib/tools/check-signed-integers.ps1'),
+        @('byte-keys','std-lib/tools/check-byte-keys.ps1'),
+        @('scalar-storage','std-lib/tools/check-scalar-storage.ps1'),
+        @('semantic-foundations','compiler/UBE_Compiler_v3/tools/check-semantic-foundations.ps1'),
         @('value-materialization','compiler/UBE_Compiler_v2/tests/value-materialization/check.ps1'),
         @('caller-retention','compiler/UBE_Compiler_v2/tests/caller-retention/check.ps1'),
         @('root-registry','compiler/UBE_Compiler_v2/tests/root-registry/check.ps1'),
@@ -352,6 +374,8 @@ try {
         @('gc-initialization','compiler/UBE_Compiler_v2/tests/concurrency/check-gc-initialization.ps1'))) {
         $proofTimeout = 60
         if ($proof[0] -in @('source-references','source-input','unicode','scanner')) { $proofTimeout = 900 }
+        if ($proof[0] -eq 'source-input') { $proofTimeout = 2400 }
+        if ($proof[0] -in @('signed-integers','byte-keys','scalar-storage','semantic-foundations')) { $proofTimeout = 900 }
         if ($proof[0] -eq 'thread-references') { $proofTimeout = 180 }
         if ($proof[0] -in @('value-materialization','caller-retention')) { $proofTimeout = 180 }
         if ($proof[0] -eq 'root-registry') { $proofTimeout = 180 }

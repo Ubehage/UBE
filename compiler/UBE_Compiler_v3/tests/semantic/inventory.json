@@ -1,0 +1,268 @@
+{
+    "schema":  "ube-semantic-inventory-1",
+    "entries":  [
+                    {
+                        "id":  "node-layout",
+                        "path":  "src/SyntaxTree.bas",
+                        "owner":  "Type SyntaxNode",
+                        "end":  "End Type",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "Kind As Long",
+                                         "FirstByte As Long",
+                                         "LastByte As Long",
+                                         "FirstChild As Long",
+                                         "NextSibling As Long",
+                                         "ChildCount As Long"
+                                     ],
+                        "need":  "No semantic identity/type fields exist; retain the qualified linked-child syntax projection."
+                    },
+                    {
+                        "id":  "result-owner",
+                        "path":  "src/SyntaxTree.bas",
+                        "owner":  "Type SyntaxResult",
+                        "end":  "End Type",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "Nodes() As SyntaxNode",
+                                         "NodeCount As Long",
+                                         "Root As Long",
+                                         "SourceId As Long"
+                                     ],
+                        "need":  "Semantic spans need the original owner as well as source ID; do not copy the source payload."
+                    },
+                    {
+                        "id":  "source-owner",
+                        "path":  "src/SourceOwner.cls",
+                        "owner":  "Public Document As SourceDocument",
+                        "end":  "Public SourceId As Long",
+                        "state":  "borrowed",
+                        "evidence":  [
+                                         "Public Document As SourceDocument",
+                                         "Public SourceId As Long"
+                                     ],
+                        "need":  "Keep the immutable original source snapshot alive."
+                    },
+                    {
+                        "id":  "project-owner",
+                        "path":  "src/ProjectSyntax.cls",
+                        "owner":  "Public Project As ProjectInput",
+                        "end":  "Public Work() As SourceWork",
+                        "state":  "borrowed",
+                        "evidence":  [
+                                         "Public Project As ProjectInput",
+                                         "Public Work() As SourceWork"
+                                     ],
+                        "need":  "Retain project/package identity and ordered syntax work together."
+                    },
+                    {
+                        "id":  "module-header",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarUnit(",
+                        "end":  "End Function",
+                        "state":  "opaque",
+                        "evidence":  [
+                                         "Dim HeaderLast As Long = State.Cursor.LastByte",
+                                         "TrySyntaxNewNode(State, 50, FirstByte, HeaderLast, Header)",
+                                         "TrySyntaxAttach(State, Root, Header, Tail)"
+                                     ],
+                        "need":  "Reuse the admitted module/package identity; no independent source-header parser."
+                    },
+                    {
+                        "id":  "procedure-header",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarProcedure(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "Dim IsFunction As Boolean = False",
+                                         "TrySyntaxAttach(State, Header, NameNode, HeaderTail)",
+                                         "TrySyntaxAttach(State, Header, Parameters, HeaderTail)",
+                                         "TrySyntaxAttach(State, Header, ResultType, HeaderTail)",
+                                         "TrySyntaxAttach(State, Root, EndMarker, RootTail)"
+                                     ],
+                        "need":  "Publish written procedure kind and modifiers; retain existing header/name/body/terminator relationships."
+                    },
+                    {
+                        "id":  "parameter-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarParameters(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TryGrammarTypedName(Document, Tokens, State, NameFirst, NameLast, NameNode)",
+                                         "TrySyntaxAttach(State, ParameterNode, PassingNode, ParameterTail)",
+                                         "TrySyntaxAttach(State, ParameterNode, Clause, ParameterTail)",
+                                         "TrySyntaxAttach(State, ParameterNode, DefaultNode, ParameterTail)"
+                                     ],
+                        "need":  "Candidate retains name, explicit passing, type and default children; native complete-detail and failure qualification is required before semantic consumption."
+                    },
+                    {
+                        "id":  "result-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarProcedure(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TryGrammarAs(Document, Tokens, State, False, True, Clause)",
+                                         "TrySyntaxNewNode(State, 57, ResultFirst, ResultLast, ResultType)",
+                                         "TrySyntaxAttach(State, ResultType, Clause, ResultTail)"
+                                     ],
+                        "need":  "Candidate retains the complete As clause and result rank; preserve suffix-only results and missing-As information."
+                    },
+                    {
+                        "id":  "declarator-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarVariable(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 77, NameFirst, NameLast, Item)",
+                                         "TrySyntaxAttach(State, Item, NameNode, ItemTail)",
+                                         "TrySyntaxAttach(State, Item, Clause, ItemTail)",
+                                         "TrySyntaxAttach(State, Item, InitializerNode, ItemTail)"
+                                     ],
+                        "need":  "Candidate retains each individual declarator without inheriting another name type; qualify bounds, initialization and old-output retention."
+                    },
+                    {
+                        "id":  "native-type-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarType(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxAttach(State, Root, NameNode, Tail)",
+                                         "TrySyntaxAttach(State, Root, Representation, Tail)",
+                                         "TrySyntaxAttach(State, Root, FieldNode, Tail)"
+                                     ],
+                        "need":  "Resolve raw representation/type identities; field records remain deferred."
+                    },
+                    {
+                        "id":  "type-phrase",
+                        "path":  "src/SyntaxExpressions.bas",
+                        "owner":  "Function TrySyntaxTypeName(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 74, FirstByte, State.Cursor.Token.Last.ByteOffset, Root)",
+                                         "TrySyntaxAttach(State, Root, Component, Tail)",
+                                         "TrySyntaxAttach(State, Root, SizeNode, Tail)"
+                                     ],
+                        "need":  "Candidate retains qualified type-name components and fixed-length literal spans; semantic resolution remains separate."
+                    },
+                    {
+                        "id":  "attribute-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarAttribute(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxQualifiedName(Document, Tokens, State, Target)",
+                                         "TrySyntaxNewNode(State, 84, ValueFirst, State.Cursor.LastByte, AttributeValue)",
+                                         "TrySyntaxAttach(State, AttributeValue, ValueNode, ValueTail)"
+                                     ],
+                        "need":  "Candidate retains exact attribute target/value structure; semantics must still validate explicit primitive roles and signatures."
+                    },
+                    {
+                        "id":  "option-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarOption(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 51, FirstByte, FirstByte, Root)",
+                                         "TryGrammarOptionValue(Document, Tokens, State, Root, Tail)",
+                                         "State.Pending(0).Nodes(Root).LastByte = State.Cursor.LastByte"
+                                     ],
+                        "need":  "Candidate retains recognized option words and numeric values; do not infer policy from the Option node kind."
+                    },
+                    {
+                        "id":  "argument-order",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarArguments(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 73, AtByte, AtByte, ArgumentNode)",
+                                         "TryParseSyntaxArgument(Document, Tokens, State, ArgumentNode)",
+                                         "TrySyntaxAttach(State, Parent, ArgumentNode, Tail)"
+                                     ],
+                        "need":  "Preserve ordered slots and zero-width omissions; bind parameter association without reordering evaluation."
+                    },
+                    {
+                        "id":  "expression-groups",
+                        "path":  "src/SyntaxExpressions.bas",
+                        "owner":  "Function TryParseSyntaxExpressionMode(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxPushExpression(Frames, FrameCount, State, 1, Frame.Depth + 1, True, False)",
+                                         "Frame.Continuation = 3",
+                                         "TrySyntaxNewNode(State, 73, State.Cursor.Token.First.ByteOffset, State.Cursor.Token.First.ByteOffset, EmptyNode)"
+                                     ],
+                        "need":  "Preserve Group/NamedArgument/call structure and raw literals for ByRef and contextual numeric typing; no new expression parser."
+                    },
+                    {
+                        "id":  "modifier-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarModuleItem(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "Dim Modifiers As Long = -1",
+                                         "TryGrammarRememberModifier(State, Modifiers, ModifierTail)",
+                                         "TryGrammarProcedure(Document, Tokens, State, FirstByte, IsIntrinsic, Modifiers, Root)"
+                                     ],
+                        "need":  "Candidate retains every recognized declaration prefix under Modifiers; validate exact source spans and unchanged old grammar decisions."
+                    },
+                    {
+                        "id":  "typed-name-suffix",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarTypedName(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 1, FirstByte, LastByte, Root)",
+                                         "TrySyntaxTypeCharacter(State, Root, LastByte, State.Cursor.Token.Last.ByteOffset)"
+                                     ],
+                        "need":  "Retain the grammar-selected type-character span and full original name; lookup strips the selected suffix separately from identity."
+                    },
+                    {
+                        "id":  "written-terminator",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarTerminator(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "State.WrittenKindFirst = State.Cursor.Token.First.ByteOffset",
+                                         "State.WrittenKindLast = State.Cursor.Token.Last.ByteOffset"
+                                     ],
+                        "need":  "The procedure/type caller publishes the actual written keyword under EndMarker, so semantic mismatches do not require source reparsing."
+                    },
+                    {
+                        "id":  "array-bound-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarArray(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 79, FirstByte, FirstByte, Root)",
+                                         "TrySyntaxNewNode(State, 82, AtByte, AtByte, DimensionNode)",
+                                         "TrySyntaxAttach(State, DimensionNode, Bound, BoundTail)"
+                                     ],
+                        "need":  "Retain each bound tuple and its already parsed expressions; array semantics remain outside the initial checker."
+                    },
+                    {
+                        "id":  "rank-dimension-detail",
+                        "path":  "src/SyntaxGrammar.bas",
+                        "owner":  "Function TryGrammarRank(",
+                        "end":  "End Function",
+                        "state":  "retained",
+                        "evidence":  [
+                                         "TrySyntaxNewNode(State, 82, AtByte, AtByte, DimensionNode)",
+                                         "TrySyntaxAttach(State, Root, DimensionNode, Tail)"
+                                     ],
+                        "need":  "One zero-width original delimiter point per rank dimension distinguishes explicit array shape without counting punctuation in the checker."
+                    }
+                ]
+}

@@ -139,7 +139,7 @@ $requiredNormativeCoverage = @{
     'language/topics/data-values.html' = @('String * 0', '65,535-character', 'materializes automatically')
     'language/topics/properties-members.html' = @('one logical property', 'no Shared class-member surface', 'evaluated once')
     'tools/project-manifests.html' = @('Reference =', 'StartupForm', 'direct and non-transitive', 'LibraryReference', '.UBL')
-    'tools/source-checking.html' = @('--check', '--jobs', 'UBE1012', 'No output program is created')
+    'tools/source-checking.html' = @('--check', '--jobs', 'Current semantic subset', 'UBE1433', 'No output program is created', 'Standard output and standard error are empty')
     'tools/resources-libraries.html' = @('UBE-Resource 1', 'UBE-LibraryBundle 1', '1,024 entries', 'LibraryReference')
     'language/topics/variable-hooks.html' = @('On Get', 'On Set', 'End Variable', 'privileged Storage parameter')
     'migration/index.html' = @('DefBool', 'targeted migration diagnostic')

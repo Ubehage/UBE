@@ -8,6 +8,20 @@ This table closes the conversion relationships approved in
 compile-time error, while a runtime-dependent failure yields the destination's
 neutral value and records the current thread's `Err`.
 
+Unsuffixed decimal integer literals first use the owner-confirmed destination
+context/default Long-or-LongLong typing rule in `language-spec.md` section 4.
+That includes destination context within arithmetic expressions. The conversion
+matrix applies after literal/operator typing; it must not introduce a narrower
+intermediate literal type that defeats that rule. Explicit suffixes still win.
+If a literal exceeds a narrower destination context, use a wider integer type
+that holds it; convert the calculated result to the destination afterward.
+An ordinary scalar declaration initializer uses exactly the same assignment
+conversion/error rules as a separate assignment after the declaration.
+Literal-only integer arithmetic is reduced to a typed constant during
+compilation before its destination conversion. A known-invalid final conversion
+is rejected even in an ordinary variable initializer or assignment; it is not
+deferred to runtime merely because the destination is a variable.
+
 ## Scalar matrix
 
 | Source | Destination | Rule |

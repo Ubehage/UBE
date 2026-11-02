@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "ScalarContext"
+Kind = "Exe"
+Startup = "Main"
+Source = "ScalarApp.bas"

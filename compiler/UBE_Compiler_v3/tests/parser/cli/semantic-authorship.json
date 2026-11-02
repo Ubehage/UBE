@@ -1,0 +1,752 @@
+{
+    "changedCases":  [
+                         {
+                             "name":  "print-date-candidate",
+                             "rationale":  "Print is deferred as a whole statement; do not inspect its unpromised Date argument.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1400: semantic facility is not implemented (next lines: line, column, byte)\n4\n5\n66\n",
+                                            "code":  1400,
+                                            "witness":  "Print",
+                                            "within":  "",
+                                            "eof":  false,
+                                            "span":  [
+                                                         66,
+                                                         71
+                                                     ],
+                                            "position":  [
+                                                             4,
+                                                             5,
+                                                             66
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "print-date-fraction-closing-hash-token-boundary",
+                             "rationale":  "Print statement deferred before unpromised Date semantics.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1400: semantic facility is not implemented (next lines: line, column, byte)\n4\n5\n66\n",
+                                            "code":  1400,
+                                            "witness":  "Print",
+                                            "within":  "",
+                                            "eof":  false,
+                                            "span":  [
+                                                         66,
+                                                         71
+                                                     ],
+                                            "position":  [
+                                                             4,
+                                                             5,
+                                                             66
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "statement-date-fraction-closing-hash-token-boundary",
+                             "rationale":  "Admitted assignment requires declared writable storage; undeclared left name precedes unsupported Date RHS.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1406: name is not declared (next lines: line, column, byte)\n4\n5\n66\n",
+                                            "code":  1406,
+                                            "witness":  "x",
+                                            "within":  "    x =",
+                                            "eof":  false,
+                                            "span":  [
+                                                         66,
+                                                         67
+                                                     ],
+                                            "position":  [
+                                                             4,
+                                                             5,
+                                                             66
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "statement-date-candidate",
+                             "rationale":  "Undeclared assignment target is the first admitted body error.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1406: name is not declared (next lines: line, column, byte)\n4\n5\n66\n",
+                                            "code":  1406,
+                                            "witness":  "x",
+                                            "within":  "    x =",
+                                            "eof":  false,
+                                            "span":  [
+                                                         66,
+                                                         67
+                                                     ],
+                                            "position":  [
+                                                             4,
+                                                             5,
+                                                             66
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "statement-date-calendar-validation-remains-later",
+                             "rationale":  "Unknown target remains the error; this does not validate any calendar or Date literal.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1406: name is not declared (next lines: line, column, byte)\n4\n5\n66\n",
+                                            "code":  1406,
+                                            "witness":  "x",
+                                            "within":  "    x =",
+                                            "eof":  false,
+                                            "span":  [
+                                                         66,
+                                                         67
+                                                     ],
+                                            "position":  [
+                                                             4,
+                                                             5,
+                                                             66
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "valid-module",
+                             "rationale":  "One fully admitted empty parameterless Sub Main succeeds.",
+                             "answer":  {
+                                            "exit":  0,
+                                            "stdout":  "",
+                                            "code":  0,
+                                            "witness":  "",
+                                            "span":  [
+
+                                                     ],
+                                            "position":  [
+
+                                                         ]
+                                        }
+                         },
+                         {
+                             "name":  "inline-coordinates-parameter",
+                             "rationale":  "InlineCoordinates is an ordinary Boolean parameter. Typed empty Function F is admitted; no root Main exists, so entry error anchors EOF.",
+                             "answer":  {
+                                            "exit":  1,
+                                            "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n5\n1\n126\n",
+                                            "code":  1422,
+                                            "witness":  "",
+                                            "within":  "",
+                                            "eof":  true,
+                                            "span":  [
+                                                         126,
+                                                         126
+                                                     ],
+                                            "position":  [
+                                                             5,
+                                                             1,
+                                                             126
+                                                         ]
+                                        }
+                         }
+                     ],
+    "unchangedFrontendCases":  17,
+    "compilerInvoked":  false,
+    "originalHash":  "ADF1ED6D343908947B0B8E2BBF367E35B4AC6584843D3F76BD825FF1716C84AE",
+    "production":  [
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n292\n",
+                                          "code":  1433,
+                                          "witness":  "Type SourceSetFailure",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       292,
+                                                       313
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           1,
+                                                           292
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceParsing.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "2108D19338DD2BB865825C104A1C12BC3ACFF28A5BC85224BE05801A6C9F9972",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n292\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n197\n",
+                                          "code":  1433,
+                                          "witness":  "Type SourcePosition",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       197,
+                                                       216
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           1,
+                                                           197
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceInput.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "D486288DFD51FA8FE42F2AC94A52EFB11E21C0815B149E270470495ECCEB0FD0",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n197\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n34\n330\n",
+                                          "code":  1433,
+                                          "witness":  "PathUtf8()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       330,
+                                                       340
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           34,
+                                                           330
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceFile.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "D5ABE407917474724841BC172DF9670FD6089DDCEB95469072BB60E079DB1197",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n34\n330\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n6161\n1\n330885\n",
+                                          "code":  1422,
+                                          "witness":  "",
+                                          "within":  "",
+                                          "eof":  true,
+                                          "span":  [
+                                                       330885,
+                                                       330885
+                                                   ],
+                                          "position":  [
+                                                           6161,
+                                                           1,
+                                                           330885
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/ScannerWords.bas",
+                           "rationale":  "Every declaration/body in this standalone scalar module is admitted. No root Sub Main or Function Main As Long is declared; missing entry anchors source EOF.",
+                           "exit":  1,
+                           "authoringSourceHash":  "9F517F75F0288F772BDA32D7F5AE388D564034A52340518AB42F7D338C9F4D9C",
+                           "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n6161\n1\n330885\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n380\n",
+                                          "code":  1433,
+                                          "witness":  "Type SourceToken",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       380,
+                                                       396
+                                                   ],
+                                          "position":  [
+                                                           8,
+                                                           1,
+                                                           380
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceScanner.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "59A4F79C27E486F878ED2F182E1D4DE86F20F174BB09732F7A3F40F708B7AEAD",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n380\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n217\n",
+                                          "code":  1433,
+                                          "witness":  "Type SourceEnvelope",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       217,
+                                                       236
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           1,
+                                                           217
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceEnvelope.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "113C3A35E3A9B75249E4E5787CDB7FB1AB90BE8ADA62A6294394895F0533A064",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n217\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n361\n",
+                                          "code":  1433,
+                                          "witness":  "Type SyntaxNode",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       361,
+                                                       376
+                                                   ],
+                                          "position":  [
+                                                           8,
+                                                           1,
+                                                           361
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SyntaxTree.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "9B1EAC223DA884A62EB4783E566FFEE3799CF5A0B600D8640225E1BEB7D615EA",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n361\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n383\n",
+                                          "code":  1433,
+                                          "witness":  "Type SyntaxExpressionFrame",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       383,
+                                                       409
+                                                   ],
+                                          "position":  [
+                                                           8,
+                                                           1,
+                                                           383
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SyntaxExpressions.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "E13E52500F82ABD8A159755F2DD9C8C009C649600A124D2303E652597AE8C9AB",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n8\n1\n383\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n302\n",
+                                          "code":  1433,
+                                          "witness":  "Type SyntaxControlFrame",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       302,
+                                                       325
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           1,
+                                                           302
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SyntaxGrammar.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "27AB1D4DF4B2EB7BA1B98BA2CA7D68212BBA9A6E6D61784E65DFF547DA683208",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n302\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1404: type name is not declared (next lines: line, column, byte)\n9\n54\n506\n",
+                                          "code":  1404,
+                                          "witness":  "SourceDocument",
+                                          "within":  "Function ",
+                                          "eof":  false,
+                                          "span":  [
+                                                       506,
+                                                       520
+                                                   ],
+                                          "position":  [
+                                                           9,
+                                                           54,
+                                                           506
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceSyntax.bas",
+                           "rationale":  "This standalone source has no implicit UBECore or other compiler modules. Its first unresolved named parameter datatype is UnknownType, preceding body and entry work.",
+                           "exit":  1,
+                           "authoringSourceHash":  "02B888363CB97B3DDDEC02BC27B1BF55BA0A84F7DD88648205F9B17081B1AF41",
+                           "stdout":  "error UBE1404: type name is not declared (next lines: line, column, byte)\n9\n54\n506\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n209\n",
+                                          "code":  1433,
+                                          "witness":  "Type ProjectDeclaration",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       209,
+                                                       232
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           1,
+                                                           209
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/ProjectManifest.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "9D4EECBA30BB596440184E577754DC1DEB7B37A457F26556779238874AAE1949",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n209\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n194\n",
+                                          "code":  1433,
+                                          "witness":  "Type ProjectPath",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       194,
+                                                       210
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           1,
+                                                           194
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/ProjectLoading.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "0AFED07A795E2A05960DEE55E9CAD376145A197495E985129BFA1C8B66BB8E19",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n1\n194\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n59\n354\n",
+                                          "code":  1433,
+                                          "witness":  "String",
+                                          "within":  ") As String",
+                                          "eof":  false,
+                                          "span":  [
+                                                       354,
+                                                       360
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           59,
+                                                           354
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/ProjectDisplay.bas",
+                           "rationale":  "Unsupported String result signature is DeferredType; the deferred signature is not inspected for an unpromised missing primitive binding.",
+                           "exit":  1,
+                           "authoringSourceHash":  "993C918B4D56BCCEFC36188F094918E4C1F5978EF997982FAB6EAD7A3C84F4FC",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n59\n354\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1404: type name is not declared (next lines: line, column, byte)\n14\n58\n507\n",
+                                          "code":  1404,
+                                          "witness":  "SourcePosition",
+                                          "within":  "Function ",
+                                          "eof":  false,
+                                          "span":  [
+                                                       507,
+                                                       521
+                                                   ],
+                                          "position":  [
+                                                           14,
+                                                           58,
+                                                           507
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/SourceDiagnostics.bas",
+                           "rationale":  "This standalone source has no implicit UBECore or other compiler modules. Its first unresolved named parameter datatype is UnknownType, preceding body and entry work.",
+                           "exit":  1,
+                           "authoringSourceHash":  "C20453F263D30A6B9450EAC88329379F9A066E2B9B42AEF3B3EACA393D5AD640",
+                           "stdout":  "error UBE1404: type name is not declared (next lines: line, column, byte)\n14\n58\n507\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n44\n266\n",
+                                          "code":  1433,
+                                          "witness":  "Invocation()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       266,
+                                                       278
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           44,
+                                                           266
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/ProjectDiagnostics.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "747D643B0ACB22074D3CA57870F9D124E4B06DE6E4A8BC2E21424DA1814C8BC6",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n6\n44\n266\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n12\n38\n322\n",
+                                          "code":  1433,
+                                          "witness":  "Bytes()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       322,
+                                                       329
+                                                   ],
+                                          "position":  [
+                                                           12,
+                                                           38,
+                                                           322
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/CommandDispatch.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "B83EA9AC996292532746992C50FF109D0285D01844772652EE489897E7F52CAE",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n12\n38\n322\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1425: invalid primitive declaration or binding (next lines: line, column, byte)\n4\n20\n68\n",
+                                          "code":  1425,
+                                          "witness":  "CommandArgumentCount",
+                                          "within":  "Intrinsic Function CommandArgumentCount",
+                                          "eof":  false,
+                                          "span":  [
+                                                       68,
+                                                       88
+                                                   ],
+                                          "position":  [
+                                                           4,
+                                                           20,
+                                                           68
+                                                       ]
+                                      },
+                           "path":  "compiler/UBE_Compiler_v3/src/Main.bas",
+                           "rationale":  "First supported scalar bare intrinsic lacks an implementation/binding: InvalidPrimitive at its declaration name under spec6.2. It precedes the later unsupported String signature.",
+                           "exit":  1,
+                           "authoringSourceHash":  "72A7E7A95814259224D221AE1A808C920D89CEC46E1A9C77200046E40F1AF654",
+                           "stdout":  "error UBE1425: invalid primitive declaration or binding (next lines: line, column, byte)\n4\n20\n68\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n6\n1\n207\n",
+                                          "code":  1422,
+                                          "witness":  "",
+                                          "within":  "",
+                                          "eof":  true,
+                                          "span":  [
+                                                       207,
+                                                       207
+                                                   ],
+                                          "position":  [
+                                                           6,
+                                                           1,
+                                                           207
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/LibraryIdentity.bas",
+                           "rationale":  "Every declaration/body in this standalone scalar module is admitted. No root Sub Main or Function Main As Long is declared; missing entry anchors source EOF.",
+                           "exit":  1,
+                           "authoringSourceHash":  "B06BAB05BCCF000B4062FAA76C9D97E13705BDFFACB54C4113DDCBFA051B240D",
+                           "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n6\n1\n207\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n282\n",
+                                          "code":  1433,
+                                          "witness":  "Type Utf8Decoder",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       282,
+                                                       298
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           1,
+                                                           282
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/Utf8.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "81183C68FD1A797CE43389DD39FAB152C6D356D1BD7812F0C251686F36163B81",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n282\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n285\n",
+                                          "code":  1433,
+                                          "witness":  "Type ByteBuffer",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       285,
+                                                       300
+                                                   ],
+                                          "position":  [
+                                                           7,
+                                                           1,
+                                                           285
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/ByteBuffer.bas",
+                           "rationale":  "Field-only record Type is outside the checked subset. Defer its header without inspecting unpromised fields or subsequent signatures.",
+                           "exit":  1,
+                           "authoringSourceHash":  "6828AF230501AE35FA54FF2C54B8AE4A497E224F4BA331A2A68C2D94DF9C3162",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n7\n1\n285\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n15\n42\n865\n",
+                                          "code":  1433,
+                                          "witness":  "PathUtf8()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       865,
+                                                       875
+                                                   ],
+                                          "position":  [
+                                                           15,
+                                                           42,
+                                                           865
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/FileBytes.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "716521FD68A0500CA66E7720217F760A119AC6E270208B8F02A7654BF63EF916",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n15\n42\n865\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n4631\n1\n246072\n",
+                                          "code":  1422,
+                                          "witness":  "",
+                                          "within":  "",
+                                          "eof":  true,
+                                          "span":  [
+                                                       246072,
+                                                       246072
+                                                   ],
+                                          "position":  [
+                                                           4631,
+                                                           1,
+                                                           246072
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/Unicode.bas",
+                           "rationale":  "Every declaration/body in this standalone scalar module is admitted. No root Sub Main or Function Main As Long is declared; missing entry anchors source EOF.",
+                           "exit":  1,
+                           "authoringSourceHash":  "3416742D26146253093A29105F9595EB445CFDD3C7B06FC536ADC66DB677BD7E",
+                           "stdout":  "error UBE1422: executable requires one parameterless Sub Main or Function Main As Long (next lines: line, column, byte)\n4631\n1\n246072\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n10\n36\n521\n",
+                                          "code":  1433,
+                                          "witness":  "Bytes()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       521,
+                                                       528
+                                                   ],
+                                          "position":  [
+                                                           10,
+                                                           36,
+                                                           521
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/Utf8Cursor.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "015FE95F32C1091D899C0263EAB633DCB172EABC50DDE38586CE077744315E34",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n10\n36\n521\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1435: primitive semantics are not implemented (next lines: line, column, byte)\n10\n46\n494\n",
+                                          "code":  1435,
+                                          "witness":  "\"Thread.TryCurrentId\"",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       494,
+                                                       515
+                                                   ],
+                                          "position":  [
+                                                           10,
+                                                           46,
+                                                           494
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/Threads.bas",
+                           "rationale":  "Thread.TryCurrentId is a recognized adopted primitive outside this bounded subset: DeferredPrimitive at its explicit quoted binding value.",
+                           "exit":  1,
+                           "authoringSourceHash":  "A063723123BD8B333BD29F181283AF9920CCB96313F45DF9E469B5A22DEEEC23",
+                           "stdout":  "error UBE1435: primitive semantics are not implemented (next lines: line, column, byte)\n10\n46\n494\n"
+                       },
+                       {
+                           "answer":  {
+                                          "exit":  1,
+                                          "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n9\n51\n486\n",
+                                          "code":  1433,
+                                          "witness":  "Published()",
+                                          "within":  "",
+                                          "eof":  false,
+                                          "span":  [
+                                                       486,
+                                                       497
+                                                   ],
+                                          "position":  [
+                                                           9,
+                                                           51,
+                                                           486
+                                                       ]
+                                      },
+                           "path":  "std-lib/src/portable/PathBytes.bas",
+                           "rationale":  "Array/rank in a declaration signature is DeferredType at the original name+bounds. Declaration/signature failures precede body and entry checks.",
+                           "exit":  1,
+                           "authoringSourceHash":  "66C48A645366659268D64105822D275002876563C46B36714C1C201A6F4D916C",
+                           "stdout":  "error UBE1433: datatype semantics are not implemented (next lines: line, column, byte)\n9\n51\n486\n"
+                       }
+                   ],
+    "definitionOnly":  true
+}
