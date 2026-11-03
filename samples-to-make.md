@@ -58,8 +58,10 @@ collections, and structured file storage.
 
 ### 9. Conway's Game of Life
 
-A console simulation demonstrating two-dimensional grids, arrays, algorithms,
-state transitions, timers, and terminal rendering.
+A simulation demonstrating two-dimensional grids, arrays, algorithms,
+state transitions, timers, and rendering.
+
+This sample must be made in 2 versions: One windowed and one console.
 
 ### 10. Parallel Log Analyzer
 
