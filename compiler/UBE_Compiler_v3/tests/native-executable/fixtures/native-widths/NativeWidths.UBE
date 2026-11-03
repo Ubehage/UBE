@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "NativeWidths"
+Kind = "Exe"
+Startup = "Main"
+Source = "App.bas"
+Reference = "UBECore.UBE"

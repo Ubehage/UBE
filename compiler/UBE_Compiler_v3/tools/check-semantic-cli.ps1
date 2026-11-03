@@ -39,7 +39,7 @@ try{
   $null=Invoke-Recorded $tools[$i] @($manifest,$raw) 900
   $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2',$raw,$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$exe) 300
   $raws+=Get-ArtifactIdentity $raw;$programs.Add((Get-ArtifactIdentity $exe))
-  foreach($gate in @('check-process.ps1','check-project-process.ps1','check-faults.ps1')){
+  foreach($gate in @('check-process.ps1','check-project-process.ps1','check-faults.ps1','check-lifecycle-deferral.ps1')){
    $arguments=@('-NoProfile','-File',(Join-Path $fixture $gate),'-Executable',$exe)
    if($gate -ceq 'check-faults.ps1'){$arguments=@('-NoProfile','-File',(Join-Path $fixture $gate),'-RawPath',$raw)}
    $arguments+=@('-SelectionPath',$SelectionPath)
@@ -64,8 +64,8 @@ try{
  $success=$true
 }catch{$failure=$_.Exception.Message}
 finally{
- [pscustomobject]@{schema='ube-semantic-cli-1';success=$success;qualified=$success;sourceBuildCurrent=$success;acceptedSelection=$selection;inputs=$inputs;productionExecutables=$programs.ToArray();proofs=$proofs.ToArray();checks=$checks.ToArray();commands=$commands.ToArray();failure=$failure;scope='Both exact source-built CLI stages: all186 single-source semantic cases,3 retained frontend rejections,4 usage cases; all16 actual projects at jobs1/2/4; actual Main/dispatch allocation/root/file-retention failures and complete process resource cleanup. Independent complete semantic graph and native worker-overlap qualification remain separate maintained gates.'}|ConvertTo-Json -Depth 24|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
+ [pscustomobject]@{schema='ube-semantic-cli-1';success=$success;qualified=$success;sourceBuildCurrent=$success;acceptedSelection=$selection;inputs=$inputs;productionExecutables=$programs.ToArray();proofs=$proofs.ToArray();checks=$checks.ToArray();commands=$commands.ToArray();failure=$failure;scope='Both exact source-built CLI stages: all186 single-source semantic cases,3 retained frontend rejections,4 usage cases; all16 actual projects at jobs1/2/4; lifecycle deferral source/project cases; actual Main/dispatch allocation/root/file-retention failures and complete process resource cleanup. Independent complete semantic graph and native worker-overlap qualification remain separate maintained gates.'}|ConvertTo-Json -Depth 24|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
  Write-Output ('Evidence: '+(Join-Path $run 'report.json'))
 }
 if(-not $success){throw $failure}
-Write-Output 'PASS semantic CLI: both source-built stages and six maintained child proofs.'
+Write-Output 'PASS semantic CLI: both source-built stages and eight maintained child proofs.'

@@ -1,6 +1,605 @@
 # UBE Compiler v3 progress
 
-## Qualified bounded semantic checker - 2026-11-02
+The owner clarified source-change policy: UBE does not monitor source changes,
+enforce a consistent on-disk snapshot, or reject or retry a build because sources
+changed. A build may succeed with unintended behavior in its output. Keeping
+sources consistent is the user's responsibility; the compiler remains a reader
+of sources and writer of outputs. The native contract, review summary and
+failure oracle record this decision. This is a documentation clarification,
+not an implemented native-build capability. In particular, a source change
+need not cause a compiler error: UBE has no obligation to discover the resulting
+program inconsistency.
+
+The combined ordinary-path publication prototype now has a retained 16-case
+report in `bootstrap/out/anchored-publication/6918f780254e40e5881399bf3fbd6c58/report.json`.
+In-place source edits and replacement saves both succeeded, and publication
+preserved those edited source bytes. Initial source/output collisions rejected;
+separate late hardlinks could be replaced. The exact command, tested assertions
+and limitations are recorded in
+`tests/native-executable/REPLACEMENT-PROBE-EVIDENCE.md`. This is host-prototype
+evidence, not implemented compiler behavior or complete path qualification.
+
+## Current design decisions - 2026-11-03
+
+The bounded contract preparation and review is complete. Final selections are
+in `NATIVE-PATH-CONTRACT.md` (path domain and guarded acquisition),
+`NATIVE-STACK-REVIEW.md` (cached committed floor, linked-code reserve derivation,
+startup/fatal dispositions), `NATIVE-BUILD-DIAGNOSTICS.md` (delivery ownership
+and deadlines), and `NATIVE-DEBUG-CONTRACT.md` (finite Full admission).
+They supersede the earlier open-decision statements retained below. No
+production backend or complete host qualification is claimed. Implementation
+must pass the main contract's separate acceptance checklist.
+
+Next action: implement the existing First checked native executable item under
+these reviewed contracts, beginning with the shared error-support extraction
+and counted byte-output dependency, then the checked-graph lowering/tool path.
+Keep the independently authored native, ABI, error, resource and publication
+oracles; do not replace them with the emitter's own expectations.
+
+The focused test-only CU identity probe returned 0 with nine mutation controls;
+the exact command and hashes are in
+`bootstrap/out/debug-unit-identity/45630dbae446496a9f6b9ba21c9602ff/report.json`.
+Root checked the retained Full/None, script and all nine control hashes against
+that report. It covers PE long names, CU framing/root identity and selected
+offsets only; production DIE/line/value checks remain unimplemented.
+
+### Earlier preparation records
+
+The earlier audit separates preimplementation decisions from backend acceptance:
+the plan requires reviewed contracts before code, not a working backend before
+its design can be completed. The main contract now has separate checklists.
+`NATIVE-RESOURCE-CONTRACT.md` selects serial lowering, bounded maps/traversal,
+one reusable ByteBuffer, and explicit initial caps: 256 MiB cumulative raw LLVM,
+256 MiB accepted candidate length, 1 GiB owned lowering payload, 1048576 pending
+entries, depth 256, 4194304 target identities and 268435456 work events.
+These are engineering policy choices, not measured usage or total RAM/disk
+limits. It accounts for both ByteBuffer snapshot copies and resize overlap;
+the counted byte writer remains a UBECore/minimal-host dependency to qualify.
+The resource oracle now distinguishes this serial baseline from conditional
+future parallel-lowering barriers, retaining existing frontend concurrency gates.
+
+Nontransactional extended handle rename is selected as the core publication
+direction on the combined ordinary-path evidence above. Full name/reparse
+acquisition policy and production integration are still open. The review goal
+also still needs complete stack strategy/reserve, bounded diagnostic delivery
+and the finite production Full-debug check. Tool identity/deadline and argument
+policies are now selected below; their common path prerequisite remains open.
+No production backend or native executable capability is claimed. These
+selections supersede earlier statements below that all lowering resource
+choices or the core publication primitive are still undecided.
+
+Read-only peer review checked resource units/ownership against the adopted
+ByteBuffer API and checked consistency across the main review and workplans.
+It found and prompted corrections for two-copy snapshots, conditional parallel
+oracles, cancellation inside whole-buffer primitives, and stale measurement
+prerequisite wording. `rtk proxy git diff --check` passed; a trailing-whitespace
+scan of the new/updated native contracts and resource oracle returned no matches.
+These are document checks, not emitter/resource acceptance tests.
+
+### Runtime boundary and linked-support evidence
+
+`NATIVE-RUNTIME-CONTRACT.md` now selects the private Err boundary and test
+observer. It preserves the existing native TLS record and set/read/clear
+semantics, requires one shared error unit extracted from the current bootstrap
+runtime, and states the temporary support's replacement condition. The ordinary
+and specialized Err 28 recording paths must have closed bounded machine-code
+footprints; the current setter's CRT calls do not establish that property.
+The final-Main observer and one-checkpoint-per-run typed record have distinct
+formats, preventing ambiguity over multiple records or wide scalar results.
+
+The new maintained host audit uses the explicit support cohort and constrained
+environment. Command:
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/verifier/check-linked-error-support.ps1 -SourceReport bootstrap/out/explicit-link-inputs/318209f12b5b4f0282acf596c47e6386/report.json -OutputDirectory bootstrap/out/linked-error-support`.
+Observational mode passed with report
+`bootstrap/out/linked-error-support/f9fdcfd73ce6416096538c7517e6135f/report.json`:
+the three-width LLVM remainder bridge and overlapping native TLS/clear checks
+passed, while wrong-error and wrong-thread controls returned 1. Minimality did
+not pass: section GC retained 28 UBE symbols, 24 outside the error-only allowlist;
+four library exports retained unrelated support. The no-GC control retained
+301/297. Adding `-RequireMinimal` correctly failed with exit 1 and report
+`bootstrap/out/linked-error-support/a8148ba056704c9b9c223548adf66be8/report.json`.
+Exact identities, scope and limits are in `tests/native-executable/ERROR-ORACLES.md`.
+
+This evidence rejects the whole-runtime-link recipe. It does not implement the
+shared error unit or qualify UBE emission, all header dependencies, stack safety
+or the production launcher. The next stack candidate caches a startup-established
+committed floor and removes per-call OS queries; its host invariant, complete
+metadata/entry accounting and startup/fatal failure path still need decisions.
+The rest of the preparation remains active: publication name/reparse domain,
+bounded diagnostic delivery and finite production Full-debug checks.
+
+### Tool identity, arguments and lifecycle decisions
+
+`NATIVE-TOOL-CONTRACT.md` selects the executable/non-OS-dependency binding scope,
+trusted Windows loader/system boundary, exact CRT-style quoting and strict
+UTF-16 argument transport. Initial caps are 1024 argument tokens and 32767
+UTF-16 code units for the encoded command line (including its NUL) and explicit
+environment block (including its final double NUL). Compiler-generated output
+paths are separate absolute arguments. Qualified driver-internal response files
+belong to the owned temporary/tool tree and require a second-hop argument test;
+no source-supplied response file or oversized-launch fallback is introduced.
+
+Defaults are 600000 ms per invocation, 5000 ms completion grace, one shared
+5000 ms stop/drain deadline and controller waits at most 50 ms. These are
+algorithmic policies, not guaranteed Windows syscall/real-time return limits.
+The selected capture uses overlapped reads and retains any unresolved I/O owner
+until completion. Only one uncertain invocation may remain; subsequent tool
+admission fails until it is reaped. No separate executor/pool is introduced.
+Setup failure never resumes an uncontained child; uncertain cleanup never
+permits publication or freeing a pending read buffer.
+
+The diagnostic contract now distinguishes secondary containment failure from
+drain failure after a cancellation/child-failure primary. `diagnostics.json`
+has 24 independent future vectors, adding both uncertain-stop cases and the
+`lowering-work` category, which distinguishes cumulative visits from live
+pending entries. Earlier 21-vector statements below describe that checkpoint.
+Failure oracles now include exact encoded/count/environment boundaries,
+driver-to-linker transport, before/at/after deadline observations, delayed I/O
+cancellation, retained-owner admission and later successful reaping. Existing
+synchronous-reader/hand-authored argv probes do not qualify those production
+paths. Common path acquisition, stack recovery and diagnostic/debug completion
+remain design work; no native launcher is claimed implemented.
+
+Read-only peer review found and resolved an omitted secondary `drain` outcome
+when processes are stopped but capture cleanup remains pending. Deadline ties
+are explicitly timeout at equality; latched completion is not revoked later.
+Direct `llvm-readobj --coff-imports` inspection of the pinned Clang/LLD files
+found only Windows-system names in their direct import descriptors; exact
+commands/hashes and the transitive/dynamic-load limitation are in the tool
+contract. A PowerShell `Get-Content -Raw .../diagnostics.json | ConvertFrom-Json`
+data check asserted 24 unique names, string output/condition fields, exits in
+0/1/2/4 and no CR in the LF-only vectors; all assertions passed. This validates
+data shape, not diagnostic behavior. `rtk proxy git diff --check` passed, and
+the native tool/main/diagnostic/failure documents and vectors had no trailing
+whitespace matches. Production launcher/capture/deadline tests were not run
+because that boundary is unimplemented.
+
+## Earlier qualification and contract review - 2026-11-02
+
+The main contract now selects explicit startup/archive resolution and a child
+environment allowlist. `--no-default-config`, `-nostdlib` and COFF
+`/nodefaultlib` suppress the tested ambient config/library discovery routes.
+LLD uses `--threads=1`, which is not an OS-thread or total-memory cap.
+`tests/native-executable/verifier/check-explicit-link-inputs.ps1` recompiled
+retained LLVM and linked the recorded 13-file support cohort in Full/None.
+Both object/executable hashes matched their earlier controls and exit was 7;
+reproduction archives contained exactly those inputs plus the generated object.
+Config and default-library omission controls failed with their independent
+markers and no output. Exact commands, hashes, environment and report paths
+are in the explicit-cohort section of `tests/native-executable/verifier/EVIDENCE.md`.
+The fixture imports kernel/UCRT API sets. This is host cohort evidence, not
+portable-release qualification, tool/DLL race protection or selection of the
+UBE error/stack support. The referenced root toolchain lock files are absent.
+The retained `verifier/check-support-object-inventory.ps1`, run with the None
+explicit-link report, also passed all 13 support-file inspections: 7,310 AMD64
+COFF records, 52,655 sections, and only four permitted common-symbol alignment
+directives in three members. It cross-checks independent archive/section reads
+against readobj and the recorded cohort counts. Exact command and report are in
+the same evidence section. This completes the fixed-cohort format/directive
+inventory, not native runtime or image-binding qualification.
+
+The initialization-warning policy is selected in `NATIVE-BUILD-DIAGNOSTICS.md`:
+follow initializer-reachable bodies, propagate root-storage origin through
+exact ByRef formals, and emit one possible-cycle warning per cyclic dependency
+component. Same-module self access, local/temporary copies and uncalled helpers
+do not alone imply a cycle. The test-only command
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/additional/check-initializer-warning-model.ps1`
+passed 21 hand-authored graph/anchor cases and three adverse controls. A first
+run found a test-model sorting bug, corrected before the passing result.
+The model does not test source extraction, the production component algorithm,
+native alias enforcement or emitted diagnostics. Their future acceptance
+obligations are retained; missing backend implementation is not a design-review
+blocker. Exact publication, stack safety, resource budgets and tool/support
+binding still need contract decisions before preparation is complete.
+
+The candidate structural profile is selected in `NATIVE-CANDIDATE-REVIEW.md`.
+The current layout suite rejects 22 malformed cases, accepts three permitted
+variants and passes three count boundaries; the omitted-layout probe accepts
+all variants as its adverse control. The independent structural suite also
+passes for the selected Full/None outputs, with 11 rejected cases per mode and
+original/zero-code acceptance controls. Exact commands and artifact paths are in
+the candidate review. These select a finite profile, not a complete loader model.
+Production reads, cancellation and binding the inspected file to publication
+remain unqualified. No production native builder is implemented by these probes.
+
+The new-command interface is now selected in `NATIVE-BUILD-DIAGNOSTICS.md`:
+UBE1500..UBE1514 are reserved; new error/warning output uses stderr with exact
+UTF-8/LF formatter bytes, and success confirmation is console-only. Existing
+frontend/checker bytes remain unchanged. The 21 hand-authored vectors in
+`tests/native-executable/diagnostics.json` define future exact outputs.
+The 17-case reference renderer, retained stage-one raw checker at jobs 1/4,
+and console/file/pipe classification plus inverted controls passed; commands
+and scope are recorded in the diagnostic document. These tests do not qualify
+the new renderer, byte writer, console delivery deadline or warning analysis.
+
+The stack review now distinguishes own-frame allocation from complete call
+footprint. A focused O2 observer compared static reports, unwind allocations
+and actual RSP movement for two frame sizes in Full/None modes: calls consumed
+eight bytes beyond the reported frame, and all omitted-return controls failed
+as expected. The two experimental linked guards now include that return address;
+their metadata, recursion, Err/result and oversized-call controls passed again.
+Exact commands and limitations are in the call-footprint section of
+`tests/native-executable/ERROR-ORACLES.md`. `NATIVE-STACK-REVIEW.md` specifies
+the accounting terms and guard inequality. Complete helper/recovery reserve,
+initial commitment and the fatal path remain unqualified; no production stack
+guard has been selected or implemented.
+
+The native command review now selects explicit object compilation and linking
+options in `NATIVE-EXECUTABLE-CONTRACT.md`, including DWARF 4 for Full and
+timestamp suppression. The output-path host test previously generated LLVM
+but rebuilt C for its executable; it now compiles that LLVM and links its
+object. Its Full/None pairs matched LLVM/object/executable hashes and returned
+7; changing only LLVM produced 9. The selected flags also passed the existing
+source-location/side-effect and valid/invalid-verifier probes. Exact commands,
+the initial timestamp comparison failure, hashes and limited scope are in
+`tests/native-executable/verifier/EVIDENCE.md`, under the staged-command review.
+This selects command options, not a production tool boundary. Resolved support
+inputs, publication and resource/stack safety remain open. Candidate profile
+selection is recorded above; its production integration remains open.
+
+The additional native-fixture admission suite most recently passed 106 checks
+per stage at jobs 1 and 4, using
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/additional/check-admission.ps1 -Compiler <stage>/ube.exe`
+with stage1 and stage2 under
+`bootstrap/out/semantic-cli/e5b3d482d7fd46539e190ea70d20ecef`. It includes the
+five-native-argument and Full/None tail-recursion fixtures. These are frontend
+admission checks; they do not execute a native build or qualify the review.
+
+The additional `initializer-cycle-branch` fixture distinguishes an A–B cycle
+from its non-cyclic dependency C for future warning attribution. Running
+`tests/native-executable/additional/check-admission.ps1 -Compiler <stage>/ube.exe`
+with each source-built semantic CLI stage under
+`bootstrap/out/semantic-cli/e5b3d482d7fd46539e190ea70d20ecef` passed 98
+frontend admission checks per stage. This checks admission, not native execution
+or implementation of the proposed warning.
+The retained graph comparison also passed for both stage observers at jobs 1
+and 4, checking all three resolved targets against their source anchors and
+rejecting each independently altered target. Run
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/additional/check-cycle-branch-graph.ps1 -Observer <observer>`
+with `bootstrap/out/semantic-whole/d6427b01696642339093b6fc06bd3dab/f740ea07e47744afb51ff8e72dd6f6f7/targeted-stage1-ee4c75f3860143c78d87811112256454/targeted.exe`
+and with the sibling `targeted-a459a1512e004eeea42bfa75b75ae947/targeted.exe`.
+This observes frontend graph facts only; it does not test the future warning.
+
+The bounded lifecycle deferral correction and its retained checks are qualified
+on source-built cohort `25f3b4878a1348e79766e70decd66b66`; see
+`LIFECYCLE-DEFERRAL-EVIDENCE.md` for exact reports, independent audit and scope.
+The direct-call fixture is deferred at the declaration; this does not qualify
+future supported-hook call enforcement. Native executable generation remains
+unimplemented. The next action remains review of the concrete native contracts,
+including unresolved tool/process, publication and resource decisions.
+The concise decision and open-issue inventory is `NATIVE-REVIEW-SUMMARY.md`;
+`NATIVE-CANDIDATE-REVIEW.md` proposes candidate checks without selecting a
+production validator. The expanded additional fixture suite most recently
+passed 96 admission checks per stage at jobs 1 and 4, including signed
+native-value boundaries, initializer-order event fixtures and early module access. The comparison-boundary
+fixture has a separate host C reference and focused semantic-graph checks;
+neither executes fresh-v3 native output. A test-only PE probe rejected selected
+misaligned and excessive-directory-count mutations, with omitted-check controls;
+it does not establish complete PE validation or a safe publication mechanism.
+The owner confirmed that each signed integer minimum `Mod -1` returns zero without a new
+error, preserving existing Err. The language specification and scalar-operator
+audit record it; the native oracle requires separate clear and preseeded Err
+observations. Both stage-built CLIs passed 54 additional-admission checks each,
+including jobs 1 and 4; the hand-authored guarded arithmetic probe passed at O0
+and O2. Neither result proves fresh-v3 native execution or actual runtime Err.
+The owner subsequently confirmed the same remainder rule for all signed integer
+sizes. Added Integer and LongLong fixtures brought the admission run to 58 checks
+per stage; native execution and Err observation remain future gates.
+The owner also confirmed Err 28 and a neutral function result when a call is
+safely refused for insufficient stack. No production guard is yet qualified.
+The owner confirmed that an initializer accessing another module not yet begun
+must first complete that module's initialization. The owner later clarified that
+circular references should remain allowed, with a compiler warning when
+detectable, and that another module cannot read one that has not finished
+initializing. Mutually waiting initializers may continue until stopped; the
+future IDE must be able to show the warning. Native execution is unverified.
+
+The installed qualified local CLI (SHA-256
+`80955A6E4CF5F4249C70C8EA130C4D0CD97AA07FB7EE847F24838F507A6CD241`)
+subsequently passed the 38 native-fixture admission checks, six exact frontend
+rejection comparisons and their controls. The 19-project result-definition
+consistency check also passed. None runs a generated native program.
+An additional Byte-promotion fixture is kept separately from that pinned
+inventory and was accepted locally at jobs 1 and 4. Updating the existing
+fixture scripts initially made the cohort selection stale; those scripts were
+restored byte-for-byte and `Get-VerifiedBootstrapSelection` again passed for
+manifest SHA-256 `A56778FE1D2F72F8A79A158A8C292E02F49E785945463D415165790CB362D5E7`.
+The additional fixture is not part of the prior structured identity audit.
+A focused current-host Windows Job probe passed for a suspended child and test
+grandchild (active count 2 before termination, 0 afterward). Exact command,
+hashes, failed first compile and exclusions are in
+`tests/native-executable/JOB-CONTAINMENT-EVIDENCE.md`; it does not qualify pipe
+handling, arbitrary host contexts or the production compiler boundary.
+A separate test-owned replacement probe observed successful existing/absent
+destination cases, preservation under an exclusive lock, and an unchecked
+hardlink-swap race. See `tests/native-executable/REPLACEMENT-PROBE-EVIDENCE.md`;
+it does not prove atomic visibility, durable writes or identity-safe commit.
+Independent arithmetic boundary expectations are recorded in
+`tests/native-executable/additional/ARITHMETIC-BOUNDARIES.md`. Six local
+source-only scratch probes matched the expected admission or constant-fault
+diagnostics; they do not establish native arithmetic or Err behavior. The
+document and additional fixture are not part of the earlier 25f identity audit.
+
+The chronological preparation log below preserves earlier results and pending
+statements as they stood at each checkpoint; the current status is above.
+
+The bounded draft, independent agent reviews and specified result/failure cases
+are ready for owner review in `NATIVE-CONTRACT-REVIEW.md`. Exact implementation
+resource bounds, supported optimization/debug options, a qualified process and
+identity-protected commit boundary, and the actual native/ABI/Err/failure gates
+remain future prerequisites; a review of the proposal is not a native execution
+claim. No backend implementation is authorized merely by this preparation.
+On 2026-11-02 the owner accepted the proposed small first executable feature
+scope (numbers, Boolean, variables, procedures, If, While and supported native
+datatypes; strings, arrays, classes and forms later). Remaining review choices
+are separate and have not been approved by that answer.
+The owner subsequently confirmed that a tool failure should show a clear error
+with useful readable details when possible and a safe fallback for unreadable
+output. The earlier hex-only display proposal is superseded; exact safe rendering
+and the separate quiet-success, capture-limit and CLI choices remain under review.
+The owner then requested a small success confirmation in a terminal that does not
+interrupt scripts. The draft proposes a best-effort interactive-stdout line and
+quiet redirected output, with exit 0 and no acknowledgement required. Exact text
+and terminal detection remain to be specified and tested; `--check` is unchanged.
+The owner also confirmed that a failed build preserves the previous executable,
+and a successful build overwrites it without an additional prompt. The build
+command supplies confirmation, or the IDE handles it before invoking the build.
+The publication mechanism remains unimplemented and requires qualification.
+The owner distinguished build success from cleanup success: once publication
+succeeds, a cleanup problem is a warning and the build remains successful.
+The owner accepted first-build debug information on the condition that it
+faithfully describes the optimized program and does not change observable
+behavior; unavailable optimized-away values must not be fabricated. Native
+debug information and debugger operation remain unverified.
+The separately maintained additional native projects passed 40 frontend
+admission checks on the local CLI, then 42 checks each on both 25f stage-built
+CLIs after adding the no-debug configuration; see
+`tests/native-executable/additional/ADMISSION-EVIDENCE.md`. Focused semantic observations for numeric While
+conditions, nested exits, nested named calls and single-line If passed on both
+25f targeted observers with the controls recorded in
+`NATIVE-LOWERING-REVIEW.md`. These observations do not qualify native lowering
+or execution. `rtk proxy git diff --check` returned exit 0 for tracked changes;
+it does not inspect untracked drafts or fixtures.
+A C debug-reader probe also passed object and linked Windows executable checks
+with wrong-name and no-debug controls. It demonstrates a candidate tool path,
+not debug information emitted by UBE.
+
+## Native executable contract preparation - 2026-11-02
+
+Drafted `NATIVE-EXECUTABLE-CONTRACT.md` and hand-calculated initial native and
+failure cases in `tests/native-executable/ORACLES.md`. They are review drafts,
+not implemented or qualified behavior. The current synchronous tool intrinsic
+does not establish cancellation, and text-file atomic replacement does not
+establish native executable replacement; both need concrete qualified solutions.
+The Err observer and complete construct-by-construct oracle set remain open.
+Four concrete independent projects now cover empty entry, folding, signed
+division/remainder and alias/temporary behavior. The local checker accepted each
+with jobs 1 and 4; exact commands, executable hash and limits are recorded in
+`tests/native-executable/ORACLES.md`. No emitted executable has been tested.
+Three additional projects cover direct-reference native packing/copy/unpacking,
+named-argument source order and short-circuiting, and a neutral runtime division
+result; all six local checker runs at jobs 1 and 4 passed. The last does not
+observe Err. Eager Boolean evaluation, optional ByRef/default arguments and
+runtime-dependent overflow have three more fixture projects. The repeatable
+`tests/native-executable/check-fixture-admission.ps1` passed all 20 checker
+admissions plus three comparator controls; native results and failure observers
+remain unverified.
+The contract now defines the replacement/cancellation linearization point and
+`tests/native-executable/FAILURE-ORACLES.md` describes exact independent
+tool, full-disk, cancellation, cleanup and replacement experiments. The current
+bootstrap tool call waits indefinitely and has no cancellation contract; its
+text-file replacement primitive does not qualify the proposed executable path.
+`NATIVE-LOWERING-REVIEW.md` maps current result records and producer locations to
+the execution facts and independent checks lowering needs. The map is a source
+audit, not a proof that condition conversions, call mappings or all control-flow
+relationships are sufficiently retained for a consumer.
+The review subsequently located the existing independently authored complete
+semantic graph: its recorded whole gate covers a reordered named call, forced
+and omitted temporaries, and nested If/While with Boolean identity conversions
+through both stages and jobs 1/2/4. See the lowering review for report identity
+and the remaining nonidentity conversion, nesting and consumer obligations.
+The new `conditions` project adds a future native result oracle for numeric
+conditions, nested loops and ElseIf. Re-running fixture admission passed 22
+checks and three comparator controls; it does not compare semantic records.
+The subsequent conversion, recursion and negative-process-status projects extend
+the planned independent results. Fixture admission now passes 28 checks and
+three comparator controls; no native result or Err state has been observed.
+`NATIVE-CONTRACT-REVIEW.md` records an agent review against each workplan
+requirement and identifies unresolved ABI, consumer, tool, determinism, resource
+and oracle decisions. This is not owner approval or a completed native gate.
+The review found the normative one-component aggregate ABI had been omitted from
+the draft; the draft now states its ByVal/ByRef and 1/1, 2/2, 4/4 requirements.
+`native-widths` supplies Integer/Long cross-reference value cases. Fixture
+admission now passes 30 checks and three controls; layout/calling convention and
+native execution still require separate independent probes.
+`tests/native-executable/ABI-ORACLES.md` now specifies target layout, signature,
+payload, alias and corruption-control observations for all three representations.
+It distinguishes the internal aggregate ABI from an unspecified foreign ABI and
+does not claim that any probe has run.
+The draft now fixes the raw LLVM comparison cohort and project-option handling.
+The current host reports Clang 23.1.3; `opt.exe` was absent from its default
+directory. Existing Clang IR compilation is not by itself proof of a separate
+LLVM verifier, so the exact verifier and structural negative control remain open.
+Follow-up: Clang 23.1.3 `-Xclang -llvm-verify-each` accepted the valid probe and
+rejected a dominance violation. Exact commands, hash and scope are in
+`tests/native-executable/verifier/EVIDENCE.md`. Requalify the chosen invocation
+on the actual generated module; this focused probe is not backend acceptance.
+`tests/native-executable/ERROR-ORACLES.md` separates neutral values from actual
+Err observation, specifying stale-state, thread isolation, known/runtime faults
+and negative controls. No general normative numeric mapping for these arithmetic
+errors was located; numeric codes are not inferred from bootstrap behavior.
+The `bitwise` and `comparisons` projects add exact future scalar results;
+`tests/native-executable/COVERAGE.md` maps all current fixtures to the included
+subset and explicitly lists gaps. The local admission script passed 34 checks
+and three controls; none is a native execution result.
+`expected-results.json` records the 17 independent signed exit expectations.
+`check-result-definitions.ps1` passed schema, identity, range and fixture
+membership consistency checks; it does not verify the expected arithmetic.
+Repeatable `check-rejections.ps1` passed six exact diagnostic comparisons and
+three controls. Its initial LF-only expectation failed: observed Windows output
+uses CRLF, unlike the LF wording in SEMANTIC-DIAGNOSTICS.md. The discrepancy is
+recorded for review; no diagnostic behavior was changed.
+The bounded `newline/check-stdio.ps1` probe passed: default text-mode output
+translated LF to CRLF, while binary mode preserved LF. Existing bounded-process
+capture normalizes CRLF to LF, and the bootstrap print functions use C stdio.
+This supports, but does not prove, the cause of the checker observation; raw
+versus logical newline policy remains to be reconciled.
+Three concrete frontend controls for known division by zero, constant range and
+deferred String were checked at jobs 1/4: six expected exit-1 diagnostics and
+coordinates matched. `FAILURE-ORACLES.md` records command, identity and the
+corrected reserved-name attempt. Future build-path no-tool/publication behavior
+remains untested.
+The draft now records lowering-specific ownership, bounded-resource and measured
+work obligations. Concrete numeric limits and candidate cost bounds still need
+reviewed probes before production implementation; no new speedup is claimed.
+The contract proposes a concrete build CLI with an optional output path,
+existing jobs semantics, controlled exits and input-alias protection. It is a
+review choice, not an implemented option; exact new diagnostic wording and the
+host identity/alias mechanism remain open.
+The owner subsequently approved a default `build` folder beside the project,
+with the executable named after the project and an optional location override;
+the compiler creates the default folder if needed.
+`NATIVE-BUILD-DIAGNOSTICS.md` proposes usage, exit dispositions, diagnostic
+classes and fallback/cleanup ordering for review. It now proposes separately
+drained bounded raw tool output and deterministic hex on tool failure; the
+existing inherited-stream intrinsic does not implement that proposal. Line-ending
+interpretation and final code allocation are deliberately not claimed settled.
+Parallel review identified startup ordering, recursion/stack safety, native
+aggregate spelling, publication path races, tool descendants and fixture
+portability gaps. The draft and future oracles now state those obligations;
+the optional fixture also observes the omitted default result, and rejection
+sources have LF checkout attributes and explicit SHA-256 checks. These edits
+are review requirements, not proof of a host mechanism or native execution.
+Follow-up independent reviews added Boolean truth-table and dependency-first
+initialization fixtures, plus detailed child/pipe/path-race experiments. Current
+admission passes 38 checks and three controls; result-definition consistency
+passes 19 projects; rejection checks pass six cases and three controls. These
+are not native execution or process-boundary qualification.
+At this earlier checkpoint the proposed CLI reserved exit 3 for a confirmed commit followed by required
+cleanup/reporting failure, with exit 1 limited to precommit failures. A host
+operation with an indeterminate commit outcome remains unqualified; exit 4 is
+now a proposed explicit unknown-outcome disposition, not a claim that a host
+primitive satisfies the required decisive commit guarantee.
+The later owner decision above supersedes exit 3: confirmed publication remains
+successful and a post-publication cleanup problem is reported as a warning.
+The diagnostic draft now distinguishes verifier rejection, tool-start failure,
+representable nonzero exit and unobservable/unrepresentable completion; the
+codes remain proposed and no new tool boundary is claimed implemented.
+Independent semantic review found two definition/checker gaps: the current
+checker accepts lifecycle hook declarations and direct calls although the former
+are deferred and the latter forbidden; ordinary scalar module initializer
+startup timing/order was not explicitly located in normative text. The startup
+fixture's exit 10 is therefore provisional, not a normative native oracle.
+Reproduce and retain lifecycle probes, reconcile scalar initialization behavior,
+and qualify a focused checker correction before lowering depends on these cases.
+Both reproducible local source-only probes are now retained under
+`tests/native-executable/lifecycle-probes/`; `EVIDENCE.md` records commands,
+checker hash and the unexpected zero exits. The future correction and stage
+qualification have not been performed.
+An additional `Module_Terminate` declaration/direct-call probe also returned
+zero with empty output under the same local checker; it is recorded alongside
+the initialization probes.
+Focused correction in progress: the declaration collector now defers lifecycle
+names using existing folded identities and UBE1400. The old installed checker
+fails the new regression as expected. Diagnostic-only source-built stage1 and
+stage2 each passed 28 source/project cases including jobs 1/2/4, bracketed/case
+variants, direct call and unrelated-name controls. Reports are
+`bootstrap/out/lifecycle-deferral/372f6eeb2c84420a8e2f526501f1f669/report.json`
+and `bootstrap/out/lifecycle-deferral/21d4d756c79e43aaa3761663d7efed9a/report.json`.
+Both diagnostic stages also passed the 38 native-fixture admissions and six
+existing rejection comparisons. The diagnostic CLI retained 104 process cases:
+`bootstrap/out/parser-cli/f02431080d6d469683b5dd0539102aee/report.json`.
+These are focused diagnostic results; the fresh bootstrap and retained full
+semantic gates have not yet completed, so no new qualification is claimed.
+Follow-up: the first new source cohort `18c083f057f340f79f4c9744498bb685`
+passed 894 bootstrap assertions before the maintained lifecycle gate was
+registered; those later test-input edits make that selection stale. Two interim
+cohorts (`c071b334474849d29ad6c42287eca5de` and
+`64eb9844f7584120bc5d6fdbb23500c8`) were deliberately interrupted before PASS
+to correct missing coverage and strengthen independent audit controls.
+The final-input bootstrap is running in session `23345`, cohort
+`25f3b4878a1348e79766e70decd66b66`; do not restart it merely because output is
+quiet. Poll that handle and preserve pinned inputs until it terminates. Then run
+the maintained semantic CLI, semantic input audit and applicable retained gates
+on the final selection. The current handle and partial passes are not qualification.
+Update: session `23345` exited 0 with `PASS: 894 acceptance assertions`.
+`bootstrap/out/v2/current.json` now selects cohort
+`25f3b4878a1348e79766e70decd66b66`, manifest SHA-256
+`A56778FE1D2F72F8A79A158A8C292E02F49E785945463D415165790CB362D5E7`.
+The maintained semantic CLI gate is running in agent session `34225`; its
+result, the semantic input audit and remaining retained gates are still pending.
+Update: semantic CLI passed both source-built stages and eight child proofs,
+report `bootstrap/out/semantic-cli/e5b3d482d7fd46539e190ea70d20ecef/report.json`.
+The independent semantic contract definition passed 205 cases and 29,561
+definition assertions, report `bootstrap/out/semantic-contract/
+8c88cbbab5634f898f9785cd3ddcff3a/report.json`. The input audit passed eight
+stage-matched child proofs and negative controls, report `bootstrap/out/
+semantic-inputs/93a767e4d6a64877a756d5d3abfcb3ae/report.json`. The retained
+whole-semantic gate is running in agent session `36277`; other retained gates
+remain pending. None of these is native-executable backend qualification.
+Update: the retained whole-semantic gate completed successfully, report
+`bootstrap/out/semantic-whole/d6427b01696642339093b6fc06bd3dab/report.json`.
+It covers the maintained complete graphs, resources, sharing and controls;
+the borrowed-lifetime and other retained gates remain pending.
+Update: borrowed-lifetime passed, report `bootstrap/out/borrowed-lifetimes/
+abe3aa4d84664e109c3db2397e3cc107/report.json`. Strict parser CLI is running in
+agent session `42650`; its output is needed for the local CLI and documentation
+example checks. Catalog, expressions, formatter, source-worker slots, parser,
+project CLI, concurrency, complete-definition and docs checks remain pending.
+Update: strict parser CLI passed 104 exact process cases, report
+`bootstrap/out/parser-cli/a5148e850c1b4357a0cd56e1d08b9af9/report.json`;
+local CLI replay passed 52 process oracles, report `bootstrap/out/local-cli/
+ff9df9ccdac743f9a96ae69c19bc03e0/report.json`; project CLI passed 1,202
+assertions, report `bootstrap/out/project-cli/ca3570f0067d499d9d8488c0ea6ca9d6/report.json`.
+The semantic catalog and remaining retained gates continue against cohort 25f.
+Update: the retained semantic catalog gate passed 337 aggregate checks, report
+`bootstrap/out/semantic-catalog/qualification/ab64f043705d4968a22ec7c96180dc2f/report.json`.
+The expression gate and other retained checks remain pending.
+Update: the maintained expression gate passed through both selected stages,
+report `bootstrap/out/semantic-expressions/a76be8fd778c44b5b5b75d97fe462129/report.json`.
+The formatter and remaining retained checks continue against cohort 25f.
+The semantic formatter gate passed 259 aggregate checks, report
+`bootstrap/out/semantic-formatter/qualification/3741feecb8864d95840121d5fd73b1df/report.json`.
+The source-worker-slots gate and remaining retained checks are next.
+The source-worker-slots parent gate passed both source-built stage proof groups,
+with 4,255 actual source-set assertions per stage; report
+`bootstrap/out/source-worker-slots-maintained/7a317c23be2c435aabd2700529942f58/report.json`.
+The retained parser gate and remaining checks continue against cohort 25f.
+The retained parser gate passed 1,879 checks with its accepted selection
+unchanged, report `bootstrap/out/parser/6e75f856f56843e49eef829bca2828c1/report.json`.
+The concurrency and final documentation/definition checks remain pending.
+Update: retained concurrency passed both source-built stages with 8,440
+source-set assertions each under the unchanged 180-second emission limit;
+report `bootstrap/out/source-set-proof/52297b9b1b864280860c2f069cd91a67/report.json`.
+The complete semantic definition validator passed 8,854 assertions and 13
+corruption guards using an OUT copy; its resolved evidence is
+`bootstrap/out/semantic-definition/8455ad7aef6e45b68daa80c3e75c9c13/resolved.json`.
+`docs/assets/tools/check-development-examples.ps1` passed five exact tutorial
+CLI cases and 35 source-matched declarations, report
+`bootstrap/out/docs-checks/4802a6f8fb8a468f953dc1265d5fdb5a/report.json`.
+`docs/assets/tools/validate-docs.ps1` passed 274 HTML files. These are static
+and process checks, not browser/accessibility or native-executable results.
+An independent final identity and scope audit was subsequently completed; see
+`LIFECYCLE-DEFERRAL-EVIDENCE.md` for its exact inventory and limits.
+On 2026-11-02 the owner confirmed that ordinary scalar module variables
+initialize in declaration order as their module initializes, with referenced
+libraries before executable modules. `lang-doc/language-spec.md` section 6.3,
+`lang-doc/project-files.md`, and the public types topic now record the rule.
+The startup fixture's expected exit 10 follows that decision but has not been
+executed as native code. Lifecycle admission was subsequently corrected and
+qualified as described in the current status above.
+Documentation static validation passed 274 HTML files using
+`rtk proxy powershell -NoProfile -File docs/assets/tools/validate-docs.ps1`;
+this does not claim browser or accessibility verification.
+Next: reconcile the draft with retained checker facts and the normative ABI,
+author complete runnable independent fixtures and fault controls, then review
+the bounded contract before any backend implementation. No completion claimed.
+
+## Historical bounded semantic checker acceptance - 2026-11-02
+
+This section records the earlier 88d acceptance. The later lifecycle-deferral
+correction is qualified on the current 25f cohort; see the current status and
+`LIFECYCLE-DEFERRAL-EVIDENCE.md` above.
 
 First semantic checking is complete for its approved scalar/native MODULE
 subset. The production manifest includes the checker, diagnostics, existing

@@ -101,9 +101,11 @@ the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
 - [x] Qualify the bounded checker, shared worker controller and check-path
   diagnostics on accepted cohort 88d. Maintained native/process/resource/cost/
   sharing gates and retained proofs pass; see SEMANTIC-EVIDENCE.md.
-- [ ] Prepare and review bounded lowering/backend/tool-handoff contracts for
+- [x] Prepare and review bounded lowering/backend/tool-handoff contracts for
   the existing First checked native executable deliverable. Executable generation
   is outside the completed checker goal.
+- [ ] Implement and qualify the reviewed First checked native executable
+  contract, including its shared support dependencies and independent gates.
 
 The 710-entry library inventory is target scope, not an instruction to implement
 all families before the compiler begins. No new compiler phase architecture is
@@ -118,9 +120,58 @@ and path/syntax checks do not verify a compiler or its generated programs.
 
 ## Active next action
 
+Implement and qualify the reviewed First checked native executable contract.
+Begin with shared error-support extraction and the counted byte-output
+dependency, then lower the checked graph and integrate the selected tools and
+publication boundary. Preparation is complete; native generation is not.
+The current decisions are in `NATIVE-EXECUTABLE-CONTRACT.md` and its linked
+resource, runtime, tool, path, stack, diagnostic and debug contracts.
+Use their independent acceptance gates and retain qualified frontend behavior.
+Source changes during builds remain entirely the user's responsibility.
+
+## Earlier preparation record
+
+The following records the investigation before final selection. The contracts
+and current action above supersede its open-decision statements.
+
 Prepare and review First checked native executable's small included/deferred
 program set, lowering from the qualified semantic result, target ABI/native-value
 and runtime-error behavior, LLVM validation and tool/cancel/publication failures.
 Author independent value/exit/failure oracles before implementation. Keep the
 existing dependency order, library/compiler responsibilities, original spans,
 qualified immutable owners/private results and shared worker budget.
+On-disk source consistency is the user's responsibility. Do not add monitoring,
+source-change rejection or automatic retry to the native-build contract.
+The draft selects Clang verification/object generation and a separate explicit
+LLD link, with staged host evidence in `tests/native-executable/verifier/EVIDENCE.md`.
+Explicit startup/archive resolution and the child environment are now selected
+with Full/None object/link comparisons and omitted-option controls. Complete
+common path acquisition and stack
+safety remain unresolved contract prerequisites. The core publication direction
+is nontransactional extended handle rename, with 16 combined ordinary-path host
+cases. `NATIVE-RESOURCE-CONTRACT.md` selects initial serial lowering, explicit
+resource caps and work/copy obligations; actual implementation measurements and
+the counted byte writer remain acceptance/dependency work. The main contract
+now separates remaining design choices from future implementation gates.
+`NATIVE-RUNTIME-CONTRACT.md` selects the private Err support/observer and a
+shared error-unit extraction dependency. The whole-runtime link failed the
+minimality audit despite passing the tested error behavior; unrelated exported
+library/GC support must not be carried into the bounded output. Stack admission
+and its startup/fatal path remain separate design work.
+`NATIVE-CANDIDATE-REVIEW.md` selects the finite structural
+profile with host layout and Full/None mutation evidence; production integration
+and binding the inspected candidate to publication remain implementation gates.
+The new-command diagnostic interface and its 24 independent output vectors are
+selected. Initialization-warning grouping, conservative reachability and exact
+ByRef forwarding now have a selected policy with a 21-case graph model and three
+adverse controls. Production analysis and byte/console delivery remain future
+acceptance gates.
+`NATIVE-TOOL-CONTRACT.md` selects executable/dependency identity scope, UTF-16
+argument limits, lifecycle deadlines and overlapped capture/retained-owner
+cleanup policy. Windows system components are trusted host prerequisites,
+not a per-build whole-OS DLL lock. The common path mechanism and actual process
+boundary still need implementation/qualification; bounded diagnostic delivery
+remains separate from tool capture.
+The stack review now fixes the distinction between own-frame allocation and
+complete call footprint; its corrected host guards remain experiments pending
+a justified recovery reserve and complete entry-path coverage.

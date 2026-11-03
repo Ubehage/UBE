@@ -29,6 +29,7 @@
       <li><code>+</code> is numeric. <code>&amp;</code> is the only concatenation operator.</li>
       <li><code>/</code> returns Decimal for nonfloating Decimal or Currency operands and Double otherwise.</li>
       <li><code>\</code> and <code>Mod</code> round nonintegral operands to the nearest integer, ties to even, before operating.</li>
+      <li>For any signed integer type, its minimum value <code>Mod -1</code> returns zero and leaves an existing <code>Err</code> unchanged. The corresponding integer division overflows.</li>
       <li><code>And</code>, <code>Or</code>, <code>Xor</code>, <code>Eqv</code>, and <code>Imp</code> are eager. On integers they are bitwise.</li>
       <li><code>AndAlso</code> and <code>OrElse</code> require Boolean values and short-circuit.</li>
     </ul>

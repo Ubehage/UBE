@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "DuplicateMain"
+Kind = "Exe"
+Startup = "Main"
+Source = "App.bas"
+Source = "Other.bas"

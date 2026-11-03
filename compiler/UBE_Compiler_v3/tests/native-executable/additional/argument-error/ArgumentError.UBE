@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "ArgumentError"
+Kind = "Exe"
+Startup = "Main"
+Source = "App.bas"

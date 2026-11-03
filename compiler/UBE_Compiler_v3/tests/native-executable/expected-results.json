@@ -1,0 +1,25 @@
+{
+  "schema": "ube-native-result-oracles-1",
+  "status": "hand-authored future expectations; native execution not performed",
+  "results": [
+    {"id":"alias", "project":"alias/Alias.UBE", "signedExit":2},
+    {"id":"empty", "project":"empty/Empty.UBE", "signedExit":0},
+    {"id":"fold", "project":"fold/Fold.UBE", "signedExit":30000},
+    {"id":"signed", "project":"signed/Signed.UBE", "signedExit":23},
+    {"id":"native", "project":"native/NativeApp.UBE", "signedExit":7},
+    {"id":"order", "project":"order/Order.UBE", "signedExit":21},
+    {"id":"neutral", "project":"neutral/Neutral.UBE", "signedExit":17},
+    {"id":"eager", "project":"eager/Eager.UBE", "signedExit":31},
+    {"id":"optional", "project":"optional/Optional.UBE", "signedExit":3},
+    {"id":"overflow", "project":"overflow/Overflow.UBE", "signedExit":37},
+    {"id":"conditions", "project":"conditions/Conditions.UBE", "signedExit":41},
+    {"id":"conversion", "project":"conversion/Conversion.UBE", "signedExit":43},
+    {"id":"recursion", "project":"recursion/Recursion.UBE", "signedExit":15},
+    {"id":"negative", "project":"negative/Negative.UBE", "signedExit":-3},
+    {"id":"native-widths", "project":"native-widths/NativeWidths.UBE", "signedExit":47},
+    {"id":"bitwise", "project":"bitwise/Bitwise.UBE", "signedExit":53},
+    {"id":"comparisons", "project":"comparisons/Comparisons.UBE", "signedExit":59},
+    {"id":"booleans", "project":"booleans/Booleans.UBE", "signedExit":61},
+    {"id":"startup", "project":"startup/Startup.UBE", "signedExit":10}
+  ]
+}

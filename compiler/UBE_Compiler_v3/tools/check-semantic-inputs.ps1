@@ -29,6 +29,45 @@ function Passed-Checks($Report,[string]$Label){
     Require ((Has $Report 'checks') -and $Report.checks -is [array] -and $Report.checks.Count -gt 0 -and $Report.checks.Count -le 1048576) "$Label requires nonempty bounded checks"
     foreach($check in $Report.checks){Require ((Has $check 'passed') -and $check.passed -is [bool] -and $check.passed) "$Label assertion must explicitly pass"}
 }
+function Matches-LifecycleProof($Report,$Program){
+    if (-not (Has $Report 'executable') -or -not (Has $Report 'checks') -or $Report.checks.Count -ne 37) { return $false }
+    $identity=$Report.executable
+    if (-not (Has $identity 'path') -or -not (Has $identity 'sha256') -or -not (Has $identity 'bytes')) { return $false }
+    if (-not [string]::Equals([IO.Path]::GetFullPath($identity.path),[IO.Path]::GetFullPath($Program.path),[StringComparison]::OrdinalIgnoreCase) -or $identity.sha256 -cne $Program.sha256 -or $identity.bytes -ne $Program.bytes) { return $false }
+    $expected=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($name in @('initialize','terminate','bracketed','invalid-signature','direct-call','unrelated-procedure','local-variable')){
+        [void]$expected.Add($name+'/source');foreach($jobs in @(1,2,4)){[void]$expected.Add($name+'/'+$jobs)}
+    }
+    foreach($name in @('reference-unused','root-first','root-reversed')){foreach($jobs in @(1,2,4)){[void]$expected.Add($name+'/'+$jobs)}}
+    $anchors=@{
+        'initialize'=@(13,61,'Hooks.bas');'terminate'=@(13,61,'Hooks.bas');
+        'bracketed'=@(13,61,'Hooks.bas');'invalid-signature'=@(17,65,'Hooks.bas');
+        'direct-call'=@(13,61,'Hooks.bas');'reference-unused'=@(13,68,'LibraryHooks.bas');
+        'root-first'=@(13,61,'First.bas');'root-reversed'=@(13,62,'Second.bas')
+    }
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($check in $Report.checks){
+        if (-not (Has $check 'case') -or -not (Has $check 'actual') -or -not (Has $check 'expected') -or -not (Has $check 'expectedExit')) { return $false }
+        $mode='source';if(Has $check 'jobs'){$mode=[string]$check.jobs}
+        $key=[string]$check.case+'/'+$mode
+        if (-not $expected.Contains($key) -or -not $seen.Add($key)) { return $false }
+        $actual=$check.actual
+        if (-not (Has $actual 'file') -or -not [string]::Equals([IO.Path]::GetFullPath($actual.file),[IO.Path]::GetFullPath($Program.path),[StringComparison]::OrdinalIgnoreCase)) { return $false }
+        if (-not (Has $actual 'arguments') -or $actual.arguments.Count -lt 2 -or $actual.arguments[0] -cne '--check') { return $false }
+        $inputPath=[IO.Path]::GetFullPath([string]$actual.arguments[1])
+        if ($mode -ceq 'source') { if ($actual.arguments.Count -ne 2 -or [IO.Path]::GetFileName($inputPath) -cne 'Hooks.bas') { return $false } }
+        else { if ($actual.arguments.Count -ne 4 -or $actual.arguments[2] -cne '--jobs' -or [string]$actual.arguments[3] -cne $mode -or [IO.Path]::GetFileName($inputPath) -cne 'Hooks.UBE') { return $false } }
+        if ([IO.Path]::GetFileName([IO.Path]::GetDirectoryName($inputPath)) -cne [string]$check.case) { return $false }
+        $fixedExit=0;$fixedOutput=''
+        if ($anchors.ContainsKey([string]$check.case)) {
+            $anchor=$anchors[[string]$check.case];$fixedExit=1
+            $fixedOutput="error UBE1400: semantic facility is not implemented (next lines: line, column, byte)`n3`n$($anchor[0])`n$($anchor[1])`n"
+            if ($mode -cne 'source') { $sourcePath=Join-Path ([IO.Path]::GetDirectoryName($inputPath)) $anchor[2];$fixedOutput='"'+$sourcePath.Replace('\','/')+'"'+"`n"+$fixedOutput }
+        }
+        if ($check.expectedExit -ne $fixedExit -or $check.expected -cne $fixedOutput -or $actual.timedOut -or $actual.exit -ne $fixedExit -or $actual.stdout -cne $fixedOutput -or $actual.stderr -cne '') { return $false }
+    }
+    return $seen.SetEquals($expected)
+}
 function Snapshot([string]$Folder){
     $items=@(Get-ChildItem -LiteralPath $Folder -Recurse -Force|Sort-Object FullName)
     return @($items|ForEach-Object {if($_.PSIsContainer){[pscustomobject]@{path=$_.FullName;directory=$true}}else{[pscustomobject]@{path=$_.FullName;directory=$false;bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}})
@@ -65,11 +104,24 @@ try{
     $programPaths=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach($program in $cli.productionExecutables){Require ($programPaths.Add([IO.Path]::GetFullPath($program.path))) 'Final CLI stage executable paths must be distinct';Pin $program}
     $proofNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal);$proofPaths=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    Require ($cli.proofs -is [array] -and $cli.proofs.Count -eq 6) 'Both final CLI stages need their three complete child proofs'
+    Require ($cli.proofs -is [array] -and $cli.proofs.Count -eq 8) 'Both final CLI stages need their four complete child proofs'
     foreach($proof in $cli.proofs){
-        Require (($proof.stage -eq 1 -or $proof.stage -eq 2) -and @('check-process.ps1','check-project-process.ps1','check-faults.ps1') -ccontains $proof.gate -and $proofNames.Add(([string]$proof.stage)+'/'+$proof.gate)) 'Final CLI child stage/gate identities must be complete and unique'
+        Require (($proof.stage -eq 1 -or $proof.stage -eq 2) -and @('check-process.ps1','check-project-process.ps1','check-faults.ps1','check-lifecycle-deferral.ps1') -ccontains $proof.gate -and $proofNames.Add(([string]$proof.stage)+'/'+$proof.gate)) 'Final CLI child stage/gate identities must be complete and unique'
         Require ($proofPaths.Add([IO.Path]::GetFullPath($proof.report.path))) 'Final CLI child report paths must be unique';Pin $proof.report
-        $child=Read-Report $proof.report.path;Require ($child.success -is [bool] -and $child.success) 'Final CLI child report must succeed';Passed-Checks $child 'Final CLI child proof';Require ($proof.checks -eq $child.checks.Count) 'Final CLI child assertion count must match its report';$proofs.Add($proof)
+        $child=Read-Report $proof.report.path;Require ($child.success -is [bool] -and $child.success) 'Final CLI child report must succeed';Passed-Checks $child 'Final CLI child proof';Require ($proof.checks -eq $child.checks.Count) 'Final CLI child assertion count must match its report'
+        if($proof.gate -ceq 'check-lifecycle-deferral.ps1'){
+            $program=$cli.productionExecutables[[int]$proof.stage-1]
+            Require (Matches-LifecycleProof $child $program) 'Lifecycle proof must match its source-built stage and all expected cases/results'
+            $bad=$child|ConvertTo-Json -Depth 24|ConvertFrom-Json;$bad.executable.sha256='0000000000000000000000000000000000000000000000000000000000000000'
+            Require (-not (Matches-LifecycleProof $bad $program)) 'Lifecycle wrong-executable control must fail'
+            $bad=$child|ConvertTo-Json -Depth 24|ConvertFrom-Json;$bad.checks[0].case='missing-control'
+            Require (-not (Matches-LifecycleProof $bad $program)) 'Lifecycle wrong-case control must fail'
+            $bad=$child|ConvertTo-Json -Depth 24|ConvertFrom-Json;$bad.checks[0].actual.stdout='wrong diagnostic'
+            Require (-not (Matches-LifecycleProof $bad $program)) 'Lifecycle wrong-output control must fail'
+            $bad=$child|ConvertTo-Json -Depth 24|ConvertFrom-Json;$bad.checks[0].expected='forged';$bad.checks[0].actual.stdout='forged'
+            Require (-not (Matches-LifecycleProof $bad $program)) 'Lifecycle matching forged expectation/output control must fail'
+        }
+        $proofs.Add($proof)
     }
     $stage=0
     foreach($program in $cli.productionExecutables){

@@ -112,11 +112,22 @@ compiler; editors should preserve keys they do not understand. Duplicate
 scalar keys, duplicate normalized paths, missing files, unsupported source
 extensions, and path escapes are errors, never reasons for a compiler crash.
 
-Dependencies initialize before dependents. Independent dependency nodes use
-manifest discovery order as a deterministic secondary order. Orderly shutdown
-reverses successful package initialization, and partial failure unwinds only
-successfully initialized packages and modules in reverse order. Listing two
+The normal schedule initializes dependencies before dependents. Independent
+dependency nodes use manifest discovery order as a deterministic secondary order.
+An initialization-time access to another module that has not begun initializing
+first completes that module's initialization. Circular references are permitted,
+but cross-module reads cannot observe an unfinished module; mutually waiting
+initializers may continue waiting until the program is stopped. Detectable
+circular initialization or termination references receive a compiler warning.
+Orderly shutdown and partial failure unwind only successfully initialized
+packages and modules in reverse completion order. Listing two
 projects in a `.UBG` does not create a reference between them.
+
+Within each module, ordinary scalar module variables initialize in written
+declaration order as that module initializes, before `Main`. See the scalar
+declaration rule in `language-spec.md` section 6.3 for neutral storage and
+initializer behavior and the on-access exception. This does not change the
+ordering of project references.
 
 `Optimization` accepts `0`, `1`, `2`, `3`, or `Size`; omitted means `2`.
 `DebugInformation` accepts `None`, `Line`, or `Full`; omitted means `Full`.

@@ -468,10 +468,22 @@ beginning `VB_` are reserved for compatibility metadata. Attributes beginning
 
 Every module may define private, parameterless `Module_Initialize` and
 `Module_Terminate` procedures. All modules, including the module containing
-`Main`, initialize in deterministic project order before `Main` executes and
-terminate in reverse order during orderly shutdown. These hooks cannot be
-called directly. Initialization failure prevents `Main` and terminates the
-already initialized modules in reverse order.
+`Main`, initialize before `Main` executes. The normal schedule follows
+deterministic project order; an initializer that needs another module that has
+not begun initializing first completes that module's initialization before the
+access. Circular references during initialization are allowed. An access from
+another module must not read a module's value before its initialization has
+completed. If modules wait for one another to complete initialization, the
+program may remain waiting until stopped; the cycle itself is not a runtime
+error. The compiler warns about circular initialization or termination
+references it can detect without rejecting the program, and makes those
+warnings available to the IDE. Warning details and analysis limits are to be
+specified.
+Successfully
+initialized modules terminate in reverse completion order during orderly
+shutdown. These hooks cannot be called directly. Initialization failure
+prevents `Main` and terminates the already initialized modules in reverse
+completion order.
 
 UBE classes do not inherit implementation from other classes. An `Interface`
 contains Sub, Function, Property, and Event signatures without bodies. A class
@@ -729,6 +741,20 @@ receive their specified diagnostics; a failure to establish storage is a
 separate controlled resource failure. This addition does not redefine object
 construction, Static initialization or constant declarations.
 
+Ordinary scalar module variables initialize in their written declaration order
+as their module initializes. The normal schedule initializes referenced
+libraries before executable modules and modules within a package in
+source-manifest order. If initialization reads or writes another module's
+variable or calls one of its procedures before that module has begun
+initializing, that module completes initialization, including its defined
+`Module_Initialize` hook, before the access proceeds; it is not initialized
+again when the normal schedule reaches it. Circular references are permitted as
+described above; an access from another module cannot read an unfinished module.
+These initializations occur before `Main`. Each scalar
+declaration establishes its neutral storage before evaluating its initializer,
+as above. This rule does not define the timing of object construction, Static
+initialization, constant declarations or lifecycle-hook execution.
+
 ## 7. Variable access hooks
 
 A stored module, class, or local variable may attach named procedures to reads
@@ -885,6 +911,14 @@ behavior merely because no handler is active. Resource exhaustion or another
 condition from which execution cannot safely continue follows a separately
 documented controlled-failure path and must never become memory corruption or
 an uncontrolled crash.
+
+When another procedure call cannot safely be entered because there is not
+enough stack space, and the runtime can safely report the failure, the call
+records Err 28 (out of stack space). The callee does not run; a function call
+returns its result type's neutral value. Argument evaluation and any active
+error handling follow the ordinary language rules. If the runtime cannot
+safely report and recover from the condition, the separately documented
+controlled-failure path applies.
 
 UBE retains explicit VB-style trapping:
 
@@ -1131,7 +1165,9 @@ memory access.
 nonfloating operand is Decimal or Currency and otherwise Double. Before `\`
 and `Mod`, nonintegral operands round to the nearest integer, ties to even;
 division truncates toward zero and the nonzero remainder has the dividend's
-sign. `^` converts both operands to Double and is right-associative. `&` is the
+sign. For any signed integer type, its minimum value `Mod -1` returns zero
+successfully and preserves the existing `Err`; the corresponding integer
+division overflows. `^` converts both operands to Double and is right-associative. `&` is the
 only string-concatenation operator; `+` is numeric only.
 
 Boolean `Not`, `And`, `Or`, `Xor`, `Eqv`, and `Imp` are eager logical

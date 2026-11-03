@@ -152,10 +152,13 @@ rounded value outside `LongLong` fail. The converted operands and result are:
 - `IntPtr` or `UIntPtr` when both operands have that same pointer-sized type;
 - `LongLong` for all other numeric combinations.
 
-Integer division truncates the quotient toward zero. `Mod` is defined by
-`a Mod b = a - (a \ b) * b`; therefore its nonzero result has the sign of
-`a`. A zero divisor and the signed-minimum divided by `-1` follow the checked
-failure rule.
+Integer division truncates the quotient toward zero. `Mod` is the mathematical
+remainder for a quotient truncated toward zero; therefore its nonzero result has
+the sign of the dividend. A zero divisor and the signed-minimum integer quotient divided
+by `-1` follow the checked failure rule. As clarified in the language
+specification, a signed integer minimum `Mod -1` succeeds with zero and preserves `Err`;
+the mathematical definition must not be implemented by executing an
+overflowing checked quotient.
 
 Exponentiation is right-associative by the grammar. Negative bases with a
 nonintegral exponent, zero to a negative exponent, overflow, and other domain

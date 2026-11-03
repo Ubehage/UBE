@@ -157,14 +157,17 @@ metadata. Dependencies are built or selected before dependents. Independent
 nodes retain manifest discovery order as the deterministic secondary order;
 cycles are errors with the cycle path reported.
 
-Within each package, module initialization retains source-manifest order. A
+Within each package, the normal module initialization schedule follows
+source-manifest order. An initializer accessing another module that has not
+begun initializing first completes that module. Circular initialization
+references are permitted, but cannot read an unfinished module; mutually
+waiting initializers may continue waiting until stopped. Detectable circular
+initialization or termination references receive a compiler warning. A
 library package completes its own dependency initialization and then its module
 initialization before any of its exported/public entry points are admitted.
 An executable's dependencies initialize before that executable's modules.
-Orderly shutdown reverses successful package initialization order, while each
-package retains its already-approved reverse module-termination order. Partial
-initialization unwinds only successfully initialized packages/modules in the
-corresponding reverse order.
+Orderly shutdown and partial initialization failure unwind only successfully
+initialized packages/modules in reverse completion order.
 
 A `.UBG` remains an orchestration input rather than a link unit. It may contain
 all projects needed for a workspace build, but listing two projects in a group
@@ -198,12 +201,16 @@ executable package. It is illegal for `Kind = "Library"`, cannot name a
 referenced form, and does not replace or create `Main`. This removes the VB
 project-file ambiguity without changing VB-like source behavior.
 
-The compatible generated ordering is:
+The normal generated ordering is:
 
 1. initialize referenced packages;
 2. initialize every executable module in manifest order;
 3. construct and load the configured startup form's default identity; and
 4. invoke source-level `Main`.
+
+The on-access initialization exception above may complete a later module
+while an earlier initializer is running; the scheduler does not initialize it
+again when it reaches that module.
 
 After `Main` returns, the approved live-thread/active-event-source rule decides
 whether the process idles or begins orderly shutdown. This is the ordering

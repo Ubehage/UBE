@@ -2026,6 +2026,26 @@ Function TryCollectSemanticProcedure(ByVal Catalog As SemanticCatalog, ByVal Can
         End If
         Current = Child.NextSibling
     Wend
+    ' Module lifecycle hooks are not part of the bounded semantic subset.
+    ' Names are already unescaped and case-folded by the shared name owner.
+    ' Defer before body checking so a hook cannot be silently accepted as an
+    ' ordinary procedure, even if it is unused or has an unsupported signature.
+    If Declaration.NameId >= 0 Then
+        Dim LifecycleName As Boolean = False
+        If TrySemanticNameWord(Catalog, Declaration.NameId, "module_initialize", LifecycleName, Failure) = False Then
+            Exit Function
+        End If
+        If LifecycleName = False Then
+            If TrySemanticNameWord(Catalog, Declaration.NameId, "module_terminate", LifecycleName, Failure) = False Then
+                Exit Function
+            End If
+        End If
+        If LifecycleName Then
+            Dim LifecycleSpan As SemanticName
+            Call ReadSemanticName(LifecycleSpan, Catalog.Names(Declaration.NameId))
+            Call RecordSemanticDiagnostic(Diagnostic, 1400, SourceId, LifecycleSpan.FirstByte, LifecycleSpan.LastByte, -1, 0, 0)
+        End If
+    End If
     Current = Header.NextSibling
     While Current >= 0
         Call ResetSemanticFailure(Failure)

@@ -20,10 +20,42 @@ nearer roadmap or progress file.
   Accepted source-built cohort: `88d1906a667645fa87f885c3a117e52f`.
   [Semantic evidence](compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md) records the
   exact reports, source/tool/artifact identities, retained failure and scope.
-- [ ] Prepare and review the next existing **First checked native executable**
+  A later focused lifecycle-deferral correction is qualified on cohort
+  `25f3b4878a1348e79766e70decd66b66`; its exact reports and limits are in
+  `compiler/UBE_Compiler_v3/LIFECYCLE-DEFERRAL-EVIDENCE.md`. The earlier cohort
+  remains historical; future hook execution and direct-call enforcement remain
+  outside the bounded checker result.
+- [x] Prepare and review the next existing **First checked native executable**
   deliverable's bounded lowering, backend, ABI/runtime-error and tool-handoff
   contracts with independent native/failure oracles. No backend implementation
   is part of the completed semantic goal.
+  Draft and agent review: `compiler/UBE_Compiler_v3/NATIVE-EXECUTABLE-CONTRACT.md`
+  and `NATIVE-CONTRACT-REVIEW.md`; detailed progress and remaining review,
+  tool/ABI/resource and acceptance gaps are in `compiler/UBE_Compiler_v3/Progress.md`.
+  The owner has confirmed the scope and several visible build and language
+  behaviors; the bounded contract review is complete. Local fixture admission
+  and focused LLVM probes do not establish native generation. The concrete
+  review points are collected in `NATIVE-CONTRACT-REVIEW.md`.
+  The 2026-11-03 review selects initial serial lowering and explicit resource
+  caps in `NATIVE-RESOURCE-CONTRACT.md`, and nontransactional extended handle
+  rename as the core commit direction. Path acquisition, stack safety, bounded
+  diagnostic delivery and production debug-check scope are selected in
+  `NATIVE-PATH-CONTRACT.md`, `NATIVE-STACK-REVIEW.md`,
+  `NATIVE-BUILD-DIAGNOSTICS.md` and `NATIVE-DEBUG-CONTRACT.md`.
+  Future backend acceptance is tracked
+  separately from those preimplementation decisions.
+  `NATIVE-RUNTIME-CONTRACT.md` now selects the private Err support and observer,
+  with shared error-unit extraction required before use. The whole-runtime
+  section-GC recipe failed a focused minimality audit, while its tested Err
+  semantics passed; these outcomes are recorded separately.
+  `NATIVE-TOOL-CONTRACT.md` selects tool identity scope, argument encoding/limits,
+  invocation and cleanup deadlines, and bounded retained ownership for unresolved
+  capture. These design decisions do not claim a working native launcher.
+- [ ] Implement and qualify the reviewed **First checked native executable**
+  deliverable. Begin with the shared error-support extraction and counted
+  byte-output dependency, then checked-graph lowering and the native tool path.
+  `NATIVE-EXECUTABLE-CONTRACT.md` supplies the acceptance checklist;
+  the existing independent oracles and retained frontend gates remain required.
 
 The checker accepts the contracted native MODULE projects and one explicit
 direct library reference, selected Boolean/integer expressions and statements,

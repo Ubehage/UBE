@@ -1,0 +1,180 @@
+{
+  "scope": "Independent future native-build output vectors; not production results. Paths are controlled display inputs. Encode stdout and stderr as UTF-8 without BOM, preserving every LF and trailing space.",
+  "cases": [
+    {
+      "name": "redirected-success",
+      "condition": "Publication confirmed, stdout redirected, no warnings",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "console-success",
+      "condition": "Publication confirmed, GetConsoleMode(stdout) succeeds, destination spelling build/Example.exe",
+      "exit": 0,
+      "stdout": "built \"build/Example.exe\"\n",
+      "stderr": ""
+    },
+    {
+      "name": "usage",
+      "condition": "New build command received repeated --jobs",
+      "exit": 2,
+      "stdout": "",
+      "stderr": "usage: ube --build-native <project.UBE> [-o <destination>] [--jobs N] (N: 1..4)\n"
+    },
+    {
+      "name": "unsupported-setting",
+      "condition": "Valid project Example.UBE has Optimization 3 and DebugInformation Line; Optimization wins",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1500: build setting is not implemented\n\"Example.UBE\"\nOptimization\n3\n"
+    },
+    {
+      "name": "output-alias",
+      "condition": "Selected destination App.bas identifies an original source input",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1501: output path is invalid or aliases an input\n\"App.bas\"\n"
+    },
+    {
+      "name": "resource-limit",
+      "condition": "Generated-byte budget exhausted",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1502: native build resource limit exceeded\ngenerated-bytes\n"
+    },
+    {
+      "name": "established-invalid-ir",
+      "condition": "A qualified machine-readable verifier disposition establishes invalid IR; selected Clang text matching alone cannot activate this case",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1503: generated LLVM validation failed\n\"tools/verifier.exe\"\n"
+    },
+    {
+      "name": "tool-start-failed",
+      "condition": "tools/clang.exe did not start; neither stream capture was established",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1504: cannot start native tool\n\"tools/clang.exe\"\ntool stdout (unavailable)\ntool stderr (unavailable)\n"
+    },
+    {
+      "name": "tool-exit-empty-streams",
+      "condition": "tools/ld.lld.exe exited 1; both streams reached EOF without bytes",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1505: native tool failed\n\"tools/ld.lld.exe\"\n1\ntool stdout (truncated=0): \ntool stderr (truncated=0): \n"
+    },
+    {
+      "name": "tool-exit-escaped-output",
+      "condition": "tools/ld.lld.exe exited 1; stdout bytes 41 0A 42, stderr bytes FF E2 82; both streams completed",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1505: native tool failed\n\"tools/ld.lld.exe\"\n1\ntool stdout (truncated=0): A\\u{A}B\ntool stderr (truncated=0): \\xFF\\xE2\\x82\n"
+    },
+    {
+      "name": "missing-candidate",
+      "condition": "Link tool reported success but build/candidate.exe is absent; successful tool chatter is not relayed",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1506: native tool did not produce an executable\n\"build/candidate.exe\"\n"
+    },
+    {
+      "name": "cancelled",
+      "condition": "Cancellation accepted before commit; no primary failure previously selected",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1507: native build was cancelled\n"
+    },
+    {
+      "name": "publication-failed",
+      "condition": "Definitive no-commit replacement failure for build/Example.exe",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1508: cannot publish native executable\n\"build/Example.exe\"\n"
+    },
+    {
+      "name": "formatting-fallback",
+      "condition": "Precommit error rendering cannot allocate; no diagnostic bytes sent yet",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1509: native build failed\n"
+    },
+    {
+      "name": "cancel-and-cleanup-failure",
+      "condition": "Cancellation selected before commit; removal of build/candidate.exe then fails",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1507: native build was cancelled\nerror UBE1510: cannot remove temporary build artifact\n\"build/candidate.exe\"\n"
+    },
+    {
+      "name": "partial-capture",
+      "condition": "Observation of tools/clang.exe fails during capture; stdout reached EOF empty, stderr retained ABC then failed",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1511: cannot observe native tool completion\n\"tools/clang.exe\"\ncapture\ntool stdout (truncated=0): \ntool stderr (partial): ABC\n"
+    },
+    {
+      "name": "postcommit-cleanup-failure",
+      "condition": "Publication confirmed, stdout redirected, cleanup failed and no path can be formatted",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "warning UBE1512: executable built; temporary cleanup failed\n"
+    },
+    {
+      "name": "unknown-publication",
+      "condition": "Injected indeterminate host commit outcome; do not assert old or new output bytes",
+      "exit": 4,
+      "stdout": "",
+      "stderr": "error UBE1513: native executable publication outcome is unknown\n"
+    },
+    {
+      "name": "circular-warning",
+      "condition": "Publication confirmed with stdout redirected; retained witness from the LF initializer-cycle A.bas at B.y: line 3, scalar column 20, byte 64; controlled display path A.bas",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "\"A.bas\"\nwarning UBE1514: possible circular module initialization (next lines: line, column, byte)\n3\n20\n64\n"
+    },
+    {
+      "name": "diagnostic-write-failed",
+      "condition": "Precommit failure; stderr write fails after sending exactly the UTF-8 prefix error UBE; do not append a fallback",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE"
+    },
+    {
+      "name": "confirmation-write-failed",
+      "condition": "Publication confirmed, console detected, optional confirmation write fails before sending any bytes",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "lowering-work-limit",
+      "condition": "Cumulative lowering/analysis work-event budget exhausted, distinct from live pending-entry count",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1502: native build resource limit exceeded\nlowering-work\n"
+    },
+    {
+      "name": "cancel-stop-unconfirmed",
+      "condition": "Cancellation primary; tools/clang.exe stop unconfirmed at shared deadline; both captures started but no EOF or bytes, candidate retained because writer exit is unconfirmed",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1507: native build was cancelled\nerror UBE1511: cannot observe native tool completion\n\"tools/clang.exe\"\ncontainment\ntool stdout (partial): \ntool stderr (partial): \nerror UBE1510: cannot remove temporary build artifact\n\"build/candidate.exe\"\n"
+    },
+    {
+      "name": "debug-information-limit",
+      "condition": "Full candidate debug inspection exhausts its byte, storage, event, unit or depth budget before publication",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1502: native build resource limit exceeded\ndebug-information\n"
+    },
+    {
+      "name": "cancel-drain-unconfirmed",
+      "condition": "Cancellation primary; tools/clang.exe and Job confirmed stopped; stdout EOF empty, stderr read cancellation still pending with empty prefix; no temporary file remains",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error UBE1507: native build was cancelled\nerror UBE1511: cannot observe native tool completion\n\"tools/clang.exe\"\ndrain\ntool stdout (truncated=0): \ntool stderr (partial): \n"
+    }
+  ]
+}

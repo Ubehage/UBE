@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "DebugSources"
+Kind = "Exe"
+Startup = "Main"
+Source = "App.bas"
+Source = "MathOps.bas"

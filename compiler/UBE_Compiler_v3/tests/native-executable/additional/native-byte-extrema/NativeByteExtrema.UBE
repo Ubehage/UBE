@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "NativeByteExtrema"
+Kind = "Exe"
+Startup = "Main"
+Source = "App.bas"
+Reference = "../../fixtures/native/UBECore.UBE"

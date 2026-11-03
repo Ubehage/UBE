@@ -1,0 +1,8 @@
+UBE-Project 1
+Name = "InitializerEventsDeclarationsReversed"
+Kind = "Exe"
+Startup = "Main"
+Source = "State.bas"
+Source = "AlphaReversed.bas"
+Source = "Beta.bas"
+Source = "App.bas"

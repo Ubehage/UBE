@@ -786,11 +786,19 @@ Private Sub Module_Terminate()
 End Sub
 ```
 
-They cannot be called directly. Every executable module initializes in project
-manifest order before `Main`, including the module that declares `Main`.
+They cannot be called directly. Every executable module initializes before
+`Main`, including the module that declares `Main`. The normal schedule follows
+project manifest order, except that an initialization-time access to another
+module that has not begun initializing first completes that module's initialization.
+Circular references during initialization are allowed. Access from another
+module cannot read a module's value before initialization completes; mutually
+waiting initializers may remain waiting until the program is stopped. The
+compiler warns about circular initialization or termination references it can
+detect, without rejecting the program, and makes warnings available to the IDE.
+Warning details and analysis limits remain to be specified.
 Libraries perform the same ordered initialization through their linked startup
 path before permitting the first exported call. Successfully initialized
-modules terminate exactly once in reverse order; `Module_Terminate` runs before
+modules terminate exactly once in reverse completion order; `Module_Terminate` runs before
 that module's globals are released. A module whose initialization did not
 complete is not treated as initialized.
 
