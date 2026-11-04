@@ -1932,6 +1932,12 @@ Function PrimitiveBindingRole(ByVal BindingName As String) As Long
     If EqualsIdentifier(BindingName, "File.TryIdentity") <> 0 Then
         PrimitiveBindingRole = 20
     End If
+    If EqualsIdentifier(BindingName, "File.TryWrite") <> 0 Then
+        PrimitiveBindingRole = 21
+    End If
+    If EqualsIdentifier(BindingName, "File.TryFlush") <> 0 Then
+        PrimitiveBindingRole = 22
+    End If
 End Function
 
 Function ParsePrimitiveAttributes(ByRef Tokens() As Token, ByVal FirstToken As Long, ByVal EndToken As Long, ByVal NameToken As Long, ByRef Role As Long, ByRef Diagnostics() As Diagnostic, ByRef DiagnosticCount As Long) As Long
@@ -3546,6 +3552,12 @@ Function ValidateHostBinding(ByRef Tokens() As Token, ByRef Procedures() As Proc
     If Role = 20 Then
         ExpectedSignature = "1:v2,r100007,r2"
     End If
+    If Role = 21 Then
+        ExpectedSignature = "1:v2,r100007,v2,v2,r2,r2"
+    End If
+    If Role = 22 Then
+        ExpectedSignature = "1:v2,r2"
+    End If
     Dim ResultType As Long = 0
     If Procedures(Index).ProcedureKind = 2 Then
         ResultType = DeclaredTypeId(Tokens, Procedures(Index).ReturnTypeToken, Procedures(Index).ResultIsDynamicArray, Types, TypeCount)
@@ -3612,6 +3624,12 @@ Sub HostPrimitiveLlvmSymbol(ByVal Role As Long, ByRef Symbol As String)
     End If
     If Role = 20 Then
         Symbol = "ube_file_try_identity"
+    End If
+    If Role = 21 Then
+        Symbol = "ube_file_try_write"
+    End If
+    If Role = 22 Then
+        Symbol = "ube_file_try_flush"
     End If
 End Sub
 
@@ -4650,6 +4668,8 @@ Sub EmitProgramPreamble(ByRef Tokens() As Token, ByRef Types() As TypeDeclaratio
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_process_try_argument(i32, ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_process_try_current_directory(ptr, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_identity(i32, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_write(i32, ptr, i32, i32, ptr, ptr)" & NewLine)
+    Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_file_try_flush(i32, ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_error_set_number(i32)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare ptr @ube_read_all_text(ptr)" & NewLine)
     Call AppendText(Chunks, ChunkCount, ChunkCapacity, "declare i32 @ube_write_all_text(ptr, ptr)" & NewLine)

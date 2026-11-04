@@ -1,0 +1,6 @@
+UBE-Project 1
+Name = "GuardsReference"
+Kind = "Exe"
+Startup = "Main"
+Source = "A.bas"
+Reference = "UBECore.UBE"

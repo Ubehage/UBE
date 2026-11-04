@@ -714,6 +714,8 @@ signature and passing modes are required:
 | `File.TryOpen` | `(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean` |
 | `File.TryRead` | `(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean` |
 | `File.TryClose` | `(ByRef Token As Long, ByRef Failure As Long) As Boolean` |
+| `File.TryWrite` | `(ByVal Token As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef WrittenCount As Long, ByRef Failure As Long) As Boolean` |
+| `File.TryFlush` | `(ByVal Token As Long, ByRef Failure As Long) As Boolean` |
 | `Process.TryArgument` | `(ByVal Index As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean` |
 | `Error.Set` | `(ByVal Number As Long) As Boolean` |
 
@@ -727,6 +729,13 @@ It is not a language-level Raise/control-transfer operation. Success preserves
 Err. Exact limits, failure codes, alias restrictions and the temporary Windows
 adapter removal condition are in
 [`../std-lib/FILE-BYTES-CONTRACT.md`](../std-lib/FILE-BYTES-CONTRACT.md).
+
+The counted output dependency selected for the first native executable adds
+write/flush bindings over admitted writable file tokens. Their borrowed-byte,
+partial-progress, failure and explicit-close rules are in
+[`../std-lib/FILE-OUTPUT-CONTRACT.md`](../std-lib/FILE-OUTPUT-CONTRACT.md).
+They do not authorize an unguarded native-build path or claim that the bounded
+fresh compiler can compile these library declarations as user programs.
 
 ### 6.3 Scalar declaration initializers
 
@@ -901,11 +910,17 @@ user interface. A recoverable failing operation returns the neutral value for
 its result type (`0`, `False`, `""`, or `Nothing`, as applicable) and records
 the failure in the current thread's `Err` state. Because a neutral value may
 also be a successful result, it is not by itself an error indicator; code that
-needs to distinguish the cases inspects `Err.Number` or uses an active error
-handler.
+needs to distinguish a new failure from an old one clears `Err` before the
+operation and checks `Err.Number` afterward, uses a fresh success/failure result
+when provided, or uses an active error handler.
 
-Successful operations do not implicitly clear a previously recorded error.
-`Err.Clear` clears it explicitly. Error state is isolated between threads.
+Successful operations preserve all previously recorded error information.
+`Err` holds the last error until `Err.Clear` or a valid `Resume` statement
+clears it, or a new error replaces it. A new error replaces the complete error
+information; fields not supplied by that error take their neutral or defined
+default values and never inherit information from the previous error. Changing
+`On Error` mode or returning from a procedure does not itself clear `Err`.
+Error state is isolated between threads.
 Runtime code must not terminate a process, show UI, or expose undefined
 behavior merely because no handler is active. Resource exhaustion or another
 condition from which execution cannot safely continue follows a separately
@@ -928,7 +943,9 @@ UBE retains explicit VB-style trapping:
   that failed.
 - `On Error GoTo 0` disables the active handler for the procedure.
 - `Resume`, `Resume Next`, and `Resume label` continue from an active handler
-  using their familiar control-flow meanings.
+  using their familiar control-flow meanings and clear the recorded `Err`
+  information as execution resumes. This differs from `On Error Resume Next`,
+  which retains the newly recorded error while continuing.
 
 Handlers are lexical procedure state and do not require native exceptions or
 stack unwinding. The compiler lowers each potentially failing operation to an

@@ -7,6 +7,7 @@ Attribute UBE_Name = "FileBytes"
 ' Failure domain: 0 success; 1 invalid request; 2 invalid path; 3 open/query;
 ' 4 too large; 5 read; 6 premature EOF; 7 close; 8 allocation; 9 stale token;
 ' 10 cancellation; 11 grew; 12 missing argument; 13 busy; 14 unsupported identity.
+' 15 write; 16 flush. Output operations: ../../FILE-OUTPUT-CONTRACT.md.
 ' Success preserves Err. Every failure returns fresh False and sets Err.
 
 ' Borrows counted UTF-8 path; no normalization. Requires Token=0. On failure
@@ -14,6 +15,22 @@ Attribute UBE_Name = "FileBytes"
 ' Token/Failure7 for caller retry. Size precedes read-payload allocation.
 Intrinsic Function TryOpenByteFile(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean
 Attribute TryOpenByteFile.UBE_Primitive = "File.TryOpen"
+End Function
+
+' Borrows an admitted writable file and the exact immutable source range for
+' one native write. Count 0..65536; positive short writes are progress. Caller
+' retains Source until return. Failure may have affected the file; WrittenCount
+' reports only confirmed bytes, never rollback. No payload copy/allocation.
+' Fresh status/Failure; success preserves Err. FILE-OUTPUT-CONTRACT.md.
+Intrinsic Function TryWriteByteFile(ByVal Token As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef WrittenCount As Long, ByRef Failure As Long) As Boolean
+Attribute TryWriteByteFile.UBE_Primitive = "File.TryWrite"
+End Function
+
+' Flushes an admitted writable disk file without releasing its token. Caller
+' owns cleanup on failure/cancellation. Failure 16 sets Err57; success preserves
+' prior Err. One native call; no payload copy/allocation or registry-held I/O.
+Intrinsic Function TryFlushByteFile(ByVal Token As Long, ByRef Failure As Long) As Boolean
+Attribute TryFlushByteFile.UBE_Primitive = "File.TryFlush"
 End Function
 
 ' Borrows existing Byte-array storage for the call; Start is payload-relative.

@@ -1,5 +1,6 @@
 param(
  [string]$SelectionPath='',
+ [switch]$DiagnosticOnly,
  [switch]$RequireIntegrated=$true,
  [ValidateSet('all','arena','sharing')][string]$OnlySuite='all',
  [string]$OutputRoot='',
@@ -43,8 +44,10 @@ function Check-Native([string]$Executable,[string[]]$Arguments,[string]$Prefix,[
  $results.Add([pscustomobject]@{stage=$Stage;suite=$Suite;negative=$Negative;executable=(Get-ArtifactIdentity $Executable);actual=$record})
 }
 try{
- $selection=Get-VerifiedBootstrapSelection $SelectionPath;$accepted=Get-Content -LiteralPath $selection.manifest.path -Raw|ConvertFrom-Json
- $inputs=@($accepted.inputs)+@((Get-ArtifactIdentity $SelectionPath),(Get-ArtifactIdentity $PSCommandPath))+@($selection.PSObject.Properties|Where-Object Name -NE 'schema'|ForEach-Object Value)
+ if($DiagnosticOnly){$selection=Get-Content -LiteralPath $SelectionPath -Raw|ConvertFrom-Json;foreach($id in @($selection.compiler,$selection.clang,$selection.runtime,$selection.unicodeRuntime,$selection.manifest)){if((Get-ArtifactIdentity $id.path).sha256 -cne $id.sha256){throw 'Historical tool artifact changed'}}}else{$selection=Get-VerifiedBootstrapSelection $SelectionPath}
+ $accepted=Get-Content -LiteralPath $selection.manifest.path -Raw|ConvertFrom-Json
+ $cohortInputs=@($accepted.inputs);if($DiagnosticOnly){$cohortInputs=@()}
+ $inputs=$cohortInputs+@((Get-ArtifactIdentity $SelectionPath),(Get-ArtifactIdentity $PSCommandPath))+@($selection.PSObject.Properties|Where-Object Name -NE 'schema'|ForEach-Object Value)
  $inputs+=@(Get-ChildItem -LiteralPath $fixture -File|ForEach-Object {Get-ArtifactIdentity $_.FullName})
  $snapshot=Join-Path $run 'fixture-inputs';$null=New-Item -ItemType Directory -Path $snapshot -Force;foreach($file in Get-ChildItem -LiteralPath $fixture -File){[IO.File]::Copy($file.FullName,(Join-Path $snapshot $file.Name))}
  [IO.File]::Copy($SelectionPath,(Join-Path $run 'accepted-selection.json'));[IO.File]::Copy($selection.manifest.path,(Join-Path $run 'accepted-manifest.json'));[IO.File]::Copy($PSCommandPath,(Join-Path $run 'runner.ps1'))
@@ -54,6 +57,8 @@ try{
  $nativeInputs=@('bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/thread_primitives.c','std-lib/tests/managed-storage/copy-probe.h','std-lib/tests/byte-storage/allocation-probe.h','bootstrap/tools/verification.ps1')
  foreach($relative in $nativeInputs){$path=Join-Path $root $relative;$inputs+=Get-ArtifactIdentity $path;$copy=Join-Path (Join-Path $run 'native-inputs') $relative;$null=New-Item -ItemType Directory -Path (Split-Path $copy -Parent) -Force;[IO.File]::Copy($path,$copy)}
  $stages=@((Join-Path (Split-Path $selection.compiler.path -Parent) 'ube-stage1-v2.exe'),$selection.compiler.path)
+ $firstStage=@($accepted.artifacts|Where-Object {$_.path -ceq $stages[0]});if($firstStage.Count -ne 1){throw 'Unique accepted first-stage compiler missing'}
+ $actualFirstStage=Get-ArtifactIdentity $stages[0];if($actualFirstStage.sha256 -cne $firstStage[0].sha256 -or $actualFirstStage.bytes -ne $firstStage[0].bytes){throw 'Accepted first-stage compiler changed'};$inputs+=@($actualFirstStage)
  for($stage=1;$stage -le 2;++$stage){
   $rawPath=Join-Path $run ('stage'+$stage+'.ll');$null=Invoke-Checked $stages[$stage-1] @($project.manifest.path,$rawPath) 300;$raw+=Get-ArtifactIdentity $rawPath
   if($OnlySuite -in @('all','arena')){
@@ -79,8 +84,8 @@ try{
  Assert-Fact $true 'All exact source/tool/fixture/accepted-cohort inputs remain unchanged after native gates';$success=$true
 }catch{$failure=$_.Exception.Message}
 finally{
- $qualified=$success -and $project -and $project.integrated -and $OnlySuite -ceq 'all'
- [pscustomobject]@{schema='ube-semantic-foundations-native-1';success=$success;qualifiedFoundations=[bool]$qualified;diagnosticOnly=(-not $qualified);failure=$failure;requireIntegrated=[bool]$RequireIntegrated;onlySuite=$OnlySuite;selection=$selection;acceptedSelection=$selection;sourceBuildCurrent=$success;project=$project;observer=$observer;inputs=$inputs;rawLLVM=$raw;checks=$checks.ToArray();results=$results.ToArray();commands=$commands.ToArray();artifacts=@(Get-ChildItem -LiteralPath $run -File -Recurse|ForEach-Object {Get-ArtifactIdentity $_.FullName});limits='Exact integrated UBECore scalar arena/immutable actual UBE worker component proof only. No semantic checker, compiler SourceOwner/ProjectSyntax integration, general scheduler, backend or speedup claim. Partial/nonintegrated runs are diagnostic only.'}|ConvertTo-Json -Depth 40|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
+ $qualified=$success -and -not $DiagnosticOnly -and $project -and $project.integrated -and $OnlySuite -ceq 'all'
+ [pscustomobject]@{schema='ube-semantic-foundations-native-1';success=$success;qualifiedFoundations=[bool]$qualified;diagnosticOnly=(-not $qualified);failure=$failure;requireIntegrated=[bool]$RequireIntegrated;onlySuite=$OnlySuite;selection=$selection;acceptedSelection=$selection;sourceBuildCurrent=($success -and -not $DiagnosticOnly);project=$project;observer=$observer;inputs=$inputs;rawLLVM=$raw;checks=$checks.ToArray();results=$results.ToArray();commands=$commands.ToArray();artifacts=@(Get-ChildItem -LiteralPath $run -File -Recurse|ForEach-Object {Get-ArtifactIdentity $_.FullName});limits='Exact integrated UBECore scalar arena/immutable actual UBE worker component proof only. No semantic checker, compiler SourceOwner/ProjectSyntax integration, general scheduler, backend or speedup claim. Partial/nonintegrated runs are diagnostic only.'}|ConvertTo-Json -Depth 40|Set-Content -LiteralPath (Join-Path $run 'report.json') -Encoding UTF8
  Write-Output "Evidence: $run/report.json"
 }
 if(-not $success){throw $failure};Write-Output "PASS: $($checks.Count) semantic foundation gate assertions; integrated=$($project.integrated) suite=$OnlySuite"

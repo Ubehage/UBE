@@ -41,8 +41,21 @@ int main(void) {
     }
     CloseHandle(worker);
     if (ube_err_number() != 101) return 23;
+    ube_err_set(6, NULL, "replacement source");
+    char* description = ube_err_description();
+    char* source = ube_err_source();
+    if (description == NULL || source == NULL || ube_err_number() != 6 ||
+        strcmp(description, "") != 0 || strcmp(source, "replacement source") != 0) return 25;
+    ube_err_set(11, "replacement description", NULL);
+    description = ube_err_description();
+    source = ube_err_source();
+    if (description == NULL || source == NULL || ube_err_number() != 11 ||
+        strcmp(description, "replacement description") != 0 || strcmp(source, "") != 0) return 26;
     ube_err_clear();
-    if (ube_err_number() != 0) return 24;
+    description = ube_err_description();
+    source = ube_err_source();
+    if (description == NULL || source == NULL || ube_err_number() != 0 ||
+        strcmp(description, "") != 0 || strcmp(source, "") != 0) return 24;
     puts("error state probe passed");
     return 0;
 }

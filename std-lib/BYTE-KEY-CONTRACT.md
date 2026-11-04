@@ -74,6 +74,40 @@ before the body executes. No success is inferred from Err.
 
 ## Work and memory
 
+### Bounded operations for native identity inspection
+
+`ByteKeyBudget` is a caller-owned scalar ledger with LongLong fields
+MaximumBytes, MaximumEvents, Bytes and Events. Nonnegative limits and counters
+are required. Admission uses subtraction before addition and counts actual
+comparison-byte read attempts (including rereads), not arena length. Each
+admitted input-key visit, key comparison, byte-pair comparison, output-vector
+write, lookup step or allocation/publication boundary consumes one event.
+Counters survive failure; an event refused by a limit changes neither counter.
+
+`TryOrderByteKeysBudgeted` takes the existing ordering arguments followed by
+`ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean`. It shares the same
+ordering implementation and storage contract. `TryFindByteKeyRangeBudgeted`
+additionally takes `ByRef QueryBytes() As Byte` immediately after Bytes; its
+query span addresses QueryBytes while keys still address Bytes. It takes the
+same final budget/cancellation arguments. Query arrays may be separate immutable
+owners; no concatenation, retained reference or query copy is required.
+
+Bounded operations poll the borrowed cancellation Boolean at every admission.
+Its owner remains alive through the call and may only set it True concurrently,
+under the existing cooperative scalar-request contract. Failure3 is cancellation;
+Failure2 includes byte/event exhaustion, Failure1 malformed budget state and
+existing domain errors, Failure5 managed entry/allocation refusal. The caller
+seeds Failure5 before entry. Earlier result arrays/scalars remain unchanged on
+all failures. Success/ordinary rejection preserve Err. Budgets are not global,
+and a mutable ledger has one writer. The original APIs retain their existing
+unmetered behavior through the same implementation; no compiler policy enters
+the library.
+
+Only admitted two-byte comparison attempts can read payload. A managed refusal
+between their two reads may retain the admitted pair charge. Publication occurs
+after its last cancellation/budget admission; a later request cannot roll it
+back. There is no input-controlled recursion or unbounded indivisible scan.
+
 The implementation uses stable bottom-up merging with no recursion. Endpoint addition is
 guarded by remaining-count subtraction; width doubling is guarded by Count/2.
 For N selected keys it uses at most N*ceil(log2 N) key comparisons and

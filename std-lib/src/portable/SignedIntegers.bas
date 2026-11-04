@@ -1,6 +1,65 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "SignedIntegers"
 
+' Scalar incremental ASCII output; contract: ../../INTEGER-OUTPUT-CONTRACT.md.
+' Reserved state, one caller owner. Neutral state is exhausted. No managed
+' references, roots, allocations, payload copies or Err effects.
+Type DecimalIntegerEncoder
+    Remaining As LongLong
+    Divisor As LongLong
+    SignPending As Boolean
+End Type
+
+Sub BeginDecimalIntegerEncoding(ByVal Value As LongLong, ByRef Encoder As DecimalIntegerEncoder, ByRef ByteCount As Long)
+    Dim Remaining As LongLong = Value
+    Dim Negative As Boolean = Value < 0
+    If Negative = False Then
+        Remaining = -Value
+    End If
+    Dim Divisor As LongLong = 1
+    Dim Count As Long = 1
+    While Remaining \ Divisor < -9
+        Divisor = Divisor * 10
+        Count = Count + 1
+    Wend
+    If Negative Then
+        Count = Count + 1
+    End If
+    Encoder.Remaining = Remaining
+    Encoder.Divisor = Divisor
+    Encoder.SignPending = Negative
+    ByteCount = Count
+End Sub
+
+Function TryNextDecimalIntegerByte(ByRef Encoder As DecimalIntegerEncoder, ByRef Value As Byte, ByRef HasByte As Boolean) As Boolean
+    TryNextDecimalIntegerByte = False
+    If Encoder.Divisor < 0 Or Encoder.Remaining > 0 Then
+        Exit Function
+    End If
+    If Encoder.Divisor = 0 Then
+        If Encoder.Remaining <> 0 Or Encoder.SignPending Then
+            Exit Function
+        End If
+        HasByte = False
+        TryNextDecimalIntegerByte = True
+        Exit Function
+    End If
+    Dim Digit As LongLong = Encoder.Remaining \ Encoder.Divisor
+    If Digit < -9 Or Digit > 0 Then
+        Exit Function
+    End If
+    If Encoder.SignPending Then
+        Value = 45
+        Encoder.SignPending = False
+    Else
+        Value = 48 - Digit
+        Encoder.Remaining = Encoder.Remaining Mod Encoder.Divisor
+        Encoder.Divisor = Encoder.Divisor \ 10
+    End If
+    HasByte = True
+    TryNextDecimalIntegerByte = True
+End Function
+
 ' Ordinary bounded integer algorithms; contract: ../../SIGNED-INTEGER-CONTRACT.md.
 ' Bytes are borrowed immutable input for one call. Outputs have one caller owner
 ' and must be distinct; no input/output alias is permitted. No input reference,

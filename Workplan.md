@@ -12,6 +12,29 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
+## Resumed next step - 2026-11-04
+
+The owner requested a new agent to resume the handoff and set a goal for the
+next step. That bounded goal is complete: base-relocation validation and required
+pointer write/value association within First checked native executable.
+NATIVE-IMAGE-RELOCATION-EVIDENCE.md in the active compiler records all eight
+passing gates, 132 component groups, 34 image groups, 4,704 rejected image
+mutations and the unchanged 652-path audit. The test-only enclosing component
+allowance is now 1,080 seconds after measured 944-second child work; production
+caps are unchanged. Global aliases/resident storage, register/control/dataflow,
+CRT/startup effects, stack/debug, builder/publication and final acceptance remain
+required. The full native deliverable is not complete.
+
+## Earlier owner-requested pause - 2026-11-04
+
+The active First checked native executable goal is paused for handoff at the
+owner's request, not complete. The last qualified checkpoint is TLS storage
+association; bounded base-relocation validation is next and has not been
+implemented. No verification process remains running. The detailed resume record
+is in [compiler progress](compiler/UBE_Compiler_v3/Progress.md).
+Read the "Paused for a new agent" section there for exact evidence, unfinished
+investigation, remaining scope and worktree/tooling precautions.
+
 ## Current priority - 2026-11-02
 
 - [x] Complete the owner-approved **First semantic checking** deliverable for
@@ -51,11 +74,165 @@ nearer roadmap or progress file.
   `NATIVE-TOOL-CONTRACT.md` selects tool identity scope, argument encoding/limits,
   invocation and cleanup deadlines, and bounded retained ownership for unresolved
   capture. These design decisions do not claim a working native launcher.
-- [ ] Implement and qualify the reviewed **First checked native executable**
+- [~] Implement and qualify the reviewed **First checked native executable**
   deliverable. Begin with the shared error-support extraction and counted
   byte-output dependency, then checked-graph lowering and the native tool path.
   `NATIVE-EXECUTABLE-CONTRACT.md` supplies the acceptance checklist;
   the existing independent oracles and retained frontend gates remain required.
+  The owner-confirmed Err persistence and complete visible-field replacement rule
+  is explicit in normative section 9 and the native runtime contract. Added stale
+  description/source controls pass the 23-command error-support gate; see
+  ERROR-SUPPORT-EVIDENCE.md. Resume execution remains outside this bounded subset.
+  Shared error-support extraction has focused record, retained-caller and
+  Full/None linked-inventory/TLS evidence in
+  `compiler/UBE_Compiler_v3/ERROR-SUPPORT-EVIDENCE.md`. Counted output passes its
+  focused direct/two-stage gate, recorded in `std-lib/FILE-OUTPUT-EVIDENCE.md`.
+  The complete bootstrap passed 914 assertions on cohort
+  `df15817344774026bebebfd1e9ae8eaf`. The subsequently promoted output-role
+  diagnostic correction, scalar resource accounting, bounded byte emission and
+  explicit graph traversal/preparation and scalar LLVM conversion/arithmetic
+  fragments have focused two-stage evidence, including actual checked facts
+  and mixed-width operator nodes. Declaration-target indexing and scalar/native
+  storage have focused ownership/failure/ABI and real-catalog evidence. The
+  ordered body consumer passes actual checked procedures, control flow, nested
+  short circuit and ByRef effects through both stages at O0/O2. Native
+  Pack/Unpack and equality also pass checked-procedure ABI/value/error tests
+  and an altered-equality control. Ordinary guarded calls and exact/forced/default ByRef argument storage now
+  pass focused two-stage O0/O2 call-effect/refusal tests with controlled stack
+  metadata. Actual stack-footprint/startup qualification, module initialization
+  and combined declaration-work acceptance remain pending;
+  `compiler/UBE_Compiler_v3/NATIVE-IMPLEMENTATION-EVIDENCE.md`
+  records scope and pending integration. The reusable directed-component search
+  and compiler warning matrix/witness consumer now pass focused independent
+  resource/failure/witness gates and are registered in production manifests and
+  the full bootstrap. Checked-source/ByRef extraction now also passes its fresh
+  two-stage gate over 23 cases, with exact dependency/warning-span, resource and
+  failure oracles. It is registered in the compiler manifest and bootstrap gate;
+  compiler/UBE_Compiler_v3/NATIVE-WARNING-EVIDENCE.md records scope and limits.
+  Shared initialization data and inline access support now pass 54 focused
+  two-stage groups, recorded in NATIVE-INITIALIZATION-EVIDENCE.md, and are registered.
+  Private ByRef ownership now passes 64 two-stage graph groups and 26 focused
+  emission groups. The reproduced declaration-reset fix also passes the refreshed
+  64-group graph gate.
+  Checked initializer body emission and procedure-root lookup now pass 76 graph
+  groups and 26 component groups; NATIVE-INITIALIZATION-EVIDENCE.md records the
+  exact native/resource scope. Foreign access and failure-unwind integration now
+  pass 94 two-stage graph groups with actual checked three-module bodies and
+  shared initialization support, including O0/O2 and negative controls. The
+  same evidence file records controlled frame/wait-entry limits. Normal package/
+  source scheduling now passes 118 component and 118 checked-project groups,
+  with direct-reference metadata, O0/O2 order/failure/completion checks and exact
+  work/identity/inlining evidence. Per-module output/imports now pass 154 graph
+  groups and a six-group exact-work gate, including separate O0/O2 objects and
+  controlled cap failure. NATIVE-MODULE-IMPLEMENTATION.md records the evidence.
+  Common program entry and the ordinary adapter now pass 224 focused and 194
+  checked-project groups, with controlled platform setup. NATIVE-ENTRY-IMPLEMENTATION.md
+  records signed exits, same-thread Err, startup cutoff and Main-refusal evidence.
+  Actual Windows stack setup/fatal/wait now pass 358 two-stage component groups,
+  including common-entry integration at O0/O2 Full/None with controlled metadata;
+  NATIVE-PLATFORM-IMPLEMENTATION.md records exact scope and retained controls.
+  Frame-data emission and 36 object/data binding groups now pass; see
+  NATIVE-FRAME-IMPLEMENTATION.md for exact scope and the controlled reserve.
+  Bounded production binary readers now include names, primary symbol fields and
+  relocation descriptions and bounded symbol inventories; 30 component and 224
+  generated-artifact groups pass.
+  NATIVE-OBJECT-EVIDENCE.md records comparisons, failure bounds and scope limits.
+  Production definition-range and immutable data binding now pass 192 actual
+  frame/reserve comparisons, including 64 understatement rejections; see
+  NATIVE-BINDING-EVIDENCE.md. The expected-linkage owner now passes its independent
+  34-group component gate; NATIVE-EXPECTATION-EVIDENCE.md records exact rows,
+  resources and limits. Actual checked-project integration now passes the
+  350-group full graph gate with jobs 1/2/4 and 144 object comparisons through
+  both bootstrap stages. Definition/anchor retention now passes 416 linked
+  groups, including 128 image-mutation rejections; see NATIVE-RETENTION-EVIDENCE.md.
+  Object/image function-range readers now pass 46 component groups, 288 object
+  comparisons (720 range observations) and 32 image comparisons (2,352 observations).
+  The preceding data/reader/retention gates pass; see NATIVE-UNWIND-EVIDENCE.md.
+  Retained extent binding now passes 50 component and 416 actual groups, with
+  720 bound extents and 128 targeted mutation rejections; see
+  NATIVE-EXTENT-BINDING-EVIDENCE.md. Selected scalar instruction inspection now
+  passes 54 component and 128 actual-object groups (2,496 instruction observations);
+  see NATIVE-INSTRUCTION-EVIDENCE.md. Bounded leaf traversal now passes 58
+  component and 256 actual-object groups, including 112 function observations
+  and 192 targeted mutation rejections; see NATIVE-LEAF-EVIDENCE.md. Function
+  address indexing and fence lookup now pass 62 component and 832 object/image
+  groups, including 2,880 fence observations and 512 rejected controls; see
+  NATIVE-FUNCTION-INDEX-EVIDENCE.md. Complete leaf extent/map binding now passes
+  66 component and 192 actual groups, with 112 leaf observations and 128 image
+  mutations rejected by binding; see NATIVE-LEAF-BINDING-EVIDENCE.md. Named
+  relocation target association now passes 70 component and 736 actual groups,
+  including 5,696 named references through both readers and 448 rejected controls.
+  The 16 anonymous references explicitly reject; NATIVE-RELOCATION-EVIDENCE.md
+  records the proof and a focused 31-byte constant-section diagnostic. Anonymous
+  constant contribution binding now passes 74 component and 96 actual groups,
+  with 16 complete contribution observations, 32 reference associations and 80
+  rejected mutations. The named-target matrix retains all 736 groups. See
+  NATIVE-CONSTANT-BINDING-EVIDENCE.md for commands, identities and the subsequent
+  112-code-section fixup diagnostic. Relocation encoding comparison now passes
+  78 component and 960 retained groups: 11,424 field observations and 672 rejected
+  linked-byte/addend/site mutations. NATIVE-FIXUP-EVIDENCE.md records its scope.
+  Whole-code placement and complete byte comparison now pass 82 component and
+  1,408 retained groups, with 224 contribution observations / 292,176 bytes and
+  1,120 rejected mutations. The affected 96-group constant gate passes too.
+  NATIVE-CODE-EVIDENCE.md records that proof. The INT3 decoder gap is now fixed;
+  82 component, 896 complete-code instruction and 128 retained leaf groups pass.
+  Both readers match 36,192 instructions / 146,088 unique code bytes and reject
+  672 opcode/oracle controls; NATIVE-INSTRUCTION-EVIDENCE.md records scope.
+  Traps still require termination-closure proof. Production contribution
+  ownership now passes 86 component and 2,208 retained groups, including all
+  16 images, anchor/coverage checks, independent RVA order and 1,888 refusals.
+  NATIVE-CODE-OWNERSHIP-EVIDENCE.md records exact costs and current identities.
+  Its measured 619-second component gate requires a 720-second bootstrap test
+  deadline; production resource caps remain unchanged. A diagnosed missing
+  indirect target-register descriptor now passes 88 component, 1,120 complete-code
+  and 128 retained-leaf groups. NATIVE-INSTRUCTION-EVIDENCE.md records the proof;
+  NATIVE-CONTROL-FLOW-INVESTIGATION.md records the relocation, initializer-table
+  and API-return dependencies. Instruction relocation-field/effective-offset checks
+  now pass 90 component, 2,240 complete-code and 128 leaf groups. All 5,712 fields
+  match through both readers and 1,792 complete-code controls reject; see
+  NATIVE-INSTRUCTION-RELOCATION-EVIDENCE.md. Signed linked targets now pass 92 component
+  and 1,856 target/fixup groups, with the instruction/leaf gates retained. All 5,712
+  targets match through both readers and 1,568 controls reject; see
+  NATIVE-INSTRUCTION-TARGET-EVIDENCE.md. The separate ownership census records
+  generated extents, reference cells, IAT and TLS-index associations in
+  NATIVE-TARGET-OWNERSHIP-INVESTIGATION.md. Generated entries and storage extents
+  now pass 96 component, 2,240 complete instruction, 128 retained-leaf and 2,784
+  generated/signed-target/fixup groups. Both readers match all 3,128 generated
+  references and reject 2,464 target/encoding controls; see
+  NATIVE-TARGET-OWNERSHIP-EVIDENCE.md. Reference-pointer binding now passes 102
+  component, 2,240 instruction, 128 leaf and 3,296 target groups; both readers match
+  all 1,880 uses and reject 2,976 target/encoding controls.
+  NATIVE-REFERENCE-POINTER-EVIDENCE.md records that proof and the measured test-only
+  240-second full-probe / 900-second enclosing allowances. Import association now
+  passes 108 component, 2,240 instruction, 128 leaf and 3,424 target groups,
+  matching all 80 imports through both readers and rejecting 128 new controls.
+  The shared directory reader also passes 288 object-unwind, 32 image-table and
+  416 extent-binding groups. NATIVE-IMPORT-EVIDENCE.md records exact commands,
+  identities and the unchanged 622-path audit. TLS storage association now passes
+  126 component and 4,064 target groups, matching 592 index and 888 member
+  references through both readers and rejecting 640 new controls. Instruction,
+  leaf, unwind and extent-binding gates pass; NATIVE-THREAD-STORAGE-EVIDENCE.md
+  records the exact source/report identities and unchanged 645-path audit.
+  NATIVE-IMAGE-POINTER-INVESTIGATION.md classifies all 49 absolute pointer fields
+  per image. Bounded base-relocation validation and exact pointer associations
+  now pass 132 component and 34 image groups, including 1,568 field observations
+  and 4,704 rejected mutations. All six affected retained gates and the 652-path
+  audit pass; NATIVE-IMAGE-RELOCATION-EVIDENCE.md records exact proof and limits.
+  Continue with global aliases/resident storage, CRT TLS callbacks and whole-function
+  dataflow/control flow, then derive the complete reserve and
+  qualify the remaining stack closures. The owner approved 3*D+I lowering work and
+  further necessary resource adjustments. The added expectation pass makes the
+  combined declaration/import bound 4*D+I; measured accounting is recorded in
+  NATIVE-DECLARATION-WORK-REVIEW.md, backed by an actual checked counterexample.
+  Complete startup/stack/wait safety, warning delivery, final source-cohort
+  qualification and the native builder remain unfinished.
+
+  The inventory's generic byte-key dependency now enforces byte/event budgets
+  and cancellation and supports cross-arena queries. Existing APIs retain their
+  full native regression, and new budget and retained consumer gates pass.
+  See std-lib/BYTE-KEY-BUDGET-EVIDENCE.md. The compiler inventory now passes its
+  shared-budget, cancellation, allocation/cleanup and relocation-membership gates.
+  Complete binding and source-cohort qualification remain work under the active goal.
 
 The checker accepts the contracted native MODULE projects and one explicit
 direct library reference, selected Boolean/integer expressions and statements,

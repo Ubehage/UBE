@@ -20,7 +20,9 @@ remain outside this bounded subset.
 
 The [development plan](../project-docs/Development-Plan.md) keeps the next existing
 row, First checked native executable, dependent on a qualified semantic result
-and reviewed bounded lowering/backend/tool contracts. It is not started here.
+and reviewed bounded lowering/backend/tool contracts. Implementation is in
+progress; its exact qualified components and remaining native acceptance work
+are recorded in the active compiler's [progress](UBE_Compiler_v3/Progress.md).
 [`archived/`](archived/README.md) preserves the previous v3/v4 source, plans,
 tests and v3 release previews. Historical names, source hashes and build output
 identify that old line; they must not be mistaken for the fresh v3's status.

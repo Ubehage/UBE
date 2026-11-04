@@ -130,6 +130,21 @@ Function ClearByteBuffer(ByRef Buffer As ByteBuffer) As Boolean
     ClearByteBuffer = True
 End Function
 
+' Ends payload ownership; Clear instead retains reusable capacity.
+' Invalid state or failed admission preserves the old buffer. Success leaves
+' neutral state, allocates nothing and preserves incoming Err.
+Function TryReleaseByteBuffer(ByRef Buffer As ByteBuffer) As Boolean
+    TryReleaseByteBuffer = False
+    If ByteBufferCapacity(Buffer) < 0 Then
+        Exit Function
+    End If
+    If TryResizeByteStorage(Buffer.Storage, 0, False) = False Then
+        Exit Function
+    End If
+    Buffer.Count = 0
+    TryReleaseByteBuffer = True
+End Function
+
 ' Produces exactly Count independently owned bytes. Result must not alias
 ' Buffer.Storage. On rejection or allocation failure Result and Buffer retain
 ' their old values; allocation failure sets Err 7. Success preserves prior Err.

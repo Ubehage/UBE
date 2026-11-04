@@ -39,7 +39,7 @@ try{
   $null=Invoke-Recorded $tools[$i] @($manifest,$raw) 900
   $null=Invoke-Recorded $selection.clang.path @('--target=x86_64-w64-windows-gnu','-O2',$raw,$selection.runtime.path,$selection.unicodeRuntime.path,'-o',$exe) 300
   $raws+=Get-ArtifactIdentity $raw;$programs.Add((Get-ArtifactIdentity $exe))
-  foreach($gate in @('check-process.ps1','check-project-process.ps1','check-faults.ps1','check-lifecycle-deferral.ps1')){
+  foreach($gate in @('check-process.ps1','check-project-process.ps1','check-faults.ps1','check-lifecycle-deferral.ps1','check-output-deferral.ps1')){
    $arguments=@('-NoProfile','-File',(Join-Path $fixture $gate),'-Executable',$exe)
    if($gate -ceq 'check-faults.ps1'){$arguments=@('-NoProfile','-File',(Join-Path $fixture $gate),'-RawPath',$raw)}
    $arguments+=@('-SelectionPath',$SelectionPath)

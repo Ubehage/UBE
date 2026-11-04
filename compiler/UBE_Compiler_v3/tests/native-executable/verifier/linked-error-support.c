@@ -6,6 +6,7 @@
 extern void ube_err_set(int32_t, const char *, const char *);
 extern int32_t ube_err_number(void);
 extern void ube_err_clear(void);
+extern void ube_err_set_stack_exhausted(void);
 extern int16_t probe_remainder_i16(int16_t, int16_t);
 extern int32_t probe_remainder_i32(int32_t, int32_t);
 extern int64_t probe_remainder_i64(int64_t, int64_t);
@@ -39,6 +40,8 @@ static DWORD WINAPI worker(void *argument) {
 }
 
 int main(void) {
+    ube_err_set_stack_exhausted();
+    if (ube_err_number() != 28) return 1;
     ube_err_clear(); ube_err_set(99, "main", "test");
     for (int order = 0; order != 2; ++order) {
         Work work[2] = {{0}}; HANDLE threads[2] = {NULL, NULL};

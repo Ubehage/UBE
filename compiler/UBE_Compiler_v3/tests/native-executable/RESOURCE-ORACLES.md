@@ -6,6 +6,24 @@ selects initial numeric budgets, accounting units, serial storage/traversal and
 algorithmic bounds. Measure the implementation against those choices; existing
 frontend measurements do not qualify the new consumer.
 
+The lowering declaration/import allowance remains 3*D+I. Freezing expectations
+adds one D-row traversal, making the combined build allowance 4*D+I under the
+owner-authorized measured extension. Require an independent expected-name/source
+row oracle, exactly D added lowering-work visits, exact/one-below caps, failure
+cleanup and cancellation throughout name construction. Independently
+count preparation, module/member selection, definitions, formal signatures and
+entry storage; each own declaration needs at most three visits. Count I as each
+distinct imported target per output plus its ordinary procedure formals.
+Require I <= V+A+1, deterministic discovery within the existing graph walk,
+and separate accounting for its mark/list allocation and zeroing. Preserve the reproduced 23-declaration,
+56-visit ordinary-procedure case (no emitted module initializer): it exceeds the
+former 46 allowance but fits the approved 69.
+Require actual visit instrumentation, exact/below-bound failure and complete
+cleanup; changing a formula alone proves no implementation property. Body work
+remains at most 4*V+2*E and argument-map work at most 2*A. All numeric caps remain
+unchanged. Foreign imports and later source/debug consumers cannot hide visits
+inside these counts or treat approval as permission for an unbounded rescan.
+
 The selected LLD `--threads=1` setting is not an operating-system thread cap:
 the reviewed Windows linker also creates asynchronous file-reading work. Count
 the actual contained tool tree's processes, threads and memory separately from

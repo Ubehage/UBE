@@ -26,7 +26,7 @@ try {
     $stages=@((Join-Path (Split-Path $selection.compiler.path) 'ube-stage1-v2.exe'),$selection.compiler.path)
     $inputs+=@($stages|ForEach-Object {Get-ArtifactIdentity $_})
     $fixtureNames=@('Carrier.cls','CallerRetention.bas','CallerRetention.UBE','proof.c')
-    $runtimeNames=@('bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/thread_primitives.c')
+    $runtimeNames=@('bootstrap/runtime/bootstrap_runtime.c','bootstrap/runtime/error_support.c','bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/file_output.c','bootstrap/runtime/windows/thread_primitives.c')
     $inputs+=@(Get-ChildItem -LiteralPath $PSScriptRoot -File|ForEach-Object {Get-ArtifactIdentity $_.FullName})
     $inputs+=@($runtimeNames|ForEach-Object {Get-ArtifactIdentity (Join-Path $root $_)})
     foreach($name in $fixtureNames){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $run}
@@ -47,6 +47,7 @@ try {
     if([regex]::Matches($runtime,[regex]::Escape($failed)).Count -ne 1){throw 'Unique mark failure boundary required'}
     $runtime=$runtime.Replace($failed,$failed+' ++retention_failures;')
     $runtime=$runtime.Replace('#include "windows/file_primitives.c"','#include "file_primitives.c"').Replace('#include "windows/thread_primitives.c"','#include "thread_primitives.c"')
+    $runtime=$runtime.Replace('#include "windows/file_output.c"','#include "file_output.c"')
     [IO.File]::WriteAllText((Join-Path $run 'observed_runtime.c'),$runtime,$utf8)
     $procedures=@{};$index=0
     foreach($match in [regex]::Matches([IO.File]::ReadAllText((Join-Path $run 'CallerRetention.bas')),'(?m)^(?:Intrinsic )?(?:Sub|Function) ([A-Za-z_][A-Za-z_0-9]*)')){

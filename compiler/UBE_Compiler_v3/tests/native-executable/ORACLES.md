@@ -488,3 +488,92 @@ before/after pathname hash alone does not establish what a concurrent read saw;
 the test does not require the production compiler to detect user edits.
 The harness must include wrong-value, wrong-exit, tool-not-invoked and fault-not-
 reached controls so that its own passing result has meaning.
+
+## Initialization through exact ByRef aliases
+
+The following independent source fixtures extend the module-initialization
+contract. Their native outcomes remain unverified. Each project lives under
+`additional/` in the directory shown. Module A initializes before B (and C
+where present), and App follows them.
+
+| Directory | Required result | Independent reason |
+| --- | --- | --- |
+| initializer-alias-read | Wait; Main never enters | B reads an alias owned by active A. |
+| initializer-alias-write | Wait; Main never enters | B writes an alias owned by active A. |
+| initializer-alias-forward | Wait; Main never enters | B forwards A ownership to C, which reads the alias. |
+| initializer-alias-unused | Main returns 7 | B never dereferences the incoming alias. |
+| initializer-alias-local | Main returns 75 | Local p starts at 3, B changes it to 5 and returns 7. |
+| initializer-alias-byval | Main returns 75 | The ByVal parameter is local storage with the same effects. |
+| initializer-alias-forced | Main returns 7 | Parentheses pass a temporary initialized from neutral x; B changes only the temporary. |
+| initializer-alias-default | Main returns 5 | Omitted p starts at 3 in a temporary and B adds 2. |
+| initializer-early-write | Main returns 991 | Before the foreign write, B initializes y to 7 and count to 1; the write then changes y to 9. A.x is 9. |
+| initializer-neutral-reset | Main returns 41 | The first initializer writes later y to 8 and returns 4; the helper procedure is declared between the two globals. Traversal resumes at y, resetting it before evaluating y+1. |
+
+A wait assertion must observe entry into the actual wait support path, no Main
+entry and continued waiting before bounded observer termination. A timeout alone
+is not evidence. The unused-alias case must complete even if conservative warning
+analysis reports a possible cycle. Native observers must check real initialized
+state and Err, and reject removed owner guards, discarded forwarding ownership,
+eager unused-alias dereferences, omitted declaration resets and repeated module
+initialization. These source programs select no new language behavior.
+
+Historical checker admission command:
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/additional/check-admission.ps1 -Compiler bootstrap/out/semantic-cli/e5b3d482d7fd46539e190ea70d20ecef/stage2/ube.exe`.
+It returned exit 0 with 126 checks, including these ten projects at jobs 1 and 4.
+That result proves source admission only, not any native outcome in the table.
+
+The neutral-reset fixture was subsequently strengthened by placing PrepareValue
+between x and y. Focused `--check` invocations on
+`additional/initializer-neutral-reset/InitializerNeutralReset.UBE` through the
+same historical compiler returned 0 with empty streams at jobs 1 and 4. Its
+expected runtime result remains 41 and is still awaiting module integration.
+
+### Checked guard integration fixture
+
+`graph/guard-project/Guards.UBE` independently isolates access and unwind before
+the full output/startup consumer is available. A owns the caller and event log;
+B initializes value 12 and requires C's value 3. The observer checks these source
+calculations using the real emitted initialization state/helper and checked bodies:
+
+| Operation | Normal result/effects | C initializer refused |
+| --- | --- | --- |
+| Foreign read after assigning Function result 77 | 12; events 9 | 0; events 0 |
+| Foreign write of Mark(4) | B value 4; events 49; later read retains 4 | B value remains 12; events 4 |
+| Foreign Accept(Mark(5)) | 17; events 59; one callee entry | 0; events 5; no callee entry |
+| Foreign intrinsic Pack(Mark(6)) | native value 6; events 69 | neutral native value; events 6 |
+| Incoming foreign ByRef read/write | 12/events 9; stored 7/events 79 | neutral read/events 0; no write/events 7 |
+| Read forwarded through an own-module helper | 12; events 98 | 0; events 0, including no caller continuation |
+| Unused alias, direct foreign global or forwarded pointer | 7; B and C remain untouched | Same before any requirement is attempted |
+| Direct require of A's checked initializer | A.First 12, Tail 9, Main 129; repeated require has no effects | First/Tail 0; A/B/C failed; no later effects or retry |
+
+Normal operations preserve seeded Err 77 and its revision. Refusing C increments
+the revision once and leaves Err 28. Local-owner -1 forwarding never initializes
+B or C. If B is already active, unused forwarding still completes; an actual
+forwarded read must enter the wait path before further effects. This fixture's
+noreturn C observer proves wait entry only, not indefinite platform waiting.
+It uses controlled frame metadata and one combined test-only body LLVM unit, so
+per-module imports, scheduling and real stack/startup behavior remain separate.
+The 94-group two-stage result and removed-access/unwind/alias negative controls
+are recorded in `../../NATIVE-INITIALIZATION-EVIDENCE.md`.
+
+### Normal schedule
+
+The initialization component's three controlled initializer identities record
+digits 1/2/3. For root-package source counts 1, 2 and 3, the required schedules
+are source identities 1,2,0; 2,0,1; and 0,1,2, yielding 231, 312 and 123.
+Early dependency access and prior completion must not repeat an initializer.
+Refusing source 0's initializer must stop the schedule with event sequences 23,
+3 or 0 respectively, Err 28 and exactly one revision increment. Removing the
+failure branch or changing package order must fail the native observer.
+
+The checked guard fixture has a second project, GuardsReference.UBE, which moves
+the same B/C source files into an explicit UBECore reference. The exact schedule
+is then 1,2,0 instead of 0,1,2; canonical diagnostic identities remain unchanged.
+Both projects complete to Main 129. If B/C complete early and B.Value is changed
+to 44, the schedule must preserve that value and Main returns 449. Refusing C
+leaves root A unstarted for the reference project, whereas the single-package
+schedule has already entered A and must mark it failed. All these observations
+preserve the defined Err/revision behavior. The maintained component and graph
+gates each pass 118 groups through both bootstrap stages. The C entry observer
+and combined body unit still do not qualify ordinary process startup, per-module
+imports, real frame measurements or platform wait support.

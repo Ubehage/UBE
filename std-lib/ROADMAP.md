@@ -1,5 +1,79 @@
 # UBECore workplan
 
+## Bounded byte-key indexing dependency - 2026-11-03
+
+The existing ByteKeys sorter/lookup now shares its implementation with explicit
+byte/event-budget and cooperative-cancellation APIs. Cross-arena queries borrow
+their own byte owner, avoiding object/image concatenation. Existing APIs retain
+all 4,827,069 legacy native assertions per bootstrap stage; the new bounded gate
+passes 2,103,397 per stage, including every cancellation admission, exact/below
+budgets, old outputs, root/allocation refusal and physical byte observations.
+BYTE-KEY-BUDGET-EVIDENCE.md records exact commands, reports and limits. Both gates
+are registered in the bootstrap. Integrated arena/actual-worker foundations and
+native binary/generated-input gates also pass with the changed Core. The complete
+source-built bootstrap, checker resources and performance remain unrefreshed.
+Next consume these bounded operations in the compiler's primary-symbol and
+owned-identity inventory. No compiler naming/COFF policy enters this library.
+
+## Binary inspection dependency - 2026-11-03
+
+BinaryBytes adds ordinary allocation-free little-endian reads under
+BINARY-BYTES-CONTRACT.md, with exact bit patterns for widths 1..8 and preserved
+outputs on failure. Its actual byte visits, integer boundaries, invalid ranges,
+input/Err preservation, root/allocator refusal and cleanup pass through both
+pinned bootstrap stages in the compiler's native-objects gate. That gate passes
+26 groups and is registered in the full bootstrap. Exact command, report and
+source hashes are in ../compiler/UBE_Compiler_v3/NATIVE-OBJECT-EVIDENCE.md.
+COFF/PE policy and inspection budgets remain compiler-owned. No new primitive
+or language behavior is introduced; full source qualification remains pending.
+The compiler now uses the same facility for borrowed names, symbols and
+relocations; a 224-group gate also covers retained actual generated artifacts.
+Next implement indexed compiler symbol/identity binding over these readers.
+
+## Initialization-warning graph dependency - 2026-11-03
+
+The generic GraphComponents implementation and compiler matrix/witness consumer
+now pass their focused two-stage DiagnosticOnly gates. The library gate passes
+six groups and 2,175,517 assertions per stage, including actual pending limits,
+independent reachability, observed transitions/peaks, ownership/failure checks
+and two negative controls. The compiler consumer passes six groups and
+2,098,158 assertions per stage, including exact witnesses and shared budgets.
+Contracts and exact reports are in GRAPH-COMPONENTS-CONTRACT.md,
+GRAPH-COMPONENTS-EVIDENCE.md and the compiler's NATIVE-WARNING-EVIDENCE.md.
+The module is now in UBECore. Its public check wrapper and the compiler consumer
+are registered in the full bootstrap gate; that updated bootstrap has not run.
+The compiler's checked-source/ByRef extraction now passes its fresh two-stage
+23-case gate and is also registered. Next implement runtime module initialization
+in the compiler, then retain final source qualification. Module policy and
+diagnostics stay in the compiler; no additional Core API was needed for discovery.
+
+## Native emitter dependencies - 2026-11-03
+
+The generic signed decimal byte encoder and explicit ByteBuffer payload release
+are implemented under `INTEGER-OUTPUT-CONTRACT.md` and `BYTE-BUFFER-CONTRACT.md`.
+The compiler's focused emission gate observes exact decimal boundaries/counts,
+no allocation/copying under full root pressure, concurrent private encoders and
+preserved TLS error state, plus actual buffer growth/snapshot/release costs.
+Both pinned bootstrap stages pass; report and limitations are recorded in
+`../compiler/UBE_Compiler_v3/NATIVE-IMPLEMENTATION-EVIDENCE.md`. This diagnostic
+component checkpoint is later than the accepted bootstrap cohort. Final source
+qualification remains required; guarded creation/publication and checked-graph
+lowering remain compiler integration work.
+
+## Counted output dependency - 2026-11-03
+
+The active First checked native executable item requires counted byte output.
+`FILE-OUTPUT-CONTRACT.md` fixes the focused write/flush declarations, borrowed
+payload and token ownership, partial progress/failure behavior and independent
+acceptance cases. The implementation passes its 19-group native/two-stage gate,
+including exact byte read-back, short writes, failures, resource accounting,
+concurrent owners and five defective controls. `FILE-OUTPUT-EVIDENCE.md` records
+the command, source/LLVM identities and scope. The enclosing bootstrap passed
+914 acceptance assertions on cohort `df15817344774026bebebfd1e9ae8eaf`.
+Later checker/native-builder edits still require final retained qualification.
+The existing close/token mechanism remains shared; native-build guarded file
+creation and executable publication require their own integration evidence.
+
 ## Bootstrap support location - 2026-11-01
 
 The owner moved the temporary file/thread C adapters out of `src/win-lib/`
@@ -146,11 +220,12 @@ also passed for tracked changes.
 
 ## Exact next action
 
-Preserve the qualified byte/Unicode/file/path/thread foundations and their
-ordinary UBE algorithms. The compiler's next proposed semantic contract must
-identify any concrete reusable numeric/text/storage need before a new UBECore
-slice is selected. Do not implement the full inventory or import compiler policy
-into the library. Existing contracts/names and failure/lifetime/copy tests remain.
+Implement and qualify the counted byte-output dependency in
+`FILE-OUTPUT-CONTRACT.md` for the reviewed native-executable consumer. Preserve
+the qualified byte/Unicode/file/path/thread and semantic numeric/storage
+foundations, their ordinary UBE algorithms and existing contracts/names.
+Do not import compiler policy or implement the full inventory. Guarded file
+acquisition remains a separate native-build integration obligation.
 
 ## Unicode and cursor handoff - 2026-10-30
 

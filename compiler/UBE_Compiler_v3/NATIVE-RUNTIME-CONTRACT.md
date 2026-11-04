@@ -20,7 +20,8 @@ helpers, with the following private C ABI on the selected Windows target:
 | `ube_err_clear(void)` | Explicitly clear the record while advancing its nonzero revision; never called implicitly after successful program operations |
 | `ube_err_set_stack_exhausted(void)` | Specialized recording of Err 28 in the same record; fixed text, no allocation, no external/helper calls in the qualified machine-code path |
 
-The last helper is an implementation dependency, not an existing function.
+The last helper is part of the shared-support implementation dependency; its
+focused implementation evidence is in `ERROR-SUPPORT-EVIDENCE.md`.
 It must record the same number/revision/text state as the general setter with
 28, `out of stack space`, and `UBE.Runtime`. Its purpose is a bounded recovery
 path, not a second error store. Derive its actual stack footprint from the
@@ -32,16 +33,21 @@ revision, 512-byte description and 256-byte source buffers, with native target
 alignment and initial zero state per thread. This layout is private substrate
 state, not a foreign or source-language ABI. General-setter callers in this
 subset provide null or trusted NUL-terminated constant UTF-8 text. Do not pass
-unbounded user buffers: the existing setter bounds the destination copy but
-uses `strlen` on the complete input. Generated text must fit the buffers,
-including its terminator. A successful operation does not call either setter
-or clear. Lowering still owns the neutral result and required argument effects.
+unbounded user buffers: the pre-extraction setter bounded the destination copy
+but used `strlen` on the complete input. Generated text must fit the buffers,
+including its terminator. A successful operation preserves the complete existing error information and
+calls neither setter nor clear. Recording a new error replaces all visible error
+fields; omitted description or source text becomes empty rather than retaining
+older text. Err.Clear and the language-defined Resume behavior clear the recorded
+information; changing On Error mode or returning from a procedure does not.
+Public Err/trapping/Resume syntax remains outside this bounded native subset. Lowering still owns the neutral result and required argument effects.
 The extracted general setter must also have a closed, bounded low-stack path:
 replace its CRT-dependent text copying within the shared implementation with
 bounded recording that preserves these fields, and reject generated external
 calls in that path. Otherwise ordinary arithmetic failure could exhaust the
 reserve even though the specialized Err 28 path fits. This is an implementation
-requirement, not a claim that the existing setter already meets it.
+requirement; the extracted implementation's bounded path is checked separately
+from future generated-program integration.
 
 The selected implementation dependency is a focused extraction into one shared
 error-state source unit under `bootstrap/runtime/`, used both by the existing
@@ -50,8 +56,9 @@ than copying a second implementation. The native output links that unit and
 its required platform/CRT closure, not the entire bootstrap runtime. Do not
 attach library exports, GC, FLS/event/monitor state or managed-string accessors
 to this unit. Actual source/object hashes, private declarations and retained
-symbol/import inventory must be recorded when it is implemented. No such
-extracted unit is claimed to exist yet.
+symbol/import inventory must be recorded when it is implemented. The extracted
+`bootstrap/runtime/error_support.c` now exists; focused host qualification and
+remaining integration obligations are recorded in `ERROR-SUPPORT-EVIDENCE.md`.
 
 This remains a bounded bootstrap exception within the existing linked-substrate
 architecture, not a new runtime subsystem. Its removal condition is replacement

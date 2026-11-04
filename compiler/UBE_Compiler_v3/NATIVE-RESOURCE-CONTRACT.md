@@ -67,13 +67,36 @@ Do not add another parser or duplicate semantic graph.
 For body node occurrences V and followed child edges E, the two traversals
 allow at most 4*V enter/exit events and 2*E followed-edge events. Count actual
 occurrences, including repeated edges, rather than hiding rescans behind unique
-IDs. Declaration and written/parameter argument maps allow at most 2*D and
-2*A visits respectively. Build ordinal lookups once instead of rescanning all
+IDs. Lowering alone retains its owner-approved 3*D own-declaration bound. Count preparation,
+module/member selection, procedure/initializer definitions, formal signatures
+and entry storage as actual visits. Modules, ordinary procedures and parameters
+each require at most three visits; globals and locals require at most two.
+The earlier D+M+F+G+L+2*P contribution described the body consumer alone; full
+module output also charges its module/member selection. It remains within 3*D. The 2026-11-03
+approval and retained counterexample are in NATIVE-DECLARATION-WORK-REVIEW.md.
+The owner also approved the documented typed-import allowance I: one distinct
+foreign target per output plus that imported procedure's formals, bounded by
+V+A+1 including the parameterless startup reference to Main. Thus total
+declaration/import work for lowering is bounded by 3*D+I. Freezing the complete
+pre-tool expected-linkage table adds exactly one D-row traversal, charged to the
+same work ledger. The combined build allowance is therefore 4*D+I under the
+owner's authorization for necessary measured increases. Name construction and
+fixed support rows also consume the separate inspection event/payload budgets.
+NATIVE-EXPECTATION-IMPLEMENTATION.md defines that owner and traversal. Discover and deduplicate imports
+within the existing planning walk and emit only that list; do not scan the
+project declarations per module or per call. This grants no uncounted rescans.
+Written/parameter argument maps allow at most 2*A visits. Build ordinal lookups once instead of rescanning all
 formals for each named argument. Emitted identities, metadata and escaped
 bytes have separate counters; these bounds do not imply output is proportional
 to source length. Warning analysis retains its separate root/edge/formal work
 bound in `NATIVE-BUILD-DIAGNOSTICS.md`; charge every actual visit against the
 shared work limit.
+
+Frame-data emission visits each already indexed ordinary/initializer/wait
+footprint once: F+M+1 metadata events against that same work limit. It borrows
+the build owner's footprint array and adds no declaration or body scan. Its
+two globals use the generated-identity counter. Object inspection and reserve
+derivation are separate obligations; this emission count does not qualify them.
 
 Check cancellation at least every 4096 counted work events and every 65536
 bytes of compiler-controlled emission/escaping, and before tool handoff and

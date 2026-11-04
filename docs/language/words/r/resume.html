@@ -30,11 +30,11 @@ Handler:
 Finished:
     Print "Continued"
 End Sub</code></pre>
-    <h3>Expected result</h3><p>Continued</p>
+    <h3>Expected result</h3><p>The example prints <code>Continued</code>. At <code>Finished</code>, <code>Err.Number</code> is zero because <code>Resume</code> cleared the recorded error. This is specified behavior; fresh v3 cannot yet execute this example.</p>
     <h2>Important rules</h2>
-    <p>Use Resume only from an active error handler. Resume Next continues after the statement that caused the error.</p>
+    <p>Use <code>Resume</code> only from an active error handler. Every valid form clears the recorded <code>Err</code> information as execution resumes. <code>Resume Next</code> continues after the statement that caused the error. In contrast, <code>On Error Resume Next</code> keeps the newly recorded error while continuing after a failure.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../r/rem.html" data-doc-path="language/words/r/rem.html">← Previous: Rem</a><a href="../r/return.html" data-doc-path="language/words/r/return.html">Next: Return →</a></nav>
-    <footer class="article-footer">Article ID: language.word.resume · Status verified against UBE 1.0 · Last reviewed 2026-10-23</footer>
+    <footer class="article-footer">Article ID: language.word.resume · Status verified against UBE 1.0 · Last reviewed 2026-11-03</footer>
   </main>
 </body>
 </html>

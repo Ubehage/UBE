@@ -1,6 +1,8 @@
 param([Parameter(Mandatory=$true)][string] $SourceReport,
       [Parameter(Mandatory=$true)][string] $OutputDirectory,
-      [switch] $RequireMinimal)
+      [switch] $RequireMinimal,
+      [switch] $UseSharedErrorSupport,
+      [ValidateSet('Full','None')][string] $DebugMode = 'None')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $sourceReportPath=(Resolve-Path -LiteralPath $SourceReport).Path
@@ -23,9 +25,11 @@ if ($support.Count -ne 20 -or [IO.Path]::GetFileName($support[0]) -ne 'crt2.o' -
 $root=Join-Path ([IO.Path]::GetFullPath($OutputDirectory)) ([guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($root) | Out-Null
 $runtime=(Resolve-Path -LiteralPath 'bootstrap/runtime/bootstrap_runtime.c').Path
+$errorSupport=(Resolve-Path -LiteralPath 'bootstrap/runtime/error_support.c').Path
 $driver=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot 'linked-error-support.c')).Path
 $ir=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot 'runtime-error-bridge.ll')).Path
-$sourceHashes=@($runtime,$driver,$ir | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
+$runtimeIncludes=@('bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/file_output.c','bootstrap/runtime/windows/thread_primitives.c' | ForEach-Object {(Resolve-Path -LiteralPath $_).Path})
+$sourceHashes=@(@($runtime,$errorSupport,$driver,$ir)+$runtimeIncludes | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
 $windows=[Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)
 $environment=@{SystemRoot=$windows;WINDIR=$windows;TEMP=$root;TMP=$root;PATH=(([IO.Path]::GetDirectoryName($clang)),([IO.Path]::GetDirectoryName($linker)),(Join-Path $windows 'System32') -join ';')}
 $commands=[Collections.Generic.List[object]]::new()
@@ -47,10 +51,19 @@ function Invoke-Tool([string] $Program,[string[]] $Items,[int] $Timeout=20000) {
 }
 function Require-Ok($result,[string] $label) { if ($result.exit -ne 0) { throw "$label failed: $($result.stderr)" } }
 $common=@('--no-default-config','--target=x86_64-w64-windows-gnu','-O2','-mno-incremental-linker-compatible')
+if ($DebugMode -eq 'Full') { $common += @('-g','-gdwarf-4') } else { $common += '-g0' }
 $include=Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($support[0]))) 'include'
 if (-not [IO.Directory]::Exists($include)) { throw 'Missing explicit MinGW include directory' }
 $runtimeObject=Join-Path $root 'runtime.o'; $irObject=Join-Path $root 'bridge.o'
 Require-Ok (Invoke-Tool $clang ($common+@('-isystem',$include,'-std=c17','-ffunction-sections','-fdata-sections','-c',$runtime,'-o',$runtimeObject))) 'runtime compile'
+$sharedObject=Join-Path $root 'error-support.o'
+if ($UseSharedErrorSupport) {
+    Require-Ok (Invoke-Tool $clang ($common+@('-std=c17','-Wall','-Wextra','-Wpedantic','-Werror','-ffunction-sections','-fdata-sections','-fstack-usage','-c',$errorSupport,'-o',$sharedObject))) 'shared error support compile'
+    $undefined=Invoke-Tool $nm @('--undefined-only',$sharedObject)
+    Require-Ok $undefined 'shared undefined-symbol inventory'
+    $names=@($undefined.stdout -split "`n" | Where-Object { $_.Trim() } | ForEach-Object { ($_.Trim() -split '\s+')[-1] })
+    if (@($names | Where-Object { $_ -ne '_tls_index' }).Count -ne 0 -or '_tls_index' -notin $names) { throw "Unexpected shared error dependency: $($undefined.stdout)" }
+}
 Require-Ok (Invoke-Tool $clang ($common+@('-Xclang','-llvm-verify-each','-c','-x','ir',$ir,'-o',$irObject))) 'bridge compile'
 $wrongIr=Join-Path $root 'bridge-wrong-error.ll'; $wrongIrObject=Join-Path $root 'bridge-wrong-error.o'
 $irText=[IO.File]::ReadAllText($ir)
@@ -67,6 +80,7 @@ foreach ($variant in @('good','WRONG_ERROR_CONTROL','WRONG_THREAD_CONTROL')) {
         $exe=Join-Path $root "$variant-$gc.exe"; $map=Join-Path $root "$variant-$gc.map"
         $selectedIrObject=if ($variant -eq 'WRONG_ERROR_CONTROL') {$wrongIrObject} else {$irObject}
         $objects=@($driverObject,$selectedIrObject,$runtimeObject)
+        if ($UseSharedErrorSupport -and $gc -eq 'gc') { $objects=@($driverObject,$selectedIrObject,$sharedObject) }
         $args=@('--no-default-config','--target=x86_64-w64-windows-gnu','-nostdlib',"--ld-path=$linker")+@($support[0..1])+$objects+@($support[2..($support.Count-1)])+@('-Wl,--no-insert-timestamp','-Wl,--subsystem,console','-Wl,--threads=1','-Wl,--Xlink=/nodefaultlib',"-Wl,-Map=$map",$(if ($gc -eq 'gc') {'-Wl,--gc-sections'} else {'-Wl,--no-gc-sections'}),'-o',$exe)
         $link=Invoke-Tool $clang $args
         if ($link.exit -ne 0) {
@@ -82,11 +96,19 @@ foreach ($variant in @('good','WRONG_ERROR_CONTROL','WRONG_THREAD_CONTROL')) {
         [IO.File]::WriteAllText((Join-Path $root "$variant-$gc.imports-exports.txt"),$imports.stdout)
         [IO.File]::WriteAllText((Join-Path $root "$variant-$gc.disassembly.txt"),$disassembly.stdout)
         $ubeNames=@([regex]::Matches($symbols.stdout,'(?m)^\S+\s+\S\s+(ube_[A-Za-z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-        $allowed=@('ube_err_set','ube_err_number','ube_err_clear','ube_thread_error','ube_error_copy_text','ube_current_error_state')
+        $allowed=@('ube_err_set','ube_err_number','ube_err_clear','ube_err_set_stack_exhausted','ube_thread_error','ube_error_copy_text','ube_current_error_state')
         foreach ($required in @('ube_err_set','ube_err_number','ube_err_clear','ube_thread_error')) {
             if ($required -notin $ubeNames) { throw "Required retained symbol not observed: $required" }
         }
         $unexpected=@($ubeNames | Where-Object { $_ -notin $allowed })
+        if ($UseSharedErrorSupport -and $gc -eq 'gc') {
+            if ($imports.stdout -match 'Export \{' -or $symbols.stdout -match '__emutls') { throw 'Unexpected export or emulated TLS in shared support image' }
+            foreach ($symbol in @('ube_err_set','ube_err_set_stack_exhausted','ube_err_number','ube_err_clear')) {
+                $body=[regex]::Match($disassembly.stdout,'(?ms)^\S+ <'+$symbol+'>:\r?\n(.*?)(?=^\S+ <|\z)')
+                if (-not $body.Success -or $body.Groups[1].Value -match '\bcallq?\b') { throw "Missing or nonclosed error function: $symbol" }
+                if ($body.Groups[1].Value -match '\bjmpq?\s+[^\r\n]*<(?!'+$symbol+'(?:\+|>))') { throw "External tail transfer in $symbol" }
+            }
+        }
         if ($gc -eq 'no-gc' -and $unexpected.Count -eq 0) { throw 'No-GC control unexpectedly satisfied the minimal-support comparator' }
         $execution=$null
         if ($gc -eq 'gc') {
@@ -105,10 +127,12 @@ foreach ($item in @($source.inputs)+@($source.identities[0..2])) {
 foreach ($item in $sourceHashes) {
     if ((Get-FileHash -LiteralPath $item.path -Algorithm SHA256).Hash -cne $item.sha256) { throw "Source changed during test: $($item.path)" }
 }
-$identities=@($sourceReportPath,$PSCommandPath,$runtime,$driver,$ir,$nm,$objdump | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
+$identities=@($sourceReportPath,$PSCommandPath,$runtime,$errorSupport,$driver,$ir,$nm,$objdump | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
+$identities+=@($runtimeIncludes | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
 $artifacts=@($runtimeObject,$irObject,$wrongIr,$wrongIrObject,(Join-Path $root 'driver-good.o'),(Join-Path $root 'driver-WRONG_ERROR_CONTROL.o'),(Join-Path $root 'driver-WRONG_THREAD_CONTROL.o') | ForEach-Object { [pscustomobject]@{path=$_;sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash} })
 $baseline=@($results | Where-Object { $_.variant -eq 'good' -and $_.gc -eq 'gc' })
+if ($UseSharedErrorSupport) { $artifacts += [pscustomobject]@{path=$sharedObject;sha256=(Get-FileHash -LiteralPath $sharedObject -Algorithm SHA256).Hash} }
 if ($baseline.Count -ne 1) { throw 'Expected exactly one good GC result' }
-[pscustomobject]@{sourceReport=$sourceReportPath;requireMinimal=$RequireMinimal.IsPresent;minimalityAccepted=$baseline[0].minimal;environment=$environment;identities=$identities;artifacts=$artifacts;sourceToolIdentities=@($source.identities[0..2]);supportInputs=@($source.inputs);supportSequence=$support;commands=$commands.ToArray();results=$results} | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $root 'report.json') -Encoding UTF8
+[pscustomobject]@{sourceReport=$sourceReportPath;sharedErrorSupport=$UseSharedErrorSupport.IsPresent;debugMode=$DebugMode;requireMinimal=$RequireMinimal.IsPresent;minimalityAccepted=$baseline[0].minimal;environment=$environment;identities=$identities;artifacts=$artifacts;sourceToolIdentities=@($source.identities[0..2]);supportInputs=@($source.inputs);supportSequence=$support;commands=$commands.ToArray();results=$results} | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $root 'report.json') -Encoding UTF8
 Write-Output "Evidence: $root"
 if ($RequireMinimal -and -not $baseline[0].minimal) { throw 'GC-linked runtime retained UBE symbols outside the error-support allowlist' }

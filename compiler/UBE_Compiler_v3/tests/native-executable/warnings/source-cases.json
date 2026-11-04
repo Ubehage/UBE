@@ -1,0 +1,1381 @@
+{
+  "schema": "ube-native-warning-source-cases-1",
+  "scope": "Independent checked-source dependency and witness expectations. Admission alone does not verify extraction or runtime execution.",
+  "cases": [
+    {
+      "name": "direct-root-alias",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.PeekValue(x)\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 64,
+          "last": 78
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 78
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 64,
+          "last": 78,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "forced-root-value",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.PeekValue((x))\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 80
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "byval-formal-storage",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Forward(x)\nPublic Function Forward(ByVal p As Long) As Long\n    Forward = B.PeekValue(p)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 138,
+          "last": 152
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "omitted-and-named-forwarding",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Relay(, x)\nPublic Function Relay(Optional ByVal Skip As Long = 0, Optional ByRef p As Long = 0) As Long\n    Relay = B.PeekValue(p:=p)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 180,
+          "last": 197
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 180,
+          "last": 197
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 180,
+          "last": 197,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "earlier-forwarding-witness",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Start()\nPublic Function Earlier(ByRef p As Long) As Long\n    Earlier = B.PeekValue(p)\nEnd Function\nPublic Function Start() As Long\n    Dim LocalValue As Long = 0\n    Start = B.PeekValue(LocalValue)\n    Start = Earlier(x)\n    Start = B.PeekValue(x)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 135,
+          "last": 149
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 135,
+          "last": 149
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 135,
+          "last": 149,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "recursive-forwarding",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Relay(x)\nPublic Function Relay(ByRef p As Long) As Long\n    Relay = Relay(p)\n    Relay = B.PeekValue(p)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 153,
+          "last": 167
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 153,
+          "last": 167
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 153,
+          "last": 167,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "direct-module-cycle",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.y + 1\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic y As Long = A.x + 1\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 67
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "source": 1,
+          "first": 64,
+          "last": 67
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 64,
+          "last": 67,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "uncalled-foreign-helper",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.y + 1\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic y As Long = 7\nPublic Function Unused() As Long\n    Unused = A.x + 1\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 67
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "foreign-helper-readback",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.ReadBack()\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function ReadBack() As Long\n    ReadBack = A.x\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 1,
+          "first": 95,
+          "last": 98
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 76
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 1,
+          "first": 95,
+          "last": 98,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "foreign-helper-writeback",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.SetValue()\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function SetValue() As Long\n    A.x = 5\n    SetValue = 7\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 1,
+          "first": 84,
+          "last": 87
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 76
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 1,
+          "first": 84,
+          "last": 87,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "retained-branch-downstream",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.y\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic y As Long = PickValue()\nPublic Function PickValue() As Long\n    If A.x > 0 Then\n        PickValue = C.z\n    Else\n        PickValue = 0\n    End If\nEnd Function\n"
+        },
+        {
+          "name": "C",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"C\"\nPublic z As Long = 2\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 67
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "source": 1,
+          "first": 119,
+          "last": 122
+        },
+        {
+          "from": 1,
+          "to": 2,
+          "source": 1,
+          "first": 152,
+          "last": 155
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 64,
+          "last": 67,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "own-module-storage",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = y + 1\nPublic y As Long = 7\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic z As Long = 2\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [],
+      "warnings": []
+    },
+    {
+      "name": "provably-skipped-call",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Boolean = False AndAlso B.Touch()\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function Touch() As Boolean\n    Touch = A.x\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [],
+      "warnings": []
+    },
+    {
+      "name": "foreign-intrinsic-call",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As B.Token = B.PackValue(1)\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Type Token As Long\nEnd Type\nPublic Intrinsic Function PackValue(ByVal Bits As Long) As Token\nAttribute PackValue.UBE_Primitive = \"Value.Pack\"\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 67,
+          "last": 81
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "forwarding-cycle-scale-2",
+      "scale": 2,
+      "sources": [
+        {
+          "name": "M0",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M0\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M1.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M1",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M1\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M0.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 139,
+          "last": 152,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "forwarding-cycle-scale-4",
+      "scale": 4,
+      "sources": [
+        {
+          "name": "M0",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M0\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M1.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M1",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M1\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M2.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M2",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M2\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M3.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M3",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M3\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M0.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 0,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 2,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 0,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 3,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 139,
+          "last": 152,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "forwarding-cycle-scale-8",
+      "scale": 8,
+      "sources": [
+        {
+          "name": "M0",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M0\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M1.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M1",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M1\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M2.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M2",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M2\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M3.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M3",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M3\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M4.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M4",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M4\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M5.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M5",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M5\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M6.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M6",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M6\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M7.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "M7",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"M7\"\nPublic x As Long = Consume(x)\nPublic Function Consume(ByRef p As Long) As Long\n    Consume = M0.Consume(p)\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 0,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 1,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 2,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 2,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 3,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 3,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 4,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 4,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 5,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 5,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 6,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 6,
+          "to": 7,
+          "source": 6,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 0,
+          "source": 7,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 1,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 2,
+          "source": 1,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 3,
+          "source": 2,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 4,
+          "source": 3,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 5,
+          "source": 4,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 6,
+          "source": 5,
+          "first": 139,
+          "last": 152
+        },
+        {
+          "from": 7,
+          "to": 7,
+          "source": 0,
+          "first": 139,
+          "last": 152
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 139,
+          "last": 152,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "local-storage-control",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Helper()\nPublic Function Helper() As Long\n    Dim LocalValue As Long = 0\n    Helper = B.PeekValue(LocalValue)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 150,
+          "last": 173
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "result-storage-control",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Helper()\nPublic Function Helper() As Long\n    Helper = B.PeekValue(Helper)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [],
+      "warnings": [],
+      "rejection": {
+        "code": 1417,
+        "source": 0,
+        "first": 131,
+        "last": 137
+      }
+    },
+    {
+      "name": "default-byref-control",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = B.PeekValue()\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(Optional ByRef p As Long = 0) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 64,
+          "last": 77
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "unseeded-recursive-forwarding",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Relay((x))\nPublic Function Relay(ByRef p As Long) As Long\n    Relay = Relay(p)\n    Relay = B.PeekValue(p)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 155,
+          "last": 169
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "name": "earlier-local-is-not-witness",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = Helper()\nPublic Function Helper() As Long\n    Dim LocalValue As Long = 0\n    Helper = B.PeekValue(LocalValue)\n    Helper = B.PeekValue(x)\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic Function PeekValue(ByRef p As Long) As Long\n    PeekValue = p\nEnd Function\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 0,
+          "source": 0,
+          "first": 187,
+          "last": 201
+        },
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 150,
+          "last": 173
+        }
+      ],
+      "warnings": [
+        {
+          "code": 1514,
+          "source": 0,
+          "first": 187,
+          "last": 201,
+          "smallestModule": 0
+        }
+      ]
+    },
+    {
+      "name": "other-module-storage-control",
+      "sources": [
+        {
+          "name": "A",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"A\"\nPublic x As Long = PassValue(B.y)\nPublic Function PassValue(ByRef p As Long) As Long\n    PassValue = p\nEnd Function\n"
+        },
+        {
+          "name": "B",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"B\"\nPublic y As Long = 7\n"
+        },
+        {
+          "name": "App",
+          "text": "UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"App\"\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": 0,
+          "to": 1,
+          "source": 0,
+          "first": 74,
+          "last": 77
+        }
+      ],
+      "warnings": []
+    }
+  ]
+}

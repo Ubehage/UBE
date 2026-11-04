@@ -1,6 +1,6 @@
 # AGENTS.md: guide for AI agents and contributors
 
-UBE is an open-source, native, compiler for a new language derived from classic Visual Basic 6, written exclusively in UBE (C++ with gcc is used for bootstrapping).
+UBE is an open-source, native, compiler for a new language derived from classic Visual Basic 6, written entirely in UBE (C++ with gcc is used exclusively for bootstrapping).
 Its source syntax is intended to accept classic VB6 source while giving new features well-defined, modern semantics.
 **No Tauri, Electron or webview shells**
 

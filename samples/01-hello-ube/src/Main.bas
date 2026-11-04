@@ -9,10 +9,12 @@ Sub Main()
     Dim ProductName As String = "UBE"
     Dim FirstNumber As Long = 2
     Dim SecondNumber As Long = 3
-    Dim Result As Long = FirstNumber + SecondNumber
+    Dim Result As Long
+    
+    Result = FirstNumber + SecondNumber
 
     Print "Hello, " & ProductName & "!"
     Print "Welcome to native Basic programming."
-    Print "2 + 3 equals:"
+    Print "2 + 3 equals:";
     Print Result
 End Sub

@@ -9,9 +9,13 @@ accepted cohort `88d1906a667645fa87f885c3a117e52f`. Exact proofs and limits are 
 [semantic evidence](UBE_Compiler_v3/SEMANTIC-EVIDENCE.md).
 
 The full compiler/Core source, deferred language families and executable output
-remain outside this result. The next existing deliverable is First checked
-native executable. Begin with reviewed bounded lowering/backend/ABI/runtime-error
-and tool-handoff contracts, preserving established names, original spans,
+remain outside this result. First checked native executable is now being
+implemented under its reviewed lowering/backend/ABI/runtime-error and tool
+contracts. The latest completed bounded goal qualifies image base-relocation
+validation and required pointer associations after TLS storage association.
+See the active compiler's
+[progress](UBE_Compiler_v3/Progress.md) for exact checkpoints and remaining
+native acceptance work. Preserve established names, original spans,
 library/compiler responsibilities and qualified ownership/concurrency.
 
 Older records below describe their named checkpoints; their unavailable-checking

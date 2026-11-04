@@ -5,6 +5,7 @@
   Agents must never delete, rename, relocate, or replace these files without the owner's explicit prior authorization.
   This restriction takes precedence over all general permissions to reorganize, clean up, or modify the repository.
   Agents must preserve the contents and purpose of these files unless a change is explicitly authorized or required by the owner's instructions.
+- The root `LICENSE` file cannot be changed with explicit approval from the owner.
 
 
 When implementation makes new contributor guidance necessary, agents should create

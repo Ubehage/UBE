@@ -9,6 +9,38 @@ Type ByteKey
     ByteCount As Long
     Value As Long
 End Type
+
+Type ByteKeyBudget
+    MaximumBytes As LongLong
+    MaximumEvents As LongLong
+    Bytes As LongLong
+    Events As LongLong
+End Type
+
+Private Function TryVisitByteKeyWork(ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean, ByVal ByteCount As Long, ByRef Failure As Long) As Boolean
+    TryVisitByteKeyWork = False
+    If Metered Then
+        Failure = 1
+        If Budget.MaximumBytes < 0 Or Budget.MaximumEvents < 0 Or Budget.Bytes < 0 Or Budget.Events < 0 Or ByteCount < 0 Then
+            Exit Function
+        End If
+        If Cancelled Then
+            Failure = 3
+            Exit Function
+        End If
+        Failure = 2
+        If Budget.Bytes > Budget.MaximumBytes Or Budget.Events >= Budget.MaximumEvents Then
+            Exit Function
+        End If
+        If ByteCount > Budget.MaximumBytes - Budget.Bytes Then
+            Exit Function
+        End If
+        Budget.Bytes = Budget.Bytes + ByteCount
+        Budget.Events = Budget.Events + 1
+    End If
+    Failure = 5
+    TryVisitByteKeyWork = True
+End Function
 Private Intrinsic Function ByteKeyByteLength(ByRef Values() As Byte) As Long
 Attribute ByteKeyByteLength.UBE_Primitive = "Array.Length"
 End Function
@@ -55,16 +87,19 @@ Private Function TryValidateByteKey(ByRef Keys() As ByteKey, ByVal Index As Long
     TryValidateByteKey = True
 End Function
 
-Private Function TryCompareByteKeySpans(ByRef Bytes() As Byte, ByVal LeftFirst As Long, ByVal LeftCount As Long, ByVal RightFirst As Long, ByVal RightCount As Long, ByRef Relation As Long) As Boolean
+Private Function TryCompareByteKeySpans(ByRef Bytes() As Byte, ByRef QueryBytes() As Byte, ByVal LeftFirst As Long, ByVal LeftCount As Long, ByVal RightFirst As Long, ByVal RightCount As Long, ByRef Relation As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean, ByRef Failure As Long) As Boolean
     TryCompareByteKeySpans = False
     Dim Index As Long = 0
     While Index < LeftCount And Index < RightCount
+        If TryVisitByteKeyWork(Budget, Cancelled, Metered, 2, Failure) = False Then
+            Exit Function
+        End If
         Dim Left As Long = 0
         Dim Right As Long = 0
         If TryReadByteKeyByte(Bytes, LeftFirst + Index, Left) = False Then
             Exit Function
         End If
-        If TryReadByteKeyByte(Bytes, RightFirst + Index, Right) = False Then
+        If TryReadByteKeyByte(QueryBytes, RightFirst + Index, Right) = False Then
             Exit Function
         End If
         If Left < Right Then
@@ -89,8 +124,11 @@ Private Function TryCompareByteKeySpans(ByRef Bytes() As Byte, ByVal LeftFirst A
     TryCompareByteKeySpans = True
 End Function
 
-Private Function TryCompareByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal LeftIndex As Long, ByVal RightIndex As Long, ByRef Relation As Long) As Boolean
+Private Function TryCompareByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal LeftIndex As Long, ByVal RightIndex As Long, ByRef Relation As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean, ByRef Failure As Long) As Boolean
     TryCompareByteKeys = False
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
     Dim LeftPartition As Long = Keys(LeftIndex).Partition
     Dim RightPartition As Long = Keys(RightIndex).Partition
     If LeftPartition < RightPartition Then
@@ -103,14 +141,17 @@ Private Function TryCompareByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteK
         TryCompareByteKeys = True
         Exit Function
     End If
-    TryCompareByteKeys = TryCompareByteKeySpans(Bytes, Keys(LeftIndex).FirstByte, Keys(LeftIndex).ByteCount, Keys(RightIndex).FirstByte, Keys(RightIndex).ByteCount, Relation)
+    TryCompareByteKeys = TryCompareByteKeySpans(Bytes, Bytes, Keys(LeftIndex).FirstByte, Keys(LeftIndex).ByteCount, Keys(RightIndex).FirstByte, Keys(RightIndex).ByteCount, Relation, Budget, Cancelled, Metered, Failure)
 End Function
 
 ' Complete independent ordering vector; failed preparation preserves old Order.
 ' Failure5 must be seeded by the caller before managed entry. No compiler cap.
-Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyCount As Long, ByVal MaximumKeys As Long, ByRef Order() As Long, ByRef Failure As Long) As Boolean
-    TryOrderByteKeys = False
+Private Function TryPrepareByteKeyOrder(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyCount As Long, ByVal MaximumKeys As Long, ByRef Order() As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean) As Boolean
+    TryPrepareByteKeyOrder = False
     Failure = 5
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
     If KeyCount < 0 Or MaximumKeys < 0 Then
         Failure = 1
         Exit Function
@@ -126,6 +167,9 @@ Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal 
     Dim ByteLength As Long = ByteKeyByteLength(Bytes)
     Dim Index As Long = 0
     While Index < KeyCount
+        If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+            Exit Function
+        End If
         If TryValidateByteKey(Keys, Index, ByteLength, Failure) = False Then
             Exit Function
         End If
@@ -133,16 +177,25 @@ Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal 
     Wend
     Dim Pending() As Long
     Dim Scratch() As Long
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
     If TryResizeByteKeyOrder(Pending, KeyCount, False) = False Then
         Exit Function
     End If
     If KeyCount > 1 Then
+        If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+            Exit Function
+        End If
         If TryResizeByteKeyOrder(Scratch, KeyCount, False) = False Then
             Exit Function
         End If
     End If
     Index = 0
     While Index < KeyCount
+        If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+            Exit Function
+        End If
         Call WriteByteKeyOrder(Pending(Index), Index)
         Index = Index + 1
     Wend
@@ -186,7 +239,7 @@ Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal 
                 End If
                 If Left < Middle And Right < Last Then
                     Dim Relation As Long = 0
-                    If TryCompareByteKeys(Bytes, Keys, LeftKey, RightKey, Relation) = False Then
+                    If TryCompareByteKeys(Bytes, Keys, LeftKey, RightKey, Relation, Budget, Cancelled, Metered, Failure) = False Then
                         Exit Function
                     End If
                     TakeLeft = Relation <= 0
@@ -199,8 +252,14 @@ Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal 
                     Right = Right + 1
                 End If
                 If ReadPending Then
+                    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+                        Exit Function
+                    End If
                     Call WriteByteKeyOrder(Scratch(Destination), Selected)
                 Else
+                    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+                        Exit Function
+                    End If
                     Call WriteByteKeyOrder(Pending(Destination), Selected)
                 End If
                 Destination = Destination + 1
@@ -217,21 +276,30 @@ Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal 
     If ReadPending = False Then
         Index = 0
         While Index < KeyCount
+            If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+                Exit Function
+            End If
             Call WriteByteKeyOrder(Pending(Index), Scratch(Index))
             Index = Index + 1
         Wend
     End If
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
     If TryResizeByteKeyOrder(Scratch, 0, False) = False Then
+        Exit Function
+    End If
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
         Exit Function
     End If
     If TryCopyByteKeyOrder(Order, Pending) = False Then
         Exit Function
     End If
     Failure = 0
-    TryOrderByteKeys = True
+    TryPrepareByteKeyOrder = True
 End Function
 
-Private Function TryCompareByteKeyQuery(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyIndex As Long, ByVal ByteLength As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef Relation As Long, ByRef Failure As Long) As Boolean
+Private Function TryCompareByteKeyQuery(ByRef Bytes() As Byte, ByRef QueryBytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyIndex As Long, ByVal ByteLength As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef Relation As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean) As Boolean
     TryCompareByteKeyQuery = False
     If TryValidateByteKey(Keys, KeyIndex, ByteLength, Failure) = False Then
         Exit Function
@@ -247,15 +315,18 @@ Private Function TryCompareByteKeyQuery(ByRef Bytes() As Byte, ByRef Keys() As B
         TryCompareByteKeyQuery = True
         Exit Function
     End If
-    TryCompareByteKeyQuery = TryCompareByteKeySpans(Bytes, Keys(KeyIndex).FirstByte, Keys(KeyIndex).ByteCount, FirstByte, ByteCount, Relation)
+    TryCompareByteKeyQuery = TryCompareByteKeySpans(Bytes, QueryBytes, Keys(KeyIndex).FirstByte, Keys(KeyIndex).ByteCount, FirstByte, ByteCount, Relation, Budget, Cancelled, Metered, Failure)
 End Function
 
-Private Function TryFindByteKeyBoundary(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal ByteLength As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByVal Upper As Boolean, ByRef Boundary As Long, ByRef Failure As Long) As Boolean
+Private Function TryFindByteKeyBoundary(ByRef Bytes() As Byte, ByRef QueryBytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal ByteLength As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByVal Upper As Boolean, ByRef Boundary As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean) As Boolean
     TryFindByteKeyBoundary = False
     Dim First As Long = 0
     Dim Count As Long = ByteKeyOrderLength(Order)
     Dim Last As Long = Count
     While First < Last
+        If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+            Exit Function
+        End If
         Dim Middle As Long = First + (Last - First) \ 2
         Dim KeyIndex As Long = Order(Middle)
         If KeyIndex < 0 Or KeyIndex >= Count Then
@@ -263,7 +334,7 @@ Private Function TryFindByteKeyBoundary(ByRef Bytes() As Byte, ByRef Keys() As B
             Exit Function
         End If
         Dim Relation As Long = 0
-        If TryCompareByteKeyQuery(Bytes, Keys, KeyIndex, ByteLength, Partition, FirstByte, ByteCount, Relation, Failure) = False Then
+        If TryCompareByteKeyQuery(Bytes, QueryBytes, Keys, KeyIndex, ByteLength, Partition, FirstByte, ByteCount, Relation, Failure, Budget, Cancelled, Metered) = False Then
             Exit Function
         End If
         If Relation < 0 Or (Relation = 0 And Upper) Then
@@ -278,10 +349,14 @@ End Function
 
 ' Immutable sorted Order must come from TryOrderByteKeys. Outputs are distinct,
 ' do not alias inputs/Failure, and commit only after both boundaries succeed.
-Function TryFindByteKeyRange(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef FirstMatch As Long, ByRef MatchCount As Long, ByRef Failure As Long) As Boolean
-    TryFindByteKeyRange = False
+Private Function TryReadByteKeyRange(ByRef Bytes() As Byte, ByRef QueryBytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef FirstMatch As Long, ByRef MatchCount As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean, ByVal Metered As Boolean) As Boolean
+    TryReadByteKeyRange = False
     Failure = 5
-    Dim Length As Long = ByteKeyByteLength(Bytes)
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
+    Dim Length As Long = ByteKeyByteLength(QueryBytes)
+    Dim KeyLength As Long = ByteKeyByteLength(Bytes)
     If FirstByte < 0 Or FirstByte > Length Or ByteCount < 0 Then
         Failure = 1
         Exit Function
@@ -296,15 +371,38 @@ Function TryFindByteKeyRange(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByR
     End If
     Dim Lower As Long = 0
     Dim Upper As Long = 0
-    If TryFindByteKeyBoundary(Bytes, Keys, Order, Length, Partition, FirstByte, ByteCount, False, Lower, Failure) = False Then
+    If TryFindByteKeyBoundary(Bytes, QueryBytes, Keys, Order, KeyLength, Partition, FirstByte, ByteCount, False, Lower, Failure, Budget, Cancelled, Metered) = False Then
         Exit Function
     End If
-    If TryFindByteKeyBoundary(Bytes, Keys, Order, Length, Partition, FirstByte, ByteCount, True, Upper, Failure) = False Then
+    If TryFindByteKeyBoundary(Bytes, QueryBytes, Keys, Order, KeyLength, Partition, FirstByte, ByteCount, True, Upper, Failure, Budget, Cancelled, Metered) = False Then
         Exit Function
     End If
     Dim Matches As Long = Upper - Lower
+    If TryVisitByteKeyWork(Budget, Cancelled, Metered, 0, Failure) = False Then
+        Exit Function
+    End If
     FirstMatch = Lower
     MatchCount = Matches
     Failure = 0
-    TryFindByteKeyRange = True
+    TryReadByteKeyRange = True
+End Function
+
+Function TryOrderByteKeys(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyCount As Long, ByVal MaximumKeys As Long, ByRef Order() As Long, ByRef Failure As Long) As Boolean
+    Dim Budget As ByteKeyBudget
+    Dim Cancelled As Boolean = False
+    TryOrderByteKeys = TryPrepareByteKeyOrder(Bytes, Keys, KeyCount, MaximumKeys, Order, Failure, Budget, Cancelled, False)
+End Function
+
+Function TryOrderByteKeysBudgeted(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByVal KeyCount As Long, ByVal MaximumKeys As Long, ByRef Order() As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean) As Boolean
+    TryOrderByteKeysBudgeted = TryPrepareByteKeyOrder(Bytes, Keys, KeyCount, MaximumKeys, Order, Failure, Budget, Cancelled, True)
+End Function
+
+Function TryFindByteKeyRange(ByRef Bytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef FirstMatch As Long, ByRef MatchCount As Long, ByRef Failure As Long) As Boolean
+    Dim Budget As ByteKeyBudget
+    Dim Cancelled As Boolean = False
+    TryFindByteKeyRange = TryReadByteKeyRange(Bytes, Bytes, Keys, Order, Partition, FirstByte, ByteCount, FirstMatch, MatchCount, Failure, Budget, Cancelled, False)
+End Function
+
+Function TryFindByteKeyRangeBudgeted(ByRef Bytes() As Byte, ByRef QueryBytes() As Byte, ByRef Keys() As ByteKey, ByRef Order() As Long, ByVal Partition As Long, ByVal FirstByte As Long, ByVal ByteCount As Long, ByRef FirstMatch As Long, ByRef MatchCount As Long, ByRef Failure As Long, ByRef Budget As ByteKeyBudget, ByRef Cancelled As Boolean) As Boolean
+    TryFindByteKeyRangeBudgeted = TryReadByteKeyRange(Bytes, QueryBytes, Keys, Order, Partition, FirstByte, ByteCount, FirstMatch, MatchCount, Failure, Budget, Cancelled, True)
 End Function

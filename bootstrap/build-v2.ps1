@@ -96,19 +96,24 @@ try {
         (Get-ChildItem (Join-Path $root 'std-lib/tests/utf8') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/byte-buffer') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/file-bytes') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/file-output') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/path-bytes') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/unicode') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/signed-integers') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/byte-keys') -Recurse -File).FullName
+        (Get-ChildItem (Join-Path $root 'std-lib/tests/graph-components') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/tests/scalar-storage') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/data/unicode') -Recurse -File).FullName
         (Get-ChildItem (Join-Path $root 'std-lib/src') -Recurse -File).FullName
         (Join-Path $root 'std-lib/UBECore.UBE')
         (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md')
         (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md')
+        (Join-Path $root 'std-lib/FILE-OUTPUT-CONTRACT.md')
         (Join-Path $root 'std-lib/THREADS-CONTRACT.md')
         (Join-Path $root 'std-lib/SIGNED-INTEGER-CONTRACT.md')
+        (Join-Path $root 'std-lib/INTEGER-OUTPUT-CONTRACT.md')
         (Join-Path $root 'std-lib/BYTE-KEY-CONTRACT.md')
+        (Join-Path $root 'std-lib/GRAPH-COMPONENTS-CONTRACT.md')
         (Join-Path $root 'std-lib/STORAGE-CAPACITY-CONTRACT.md')
         (Join-Path $root 'std-lib/UTF8-ENCODING-CONTRACT.md')
         (Join-Path $root 'compiler/UBE_Compiler_v3/tests/semantic/native/CONTRACT.md')
@@ -124,10 +129,12 @@ try {
         (Join-Path $root 'std-lib/tools/check-byte-buffer.ps1')
         (Join-Path $root 'std-lib/tools/check-byte-buffer-costs.ps1')
         (Join-Path $root 'std-lib/tools/check-file-bytes.ps1')
+        (Join-Path $root 'std-lib/tools/check-file-output.ps1')
         (Join-Path $root 'std-lib/tools/check-path-bytes.ps1')
         (Join-Path $root 'std-lib/tools/check-unicode.ps1')
         (Join-Path $root 'std-lib/tools/check-signed-integers.ps1')
         (Join-Path $root 'std-lib/tools/check-byte-keys.ps1')
+        (Join-Path $root 'std-lib/tools/check-graph-components.ps1')
         (Join-Path $root 'std-lib/tools/check-scalar-storage.ps1')
         (Join-Path $root 'std-lib/tools/generate-unicode.ps1')
         (Join-Path $root 'std-lib/UNICODE-CONTRACT.md')
@@ -136,15 +143,18 @@ try {
         (Join-Path $PSScriptRoot 'compile-v2.ps1')
         (Join-Path $PSScriptRoot 'tools/verification.ps1')
         (Join-Path $root 'bootstrap/runtime/bootstrap_runtime.c')
+        (Join-Path $root 'bootstrap/runtime/error_support.c')
         (Join-Path $root 'bootstrap/runtime/value_storage.h')
         (Join-Path $root 'bootstrap/runtime/bootstrap_unicode_runtime.cpp')
         (Join-Path $root 'bootstrap/runtime/windows/file_primitives.c')
+        (Join-Path $root 'bootstrap/runtime/windows/file_output.c')
         (Join-Path $root 'bootstrap/runtime/windows/thread_primitives.c')
     )
     $inputs = @($inputPaths | Where-Object {
         [IO.Path]::GetExtension($_) -in @('.bas','.cls','.UBE','.c','.cpp','.h','.hpp','.ps1','.json','.ll') -or
         $_ -eq (Join-Path $root 'std-lib/THREADS-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/SIGNED-INTEGER-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/INTEGER-OUTPUT-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/BYTE-KEY-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/STORAGE-CAPACITY-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/UTF8-ENCODING-CONTRACT.md') -or
@@ -154,6 +164,7 @@ try {
         $_ -eq (Join-Path $root 'std-lib/BYTE-BUFFER-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/tests/byte-buffer/ORACLES.md') -or
         $_ -eq (Join-Path $root 'std-lib/FILE-BYTES-CONTRACT.md') -or
+        $_ -eq (Join-Path $root 'std-lib/FILE-OUTPUT-CONTRACT.md') -or
         $_ -eq (Join-Path $root 'std-lib/tests/file-bytes/ORACLES.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/source-reference/CONTRACT.md') -or
         $_ -eq (Join-Path $root 'compiler/UBE_Compiler_v2/tests/entry-admission/CONTRACT.md') -or
@@ -206,6 +217,9 @@ try {
         if ($record.stdout -cne ($probe.Replace('_',' ') + " probe passed`n") -or $record.stderr -cne '') { throw "$probe output differs" }
         $checks.Add([pscustomobject]@{ name = $probe; assertion = 'runtime assertions and exact output'; passed = $true })
     }
+    Assert-Success (Invoke-Recorded 'powershell.exe' @('-NoProfile','-File',
+        (Join-Path $PSScriptRoot 'tests/check-error-support.ps1'),'-Clang',$Clang) 120) 'Shared error record qualification'
+    $checks.Add([pscustomobject]@{ name = 'shared-error-record'; assertion = 'Full/None record fields, revision wrap, specialized setter, rejected control and existing runtime probes'; passed = $true })
     Write-Output 'Building v2 stage one, stage two and the current-source LLVM fixed point.'
     $v2 = Join-Path $root 'compiler/UBE_Compiler_v2'
     $project = Join-Path $v2 'UBE_Compiler_v2.UBE'
@@ -340,7 +354,26 @@ $timer.Start()
 try {
     Write-Output 'Qualifying native values, managed storage, source input and existing baselines.'
     $shell = (Get-Process -Id $PID).Path
+    $graphProofPath = ''
+    $initializationProofPath = ''
+    $framesProofPath = ''
+    $objectReaderProofPath = ''
+    $byteKeysProofPath = ''
     foreach ($proof in @(@('native-values','std-lib/tools/check-native-type.ps1'),
+        @('file-output','std-lib/tools/check-file-output.ps1'),
+        @('native-accounting','compiler/UBE_Compiler_v3/tests/native-executable/resources/check-accounting.ps1'),
+        @('native-emission','compiler/UBE_Compiler_v3/tests/native-executable/emission/check.ps1'),
+        @('native-graph','compiler/UBE_Compiler_v3/tests/native-executable/graph/check.ps1'),
+        @('native-import-emission','compiler/UBE_Compiler_v3/tests/native-executable/resources/import-work/check-emission.ps1'),
+        @('native-warnings','compiler/UBE_Compiler_v3/tests/native-executable/warnings/check.ps1'),
+        @('native-warning-sources','compiler/UBE_Compiler_v3/tests/native-executable/warnings/check-sources.ps1'),
+        @('native-initialization','compiler/UBE_Compiler_v3/tests/native-executable/initialization/check.ps1'),
+        @('native-frames','compiler/UBE_Compiler_v3/tests/native-executable/frames/check.ps1'),
+        @('native-objects','compiler/UBE_Compiler_v3/tests/native-executable/objects/check.ps1'),
+        @('native-unwind','compiler/UBE_Compiler_v3/tests/native-executable/objects/check-unwind.ps1'),
+        @('native-object-inputs','compiler/UBE_Compiler_v3/tests/native-executable/objects/check-generated.ps1'),
+        @('native-data-bindings','compiler/UBE_Compiler_v3/tests/native-executable/objects/check-bindings.ps1'),
+        @('graph-components','std-lib/tools/check-graph-components.ps1'),
         @('ordinary-records','std-lib/tools/check-value-record.ps1'),
         @('managed-substrate','std-lib/tools/check-managed-storage.ps1'),
         @('managed-values','std-lib/tools/check-managed-values.ps1'),
@@ -352,6 +385,7 @@ try {
         @('wide-integers','compiler/UBE_Compiler_v2/tests/wide-integers/check.ps1'),
         @('signed-integers','std-lib/tools/check-signed-integers.ps1'),
         @('byte-keys','std-lib/tools/check-byte-keys.ps1'),
+        @('byte-key-budgets','std-lib/tools/check-budgeted-byte-keys.ps1'),
         @('scalar-storage','std-lib/tools/check-scalar-storage.ps1'),
         @('semantic-foundations','compiler/UBE_Compiler_v3/tools/check-semantic-foundations.ps1'),
         @('value-materialization','compiler/UBE_Compiler_v2/tests/value-materialization/check.ps1'),
@@ -379,18 +413,60 @@ try {
         if ($proof[0] -eq 'thread-references') { $proofTimeout = 180 }
         if ($proof[0] -in @('value-materialization','caller-retention')) { $proofTimeout = 180 }
         if ($proof[0] -eq 'root-registry') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'file-output') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'native-emission') { $proofTimeout = 300 }
+        if ($proof[0] -eq 'native-graph') { $proofTimeout = 1200 }
+        if ($proof[0] -eq 'native-import-emission') { $proofTimeout = 300 }
+        if ($proof[0] -eq 'native-warnings') { $proofTimeout = 300 }
+        if ($proof[0] -eq 'native-warning-sources') { $proofTimeout = 1200 }
+        # The platform/entry matrix takes about 281 seconds in the retained
+        # two-stage run; leave bounded headroom for the full bootstrap host.
+        if ($proof[0] -eq 'native-initialization') { $proofTimeout = 420 }
+        # The complete relocation component gate measured 944 seconds of child
+        # work; this is test headroom, not a production resource-cap change.
+        if ($proof[0] -eq 'native-objects') { $proofTimeout = 1080 }
+        if ($proof[0] -eq 'native-unwind') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'native-object-inputs') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'native-data-bindings') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'byte-key-budgets') { $proofTimeout = 180 }
+        if ($proof[0] -eq 'graph-components') { $proofTimeout = 180 }
         if ($proof[0] -eq 'path-bytes') { $proofTimeout = 180 }
         if ($proof[0] -eq 'project-manifest') { $proofTimeout = 180 }
         if ($proof[0] -eq 'project-intake') { $proofTimeout = 900 }
         if ($proof[0] -eq 'project-display') { $proofTimeout = 180 }
         $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-SelectionPath',$candidatePath)
+        if ($proof[0] -eq 'native-import-emission') {
+            if (-not $graphProofPath) { throw 'Current checked-graph proof missing for import emission' }
+            $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-ReportPath',$graphProofPath)
+        }
+        if ($proof[0] -eq 'native-frames') {
+            if (-not $graphProofPath -or -not $initializationProofPath) { throw 'Current graph/emission proofs missing for frame binding' }
+            $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-GraphReport',$graphProofPath,'-EmissionReport',$initializationProofPath)
+        }
         if ($proof[0] -eq 'thread-statement') { $proofArguments += '-RequireNative' }
+        if ($proof[0] -eq 'byte-key-budgets') {
+            if (-not $byteKeysProofPath) { throw 'Current byte-key regression proof missing' }
+            $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-ReportPath',$byteKeysProofPath)
+        }
+        if ($proof[0] -eq 'native-object-inputs' -or $proof[0] -eq 'native-data-bindings') {
+            if (-not $framesProofPath -or -not $objectReaderProofPath) { throw 'Current reader/frame proofs missing for generated binary inspection' }
+            $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-ReaderReport',$objectReaderProofPath,'-FramesReport',$framesProofPath)
+        }
+        if ($proof[0] -eq 'native-unwind') {
+            if (-not $graphProofPath -or -not $objectReaderProofPath) { throw 'Current graph/reader proofs missing for declared function ranges' }
+            $proofArguments = @('-NoProfile','-File',(Join-Path $root $proof[1]),'-ReaderReport',$objectReaderProofPath,'-GraphReport',$graphProofPath)
+        }
         $record = Invoke-Recorded $shell $proofArguments $proofTimeout
         Assert-Success $record $proof[0]
         $reports = [regex]::Matches($record.stdout,'(?m)^Evidence: (.+)$')
         if ($reports.Count -ne 1) { throw "No unique proof report: $($proof[0])" }
         $reportIdentity = Get-ArtifactIdentity $reports[0].Groups[1].Value.Trim()
         $report = Get-Content -LiteralPath $reportIdentity.path -Raw | ConvertFrom-Json
+        if ($proof[0] -eq 'native-graph') { $graphProofPath = $reportIdentity.path }
+        if ($proof[0] -eq 'native-initialization') { $initializationProofPath = $reportIdentity.path }
+        if ($proof[0] -eq 'native-frames') { $framesProofPath = $reportIdentity.path }
+        if ($proof[0] -eq 'native-objects') { $objectReaderProofPath = $reportIdentity.path }
+        if ($proof[0] -eq 'byte-keys') { $byteKeysProofPath = $reportIdentity.path }
         if (-not $report.success -or $report.checks.Count -eq 0 -or
             $report.acceptedSelection.compiler.sha256 -cne $current.compiler.sha256 -or
             $report.acceptedSelection.manifest.sha256 -cne $current.manifest.sha256) {

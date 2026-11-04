@@ -19,6 +19,984 @@ and limitations are recorded in
 `tests/native-executable/REPLACEMENT-PROBE-EVIDENCE.md`. This is host-prototype
 evidence, not implemented compiler behavior or complete path qualification.
 
+## Resumed with a new agent - 2026-11-04
+
+The owner requested project orientation and continuation of the unfinished goal.
+A bounded goal completed the documented next step: base-relocation validation
+and required pointer write/value associations. The full native-executable
+deliverable retains all its original obligations. Prior worktree changes are
+preserved; no commit or push is part of this continuation.
+
+NATIVE-IMAGE-RELOCATION-IMPLEMENTATION.md defines the exact association contract
+and literal independent cases. A direct inspection of all 16 retained images
+found two strictly ordered blocks and 49 non-overlapping DIR64 fields per image,
+with one zero ABSOLUTE padding entry. The consumer uses one traversal and borrowed
+scalar expectations, existing mapping/isolation and inspection budgets. The
+implementation now passes all eight qualification gates, recorded in
+NATIVE-IMAGE-RELOCATION-EVIDENCE.md: 132 component groups, 34 image groups,
+1,568 pointer-field observations and 4,704 rejected image mutations, with all
+affected instruction/leaf/unwind/extent/TLS-target gates retained. The final
+audit confirms 652 unchanged input paths. Independent read-only review found no
+blocking issue. No verification process remains running.
+
+The measured component gate used 943668 ms of child work; its enclosing
+bootstrap test allowance is now 1080 seconds, with the 240-second full-probe
+allowance and production caps unchanged. A harness-only main-wrapper collision
+and its passing rerun are retained in the evidence. The full bootstrap and
+final native build remain unqualified on current source.
+
+Next continue the documented global storage alias/residency and register/
+control/dataflow obligations, including TLS provenance, trap termination,
+CRT callbacks/startup/API effects and the unnamed constructor's function
+identity. Complete reserve/stack/debug proof, native tool/build ownership,
+warnings/diagnostics/publication and final source-cohort/native acceptance remain
+required. Numeric pointer associations alone do not discharge those obligations.
+
+## Earlier pause for a new agent - 2026-11-04T01:31:27.065Z
+
+The owner explicitly requested stopping the active goal to hand over to a new
+agent before context exhaustion. The full **First checked native executable**
+objective is paused, not complete. Resume only when the owner resumes the goal;
+keep its original scope and acceptance requirements intact.
+
+### Last completed checkpoint
+
+TLS storage association is implemented and qualified. Read
+NATIVE-THREAD-STORAGE-EVIDENCE.md for the exact seven commands, source hashes,
+report paths and limitations. It records 126 component groups (48,258,803
+assertions per compiler stage), 4,064 target groups, all 592 TLS-index and 888
+TLS-member references through both readers, and 640 new rejected TLS controls.
+Instruction, leaf, object/image unwind and extent-binding gates passed. The
+verification-only audit confirms 645 distinct unchanged input paths.
+
+Primary reports under bootstrap/out:
+
+- native-objects/8ecde2f7f8c14e389ad2b9dfd3ef4d9a/report.json
+- native-code-instructions/7d168a969e0f4a3582ab8310b3d04733/report.json
+- native-instructions/8f9b321a4b4741dfba8ab218d60ce95e/report.json
+- native-unwind/03b3ae50f2d347a992799ae5bf6f0963/report.json
+- native-image-unwind/f1f4f82b655b4bbbb7e62982f4ead257/report.json
+- native-extent-bindings/9bc69abe9ea945a79ee433f182ad2e16/report.json
+- native-fixups/fa118c9d682e4ebaadd45be7154e8816/report.json
+- native-thread-storage-input-audit.json
+
+All verification processes launched for this checkpoint have completed with
+terminal results; no running test process needs to be resumed. No commits or
+pushes were made. Preserve the existing worktree, including unrelated owner
+changes; do not reset, clean or revert it. The full bootstrap and final native
+build have not been qualified on the current source.
+
+### Next work and unfinished investigation
+
+The next task is bounded base-relocation validation and association of the
+required pointer writes/values. NATIVE-IMAGE-POINTER-INVESTIGATION.md and
+bootstrap/out/native-image-pointer-diagnostic.json classify all 49 absolute
+fields in each of the 16 retained images. The diagnostic has 18 input identities;
+its reproducible Node module is bootstrap/out/native-image-pointer-diagnostic.mjs.
+It classifies roles and checks named relationships, not complete rebasing or CRT
+behavior. The constructor entry lacks an exact retained target symbol; the
+__ImageBase reference intentionally targets RVA zero. Keep those cases explicit.
+
+The current continuation only read code/contracts and the official PE format;
+it made no rebasing implementation or test changes. No rebasing contract has yet
+been adopted or written. Define that contract and independent literal cases
+before implementing the consumer. Reuse NativeObjects directory/span/range and
+overlap helpers, NativeBindings contribution isolation, and NativeInspection
+byte/event/cancellation accounting. Avoid duplicating those mechanisms.
+
+Investigated design points, still choices to finish rather than implemented facts:
+
+- Validate complete block bounds and DIR64 writes; reject unsupported encodings,
+  duplicate/overlapping writes and writes that corrupt relocation metadata.
+- Preserve required relocation membership and preferred-base value associations
+  for generated cells, initializer entries, TLS fields/callbacks and explicit CRT
+  cases. Do not infer safe arbitrary writes from the diagnostic role labels.
+- Examine sorted-block/entry traversal and lookup without repeated full scans.
+  Check actual tool output and budget consequences before choosing representation.
+- The current layout reader does not reject IMAGE_FILE_RELOCS_STRIPPED. The
+  rebasing proof must account for that flag. If a shared PE-header accessor is
+  needed, extract the existing directory-reader checks and retain their exact
+  prior behavior/costs rather than copying the header parser.
+
+Existing full-probe and enclosing test allowances are 240 and 900 seconds;
+latest summed component child time was 863958 ms. No production cap changed.
+The owner has authorized necessary resource increases; document evidence and
+retain acceptance scope if one becomes necessary, rather than asking again.
+All shell commands must start with rtk. Node is not on the shell PATH; the
+available Node REPL can import the retained audit/diagnostic modules.
+
+### Requirements that remain open
+
+Rebasing and required pointer associations, global storage aliases, TLS
+base/index register provenance, full function control/dataflow and termination,
+CRT callback/startup/API effects, stack/reserve and debug qualification, native
+tool/build ownership, diagnostics and publication, and final source-cohort/native
+acceptance remain required. Keep retained frontend/checker gates. Component
+qualification is not completion of the deliverable.
+
+The owner-confirmed Err persistence/replacement rule remains frozen. Production
+must not monitor, reject or retry source changes; source-identity audits are
+verification-only. No language or architectural scope change is approved by this
+handoff.
+
+## Native implementation in progress - 2026-11-04
+
+The entries below preserve earlier checkpoint context and then-next actions.
+The resumed-goal section above and NATIVE-IMAGE-RELOCATION-EVIDENCE.md record
+the latest qualified result and current continuation.
+
+The owner confirmed full Err persistence through success and complete visible-field
+replacement by each new error. Section 9, the runtime contract and manual now state
+Err.Clear/valid Resume clearing and the distinction from On Error Resume Next.
+The shared support already obeys its supported fields; added stale-description/
+source controls and public-accessor checks pass the 23-command error gate
+9c6c19988df443899daa405a1d356422. ERROR-SUPPORT-EVIDENCE.md records scope.
+Resume/trapping execution remains deferred. That confirmation did not change
+the native deliverable scope; no production runtime code changed.
+
+TLS storage association now passes 126 component groups (48,258,803 assertions
+per stage), 2,240 complete instruction groups, 128 retained-leaf groups and 4,064
+target groups. Both readers match all 592 TLS-index and 888 TLS-member references;
+all 640 new TLS controls and 3,104 retained target controls reject. The 288 object-
+unwind, 32 image-table and 416 extent-binding groups also pass. The complete
+metadata oracle uses frozen producer extents and CRT anchors independently of
+the directory pointers being tested. NATIVE-THREAD-STORAGE-EVIDENCE.md records
+commands, reports, source identities and the unchanged 645-path audit. Component
+report: 8ecde2f7f8c14e389ad2b9dfd3ef4d9a; target report:
+fa118c9d682e4ebaadd45be7154e8816. Resource caps and test allowances are unchanged.
+NATIVE-IMAGE-POINTER-INVESTIGATION.md accounts for all 49 absolute pointer fields
+per image, including the earlier 36 unclassified fields. Next implement bounded
+base-relocation validation and associate the required pointer writes/values,
+then complete register provenance and control/dataflow. Preserve global aliases,
+CRT callback/startup effects, stack/reserve, debug, builder ownership and final
+acceptance obligations. The original native-executable goal remains active.
+
+At the preceding checkpoint, import-address association passed 108 component groups (46,160,914 assertions
+per stage), 2,240 complete instruction groups, 128 retained-leaf groups and 3,424
+target groups. Both readers match all 80 import uses against frozen KERNEL32.dll
+API names; all 128 new import controls and 2,976 retained target controls reject.
+The shared image-directory/span extraction also retains 288 object-unwind,
+32 image-function-table and 416 extent-binding groups. NATIVE-IMPORT-EVIDENCE.md
+records exact commands, reports, identities and the unchanged 622-path audit.
+The component report is 9d30e5d75f1745baac27187da3281caa; the target report is
+bd503b8cb0644bc8bd4a6c82e8850be1. Existing production caps and test allowances
+remain unchanged. Next bind the TLS index and generated TLS extents to the PE
+template, preserving the required register-chain, DIR64/rebasing, CRT callback,
+global alias and whole-function control/dataflow obligations. The builder,
+stack/debug closure and final native acceptance remain unfinished; the original
+native-executable goal stays active.
+
+At the preceding checkpoint, reference-pointer binding passed 102 component groups (44,063,350 assertions
+per stage), 2,240 complete instruction groups, 128 retained-leaf groups and 3,296
+reference/generated/signed-target groups. Both readers match all 1,880 reference
+loads and 3,128 generated references; all 2,976 target/encoding controls reject.
+NATIVE-REFERENCE-POINTER-EVIDENCE.md records reports
+99ff9f63d8e84eb39de473f50215e55e, 0cc1c410feb94cad90c1cee35e5c45ca,
+5195a5c99f604176bd0a49f285ae5d6d and 6c937888715a49abb02b23a217434e4c,
+identical LLVM and the unchanged 591-path audit. It retains the failed timeout
+and control-routing runs and their corrections. Measured full probes require
+test-only 240-second child / 900-second enclosing allowances; no production cap
+changed. The independent PE diagnostic passes all 16 images and records
+IAT/TLS and DIR64 associations in NATIVE-IMAGE-DIRECTORIES-INVESTIGATION.md. Next
+qualify those directory associations, then pointer/register propagation and
+complete control flow, preserving image-rebasing and CRT TLS-callback obligations.
+The original native-executable goal remains active and incomplete.
+
+At the preceding checkpoint, generated target ownership and extents passed 96 component groups (41,965,983
+assertions per bootstrap stage), 2,240 complete instruction groups, 128 retained-leaf
+groups and 2,784 generated/signed-target/fixup groups. Both readers match all 3,128
+generated function/data/TLS references and reject 2,464 target/encoding controls.
+All 42 frozen definitions per image match independent ranges in 32 reader/image
+comparisons. NATIVE-TARGET-OWNERSHIP-EVIDENCE.md records reports
+c27cd1499b03447ba4d728af35d5364d, 34a0e7e6a8014b39878168aff93cecae,
+8bfb9584b23941b786417d6b15abd91b and eaaf678cd8144ab4a9f42e0e2ed67a4f,
+identical LLVM, exact costs and the unchanged 572-path audit. Direct generated
+transfers require the frozen entry; data accesses must fit frozen storage with
+compatible permissions and the ordinary/TLS address domain. Production caps and
+the existing 720-second component deadline are unchanged. Next bind reference
+cells to generated referents and IAT/TLS-index locations to PE metadata, then
+qualify pointer/register propagation and complete function/termination closure.
+Global data aliases, resident image storage and production build-owner integration
+remain separate required proofs. The complete native goal remains active.
+
+At the preceding checkpoint, signed linked instruction targets passed 92 component groups (39,868,628
+assertions per bootstrap stage), the 2,240-group complete instruction gate,
+128 retained-leaf groups and 1,856 signed-target/fixup groups. Both readers match
+all 5,712 signed targets and reject 1,568 target/encoding controls. The diagnosed
+wraparound cases now reject while valid signed limits and negative displacements
+remain accepted. NATIVE-INSTRUCTION-TARGET-EVIDENCE.md records reports
+1b9f341a7ab04072a058f4a0d59414d4, 17a5c536fc7e40c099c05fac7a6ab716,
+5dab04bb5b204b0cba6e21aee7668305 and 6396d3a853e04b70a900bad12a101664,
+identical LLVM, exact costs and the unchanged 538-path audit. Production caps
+and the 720-second component deadline are unchanged; no full bootstrap is claimed.
+NATIVE-TARGET-OWNERSHIP-INVESTIGATION.md records the separate 5,712-reference
+census: generated extents, 1,880 reference cells, 80 IAT references and 592 TLS-index
+references match their frozen/PE associations. The generated-owner qualification
+above completes the entry/extent consumer; pointer associations, full function/
+dataflow and terminal closure remain. The complete native-executable goal remains
+active and incomplete.
+
+At the preceding checkpoint, instruction relocation-field pairing and original effective offsets passed
+90 component groups (37,771,052 assertions per bootstrap stage), 2,240 complete-code
+groups and the retained 128-group leaf gate. Both readers pair all 5,712 code
+relocations, including trailing-immediate corrections, and reject 1,792 complete-code
+controls. NATIVE-INSTRUCTION-RELOCATION-EVIDENCE.md records reports cc7e1c28420e4154827555baf1850308,
+92bf72bfae034e46a65364d042255a3e and a5f0e52304704dabab2a23b13a025238,
+identical LLVM and the unchanged 262-path input audit. No production cap changed.
+The six-case signed-target diagnostic passes through both stages and isolates
+three modulo-field counterexamples; NATIVE-CONTROL-FLOW-INVESTIGATION.md records
+its exact inputs and results. The subsequent qualification above establishes signed
+correspondence; target ownership/extent and complete function flow, pointer, TLS/import
+and termination obligations remain required. The full native goal remains incomplete.
+
+At the preceding checkpoint, indirect call/jump target registers were retained in NativeInstruction
+without changing its 72-byte size. The missing information was diagnosed at
+16 actual r13/rsi call sites. The refreshed 88-group component gate passes
+35,672,957 assertions per bootstrap stage; the 1,120-group complete-code gate
+matches all 36,192 instructions including target registers and rejects 896
+controls. The retained 128-group leaf gate also passes.
+NATIVE-INSTRUCTION-EVIDENCE.md records reports
+efb15c0840b84e4281880b1a2f05eb2e, e5146e0fa3714fdc90c85a56e24a5061
+and e1ca36408f464ebab9a04a849e1ca700.
+NATIVE-CONTROL-FLOW-INVESTIGATION.md records the paired relocation/function
+diagnostics: 288 trailing-immediate REL32 corrections, 176 initializer-table
+references and the O0 self-termination success branch still requiring API proof.
+These observations do not qualify whole-function safety. The subsequent field/offset
+qualification above leaves signed linked targets and complete control flow required.
+
+At the preceding ownership checkpoint, production contribution ownership passed
+86 component groups (35,672,878
+assertions per bootstrap stage) and the expanded 2,208-group retained-code gate.
+NativeCode enforces anchor consistency and complete object-section coverage;
+NativeCodeIndexes checks owner uniqueness and file/RVA nonoverlap through the
+existing budgeted sorts. Both readers validate all 16 retained images, with
+32 independent-order comparisons and 1,888 rejected controls across the gate.
+Index peak/ready/copy costs are 25C/4C/12C bytes; borrowed records remain unchanged.
+NATIVE-CODE-OWNERSHIP-EVIDENCE.md records reports
+4e22acebba4d44dcae5b06b3a297ec1c and c10b0f11185f4f0a8cd2d3670346edff,
+including the corrected C-fixture compile failure. The measured component gate
+took 619 seconds of child commands, so its full-bootstrap wrapper now allows
+720 seconds; production caps are unchanged. No full bootstrap or native build
+owner acceptance is claimed. Next implement whole-function control flow and
+effective targets, retaining the qualified ownership checks.
+
+At the preceding instruction checkpoint, canonical INT3 decoding and complete
+retained-code instruction comparison passed
+pass 82 component groups (33,573,240 assertions per stage), 896 complete-code
+groups and the retained 128-group leaf-instruction gate. Both readers match all
+36,192 instructions / 146,088 unique code bytes, including 112 CC traps, and
+reject all 672 changed-opcode/flow/displacement controls. The decoder classifies
+CC as a trap; reachable traps still reject in leaf validation. No termination
+closure or full control-flow safety is implied. NATIVE-INSTRUCTION-EVIDENCE.md
+records reports 4f86734b35444fa984485dd64992d465,
+472014f5cb8c401dbd37dcb403875328 and 8a8f8fd46a074322a63c6d3df1c957dc.
+The ownership implementation contract specifies the next production anchor,
+coverage and image-overlap checks, with explicit workspace/lifetime accounting
+in NATIVE-CODE-OWNERSHIP-IMPLEMENTATION.md. A diagnostic finds 5,224 local jumps
+within instruction/function fences and 16 relocated tail jumps requiring
+cross-function checks. The full native goal remains active and incomplete.
+
+At the preceding complete-byte checkpoint, whole-code contribution placement
+and complete relocated/unchanged-byte comparison passed 82 component groups (33,573,187 assertions per stage), 1,408
+retained-code groups and the affected 96-group constant regression. The code
+gate observes 224 contributions / 292,176 content bytes through both readers and
+rejects 1,120 ordinary-byte, fixup, addend, anchor and overlapping-field controls.
+NativeCode consumes frozen retained anchors; common byte comparison and section/
+metadata isolation are shared with constant binding. No resource cap changed.
+NATIVE-CODE-EVIDENCE.md records current reports ff698de798c642e3b8ee7efd0902eae4,
+8a262de376da4271ba740fbebb165d7b and 2bd4783e9cf24224b1f89b1ad2a31d86.
+That checkpoint's full-code diagnostic accepted 72,160 instruction observations
+with zero length/flow/displacement mismatches and rejected 224 INT3 observations. The 112
+CC locations follow calls to ube.stack.abort (96) or ExitProcess (16);
+this is a specific decoder/control-flow prerequisite, not proof of unreachable
+traps. Next qualify complete-build contribution ownership/anchor consistency and
+whole-function instruction/control-flow validation, then the remaining native
+stack/debug/tool/publication and final source-cohort gates. The full goal remains
+active and incomplete.
+
+Earlier relocation-value checkpoint:
+
+Relocation encoding comparison now passes 78 two-stage component groups
+(31,473,972 assertions per stage) and 960 retained-artifact groups: 11,424
+field observations and 672 rejected linked-byte/addend/site mutations. All 27
+literal vectors, byte mutations, exact budgets, cancellation admissions, root
+refusal and forced-result controls pass. Production named/constant target
+binders supply the targets; site placement remains an independent test oracle.
+NATIVE-FIXUP-EVIDENCE.md records reports fa6477ba667442f3839e1dc11727fdd8 and
+b64b5212edb5486c99965b549ca20470, exact commands, hashes and limits. No cap changed.
+At that checkpoint, contribution/site placement, overlap/alias policy and
+complete byte/instruction correspondence were next.
+The complete native-executable goal remains active and incomplete.
+
+Earlier constant contribution checkpoint:
+
+Anonymous constant contribution binding now passes 74 two-stage component groups
+(29,376,033 assertions per stage) and 96 actual groups: 16 complete contribution
+observations, 32 code-reference associations and 80 rejected mutations. All eight
+affected O0 support objects map their complete 31-byte constant sections by unique,
+aligned, read-only initialized content. Auxiliary-record validation, duplicate/
+overlap and writable-alias rejection, exact resource/cancellation and atomic-output
+tests pass. The named-target matrix remains passing at 736 groups with this reader.
+NATIVE-CONSTANT-BINDING-EVIDENCE.md records commands, hashes and limits; no numeric
+cap changed.
+
+At that checkpoint, the next action was code placement and relocation
+value/instruction-byte correspondence. A retained diagnostic covers 112 code sections / 146,088 bytes:
+all 5,712 REL32/SECREL fixups and all remaining bytes match. It is implementation
+guidance, not production acceptance. Distinct-contribution ownership/alias policy,
+pointer cells/imports/TLS, full unwind/stack/reserve, startup/API/refusal/debug,
+tool/build ownership, publication and final source-cohort acceptance remain open.
+The complete native-executable goal remains active.
+
+Earlier named target checkpoint:
+
+
+Named relocation target resolution now passes 70 two-stage component groups
+(27,276,878 assertions per stage) and 736 actual-object/image groups. All 144
+generated objects are compared: 5,696 named code references resolve to independent
+image anchors through each reader, while the 16 anonymous section references
+explicitly reject. Incorrect expected addresses and missing linked definitions
+supply 448 rejected controls. NATIVE-RELOCATION-EVIDENCE.md records exact commands,
+identities, resource/failure checks and scope; no numeric cap changed.
+The anonymous references share a 31-byte read-only constant section with exactly
+one matching occurrence in each affected image. This is a diagnostic lead only.
+Next qualify independent anonymous constant-contribution mapping, then relocation
+value and instruction-byte correspondence. Pointer-cell/import/TLS, full unwind/
+stack/reserve, startup/API/refusal and debug validation, build ownership/tool
+launch, publication and final source-cohort acceptance remain open. The complete
+native-executable goal stays active.
+
+Earlier complete leaf binding checkpoint:
+
+
+Complete retained object/image leaf extent and boundary-map binding now passes
+66 two-stage component groups (25,178,741 assertions per stage) and 192 actual
+binding groups: 112 leaf observations plus 128 independently decodable image
+mutations rejected specifically by the binder. The real gate composes retained
+names, address indexes, qualified fences and both leaf walks; extents and maps
+match the independent object disassembly oracle. Equal-size/equal-instruction-
+count but different-map cases, association failures and exact work/atomic-output
+controls pass. All preceding index, leaf, instruction, extent/range, data and
+retention matrices pass with this reader. NATIVE-LEAF-BINDING-EVIDENCE.md records
+commands, identities and limitations; resource caps are unchanged.
+Next resolve object relocation targets against retained image definitions and
+qualify instruction bytes/fixups. Full unwind/stack/reserve, startup/API/refusal
+and debug qualification, build ownership/toolchain wiring, publication and final
+source-cohort acceptance remain open. The native-executable goal stays active.
+
+Earlier function indexing checkpoint:
+
+Retained function address indexing and conservative fence lookup now pass the
+62-group two-stage component gate (23,081,511 assertions per stage) and 832
+independent object/image groups, including 2,880 fence observations and 512
+rejected controls. Actual images have unordered symbols and address aliases;
+the index prepares order once, releases temporary keys and finds the next distinct
+address by binary search. All preceding leaf, instruction, extent, range, data
+and retention gates pass with this reader. NATIVE-FUNCTION-INDEX-EVIDENCE.md
+records exact reports, identities, work/storage checks and scope. The measured
+native-objects test deadline is now 600 seconds; production caps are unchanged.
+Next combine the qualified fences and traversal to bind complete object/image
+leaf extents and maps to retained definitions, then qualify instruction/relocation
+correspondence. Full stack/reserve/debug and startup/API/refusal qualification,
+build ownership/toolchain wiring, publication and final acceptance remain open.
+The full native-executable goal remains active and incomplete.
+
+Earlier leaf traversal checkpoint:
+
+Bounded native leaf traversal now passes the 58-group two-stage component gate
+(18,885,185 assertions per stage) and 256 independent object groups: 112 function
+observations, 2,416 reachable instructions and 192 rejected object mutations.
+The optimized Err setter's reachable extent is 294 bytes within a 304-byte fence;
+multiple returns, loops and trailing padding are handled without a first-RET
+shortcut. Exact maps, byte/work/payload bounds, allocation/cancellation/root
+refusal, cleanup and large pending graphs pass. All preceding instruction,
+extent, range, data, generated-reader and retention matrices pass with this reader.
+NATIVE-LEAF-EVIDENCE.md records commands, identities, corrections and limits.
+Numeric caps remain unchanged. Next bind the caller-supplied leaf fences and
+extents to retained object/image definitions, then qualify instruction and
+relocation correspondence. Full unwind/stack/reserve, startup/API/refusal and
+debug qualification, build ownership/toolchain wiring, publication and final
+source-cohort acceptance remain open. The native-executable goal remains active.
+
+Earlier scalar instruction checkpoint:
+
+Selected scalar AMD64 instruction inspection now passes the 54-group two-stage
+component gate (16,785,841 assertions per stage), including 52 independently
+specified encodings and bounded failure/resource controls. The actual instruction
+matrix passes 128 groups over 32 observed leaf-containing objects: 2,496 instruction
+observations and 64 rejected unsupported-opcode mutations. All preceding extent,
+range, data, generated-reader and retention matrices pass with this reader.
+NATIVE-INSTRUCTION-EVIDENCE.md records exact reports, source/tool identities,
+field/cost assertions, test-only corrections and limitations. The production
+manifest includes NativeInstructions; the measured reader test deadline is now
+420 seconds, with production caps unchanged.
+Next implement bounded control-flow traversal that validates branch targets on
+instruction boundaries and establishes complete leaf extents. The observed Err
+setter has multiple returns and forward/backward branches; first-RET termination
+is insufficient. Instruction/relocation equality, complete stack/reserve/debug,
+current build ownership and toolchain wiring, publication and final source-cohort
+acceptance remain open. This is a scalar decoder qualification, not whole-function
+or native-executable completion.
+
+Earlier declared-extent correspondence checkpoint:
+
+Retained declared object/image extent correspondence now passes 50 component
+groups (14,687,535 assertions per stage) and 416 actual binding groups: 288 unit
+comparisons containing 720 bound extents, plus 128 targeted mutation rejections.
+The same reader retains all 288 object-range, 32 image-range, 192 data-binding,
+224 generated-reader and 416 definition-retention groups. Preparation validates
+the image table once; subsequent binds use a measured logarithmic search and
+match the frozen definition's anchors and exact positive code length.
+NATIVE-EXTENT-BINDING-EVIDENCE.md records commands, identities, counts, controlled
+failures, test-oracle correction and limitations. Numeric caps are unchanged.
+Next establish leaf extents and qualify instruction/relocation equality, then
+complete unwind/stack/reserve and debug checks. The selected LLVM uwtable
+experiment produced no leaf runtime-function entries at either O0 or O2; do not
+assume that attribute solves the missing-metadata case. Production build ownership,
+current toolchain/bootstrap wiring, publication and final source-cohort gates
+remain open. The full native-executable goal remains active and incomplete.
+
+Earlier object/image reader checkpoint:
+
+Declared object and linked-image function extents now pass the 46-group two-stage
+component gate (12,590,008 assertions per stage). Independent LLVM comparisons
+pass 288 groups over 144 generated objects (720 range observations) and 32 groups
+over 16 linked images (2,352 range observations). The 192-group data, 224-group
+reader and 416-group retention regressions pass with the same current reader.
+NATIVE-UNWIND-EVIDENCE.md records exact commands, identities, measured budgets,
+adverse cases and limitations. Image records come from PE exception-directory
+entry 3, with unique initialized section containment and ordered nonoverlapping
+ranges. The reader test deadline is 300 seconds; its latest summed child-command
+time is 194.281 seconds. Production caps are unchanged.
+Next bind object and image extents to the same frozen retained definitions,
+establish leaf extents and qualify instruction/fixup equality. Full unwind/stack,
+reserve/debug, builder/publication and final source-cohort gates remain open.
+Object-range checks are registered in the bootstrap; image-range and linked-retention
+checks remain maintained explicit commands pending current toolchain integration.
+
+Earlier definition-retention checkpoint:
+
+Production definition retention now passes its two-stage component gate (38
+groups, 8,394,970 assertions per stage) and the explicit linked-artifact gate:
+416 groups, including 288 unit comparisons and 128 rejected image mutations.
+It consumes frozen checked-project identities, preserves optional pre-object
+elimination, and requires every surviving definition in the image with matching
+type, permissions and expected data span. NATIVE-RETENTION-EVIDENCE.md records
+commands, source identities, padding/control-oracle corrections and limitations.
+The retained 192-group integer-data and 224-group generated-reader gates pass.
+No resource cap or traversal bound changed. Next establish complete code extents,
+resolve relocation targets and compare object/image instruction bytes and fixups.
+Procedure anchors alone do not qualify code equality, stack or debug safety.
+The new linked matrix still needs whole-bootstrap wiring through current explicit
+toolchain evidence; builder/publication and final source-cohort gates remain open.
+
+Earlier checked-project expectation checkpoint (before the retention consumer):
+
+The pre-tool expected-linkage inventory is implemented from the immutable lowering
+target plan and passes the focused two-stage gate: 34 groups, 6,296,786 assertions
+per stage and identical raw output. An independent nine-declaration fixture checks
+all 30 expected rows and measures nine work visits, 453 name bytes, 495 inspection
+events and 2,992 owned payload bytes. NATIVE-EXPECTATION-EVIDENCE.md records exact
+commands/reports, fixed stale loop-record and omitted optional error-helper
+defects, controlled failures, resource boundaries and source identities. The retained 192-group integer-data and
+224-group generated-reader gates pass. Numeric caps are unchanged; one explicit
+expectation pass makes the combined declaration/import bound 4*D+I while lowering
+alone retains 3*D+I, under the owner's authorized measured adjustments.
+The preceding full-source graph gate passes 350 groups/798 commands, including
+actual checked-project inventory construction at jobs 1/2/4 in root/reference
+layouts and 144 O0/O2 Full/None object comparisons. Both bootstrap stages emit
+identical LLVM and expectation tables. Each layout adds exactly 38 declaration
+visits for 54 rows, 647 name bytes, 742 inspection events and 5,808 payload bytes.
+Next consume the frozen rows for retained-definition and instruction/fixup
+comparisons. Compiler/source producer markers, CU/debug
+metadata, complete reserve/stack analysis, builder/publication and final whole
+source-cohort gates remain unfinished.
+
+Earlier definition/data binding checkpoint:
+
+Production definition ranges and immutable integer-data binding now pass the
+maintained two-stage reader gate (30 groups, 6,293,679 assertions per stage) and
+192 actual metadata comparisons: 128 matching frame/reserve tables and 64
+understatement rejections in objects and linked images. The retained 224-group
+generated-binary reader gate also passes. NATIVE-BINDING-EVIDENCE.md records exact
+commands, reports, identities and independent expectations; its implementation
+contract is NATIVE-BINDING-IMPLEMENTATION.md. No numeric cap changed. The full
+bootstrap now includes native-data-bindings, but has not been rerun here.
+Next freeze the complete expected source/linkage identity table from checked
+lowering/support emission before tools, then bind retained definitions and check
+object-to-image instruction bytes/fixups. Expected code extents, complete recovery
+reserve, stack/debug safety, native builder and final source-cohort gates remain
+unfinished. The overall native-executable goal remains active.
+
+Earlier inventory checkpoint:
+
+The bounded production symbol inventory now passes the maintained reader gate:
+30 groups and 63 commands, with 4,196,129 assertions through each bootstrap stage
+and identical raw output. The follow-up generated-input gate passes 224 groups
+and 336 commands across 112 retained UBE-produced binaries. Reports are
+bootstrap/out/native-objects/d10cca44063e467abf63912c49855440/report.json and
+bootstrap/out/native-object-inputs/3325c64aaeb04e76ad7413ba2069630e/report.json.
+NATIVE-INVENTORY-IMPLEMENTATION.md defines its ownership and resource contract;
+NATIVE-OBJECT-EVIDENCE.md records exact commands, counters, identities, corrected
+test expectations and adverse controls. Indexed primary membership, borrowed
+cross-arena names, unique definitions and relocation target membership are now
+implemented. Shared parser/global payload caps and byte/event/cancellation bounds
+remain unchanged. Next bind explicit compiler-owned expected identities to the
+inventories, then qualify object-to-image retention and fixup comparisons before
+complete stack/debug analysis. Native builder integration, final current-source
+bootstrap/checker/resource/performance and retained gates remain unfinished.
+
+Earlier byte-key prerequisite checkpoint:
+
+The symbol inventory's byte-key dependency now supports explicit inspected-byte/
+event caps, cancellation and queries from a separate immutable byte arena, using
+the existing Core sorter/lookup. The old APIs retain their 4,827,069 assertions
+per stage, and the new bounded gate passes 2,103,397 per stage. It demonstrates
+the actual need: eight shared-prefix keys require 1,632 read bytes, independently
+of the key-count cap. Exact/one-below budgets and every cancellation admission
+preserve old results. ../../std-lib/BYTE-KEY-BUDGET-EVIDENCE.md records source,
+reports, the corrected root-refusal test expectation and exact commands.
+The integrated foundation regression passes 35 groups in
+bootstrap/out/semantic-foundations/23c8a21b7b7a4b5d8020784f79499eb7/report.json.
+Fresh reader and generated-input reports are respectively
+bootstrap/out/native-objects/fcea462e08aa452994b9e6fa3c9f8016/report.json and
+bootstrap/out/native-object-inputs/00d02d40103d4cd28ca249bc223a8008/report.json;
+26 and 224 groups pass. The new library gate is registered after the legacy one.
+The private comparison observers match the shared implementation. The inventory
+checkpoint above supersedes this earlier next action; full current-source
+checker/resource/performance and complete binding remain pending.
+
+Production binary readers now include borrowed names, primary symbols/auxiliary
+extents and selected AMD64 relocation descriptions. The two-stage component
+gate passes 26 groups and 55 commands, with 2,098,219 native assertions per stage:
+bootstrap/out/native-objects/5555ef1b6da347a7a0634197bd395a5f/report.json.
+Both raw outputs match. A further 224-group/336-command gate compares both
+readers against the SDK oracle over 112 retained actual UBE-generated objects
+and bound images: bootstrap/out/native-object-inputs/9d69205d98f14a47b94055c495a2b06d/report.json.
+All captured reader inputs and consumed artifact hashes match. Independent
+synthetic cases cover malformed names/symbols, auxiliary skipping, patch/target
+bounds, budgets, cancellation, allocator/root refusal and corrupted-output
+controls. NATIVE-OBJECT-EVIDENCE.md records commands, hashes, digest limits and
+the earlier header checkpoint. Both gates are registered in the full bootstrap;
+no production numeric cap changed. At this earlier checkpoint primary-symbol
+membership and owned-identity binding were still pending. The inventory gate
+above now establishes primary membership; required auxiliary semantics and
+complete retention/fixup binding remain open.
+Complete binary admission, stack/debug safety and refreshed source qualification
+remain pending. All command handles for this checkpoint are terminal.
+
+Immutable frame-data emission now passes the two-stage component gate
+(358 groups, 2,097,703 emitter/resource assertions per stage) in
+bootstrap/out/native-initialization/1b0d3bc34a644986853863443ae457a8/report.json.
+The new test-owned object/data binding gate passes 36 groups and 548 commands in
+bootstrap/out/native-frames/157eecd5aacd410fade78655207ec826/report.json:
+16 stage/reference/O0-O2/Full-None combinations, exact indexed frame metadata,
+static/unwind/leaf agreement, unchanged measured objects, linked values, actual
+checked Main through real Windows entry, and report/understatement controls.
+NATIVE-FRAME-IMPLEMENTATION.md records the commands, hashes, retained harness
+corrections and limits. The reserve is still controlled at 256 bytes; production
+binary inspection, linked instruction/fixup checks, call-site/prologue analysis
+and complete reserve/startup/API safety remain unfinished. Next implement that
+bounded production inspection and binding, then derive and qualify the complete
+reserve and entry closures. The new gate is registered in the full bootstrap.
+
+Windows stack initialization, fatal disposition and module wait now have a
+production UBE emitter and pass the expanded two-stage component gate:
+bootstrap/out/native-initialization/0e93680c383b42ebb2e2379d6ce0b931/report.json,
+358 groups, 1,094 commands and 2,097,617 emission assertions per stage.
+Both stages emit identical LLVM. NATIVE-PLATFORM-IMPLEMENTATION.md records
+synthetic malformed-query/capacity/publication controls, independent real Windows
+page oracles, actual fatal/wait observations and O0/O2 Full/None common-entry
+integration with controlled frame/reserve data. No production resource cap changed.
+The expanded test takes about 281 seconds, so its bootstrap harness deadline is
+420 seconds. The freshly compiled whole checked-project regression also passes
+194 groups and 510 commands in
+bootstrap/out/native-graph/927756dfc68f45b8b2f9770a039ca4e8/report.json.
+Both raw outputs match and all captured inputs remain unchanged. The six-group
+import-work gate also passes on this cohort in
+bootstrap/out/native-import-emission/79e6ca71228c43aca181c047c5819b48/report.json.
+All command handles are terminal. A refreshed full bootstrap remains pending. Next bind complete frame footprints to exact non-LTO
+objects, derive the recovery reserve and qualify startup/API and refusal closures.
+The native builder/debug/publication acceptance remains unfinished.
+
+Common program entry and the ordinary process adapter now pass 224 focused
+initialization/entry groups and 194 checked-project groups. Reports:
+bootstrap/out/native-initialization/19d3709230a240c388e6dd12d886489f/report.json and
+bootstrap/out/native-graph/b876b8cda4074d529bae08d26cc66f3b/report.json.
+The latter reuses one completed hash-pinned compiler invocation and reruns all
+current native oracles across both stages. NATIVE-ENTRY-IMPLEMENTATION.md records
+commands, exact identities, two retained harness failures/corrections and scope.
+Ordinary and observed adapters share the same startup/init/Main sequence; O0/O2
+checks cover no user entry on setup failure, initializer failure, Main refusal,
+Sub/Long results, signed Windows exits and preserved/set Err. Actual Windows
+stack setup was still controlled at that checkpoint; the implementation above
+now supplies real Windows setup. Complete frame/reserve metadata remain unqualified.
+The six-group import-work gate is retained on this cohort in
+bootstrap/out/native-import-emission/6660a403ad7944f681f520bb041642f1/report.json.
+The subsequent platform implementation above advances that checkpoint; complete
+startup/frame/reserve/fatal/wait safety still precedes native builder acceptance.
+
+Per-module output/imports now pass 154 two-stage graph groups and 342 commands
+in bootstrap/out/native-graph/a04adb0a0941407f8d1e63c4c31930cb/report.json.
+Independent module objects preserve O0/O2 scalar/native/ByRef and initialization
+behavior. The actual import-work regression passes six groups and 56 commands
+in bootstrap/out/native-import-emission/b805c56cc1f8443badedd1b25f070db2/report.json:
+126 own plus 210 import visits, total lowering work 2,925, exact-cap success and
+controlled failure at 2,924, with unchanged inputs and complete cleanup.
+The focused index gate passes 26 groups. NATIVE-MODULE-IMPLEMENTATION.md records
+commands, hashes, qualification scope and full-bootstrap registration. Numeric
+caps are unchanged. The subsequent entry control-flow qualification is recorded
+above; real platform stack/wait and the full native builder remain unfinished.
+
+The owner has approved the documented 3*D declaration-work correction.
+NATIVE-RESOURCE-CONTRACT.md, NATIVE-DECLARATION-WORK-REVIEW.md and RESOURCE-ORACLES.md
+now record preparation/signature/entry-storage accounting with unchanged caps
+and body/argument bounds. Earlier pending-review statements below describe their
+historical checkpoints. The owner subsequently approved typed-import work I
+and authorized any further necessary increases, with measured accounting.
+The adopted total is 3*D+I, where I <= V+A+1; numeric caps remain unchanged.
+
+Normal initialization scheduling is implemented and its component gate passes
+118 two-stage groups, including 2,097,396 emission assertions per stage, O0/O2
+native order/failure tests and required helper inlining. Report:
+bootstrap/out/native-initialization/5253acf4ac2b45668f302f77991e20a5/report.json.
+The adapter validates canonical checked package/source metadata in M visits,
+then emits M requirements in library-before-root manifest order, with no scratch
+payload, declaration scan or extra body walk. The whole checked-project gate also
+passes 118 groups and 238 commands in
+bootstrap/out/native-graph/794008b5eaad41528377963bf5c9b8d8/report.json, with 967 graph
+and 2,107,571 body assertions per stage. Actual one-package/direct-reference
+projects pass O0/O2 order, completed-dependency, Main-result and failure checks;
+jobs 1/2/4 preserve bytes/work/identities. Both raw LLVM images are identical.
+All handles are terminal. NATIVE-INITIALIZATION-EVIDENCE.md records commands,
+hashes, retained controls and the combined-unit/controlled-frame observer limits.
+
+The concrete foreign-import counterexample now passes actual retained checker
+and declaration inventory assertions at jobs 1 and 4: 42 declarations, 93 own
+visits plus 210 necessary typed-import visits, already exceeding 3*D = 126.
+The report is bootstrap/out/native-import-work/b37361a2198c4ae4977be7688244d189/report.json.
+NATIVE-DECLARATION-WORK-REVIEW.md proposes a separately counted import allowance
+I <= V+A+1, with no change to caps or body/argument traversals. That addition
+is now approved and the qualified per-module results are recorded above.
+
+Foreign access and required-module failure propagation now pass the maintained
+two-stage graph gate: bootstrap/out/native-graph/1d61ea91bdbd4e3f9bfb6bc15df92ed0/report.json,
+94 groups and 190 commands, with 967 graph and 2,107,242 body assertions per stage.
+Both raw LLVM images are identical. O0/O2 observers and three new negative controls
+qualify actual checked three-module bodies with the shared initialization helper.
+Reads/writes guard actual foreign storage,
+calls guard after argument evaluation, exact unused ByRef forwarding does not
+dereference, and ordinary calls check the failure latch after their result merge.
+Failed requirements return neutral/void/false immediately. The shared frame table
+now consistently includes ordinary, initializer and wait slots (F+M+1).
+The new three-source guard-project passes historical checker admission at jobs
+1 and 4, and the combined C body fixture passes strict syntax checking.
+The retained first run stopped at a missing target triple in the test-only data
+output; its correction changed no production source. The focused diagnostic and
+fresh full gate then passed. All handles are terminal. Exact commands, hashes,
+failure record and scope are in NATIVE-INITIALIZATION-EVIDENCE.md. The body owner
+remains 64 bytes, with no additional graph/declaration traversal or scratch payload.
+
+Next complete per-module output/import declarations and the ordinary process
+entry consumer of the qualified schedule. The integration fixture combines bodies into one test unit,
+uses controlled frame metadata and observes entry to a test wait function. Actual
+stack footprints, platform waiting, normal process startup, warning presentation,
+tool/path/debug/CLI/publication and full source-cohort acceptance remain unfinished.
+The full goal remains active; complete lowering resource acceptance is pending.
+
+Checked module initializer body emission now passes the fresh two-stage graph
+gate: bootstrap/out/native-graph/e865f6e060bf48f9a85ea8abb6b0a09b/report.json,
+76 groups, 967 graph and 2,106,947 body assertions per stage. O0/O2 observers
+check declaration order, neutral reset, forced/default ByRef slots, actual Err
+and recoverable ordinary-call refusal; two altered initializer controls fail as
+required. Jobs 1/2/4 match bytes, work and identities, and the two raw LLVM files
+are identical. Earlier scalar/native/call LLVM remains byte-identical.
+
+NativeGraph now retains a bounded per-module procedure-root index during the
+existing planning walk. NativeTraversal can defer a procedure subtree after its
+edge event, preserving live depth/pending accounting. The 104-byte graph owner
+adds 4*min(F,V) payload, with controlled invalid-identity, allocation/root failure
+and cleanup coverage. The component gate passes 26 groups and 8,437,455 assertions
+per stage in bootstrap/out/native-emission/910aaae70fbc41f296342ef8a78c172e/report.json.
+Exact commands, hashes and limits are in NATIVE-INITIALIZATION-EVIDENCE.md; the
+implementation contract describes shared cursor/temporary ownership. All test
+handles for this checkpoint are terminal.
+
+That 76-group checkpoint preceded the shared-state and schedule integration qualified above.
+Its single-module observer directly invokes one initializer with controlled frame
+metadata; its evidence remains body-only. Current next work is per-module output,
+imports and package/source scheduling, followed by the remaining native boundaries.
+
+Private ByRef owner transport now passes the current two-stage native graph gate:
+bootstrap/out/native-graph/43e9a0e0382e45a784c743445d52d4eb/report.json (64 groups,
+926 graph and 2,106,631 body assertions per stage). The emission gate passes
+26 groups and 8,437,370 assertions per stage in
+bootstrap/out/native-emission/49c3d6afaff545bc915ac38cf5454c51/report.json.
+Exact commands, source identities, owner-corruption controls and the corrected
+LongLong identity boundary are in NATIVE-IMPLEMENTATION-EVIDENCE.md. The private
+ABI carries one i32 owner after each ordinary ByRef pointer, with no additional
+plan payload or declaration scan. Global, local, temporary, named, aliased and
+recursive forwarding cases preserve their independent value/Err expectations.
+
+Ten independent initialization fixtures were added and admitted by the historical
+checker at jobs 1 and 4 (126 additional admission checks total). Their required
+runtime results and wait observations are in tests/native-executable/ORACLES.md;
+those runtime outcomes remain unverified. A focused generated-code probe then
+exposed a local declaration reset failure: three loop executions of a self-
+initializer returned 3 instead of 1. The retained before-report is under
+bootstrap/out/native-body-diagnostic/declaration-reset/. NativeBodies now emits
+neutral storage on declaration entry before initializer children, and the
+maintained body fixture includes the regression. Its fresh graph gate above
+passes all 64 groups through both stages and O0/O2; raw LLVM is byte-identical.
+The exact maintained observer rejects the retained pre-fix emitter, with sources
+and outputs preserved in declaration-reset/maintained-before/. All commands
+started for this checkpoint are terminal; no test process remains live.
+
+The later shared-state integration is qualified at the top of this section.
+Package/source startup order, actual platform wait, linked stack metadata/startup,
+tool/path/debug/CLI/publication and final source-cohort acceptance remain unfinished;
+the goal remains active.
+
+The module-initialization shared data and per-output inline access helper now pass
+54 focused two-stage groups in
+bootstrap/out/native-initialization/5b66b3fa15104fec9230f1fcf8255369/report.json.
+Command: `rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/initialization/check.ps1 -DiagnosticOnly`.
+Ten native modes run at O0/O2 with two helper units sharing one data unit; four
+negative controls check state, admission, shared ownership and actual work.
+Resource probes pass 2,097,299 assertions per stage, including real root pressure
+and exact cleanup. NATIVE-INITIALIZATION-EVIDENCE.md records identities, retained
+fixture failures and limits; NATIVE-INITIALIZATION-IMPLEMENTATION.md records the
+ownership/ABI integration contract. NativeInitialization is in the manifest and
+its gate is registered with a 300-second bootstrap deadline.
+
+Next connect checked initializer bodies and foreign accesses to this helper,
+using the now-qualified private ByRef owner transport. Emit module declarations in written order and the normal
+package/source schedule; propagate initialization failure through generated calls
+before entering Main. The actual platform wait, stack metadata/startup and final
+source-cohort gates remain unqualified. Tests currently use controlled C bodies
+and frame metadata. This is support qualification, not complete runtime integration.
+
+Checked-source initialization-warning discovery and conservative ByRef propagation
+now pass the fresh two-stage gate. Command:
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/warnings/check-sources.ps1 -DiagnosticOnly`.
+Report bootstrap/out/native-warning-sources/c4f0f07a56b740d4ac45426d4363e0cc/report.json
+passes six groups and 2,108,156 assertions per stage over 23 source cases
+(22 accepted, one exact UBE1417 rejection), jobs 1/2/4, independent dependency/span
+oracles, actual work/pending/payload, cancellation/allocation/root pressure and
+negative controls. Both fresh raw LLVM images are identical. The source admission
+gate separately passes 46 historical-checker process checks. Exact identities,
+scaling results and retained failures are in NATIVE-WARNING-EVIDENCE.md.
+
+NativeDependencies uses private compact procedure/formal queues, forwarding edges
+and the existing explicit cursor. It preserves immutable checker/catalog/source
+owners. Omitted defaults retain their declaration-source identity; a focused
+regression exposed and corrected the walker's overly strict source check.
+NativeDependencies is in the production manifest and check-sources.ps1 is registered
+in the full bootstrap with a 1200-second deadline. The gate uses pinned historical
+df158 tools; the updated full bootstrap and final source-cohort gates have not run.
+
+Continue integrating and qualifying runtime module initialization, including foreign
+read/write/call guards and accesses through forwarded ByRef aliases, under the
+reviewed runtime and stack contracts. Warning presentation, native tool/path/debug/
+CLI/publication and final retained gates remain unfinished. Real linked stack
+footprints/startup/recovery remain unqualified. The declaration-bound proposal
+still awaits owner review; the accepted bound remains 2*D.
+
+The declaration plan now assigns a dense ByRef-formal index during its existing
+one-pass preparation. ByVal/nonparameter targets remain -1; applicable intrinsic
+formals are included. The new index/count occupy existing padding: target/owner
+sizes remain 72/24 bytes, with unchanged work and emitted target identities.
+This is the compact scratch prerequisite for checked-source alias propagation.
+The current focused emission gate passes 26 groups and 8,437,320 assertions per
+stage in bootstrap/out/native-emission/e64ec7bd54ad4f71a708c3baba97b806/report.json.
+The real-checker gate passes all 54 groups in
+bootstrap/out/native-graph/b176a0690d4a42958d6dd27a1e7d9791/report.json:
+926 graph and 2,106,566 body assertions per stage, retaining O0/O2 observers and
+negative controls. Scalar/native/call body LLVM is byte-identical to the earlier
+qualified outputs below. Both commands terminated with exit 0; no process
+remains live. Exact identities and scope are in NATIVE-IMPLEMENTATION-EVIDENCE.md.
+
+Ordinary guarded calls and exact/forced/default ByRef argument storage now
+pass the focused full-source gate. Command:
+`rtk proxy powershell -NoProfile -File compiler/UBE_Compiler_v3/tests/native-executable/graph/check.ps1 -DiagnosticOnly`.
+Report `bootstrap/out/native-graph/6b1625f5e6604895b4fed4a4ab14311e/report.json`
+passed all 54 groups: 833 graph and 2,106,566 body assertions per stage, plus
+O0/O2 native observers and three changed-output controls. Both 7,205,461-byte
+raw images have SHA-256
+`87717CAC8E0CDFA17C569E6624D35A84B09C9FD99C11261F41E343F3C653CDA6`.
+The new 20-procedure call fixture covers named/written order, exact aliases,
+forced/default ByRef slots reset on each evaluation, recursion, native aggregate
+returns and Err 6/11/28 ordering. All seven controlled admission/fatal modes
+pass at O0/O2; the inverted guard fails at its independent observer. Output
+and charged work match across jobs 1/2/4. Earlier scalar/native body LLVM stays
+byte-identical. The run is terminal; no test session remains live.
+
+The component gate also passed 26 groups and 8,437,298 assertions per stage in
+`bootstrap/out/native-emission/f6728e8cdba5433db9726b81f5a98205/report.json`,
+with identical 1,140,677-byte raw LLVM (SHA-256
+`32F397DCF694493FFF7FA6AC2D25FE4434FA010B85FFB55269A80EDB209DBBAD`).
+Targets retain a dense ordinary-procedure frame index; graph preparation assigns
+forced/default ByRef temporary slots in the existing argument pass. Current
+layouts are 72 bytes per target, 24 per declaration plan, 20 per node link,
+24 per argument link and 64 per body owner. Entry reserves fixed temporary
+slots; argument effects precede admission and formal-order call operands.
+
+These DiagnosticOnly gates use pinned historical df158 tools and current source
+inputs. They do not qualify a final source-built cohort or native builder.
+The call observer supplies controlled stack metadata: linked frame sizes,
+recovery reserve, committed-floor startup and the production fatal adapter
+remain unqualified. Cross-module initialization, including dereferences through
+forwarded ByRef aliases, is the next integration concern. Warning presentation,
+native tool/path/debug/CLI/publication and final retained gates also remain.
+The declaration-bound proposal still awaits owner review; 2*D remains the
+accepted bound and whole-lowering resource acceptance is not claimed.
+The earlier graph attempt `1db0d68198ff461f9bfe2245ce215323` was explicitly
+interrupted before testing because harness binding insertion failed; it is not
+a pass. Exact evidence and limitations are in
+`NATIVE-IMPLEMENTATION-EVIDENCE.md`.
+
+The warning matrix/component/witness consumer now passes six focused groups and
+2,098,158 assertions per stage in
+bootstrap/out/native-warnings/8ea86280022b4654bef0249028983c9a/report.json.
+The revised Core component gate passes six groups and 2,175,517 assertions per
+stage in bootstrap/out/graph-components/5425f3efa1344f55b5fed0f5007e6865/report.json.
+It checks pending admission before each push and returns actual live/peak counts,
+allowing the compiler to share a pending budget with other owners. Independent
+witness/transition observations, boundary/failure/cleanup and negative controls
+pass. Exact commands, hashes and limitations are in NATIVE-WARNING-EVIDENCE.md
+and std-lib/GRAPH-COMPONENTS-EVIDENCE.md. Both modules are now in their production
+manifests. Both gates and the checked-graph lowering gate are registered in the
+full bootstrap; the updated full bootstrap has not run.
+The later checked-source discovery qualification is recorded at the start of this
+section. Runtime initialization and warning presentation remain unfinished.
+
+The following paragraphs retain earlier checkpoints; their then-next actions
+are superseded by the current state above.
+
+The graph's per-node index now retains the inverse argument association in its
+existing single map pass (16 bytes per node, previously 12). Child conversion
+consumes that association before the next argument. Pack/Unpack and
+same-nominal native equality now connect to the ordered procedure consumer.
+The component gate passes 26 groups and 8,437,288 assertions per stage in
+`bootstrap/out/native-emission/8dc775b64a2d4f1db09d2e4fc09c5931/report.json`.
+The full-source graph gate passes 24 groups in
+`bootstrap/out/native-graph/bbc5d65e69cf46ab98c9b861f2092adf/report.json`:
+800 graph and 2,106,249 body assertions per stage, including 19 additional
+checked native-value procedures and O0/O2 ABI/value/Err/ByRef observations.
+An inverted actual native equality predicate is rejected by the independent
+observer. Raw compiler LLVM and emitted programs match across stages and
+jobs 1/2/4; the earlier scalar-body output is unchanged. Both runs are terminal.
+These remain DiagnosticOnly focused proofs, not final source-cohort or native
+builder qualification. Ordinary guarded calls, exact ByRef argument addresses
+and forced/default ByRef temporary storage are the next integration work.
+The separate declaration-bound review remains pending. Exact commands,
+identities and retained test-fixture failures are in
+`NATIVE-IMPLEMENTATION-EVIDENCE.md`.
+
+Bounded graph preparation now uses one argument-map pass, retaining the reviewed
+second visit for emission. Scalar LLVM constants, checked conversions and
+integer/Boolean arithmetic fragments pass the focused two-stage native gate.
+Real-checker integration passes 514 assertions per stage with jobs 1/2/4,
+including unchanged graph/facts and native execution of retained conversion
+facts and mixed LongLong/Long arithmetic nodes at O0/O2. The later declaration
+index and scalar/native storage components now pass focused two-stage native
+tests, including allocation denial, cancellation, root pressure, neutral
+storage and ByVal/ByRef behavior. Real-catalog integration passes 761 assertions
+per stage; its 31 declarations produce 56 stable target identities in one scan,
+with identical index bytes across jobs 1/2/4.
+The ordered procedure consumer now emits eight actual checked procedure
+subtrees, including entry storage, assignments, While/Exit, ElseIf and nested
+short-circuit expressions. The expanded graph gate passes 18 groups through
+both stages: 761 retained graph assertions and 2,105,842 body assertions per
+stage, predominantly real root-registry fill/drain checks. Independent native
+value/Err/ByRef observations pass at O0/O2, and a mutated short-circuit result
+is rejected. Report `ef1c2d437ec34098a6fac7594689ecf2` records exact inputs.
+The body walk charges exactly 2*V+E; declaration signature/storage loops still
+need their combined work-accounting audit before whole-lowering bounds can be
+claimed. Calls/ByRef temporaries, module
+initialization, native CLI/tool/publication and final source-cohort qualification
+remain unfinished. Exact reports and scope are in
+`NATIVE-IMPLEMENTATION-EVIDENCE.md`.
+The declaration-work audit reproduced 33 uncharged definition visits in the
+eight-procedure fixture. Those visits are now charged and the focused old-code
+control fails as expected. The two-stage graph rerun passed all 18 groups in
+`bootstrap/out/native-graph/b4674599705a458ab587e2e4c027d93b/report.json`, with
+761 graph and 2,105,845 body assertions per stage. Generated program LLVM is
+unchanged. An expanded zero/early/below/exact/above work-limit probe also passed
+2,105,999 assertions against each retained current adapter and was promoted
+byte-identically to the maintained probe; its exact commands and identities
+are in `bootstrap/out/native-body-diagnostic/declaration-work/boundary-report.json`.
+These focused results do not replace final source-cohort qualification.
+All runs from this checkpoint have finished; no session remains live.
+`NATIVE-DECLARATION-WORK-REVIEW.md` records the concrete 56-versus-46 visit
+counterexample and proposed 3*D bound. Owner review is pending; the existing
+2*D contract remains authoritative and whole-lowering resource acceptance is
+not claimed.
+
+The explicit checked-graph cursor also passes the expanded two-stage diagnostic
+gate: exact enter/edge/exit order, repeated occurrences, bounded depth/work,
+actual continuation copying, allocation/root pressure, malformed edges and
+cancellation. Its regression caught and fixed a stale success diagnostic after
+a successful poll. Report `76def9a223584ab0bf2e554babcb884c` and the retained
+failure are recorded in `NATIVE-IMPLEMENTATION-EVIDENCE.md`. These tests build
+synthetic instances of the actual BoundNode layout; the cursor is not yet
+connected to end-to-end checked-program LLVM generation.
+
+The bounded byte writer now passes its focused two-stage diagnostic gate,
+including exact file read-back, actual allocation/copy/resource/cancellation
+observers, decimal encoding through independent native workers, and two defective
+writer controls per stage. Its fixture emits LLVM that links and returns 37;
+it does not yet consume the checked graph. The new generic decimal encoder and
+ByteBuffer release operation live in UBECore. Exact commands, source identities,
+retained diagnostic failures and scope are in `NATIVE-IMPLEMENTATION-EVIDENCE.md`.
+The gate is registered for the next full bootstrap; current-source qualification
+is still pending. The next integration action is checked-graph lowering.
+
+The shared error-support dependency is extracted into
+`bootstrap/runtime/error_support.c`, included by the existing runtime and
+compiled independently for scalar output. Bounded recording and the specialized
+Err 28 setter pass focused record, existing-caller and Full/None linked/TLS
+gates. Exact commands, retained reports, failed initial compilation and scope
+are in `ERROR-SUPPORT-EVIDENCE.md`. The first full run,
+`bootstrap/out/v2/10a74762c73e4481bbcd57e3d3fb9724/`, failed because the
+caller-retention test's private runtime copy omitted the extracted include.
+The caller-retention and root-registry copy lists now include both new runtime
+files. The retained failure is not a passing qualification.
+
+The complete rerun
+`rtk proxy powershell -NoProfile -File bootstrap/build-v2.ps1` exited 0 with
+914 acceptance assertions. Cohort `df15817344774026bebebfd1e9ae8eaf` has manifest
+SHA-256 `A8573742189253D557AD7527084E44C6A7E0ED56A937215DAF5EC8A083129445`.
+This qualifies the extracted runtime and counted-output bootstrap dependency
+with its retained source-input/scanner/project/concurrency gates. The run has
+finished; no bootstrap session is live. The subsequent checker correction and
+native resource-module integration below are later source changes and still
+need the final source-cohort and retained frontend/checker gates.
+
+`std-lib/FILE-OUTPUT-CONTRACT.md` specifies the write/flush dependency.
+The smallest declaration-only probes reproduce the absent File.TryWrite and
+File.TryFlush bindings through both newly built candidate stages: exit 1,
+UBE3230, no LLVM. The exact command is
+`rtk proxy powershell -NoProfile -File bootstrap/out/file-output-admission/check.ps1`;
+its report records source/tool identities. This only diagnoses missing roles,
+not qualification of those candidate stages. The bounded declarations, role
+validation and native writer now pass their 19-group direct/two-stage gate;
+`../../std-lib/FILE-OUTPUT-EVIDENCE.md` records exact byte, partial-write,
+failure, ownership, cost and concurrent-owner checks and five defective controls.
+The new names are now in the fresh checker's known-but-deferred primitive list.
+The exact promoted SemanticDeclarations source matches the isolated correction
+that passed 28 source/project checks through each stage; its SHA-256 is
+`803D9B0EB8FBAB8C0F3DE6118DB54CEE5BBF6061B4CA3BC85A3DC916924E9437`.
+The maintained semantic CLI gate now includes that regression. Guarded
+creation, lowering and native-tool/publication integration remain unfinished.
+
+The new scalar native resource-accounting module passes 157 native boundary
+assertions through each source-built stage with byte-identical raw LLVM. It is
+now in the compiler manifest, with its focused gate registered in the bootstrap
+runner. `NATIVE-IMPLEMENTATION-EVIDENCE.md` records
+the exact command, report, bootstrap-subset correction and remaining integration
+and actual-emitter measurement obligations.
+
 ## Current design decisions - 2026-11-03
 
 The bounded contract preparation and review is complete. Final selections are
@@ -30,9 +1008,11 @@ They supersede the earlier open-decision statements retained below. No
 production backend or complete host qualification is claimed. Implementation
 must pass the main contract's separate acceptance checklist.
 
-Next action: implement the existing First checked native executable item under
-these reviewed contracts, beginning with the shared error-support extraction
-and counted byte-output dependency, then the checked-graph lowering/tool path.
+Next action: connect the bounded writer and explicit traversal to checked-graph lowering,
+then the reviewed native path/tool/stack/debug/publication behavior. Shared
+error support and counted byte output have passed the 914-assertion bootstrap
+cohort; the later checker, resource, writer and traversal changes still require
+final integration gates.
 Keep the independently authored native, ABI, error, resource and publication
 oracles; do not replace them with the emitter's own expectations.
 
@@ -1063,11 +2043,27 @@ the foundation before later source-input and concurrency work.
 
 ## Active next action
 
-Prepare the existing First checked native executable deliverable's bounded
-contract review: included/deferred programs, lowering from the checked result,
-target ABI/native values, runtime errors, LLVM validation and tool/cancellation/
-publication failures preserving an old artifact. Author independent native and
-failure expectations before implementation. Reuse qualified source owners,
-generic library facilities, private results and the shared worker budget.
+Continue the reviewed First checked native executable deliverable. Instruction
+relocation fields, original effective offsets and signed linked targets are qualified
+in NATIVE-INSTRUCTION-TARGET-EVIDENCE.md. Generated function-entry and storage-extent
+checks now pass the production consumer gates in NATIVE-TARGET-OWNERSHIP-EVIDENCE.md.
+Reference-cell names, ranges, contents and accesses now pass the production gates
+in NATIVE-REFERENCE-POINTER-EVIDENCE.md. Next bind IAT/TLS-index locations and TLS
+storage to the PE structures described in NATIVE-IMAGE-DIRECTORIES-INVESTIGATION.md,
+reusing the existing image-span and directory-header logic in NativeUnwind.bas.
+Preserve reference-cell/generated-owner checks and image-rebasing/DIR64 and CRT
+TLS-callback obligations.
+Retain global data-alias/resident-storage and build-owner obligations. Qualify
+whole-function control flow and pointer/register propagation, including the
+observed relocated tail jumps and termination-call closure for decoded INT3
+traps. NATIVE-CONTROL-FLOW-INVESTIGATION.md records the concrete field, pointer-table
+and API-return dependencies; do not infer safety from trap position alone.
+Use the qualified production anchor/coverage/contribution index described
+in NATIVE-CODE-OWNERSHIP-EVIDENCE.md; complete build-owner integration remains
+pending. Complete operand/effective-target, pointer-cell/import/TLS,
+unwind/call-site/prologue/recovery-reserve, startup/API/refusal and debug checks,
+then the tool/build owner, diagnostic delivery, publication and fresh complete
+source-cohort acceptance. Preserve the checked graph, immutable source owners,
+private results, shared worker budget and qualified frontend/checker behavior.
 This does not reopen semantic rules or introduce a new compiler generation,
 phase interface, executor, commit or push.

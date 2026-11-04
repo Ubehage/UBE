@@ -83,11 +83,9 @@ ownership and design authority remain with Ube.
 
 ## Project status
 
-The new compiler can read and check simple UBE programs for errors, and the
-foundations of the standard library are in place.
-
-Planning and review for the first runnable programs are complete. The next
-step is to make the compiler produce small, standalone executables.
+Semantic checking is complete for the supported subset of UBE. Native code
+generation is partly implemented and tested; end-to-end executable building
+remains unfinished. The foundations of the standard library are in place.
 
 **UBE is in early development and is not ready for production use.**
 

@@ -43,7 +43,7 @@ try{
  $raw=[IO.File]::ReadAllText($RawPath)
  if([regex]::Matches($raw,'(?m)^define i32 @main\(i32 %argc, ptr %argv\) \{').Count -ne 1){throw 'Expected actual CLI platform entry'}
  $adapted=Join-Path $run 'cli-native.ll'
- [IO.File]::WriteAllText($adapted,$raw.Replace('define i32 @main(','define i32 @cli_actual_main('),$utf8)
+ [IO.File]::WriteAllText($adapted,[regex]::Replace($raw,'(?m)^define i32 @main\(' ,'define i32 @cli_actual_main('),$utf8)
  $observer=New-FoundationObservedRuntime $root $run $selection
  foreach($c in $observer.commands){$commands.Add($c)}
  $runtime=$observer.generated.path

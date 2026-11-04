@@ -8,6 +8,7 @@ struct ube_file_reader {
     unsigned char* scratch;
     int32_t token;
     int busy;
+    int writable;
 };
 static SRWLOCK ube_file_registry_lock = SRWLOCK_INIT;
 static struct ube_file_reader* ube_file_readers;
@@ -58,7 +59,7 @@ static int32_t ube_file_fail(int32_t* failure, int32_t kind) {
     int32_t number = 5;
     if (kind == 8) number = 7;
     else if (kind == 4) number = 6;
-    else if (kind == 3 || kind == 5 || kind == 6 || kind == 7 || kind == 11) number = 57;
+    else if (kind == 3 || kind == 5 || kind == 6 || kind == 7 || kind == 11 || kind == 15 || kind == 16) number = 57;
     ube_err_set(number,"byte-file operation failed","UBECore.FileBytes");
     return 0;
 }
@@ -219,7 +220,7 @@ int32_t ube_file_try_read(int32_t token, void* const* destination, int32_t start
     }
     struct ube_file_reader* reader = ube_file_acquire(token,failure);
     if (reader == NULL) { if (bytes != NULL) (void)ube_gc_unpin(bytes); return 0; }
-    if (reader->scratch == NULL) {
+    if (reader->writable || reader->scratch == NULL) {
         ube_file_release(reader);
         if (bytes != NULL) (void)ube_gc_unpin(bytes);
         return ube_file_fail(failure,1);

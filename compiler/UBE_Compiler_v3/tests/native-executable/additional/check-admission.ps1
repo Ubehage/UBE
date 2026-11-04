@@ -55,7 +55,17 @@ $projects = @(
     'remainder-minimum/RemainderMinimum.UBE',
     'negate-minimum/NegateMinimum.UBE',
     'remainder-integer-min/RemainderIntegerMin.UBE',
-    'remainder-longlong-min/RemainderLongLongMin.UBE'
+    'remainder-longlong-min/RemainderLongLongMin.UBE',
+    'initializer-alias-read/InitializerAliasRead.UBE',
+    'initializer-alias-write/InitializerAliasWrite.UBE',
+    'initializer-alias-forward/InitializerAliasForward.UBE',
+    'initializer-alias-unused/InitializerAliasUnused.UBE',
+    'initializer-alias-local/InitializerAliasLocal.UBE',
+    'initializer-alias-byval/InitializerAliasByVal.UBE',
+    'initializer-alias-forced/InitializerAliasForced.UBE',
+    'initializer-alias-default/InitializerAliasDefault.UBE',
+    'initializer-early-write/InitializerEarlyWrite.UBE',
+    'initializer-neutral-reset/InitializerNeutralReset.UBE'
 )
 $count = 0
 foreach ($project in $projects) {

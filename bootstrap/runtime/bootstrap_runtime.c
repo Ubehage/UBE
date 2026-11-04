@@ -237,24 +237,9 @@ int32_t ube_gc_unpin(void* value);
 static void ube_gc_enter_lock(void);
 static void ube_gc_leave_lock(void);
 
-/* Each native thread admitted to UBE owns an independent recoverable-error
-   record. Fixed buffers keep error publication allocation-free, including on
-   low-memory paths. */
-struct ube_error_state {
-    int32_t number;
-    uint64_t revision;
-    char description[512];
-    char source[256];
-};
-
-/* The maintained Windows runtime is compiled with native TLS by Clang.
-   First-error publication must not require allocation of the larger FLS
-   record used for monitors, events and thread registration. */
-static _Thread_local struct ube_error_state ube_thread_error;
-
-static struct ube_error_state* ube_current_error_state(void) {
-    return &ube_thread_error;
-}
+/* One implementation also compiled alone for scalar native output. Inclusion
+   preserves private access for managed descriptions and lifecycle revisions. */
+#include "error_support.c"
 
 #define UBE_MONITOR_TRACKING_CAPACITY 256u
 
@@ -308,43 +293,6 @@ static struct ube_thread_local_state* ube_tls_get(int create) {
         }
     }
     return state;
-}
-
-/* Copies bounded diagnostic text without depending on locale or allocation. */
-static void ube_error_copy_text(char* destination, size_t capacity,
-                                const char* source) {
-    if (capacity == 0u) return;
-    if (source == NULL) source = "";
-    const size_t length = strlen(source);
-    const size_t copied = length < capacity - 1u ? length : capacity - 1u;
-    memcpy(destination, source, copied);
-    destination[copied] = '\0';
-}
-
-/* Records a recoverable failure in the calling thread without clearing any
-   other thread's state. */
-void ube_err_set(int32_t number, const char* description, const char* source) {
-    struct ube_error_state* state = ube_current_error_state();
-    ++state->revision;
-    if (state->revision == 0) ++state->revision;
-    state->number = number;
-    ube_error_copy_text(state->description, sizeof(state->description), description);
-    ube_error_copy_text(state->source, sizeof(state->source), source);
-}
-
-/* Returns the calling thread's current UBE error number. */
-int32_t ube_err_number(void) {
-    return ube_current_error_state()->number;
-}
-
-/* Explicitly clears the calling thread's error record. Successful operations
-   deliberately do not call this function. */
-void ube_err_clear(void) {
-    struct ube_error_state* state = ube_current_error_state();
-    uint64_t revision = state->revision + 1u;
-    if (revision == 0) revision = 1u;
-    memset(state, 0, sizeof(*state));
-    state->revision = revision;
 }
 
 /* Event recursion is admitted before generated dispatch enters user code so a
@@ -4238,6 +4186,7 @@ int32_t ube_value_copy_bytes(void* const* source, int32_t source_start,
 /* The initial host is Windows. OS entry and external-resource ownership stay
    in the platform library; portable file progress/growth policy is UBE. */
 #include "windows/file_primitives.c"
+#include "windows/file_output.c"
 #include "windows/thread_primitives.c"
 
 static char* ube_string_array_join_impl(void** value_reference, int32_t count,

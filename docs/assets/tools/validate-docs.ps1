@@ -128,6 +128,39 @@ if (Test-Path -LiteralPath $wordRoot) {
                 Add-Failure "Grammar word has no A-Z article: $word."
             }
         }
+
+    $letterIndex = Join-Path $wordRoot 'index.html'
+    $landingText = Get-Content -Raw -LiteralPath $letterIndex
+    foreach ($letter in [char[]]'abcdefghijklmnopqrstuvwxyz') {
+        $letterName = [string]$letter
+        $expectedLetterPath = "${letterName}/index.html"
+        if ($landingText -notmatch ('href="' + [regex]::Escape($expectedLetterPath) + '"')) {
+            Add-Failure "A-Z landing page is missing the $($letterName.ToUpperInvariant()) letter link."
+        }
+
+        $letterDirectory = Join-Path $wordRoot $letterName
+        $letterIndexPath = Join-Path $letterDirectory 'index.html'
+        if (-not (Test-Path -LiteralPath $letterIndexPath -PathType Leaf)) {
+            Add-Failure "A-Z letter page is missing: $expectedLetterPath."
+            continue
+        }
+        $expectedEntries = Get-ChildItem -LiteralPath $letterDirectory -Filter '*.html' -File |
+            Where-Object Name -ne 'index.html' |
+            ForEach-Object Name |
+            Sort-Object
+        $letterText = Get-Content -Raw -LiteralPath $letterIndexPath
+        $listedEntries = [regex]::Matches($letterText, 'href="([a-z0-9]+\.html)"', 'IgnoreCase') |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object
+        foreach ($entry in $expectedEntries) {
+            if ($entry -notin $listedEntries) {
+                Add-Failure "A-Z letter page $expectedLetterPath is missing $entry."
+            }
+        }
+        foreach ($entry in $listedEntries | Group-Object | Where-Object Count -gt 1) {
+            Add-Failure "A-Z letter page $expectedLetterPath lists $($entry.Name) more than once."
+        }
+    }
     }
 }
 

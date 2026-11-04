@@ -53,9 +53,13 @@ rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
 - [x] Qualify First semantic checking and the existing check path for the
   contracted scalar/native MODULE subset. Final cohort 88d passes the maintained
   native/process/resource/retained gates; see SEMANTIC-EVIDENCE.md.
-- [ ] Prepare and review the existing First checked native executable row's
+- [x] Prepare and review the existing First checked native executable row's
   bounded lowering, backend, ABI/runtime-error and tool-handoff contracts after
-  semantic checking. No backend implementation is included in the completed goal.
+  semantic checking. The adopted decisions and review evidence are in
+  `UBE_Compiler_v3/NATIVE-CONTRACT-REVIEW.md` and its linked contracts.
+- [~] Implement and qualify First checked native executable under those contracts.
+  Component proofs do not complete the deliverable. The current checkpoint,
+  exact evidence and remaining work are in `UBE_Compiler_v3/Progress.md`.
 
 The [development plan](../project-docs/Development-Plan.md) remains the dependency
 order. Preserve naming, layer separation, original spans, immutable owners and

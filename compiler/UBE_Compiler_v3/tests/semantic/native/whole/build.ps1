@@ -40,7 +40,7 @@ try{
  foreach($binding in @(@('statement_make','TryMakeStatementSource','i1','ptr,i32,i32,ptr,ptr'),@('statement_cancel','TryMakeStatementCancellation','i1','ptr'),@('statement_check','TryCheckStatementSource','i1','ptr,i32,ptr,ptr,ptr,ptr'),@('statement_project_make','TryMakeStatementProject','i1','ptr,i32,ptr,ptr,ptr'),@('statement_project_check','TryCheckStatementProject','i1','ptr,i32,ptr,ptr,ptr,ptr'))){Add-FoundationBinding $adapter $raw $mapping $binding[0] $binding[1] $binding[2] $binding[3]}
  $raw=Redirect-FoundationRuntime $raw $adapter @(@('i32','ube_value_assign','ptr, ptr, ptr','whole_assign'),@('i32','ube_value_try_resize','ptr, i32, ptr, i32','whole_resize'),@('i32','ube_value_copy_bytes','ptr, i32, ptr, i32, i32','whole_copybytes'),@('ptr','ube_thread_capture_allocate','i64, i64, ptr','whole_capture_allocate'),@('void','ube_thread_capture_destroy','ptr','whole_capture_destroy'))
  $raw=$raw.Replace('ptr @ube_thread_capture_destroy','ptr @whole_capture_destroy')
- $adapted=Join-Path $run 'whole-native.ll';[IO.File]::WriteAllText($adapted,$raw.Replace('define i32 @main(','define i32 @whole_unused_main(')+"`n"+$adapter.ToString(),$utf8)
+ $adapted=Join-Path $run 'whole-native.ll';[IO.File]::WriteAllText($adapted,[regex]::Replace($raw,'(?m)^define i32 @main\(' ,'define i32 @whole_unused_main(')+"`n"+$adapter.ToString(),$utf8)
  $observer=New-FoundationObservedRuntime $repo $run $selection;$commands+=@($observer.commands)
  $preserved=Join-Path $run 'runtime-foundation-preserved.c';[IO.File]::Copy($observer.generated.path,$preserved)
  $observer.generated=Get-ArtifactIdentity $preserved

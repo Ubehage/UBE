@@ -7,7 +7,7 @@ $contract=Join-Path $PSScriptRoot 'CONTRACT.md'
 $driver=Join-Path $PSScriptRoot 'probe.c'
 $legacy=Join-Path $PSScriptRoot 'legacy-proof.c'
 $selection=Get-VerifiedBootstrapSelection $SelectionPath
-$names=@('bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/thread_primitives.c')
+$names=@('bootstrap/runtime/error_support.c','bootstrap/runtime/value_storage.h','bootstrap/runtime/windows/file_primitives.c','bootstrap/runtime/windows/file_output.c','bootstrap/runtime/windows/thread_primitives.c')
 $pins=@($candidate,$contract,$driver,$legacy,$PSCommandPath,$SelectionPath)|ForEach-Object {Get-ArtifactIdentity $_}
 $pins+=@($selection.compiler,$selection.manifest,$selection.clang,$selection.unicodeRuntime)
 $pins+=@($names|ForEach-Object {Get-ArtifactIdentity (Join-Path $root $_)})
@@ -34,6 +34,7 @@ try {
 $text=[IO.File]::ReadAllText($candidate).Replace("`r`n","`n")
 $text=Replace-One $text '#include "windows/file_primitives.c"' '#include "file_primitives.c"'
 $text=Replace-One $text '#include "windows/thread_primitives.c"' '#include "thread_primitives.c"'
+$text=Replace-One $text '#include "windows/file_output.c"' '#include "file_output.c"'
 $unobserved=$text
 $text=Replace-One $text 'uint64_t current=__atomic_load_n(&ube_root_registry.state,__ATOMIC_SEQ_CST);' 'uint64_t current=__atomic_load_n(&ube_root_registry.state,__ATOMIC_SEQ_CST);proof_reserve_loaded(current);'
 $text=Replace-One $text 'if((current&UBE_ROOT_CLOSED)||(current&UBE_ROOT_COUNT_MASK)>=UBE_GC_MAX_ROOTS)return 0;' 'if((current&UBE_ROOT_CLOSED)||(current&UBE_ROOT_COUNT_MASK)>=UBE_GC_MAX_ROOTS){proof_reserve_rejected(current);return 0;}'

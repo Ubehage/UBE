@@ -382,6 +382,18 @@ Function TryValidateSemanticAttribute(ByVal Catalog As SemanticCatalog, ByVal Ca
                 If Matches Then
                     Code = 1435
                 End If
+                If TrySemanticWord(Catalog, Fact.SourceId, RoleText, "file.trywrite", Matches, Failure) = False Then
+                    Exit Function
+                End If
+                If Matches Then
+                    Code = 1435
+                End If
+                If TrySemanticWord(Catalog, Fact.SourceId, RoleText, "file.tryflush", Matches, Failure) = False Then
+                    Exit Function
+                End If
+                If Matches Then
+                    Code = 1435
+                End If
                 If TrySemanticWord(Catalog, Fact.SourceId, RoleText, "file.tryclose", Matches, Failure) = False Then
                     Exit Function
                 End If
