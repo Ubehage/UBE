@@ -27,14 +27,33 @@ End Function
 Function TryValidateNativeContributionIsolation(ByRef Bytes() As Byte, ByRef Layout As NativeObjectLayout, ByRef Range As NativeDefinitionRange, ByRef Inspection As NativeInspection, ByVal Cancellation As SourceCancellation, ByRef Failure As NativeFailure) As Boolean
     TryValidateNativeContributionIsolation = False
     Call ResetNativeFailure(Failure)
+    If Range.InitializedBytes <> Range.ByteCount Then
+        Exit Function
+    End If
+    TryValidateNativeContributionIsolation = TryValidateNativeStorageIsolation(Bytes, Layout, Range, Inspection, Cancellation, Failure)
+End Function
+
+' The logical virtual extent can include a suffix with no file storage.
+Function TryValidateNativeStorageIsolation(ByRef Bytes() As Byte, ByRef Layout As NativeObjectLayout, ByRef Range As NativeDefinitionRange, ByRef Inspection As NativeInspection, ByVal Cancellation As SourceCancellation, ByRef Failure As NativeFailure) As Boolean
+    TryValidateNativeStorageIsolation = False
+    Call ResetNativeFailure(Failure)
     If Layout.Kind < 1 Or Layout.Kind > 2 Or Layout.Length <> ByteStorageLength(Bytes) Or Layout.SectionCount < 1 Or Layout.SectionCount > 96 Or Range.SectionIndex < 0 Or Range.SectionIndex >= Layout.SectionCount Then
         Exit Function
     End If
-    If Range.ByteCount < 1 Or Range.InitializedBytes <> Range.ByteCount Or Range.FileFirst < Layout.HeaderBytes Or Range.FileFirst < 0 Or Range.FileFirst > Layout.Length Then
+    If Range.ByteCount < 1 Or Range.InitializedBytes < 0 Or Range.InitializedBytes > Range.ByteCount Then
         Exit Function
     End If
-    If Range.ByteCount > Layout.Length - Range.FileFirst Then
-        Exit Function
+    If Range.InitializedBytes = 0 Then
+        If Range.FileFirst <> -1 Then
+            Exit Function
+        End If
+    Else
+        If Range.FileFirst < Layout.HeaderBytes Or Range.FileFirst < 0 Or Range.FileFirst > Layout.Length Then
+            Exit Function
+        End If
+        If Range.InitializedBytes > Layout.Length - Range.FileFirst Then
+            Exit Function
+        End If
     End If
     If Layout.HeaderBytes < 0 Or Layout.HeaderBytes > Layout.Length Or Layout.SymbolTable < 0 Then
         Exit Function
@@ -59,8 +78,8 @@ Function TryValidateNativeContributionIsolation(ByRef Bytes() As Byte, ByRef Lay
         Exit Function
     End If
     Failure.Code = 1506
-    If Layout.SymbolTable > 0 Then
-        If Layout.SymbolTable < Range.FileFirst + Range.ByteCount And Range.FileFirst < Layout.StringTable + Layout.StringBytes Then
+    If Layout.SymbolTable > 0 And Range.InitializedBytes > 0 Then
+        If Layout.SymbolTable < Range.FileFirst + Range.InitializedBytes And Range.FileFirst < Layout.StringTable + Layout.StringBytes Then
             Exit Function
         End If
     End If
@@ -73,8 +92,8 @@ Function TryValidateNativeContributionIsolation(ByRef Bytes() As Byte, ByRef Lay
             End If
             Failure.Code = 1506
             If Index <> Range.SectionIndex Then
-                If Other.InitializedBytes > 0 Then
-                    If Other.RawFirst < Range.FileFirst + Range.ByteCount And Range.FileFirst < Other.RawFirst + Other.InitializedBytes Then
+                If Other.InitializedBytes > 0 And Range.InitializedBytes > 0 Then
+                    If Other.RawFirst < Range.FileFirst + Range.InitializedBytes And Range.FileFirst < Other.RawFirst + Other.InitializedBytes Then
                         Exit Function
                     End If
                 End If
@@ -84,13 +103,13 @@ Function TryValidateNativeContributionIsolation(ByRef Bytes() As Byte, ByRef Lay
                     End If
                 End If
             End If
-            If Layout.Kind = 1 And Other.RelocationCount > 0 Then
-                If Other.RelocationTable < Range.FileFirst + Range.ByteCount And Range.FileFirst < Other.RelocationTable + Other.RelocationCount * 10 Then
+            If Layout.Kind = 1 And Other.RelocationCount > 0 And Range.InitializedBytes > 0 Then
+                If Other.RelocationTable < Range.FileFirst + Range.InitializedBytes And Range.FileFirst < Other.RelocationTable + Other.RelocationCount * 10 Then
                     Exit Function
                 End If
                 ' The extended-count sentinel precedes the effective records.
                 If (Other.Characteristics \ 16777216) Mod 2 <> 0 Then
-                    If Other.RelocationTable - 10 < Range.FileFirst + Range.ByteCount And Range.FileFirst < Other.RelocationTable Then
+                    If Other.RelocationTable - 10 < Range.FileFirst + Range.InitializedBytes And Range.FileFirst < Other.RelocationTable Then
                         Exit Function
                     End If
                 End If
@@ -100,10 +119,10 @@ Function TryValidateNativeContributionIsolation(ByRef Bytes() As Byte, ByRef Lay
     Wend
     Failure.Code = 0
     Failure.Resource = 0
-    TryValidateNativeContributionIsolation = True
+    TryValidateNativeStorageIsolation = True
 End Function
 
-Private Function NativeExpectedHasStorage(ByRef Expected As NativeExpectedDefinition) As Boolean
+Function NativeExpectedHasStorage(ByRef Expected As NativeExpectedDefinition) As Boolean
     NativeExpectedHasStorage = Expected.Family = 2 Or Expected.Family = 9 Or Expected.Family = 10 Or Expected.Family = 11 Or Expected.Family = 12 Or Expected.Family = 16 Or Expected.Family = 17 Or Expected.Family = 22
 End Function
 
@@ -123,7 +142,7 @@ Function ValidNativeRetentionRange(ByRef Expected As NativeExpectedDefinition, B
             Exit Function
         End If
     Else
-        If Range.TypeCode <> 0 Or Executable Or Code Then
+        If Range.TypeCode <> 0 Or Executable Or Code Or (Flags \ 33554432) Mod 2 <> 0 Then
             Exit Function
         End If
         If (Flags \ 64) Mod 2 = 0 And (Flags \ 128) Mod 2 = 0 Then

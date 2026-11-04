@@ -71,6 +71,18 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 
 
 
+## Project status
+
+Semantic checking is complete for the supported subset of UBE. Native code
+generation and validation are progressing; generated-storage ownership and
+residency checks are complete. End-to-end executable building remains unfinished.
+Next: register/pointer tracking and control/dataflow validation. The foundations
+of the standard library are in place.
+
+**UBE is in early development and is not ready for production use.**
+
+See the [development plan](project-docs/Development-Plan.md) for upcoming work.
+
 ## How UBE is being built
 UBE is created by Ube, who defines the vision, product direction, and final
 decisions. AI coding agents help turn that direction into specifications,
@@ -80,16 +92,6 @@ The agents work inside repository-defined boundaries. Their work is reviewed
 against the language specification, automated tests, preserved compiler
 generations, and Ube's requirements. AI is used as an engineering tool; project
 ownership and design authority remain with Ube.
-
-## Project status
-
-Semantic checking is complete for the supported subset of UBE. Native code
-generation is partly implemented and tested; end-to-end executable building
-remains unfinished. The foundations of the standard library are in place.
-
-**UBE is in early development and is not ready for production use.**
-
-See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
 ## First public-release goals
 

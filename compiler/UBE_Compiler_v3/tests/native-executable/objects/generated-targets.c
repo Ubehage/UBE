@@ -35,6 +35,13 @@ static int generated_target_cases(void** cancellation){
   CHECK(make_cancel(cancellation));*(bool*)*cancellation=true;inspection_defaults(&state);CHECK(!validate_generated_target(&ins,&rel,&target,position,&expected,&retained,&state,*cancellation,&failure) && failure.code==1507 && state.events==0);*cancellation=NULL;
  }
  const struct generated_target_case good={2,16,16,4,0,0,4,0,1};
+ /* The retained owner and instruction anchor still agree. Residency must
+    reject discardability itself, independently of TLS metadata inspection. */
+ generated_target_fixture(&good,&ins,&rel,&target,&expected,&retained,&position);
+ target.characteristics|=0x02000000;retained.image.characteristics|=0x02000000;
+ inspection_defaults(&state);inventory_observe(1);
+ int discardable=validate_generated_target(&ins,&rel,&target,position,&expected,&retained,&state,NULL,&failure);inventory_observation_end();
+ CHECK(!discardable && failure.code==1506 && state.bytes==0 && state.events==1 && inventory_events==1 && inventory_allocation_visits==0 && copies==0);
  for(int defect=0;defect<34;++defect){generated_target_fixture(&good,&ins,&rel,&target,&expected,&retained,&position);int code=1509;
   if(defect==0)expected.family=24;if(defect==1)expected.unit=7;if(defect==2)expected.required=2;if(defect==3)expected.bytes=-1;if(defect==4)expected.name.first=-1;if(defect==5)expected.name.count=0;if(defect==6)expected.bytes=0;if(defect==7)retained.present=0;if(defect==8)target.count=2;if(defect==9)retained.image.count=15;if(defect==10)target.symbol=-1;if(defect==11)retained.image.symbol=-1;if(defect==12)target.section=96;if(defect==13)retained.image.first=-1;if(defect==14)retained.image.characteristics=INT64_C(0x100000000);if(defect==15)position=-1;if(defect==16)position=INT64_C(0x100000000);if(defect==17)ins.length=16;if(defect==18)ins.flow=8;if(defect==19)ins.memory_bytes=3;if(defect==20)ins.memory_write=2;
   if(defect>=21)code=1506;

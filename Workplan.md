@@ -12,6 +12,26 @@ nearer roadmap or progress file.
 - `[x]` complete and verified
 - `[!]` blocked, with the reason and required decision recorded
 
+## Completed next step - 2026-11-04
+
+The owner-requested generated-storage alias/residency goal is complete.
+Starting from commit 1376e39, focused diagnostics established the gaps, then
+NativeStorageOwnership added complete generated-owner coverage, exact geometry,
+resident permissions, disjointness and independently bounded metadata exclusion.
+Legitimate TLS template containment, repeated labels and empty markers remain
+permitted; zero-filled mutable globals remain supported.
+
+NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md in the active compiler records all nine
+passing gates: 136 component groups, 32 storage image/reader groups and 7,040
+rejected storage mutations, plus retained instruction/extent/target/unwind/image
+relocation gates. The verification-only audit rechecked 666 unchanged paths.
+Both readers pass 52,456,374 component assertions. No production cap increased.
+
+Next qualify register/pointer provenance and whole-function control/dataflow,
+including relocated tail jumps, initialization and termination closure, while
+retaining the separate CRT/startup, stack/debug and builder/publication work.
+The full First checked native executable deliverable remains unfinished.
+
 ## Resumed next step - 2026-11-04
 
 The owner requested a new agent to resume the handoff and set a goal for the
@@ -21,9 +41,9 @@ NATIVE-IMAGE-RELOCATION-EVIDENCE.md in the active compiler records all eight
 passing gates, 132 component groups, 34 image groups, 4,704 rejected image
 mutations and the unchanged 652-path audit. The test-only enclosing component
 allowance is now 1,080 seconds after measured 944-second child work; production
-caps are unchanged. Global aliases/resident storage, register/control/dataflow,
-CRT/startup effects, stack/debug, builder/publication and final acceptance remain
-required. The full native deliverable is not complete.
+caps are unchanged. At that checkpoint global storage and the other native
+obligations remained; the generated-storage dependency is now qualified above.
+The full native deliverable is not complete.
 
 ## Earlier owner-requested pause - 2026-11-04
 
@@ -218,7 +238,10 @@ investigation, remaining scope and worktree/tooling precautions.
   now pass 132 component and 34 image groups, including 1,568 field observations
   and 4,704 rejected mutations. All six affected retained gates and the 652-path
   audit pass; NATIVE-IMAGE-RELOCATION-EVIDENCE.md records exact proof and limits.
-  Continue with global aliases/resident storage, CRT TLS callbacks and whole-function
+  Generated-storage ownership/residency now passes 136 component and 32 retained
+  storage groups, with 7,040 rejected mutations and all nine gates passing.
+  NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md records the 666-path audit and exact scope.
+  Continue with CRT TLS callbacks, register/pointer provenance and whole-function
   dataflow/control flow, then derive the complete reserve and
   qualify the remaining stack closures. The owner approved 3*D+I lowering work and
   further necessary resource adjustments. The added expectation pass makes the

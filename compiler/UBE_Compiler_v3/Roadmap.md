@@ -1,12 +1,15 @@
 # UBE Compiler v3 workplan
 
-The owner resumed work with a new agent on 2026-11-04. The next-step goal,
-bounded base-relocation validation and required pointer association, is complete.
-NATIVE-IMAGE-RELOCATION-EVIDENCE.md records all eight passing gates and the
-unchanged 652-path audit. Global storage aliases, register/control/dataflow,
-CRT/startup effects, stack/debug, builder/publication and final acceptance remain.
-The full native-executable deliverable remains incomplete. Progress.md preserves
-the earlier handoff and exact qualified checkpoints.
+The owner-requested next-step goal, generated storage alias/residency validation,
+is complete. NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md records all nine passing gates,
+32 retained storage image/reader groups, 7,040 rejected storage mutations and the
+unchanged 666-path audit. The earlier relocation checkpoint remains preserved.
+
+Next qualify register/pointer provenance and whole-function control/dataflow.
+CRT/startup effects, initial values, stack/debug, builder/publication and final
+native acceptance retain their separate obligations. The full native-executable
+deliverable remains incomplete. Progress.md records the current next action and
+preserves historical handoffs and exact qualified checkpoints.
 
 This is the fresh compiler's prerequisite checklist, approved in direction by
 the owner on 2026-10-30. It works with `../../std-lib/ROADMAP.md`.
@@ -263,8 +266,10 @@ NATIVE-IMAGE-POINTER-INVESTIGATION.md classifies all 49 fields per image. Bounde
 base-relocation validation and required pointer associations now pass 132
 component and 34 image groups, with 1,568 field observations and 4,704 rejected
 mutations. All eight gates and the unchanged 652-path audit are recorded in
-NATIVE-IMAGE-RELOCATION-EVIDENCE.md. Next retain global data aliases/resident
-storage obligations and qualify
+NATIVE-IMAGE-RELOCATION-EVIDENCE.md. Generated-storage ownership and residency
+now pass 136 component and 32 retained storage groups, including 7,040 rejected
+mutations and all nine gates. NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md records the
+666-path audit and remaining scope. Next qualify register/pointer provenance and
 whole-function dataflow/control flow, including trap termination closure,
 then derive the complete recovery reserve
 and qualify call-site/prologue, startup/API and refusal closures. Warning presentation, end-to-end checked-program integration, final

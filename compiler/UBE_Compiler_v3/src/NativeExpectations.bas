@@ -22,7 +22,7 @@ Type NativeExpectedDefinitions
     SourceCount As Long
     Status As Long
 End Type
-Private Intrinsic Function NativeExpectedRowsLength(ByRef Values() As NativeExpectedDefinition) As Long
+Intrinsic Function NativeExpectedRowsLength(ByRef Values() As NativeExpectedDefinition) As Long
 Attribute NativeExpectedRowsLength.UBE_Primitive = "Array.Length"
 End Function
 Private Intrinsic Function NativeExpectedTargetsLength(ByRef Values() As NativeDeclarationTarget) As Long

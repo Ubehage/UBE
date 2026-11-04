@@ -66,6 +66,8 @@ extent. Both sides must have the selected COFF function/data type and appropriat
 read/execute/write section permissions: code is readable executable code without
 write; mutable globals/states/latch/stack floor/error TLS are readable writable
 data; initializer/frame/reserve tables are fully initialized read-only data.
+Generated data also excludes discardable sections. The complete-set consumer in
+NATIVE-STORAGE-OWNERSHIP-IMPLEMENTATION.md adds residency and cross-owner checks.
 Storage spans fit object logical bytes and image virtual bytes under the existing
 range resolver; file padding cannot satisfy them. This establishes symbol/anchor
 and storage-span retention. Complete code extents, data contents and relocated
@@ -79,6 +81,14 @@ cap or declaration/body/argument work bound changes. Failed calls retain the
 previous result, and do not change Err or incoming snapshots.
 
 ## Contribution isolation
+
+The fully initialized entry point delegates to the shared
+TryValidateNativeStorageIsolation loop. The storage form also admits an empty
+or partial initialized prefix, comparing only that prefix in file space and the
+whole logical range in virtual space. An empty prefix requires FileFirst=-1.
+The original entry point retains its fully initialized admission rule and its
+byte/event accounting. Neither entry point alone rebinds a supplied range to
+its own section; the storage ownership consumer checks that exact geometry.
 
 TryValidateNativeContributionIsolation checks a fully initialized contribution
 range against its immutable object's/image's other sections and metadata. It

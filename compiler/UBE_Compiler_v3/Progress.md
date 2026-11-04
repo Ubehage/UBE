@@ -19,6 +19,43 @@ and limitations are recorded in
 `tests/native-executable/REPLACEMENT-PROBE-EVIDENCE.md`. This is host-prototype
 evidence, not implemented compiler behavior or complete path qualification.
 
+## Completed generated-storage validation goal - 2026-11-04
+
+The owner-requested next bounded step is complete. Starting from commit 1376e39,
+focused two-reader diagnostics reproduced acceptance of matched discardable
+storage and distinct owners sharing a positive extent. Independent retained
+census and literal oracles preceded production implementation.
+
+NATIVE-STORAGE-OWNERSHIP-IMPLEMENTATION.md fixes the ownership, lifetime,
+zero-fill, TLS containment, protected-view and resource contracts.
+NativeStorageOwnership borrows the complete frozen definitions and aligned
+retained bindings, proves complete disjoint generated ownership, checks exact
+section geometry and residency, and excludes independently bounded metadata.
+It reuses existing TLS readers, family/length helpers and the shared contribution
+isolation loop. No allocating index, new sort, production cap or language change.
+
+NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md records all exact commands and report paths.
+All nine gates pass: 136 component groups, 32 storage matrix groups, 416 retained
+extents, 2,240 complete instructions, 128 leaves, 288 object unwind, 32 image
+function tables, 34 image pointers and 4,064 target/fixup groups. Both readers
+pass 52,456,374 component assertions and emit identical raw LLVM. The new literal
+oracle is exactly 3996 bytes/934 events, including every cancellation admission.
+The matrix covers all sixteen images, complete 54-row/16-owner expectations,
+194 O0 / 189 O2 protected views and 7,040 rejected mutations. The final
+verification-only audit rechecks 666 unchanged paths, including report documents.
+
+The generated-storage goal is complete; the parent native executable deliverable
+is not. Arbitrary CRT extents/effects, ordinary global initial-value proof,
+register/pointer provenance and whole-function control/dataflow, full unwind/
+stack/debug and actual builder/publication integration remain. Protecting bounded
+unwind spans does not prove their semantics. The current next action is at the
+end of this file; the intervening sections preserve historical checkpoints.
+
+The prior repository snapshot was subsequently committed and pushed at the
+owner's request. Statements below about no commit/push describe the earlier
+implementation session; publication did not turn component proof into complete
+native-executable acceptance.
+
 ## Resumed with a new agent - 2026-11-04
 
 The owner requested project orientation and continuation of the unfinished goal.
@@ -2043,27 +2080,25 @@ the foundation before later source-input and concurrency work.
 
 ## Active next action
 
-Continue the reviewed First checked native executable deliverable. Instruction
-relocation fields, original effective offsets and signed linked targets are qualified
-in NATIVE-INSTRUCTION-TARGET-EVIDENCE.md. Generated function-entry and storage-extent
-checks now pass the production consumer gates in NATIVE-TARGET-OWNERSHIP-EVIDENCE.md.
-Reference-cell names, ranges, contents and accesses now pass the production gates
-in NATIVE-REFERENCE-POINTER-EVIDENCE.md. Next bind IAT/TLS-index locations and TLS
-storage to the PE structures described in NATIVE-IMAGE-DIRECTORIES-INVESTIGATION.md,
-reusing the existing image-span and directory-header logic in NativeUnwind.bas.
-Preserve reference-cell/generated-owner checks and image-rebasing/DIR64 and CRT
-TLS-callback obligations.
-Retain global data-alias/resident-storage and build-owner obligations. Qualify
-whole-function control flow and pointer/register propagation, including the
-observed relocated tail jumps and termination-call closure for decoded INT3
-traps. NATIVE-CONTROL-FLOW-INVESTIGATION.md records the concrete field, pointer-table
-and API-return dependencies; do not infer safety from trap position alone.
-Use the qualified production anchor/coverage/contribution index described
-in NATIVE-CODE-OWNERSHIP-EVIDENCE.md; complete build-owner integration remains
-pending. Complete operand/effective-target, pointer-cell/import/TLS,
-unwind/call-site/prologue/recovery-reserve, startup/API/refusal and debug checks,
-then the tool/build owner, diagnostic delivery, publication and fresh complete
-source-cohort acceptance. Preserve the checked graph, immutable source owners,
-private results, shared worker budget and qualified frontend/checker behavior.
-This does not reopen semantic rules or introduce a new compiler generation,
-phase interface, executor, commit or push.
+Continue the reviewed First checked native executable deliverable with register/
+pointer provenance and whole-function control/dataflow. Start from the qualified
+code anchor/coverage/contribution index and the retained original effective
+relocation targets. NATIVE-CONTROL-FLOW-INVESTIGATION.md records the concrete
+pointer-table, API-return and branch dependencies. Isolate a focused unsupported
+case before choosing the next bounded consumer; do not infer safe termination
+from INT3 position alone. Preserve relocated tail-jump and termination-call
+closure obligations and the existing shared work/cancellation budgets.
+
+Import, TLS, required base-relocation/pointer association and generated-storage
+ownership/residency dependencies are now qualified in their evidence documents,
+most recently NATIVE-STORAGE-OWNERSHIP-EVIDENCE.md. Preserve their complete frozen
+owner/protected-view preconditions when integrating the build owner. Arbitrary
+CRT extents and runtime writes, ordinary global initial values, CRT TLS callbacks
+and startup/API effects remain outside that completed storage proof.
+
+Complete whole-function operand/dataflow, unwind/call-site/prologue/recovery-
+reserve, startup/API/refusal and debug checks, then the tool/build owner,
+diagnostic delivery, publication and fresh complete source-cohort acceptance.
+Preserve the checked graph, immutable source owners, private results, shared
+worker budget and qualified frontend/checker behavior. This does not reopen
+semantic rules or introduce a compiler generation, phase interface or executor.

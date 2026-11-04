@@ -20,7 +20,7 @@ End Function
 Private Intrinsic Function NativeInventoryKeyLength(ByRef Values() As ByteKey) As Long
 Attribute NativeInventoryKeyLength.UBE_Primitive = "Array.Length"
 End Function
-Private Intrinsic Function NativeInventoryOrderLength(ByRef Values() As Long) As Long
+Intrinsic Function NativeInventoryOrderLength(ByRef Values() As Long) As Long
 Attribute NativeInventoryOrderLength.UBE_Primitive = "Array.Length"
 End Function
 Private Intrinsic Function TryResizeNativeInventorySymbols(ByRef Values() As NativeObjectSymbol, ByVal Count As Long, ByVal Keep As Boolean) As Boolean
