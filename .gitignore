@@ -1,6 +1,7 @@
 /.agents/
 /.continue/
 /media/*
+/bootstrap/out/
 /bootstrap-vb6/
 /GitHub.*
 /docs/*.md
