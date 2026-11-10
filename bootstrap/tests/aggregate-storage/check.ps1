@@ -103,9 +103,12 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
     return $result
 }
 
+. (Join-Path $PSScriptRoot '../NativeMemory.ps1')
 # Compiles the same generated library+harness IR at a selected optimization level.
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
-    $result = Invoke-BoundedProcess $Clang @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,'-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
+    $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $result = Invoke-BoundedProcess $Clang $arguments
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -253,7 +256,7 @@ $prior = '0'
 for ($index = 0; $index -lt $checks.Count; $index++) {
     $symbol = Find-Symbol $bound 'function' $checks[$index]
     $bit = 1 -shl $index
-    $harness += @('  call void @ube.context.init(ptr %ctx)',"  %init$index = call i1 @ube.project.init(ptr %ctx)","  %input$index = load volatile i64, ptr @test.input","  %pair$index = call { i1, i64 } @ube.proc.$($symbol.Id)(ptr %ctx, i64 %input$index)","  %ok$index = extractvalue { i1, i64 } %pair$index, 0","  %value$index = extractvalue { i1, i64 } %pair$index, 1","  %zero$index = icmp eq i64 %value$index, 0","  %good$index = and i1 %ok$index, %zero$index","  %ready$index = and i1 %good$index, %init$index","  %fail$index = select i1 %ready$index, i32 0, i32 $bit","  %mask$index = or i32 $prior, %fail$index")
+    $harness += @('  call void @ube.context.init(ptr %ctx)',"  %init$index = call i1 @ube.project.init(ptr %ctx)","  %input$index = load volatile i64, ptr @test.input","  %pair$index = call { i1, i64 } @ube.proc.$($symbol.Id)(ptr %ctx, i64 %input$index)","  %ok$index = extractvalue { i1, i64 } %pair$index, 0","  %value$index = extractvalue { i1, i64 } %pair$index, 1","  %zero$index = icmp eq i64 %value$index, 0","  %good$index = and i1 %ok$index, %zero$index","  %disposed$index = call i1 @ube.context.dispose(ptr %ctx)","  %available$index = and i1 %init$index, %disposed$index","  %ready$index = and i1 %good$index, %available$index","  %fail$index = select i1 %ready$index, i32 0, i32 $bit","  %mask$index = or i32 $prior, %fail$index")
     $prior = '%mask' + $index
 }
 $harness += @("  ret i32 $prior",'}')
@@ -286,12 +289,9 @@ $negative = @(
     @{ Name='different element array assignment'; Body="Sub Run()`nDim A(0 To 1) As Byte`nDim B(0 To 1) As Integer`nA = B`nEnd Sub"; Code='E_TYPE' },
     @{ Name='scalar suffix cannot annotate array use'; Body="Sub Run()`nDim A(0 To 1) As Long`nDim V As Long = A&(0)`nEnd Sub"; Code='E_TYPE' },
     @{ Name='different element array ByRef'; Body="Sub Take(ByRef A() As Integer)`nEnd Sub`nSub Run()`nDim B(0 To 1) As Byte`nTake B`nEnd Sub"; Code='E_ARGUMENT' },
-    @{ Name='different bounds copy deferred'; Body="Sub Run()`nDim A(0 To 1) As Byte`nDim B(-1 To 0) As Byte`nA = B`nEnd Sub"; Code='E_UNSUPPORTED' },
-    @{ Name='unknown bounds copy deferred'; Body="Sub Copy(ByRef A() As Byte, ByRef B() As Byte)`nA = B`nEnd Sub"; Code='E_UNSUPPORTED' },
     @{ Name='known invalid index'; Body="Sub Run()`nDim A(-1 To 1) As Byte`nA(2) = 1`nEnd Sub"; Code='E_CONSTANT' },
     @{ Name='inverted bounds'; Body='Dim A(1 To -1) As Byte'; Code='E_CONSTANT' },
     @{ Name='array element count bound'; Body='Dim A(0 To 4096) As Byte'; Code='E_LIMIT' },
-    @{ Name='dynamic array deferred'; Body='Dim A() As Byte'; Code='E_UNSUPPORTED' },
     @{ Name='multidimensional array deferred'; Body='Dim A(0 To 1, 0 To 1) As Byte'; Code='E_UNSUPPORTED' },
     @{ Name='ReDim deferred'; Body="Sub Run()`nDim A(0 To 1) As Byte`nReDim A(0 To 2)`nEnd Sub"; Code='E_UNSUPPORTED' },
     @{ Name='recursive record deferred'; Body="Type Link`nNextLink As Link`nEnd Type"; Code='E_UNSUPPORTED' },
@@ -322,7 +322,8 @@ $privateResult = Invoke-BoundedProcess $BootstrapExe @('--analyze',$privateManif
 Require ($privateResult.ExitCode -eq 1 -and $privateResult.Stderr -match '(?m)^UBE: E_NAME:' -and $privateResult.Stderr -match 'Program\.bas:\d+:\d+') 'Private Type was visible from another module'
 $script:passed++
 Write-Output 'PASS: private nominal Type inaccessible across modules'
-$contextDeclarations = ((1..17 | ForEach-Object { 'Private Values' + $_ + '(0 To 4095) As LongLong' }) -join "`n")
+$contextRecord = "Type ContextRecord`n" + ((1..128 | ForEach-Object { 'Value' + $_ + ' As Long' }) -join "`n") + "`nEnd Type`n"
+$contextDeclarations = $contextRecord + ((1..513 | ForEach-Object { 'Private Value' + $_ + ' As ContextRecord' }) -join "`n")
 $contextManifest = New-Fixture 'module aggregate context limit' @($contextDeclarations) @('Example') 'Library'
 $beforeContext = (Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash
 $contextResult = Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$contextManifest,$ir)
@@ -330,7 +331,8 @@ Require ($contextResult.ExitCode -eq 1 -and $contextResult.Stderr -match '(?m)^U
 Require ((Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash -eq $beforeContext) 'Context limit rejection modified previous artifact'
 $script:passed++
 Write-Output 'PASS: module storage context limit rejects before publication'
-$frameManifest = New-Fixture 'aggregate copy scratch frame limit' @("Sub Run()`nDim First(0 To 40) As Long`nDim Second(0 To 40) As Long`nSecond = First`nEnd Sub") @('Example') 'Library'
+$frameRecord = "Type ScratchRecord`n" + ((1..42 | ForEach-Object { 'Value' + $_ + ' As Long' }) -join "`n") + "`nEnd Type`n"
+$frameManifest = New-Fixture 'aggregate copy scratch frame limit' @($frameRecord + "Sub Run()`nDim First As ScratchRecord`nDim Second As ScratchRecord`nSecond = First`nEnd Sub") @('Example') 'Library'
 $beforeFrame = (Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash
 $frameResult = Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$frameManifest,$ir)
 Require ($frameResult.ExitCode -eq 1 -and $frameResult.Stderr -match '(?m)^UBE: E_LIMIT:' -and $frameResult.Stderr -match 'native storage/temporary frame limit exceeded' -and $frameResult.Stdout -notmatch 'EMIT OK') 'Aggregate copy scratch was omitted from native frame accounting'
@@ -339,4 +341,4 @@ $script:passed++
 Write-Output 'PASS: native frame limit includes aggregate copy snapshot cells'
 $invalid = New-Fixture 'invalid aggregate publication' @('Dim A(1 To -1) As Byte') @('Example') 'Library'
 Assert-PreservedFailure 'aggregate diagnostic' @('--emit-llvm',$invalid,$ir) 'E_CONSTANT' $ir
-Write-Output "PASS: $($script:passed) aggregate storage groups; fixed storage only, no heap allocation claims."
+Write-Output "PASS: $($script:passed) aggregate storage groups; fixed declarations, independent array replacement and checked access."

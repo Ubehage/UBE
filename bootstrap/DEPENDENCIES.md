@@ -44,12 +44,14 @@ in arrays. This proves their storage and traversal before managed text and
 dynamic growth are introduced. Existing comparisons and GoTo suffice to test
 the data structures without inventing unresolved loop-header failure rules.
 
-The bounded implementation selects finite scalar records and fixed-bound
+The initial bounded implementation selected finite scalar records and fixed-bound
 rank-one arrays, checked field/index access, ByRef borrowing and independent
 copies with known matching array bounds. Source bytes and spans replace no
 language String contract; the fixture stores bytes as data. General dynamic
 buffers, bounds-replacing array copies and record-owned arrays remain required
-later for a practical compiler and are explicitly deferred.
+later for a practical compiler. DYNAMIC-STORAGE.md extends this initial
+boundary to dynamic buffers and bounds-replacing copies; record-owned arrays
+remain deferred.
 
 ## Remaining evidence to gather
 
@@ -60,15 +62,17 @@ overlap-safe range copies. Their status contracts are already explicit, and an
 ordinary UBECore append function can compose them without allocation.
 
 Dynamic resizing needs stable descriptors, replacement-before-publication,
-cleanup on every return/FAIL, and allocation recovery. In particular, resolve
-the lifetime/observable identity of an element ByRef alias when a later argument
-or the callee resizes, erases or replaces the owning array. Freeing the old
-payload while such an alias is live is unsafe; neither a pinning policy nor a
-new resize rejection is selected by this increment. The existing call-lifetime
-alias guarantee must be preserved. These requirements precede admitting growth.
+cleanup on every return/FAIL, and allocation recovery. The owner resolved the
+element-alias lifetime on 2026-11-10: retain the original storage through the
+dynamic call; writes through that alias do not affect a replacement array.
+Prepared indexed assignment destinations retain their selected storage until
+commit or abandonment. Whole-array aliases keep referring to the descriptor.
+Implement owner/borrow tracking before admitting replacement; freeing an old
+payload while a prepared alias is live is unsafe. Minor remaining behavior
+defaults to VB6 only where it does not conflict with explicit UBE contracts.
 
-Porting practical source buffers and retained trees still needs dynamic growth
-and broader aggregate ownership beyond the admitted fixed arrays/finite records;
+The current dynamic-storage increment supplies growth for scalar/finite-record
+buffers. Porting practical retained trees still needs broader aggregate ownership;
 ordinary scanning needs loop forms and further operators; reading source and
 writing output need explicit library I/O. Text representation, ownership,
 allocation failures and corresponding UBECore interfaces must be admitted and
@@ -81,6 +85,7 @@ sharing or explicit synchronization. The sequential VB6 host remains an
 implementation prerequisite, not evidence of final-compiler concurrency.
 
 Acceptance belongs in `tests/integer-types/check.ps1`,
-`tests/aggregate-storage/check.ps1` and `tests/counted-buffers/check.ps1`;
+`tests/aggregate-storage/check.ps1`, `tests/counted-buffers/check.ps1` and
+`tests/dynamic-storage/check.ps1`;
 exact executed results and next work belong in
 `../compiler/Progress.md`.

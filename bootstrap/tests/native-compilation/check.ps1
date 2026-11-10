@@ -103,9 +103,12 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
     return $result
 }
 
+. (Join-Path $PSScriptRoot '../NativeMemory.ps1')
 # Compiles the same generated library+harness IR at a selected optimization level.
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
-    $result = Invoke-BoundedProcess $Clang @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,'-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
+    $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $result = Invoke-BoundedProcess $Clang $arguments
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -126,11 +129,12 @@ function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [s
 }
 
 # Requires controlled failure and verifies an existing valid artifact is unchanged.
-function Assert-PreservedFailure([string]$Name, [string[]]$Arguments, [string]$Code, [string]$Artifact, [int]$TimeoutMilliseconds = 30000) {
+function Assert-PreservedFailure([string]$Name, [string[]]$Arguments, [string]$Code, [string]$Artifact, [int]$TimeoutMilliseconds = 30000, [string]$DetailPattern = '') {
     $before = (Get-FileHash -LiteralPath $Artifact -Algorithm SHA256).Hash
     $result = Invoke-BoundedProcess $BootstrapExe $Arguments $TimeoutMilliseconds
     Require ($result.ExitCode -eq 1 -and $result.Stderr -match ('(?m)^UBE: ' + [regex]::Escape($Code) + ':') -and $result.Stdout -notmatch '(?m)^(BUILD OK|EMIT OK)\r?$') "$Name failure mismatch. Evidence: $($result.Evidence)"
     Require ((Get-FileHash -LiteralPath $Artifact -Algorithm SHA256).Hash -ceq $before) "$Name changed prior artifact"
+    if ($DetailPattern) { Require ($result.Stderr -match $DetailPattern) "$Name did not reach the expected backend failure: $($result.Evidence)" }
     $script:passed++
     Write-Output "PASS: $Name preserves prior artifact"
 }
@@ -170,7 +174,9 @@ for ($i = 0; $i -lt $cases.Count; $i++) {
         "  %value$i = extractvalue { i1, i64 } %result$i, 1",
         "  %zero$i = icmp eq i64 %value$i, 0",
         "  %good$i = and i1 %ok$i, %zero$i",
-        "  %ready$i = and i1 %init$i, %good$i",
+        "  %disposed$i = call i1 @ube.context.dispose(ptr %ctx)",
+        "  %available$i = and i1 %init$i, %disposed$i",
+        "  %ready$i = and i1 %available$i, %good$i",
         "  %fail$i = select i1 %ready$i, i32 0, i32 $($case.failureBit)",
         "  %mask$i = or i32 $previous, %fail$i"
     )
@@ -232,7 +238,9 @@ Write-Output 'PASS: Sub Main native entry returns zero'
 
 $invalid = New-Fixture 'invalid source' @("Function Main() As Long`nMain = Missing`nEnd Function") @('Example') 'Exe'
 Assert-PreservedFailure 'frontend diagnostic' @('--build',$invalid,$preserved,'--clang',$Clang) 'E_NAME' $preserved
-Assert-PreservedFailure 'missing clang' @('--build',$demo,$preserved,'--clang',(Join-Path $artifacts 'missing-clang.exe')) 'E_BACKEND' $preserved
+$importTool = Join-Path (Split-Path $Clang) 'llvm-dlltool.exe'
+Copy-Item -LiteralPath $importTool -Destination (Join-Path $artifacts 'llvm-dlltool.exe')
+Assert-PreservedFailure 'missing clang' @('--build',$demo,$preserved,'--clang',(Join-Path $artifacts 'missing-clang.exe')) 'E_BACKEND' $preserved -DetailPattern 'cannot start Clang'
 foreach ($backendExit in @(7,0)) {
     $fakeIR = Join-Path $artifacts ('fake-backend-' + $backendExit + '.ll')
     $fakeExe = Join-Path $artifacts ('fake-backend-' + $backendExit + '.exe')
@@ -240,13 +248,18 @@ foreach ($backendExit in @(7,0)) {
     Build-Harness $fakeIR $fakeExe 'O0'
     $failureName = 'backend nonzero exit'
     if ($backendExit -eq 0) { $failureName = 'backend reports success without native output' }
-    Assert-PreservedFailure $failureName @('--build',$demo,$preserved,'--clang',$fakeExe) 'E_BACKEND' $preserved
+    $detail = 'Clang failed with exit 7'
+    if ($backendExit -eq 0) { $detail = 'Clang output is not a bounded AMD64 PE32\+ executable' }
+    Assert-PreservedFailure $failureName @('--build',$demo,$preserved,'--clang',$fakeExe) 'E_BACKEND' $preserved -DetailPattern $detail
 }
 $timeoutIR = Join-Path $artifacts 'timeout-backend.ll'
 $timeoutExe = Join-Path $artifacts 'timeout-backend.exe'
 Write-Text $timeoutIR "define i32 @main() {`r`nentry:`r`n  br label %spin`r`nspin:`r`n  br label %spin`r`n}`r`n"
 Build-Harness $timeoutIR $timeoutExe 'O0'
-Assert-PreservedFailure 'backend deadline' @('--build',$demo,$preserved,'--clang',$timeoutExe) 'E_BACKEND' $preserved 45000
+$deadlineWatch = [Diagnostics.Stopwatch]::StartNew()
+Assert-PreservedFailure 'backend deadline' @('--build',$demo,$preserved,'--clang',$timeoutExe) 'E_BACKEND' $preserved 45000 'Clang exceeded 30 second timeout'
+$deadlineWatch.Stop()
+Require ($deadlineWatch.Elapsed.TotalSeconds -ge 29) 'Deadline probe failed before actually exercising the backend timeout'
 $badOutput = Join-Path $artifacts 'missing-parent/result.exe'
 $badResult = Invoke-BoundedProcess $BootstrapExe @('--build',$demo,$badOutput,'--clang',$Clang)
 Require ($badResult.ExitCode -eq 1 -and $badResult.Stderr -match '(?m)^UBE: E_OUTPUT:' -and -not (Test-Path -LiteralPath $badOutput)) 'Invalid output path was not controlled'

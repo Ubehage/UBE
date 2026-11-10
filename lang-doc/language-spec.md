@@ -29,6 +29,12 @@ contract take precedence.
 
 ## 1. Scope and compatibility
 
+Owner clarification, 2026-11-10: for minor behavioral details not otherwise
+defined, follow classic VB6 behavior unless it compromises an already defined
+UBE behavior or architecture. Explicit UBE contracts and owner decisions take
+precedence; this fallback does not restore incompatible VB6 runtime quirks or
+override documented unsupported implementation boundaries.
+
 UBE 1.0 accepts the core textual syntax of classic VB6: declarations, procedures,
 properties, events, expressions, structured control flow, labels and legacy
 file/error statements. It also recognizes the textual headers and designer
@@ -356,6 +362,18 @@ boxing/extraction, enum conversion, reference upcasting, or a different fixed
 String length. Constants, results, read-only properties, hooked variables, and
 arbitrary expressions are not direct `ByRef` storage. The alias lasts only for
 the dynamic call and cannot escape as a first-class reference.
+
+Owner decision, 2026-11-10: a prepared alias to an array element remains attached
+to the original element storage if the array is subsequently resized, erased
+or replaced, including during evaluation of later call arguments. The original
+storage remains alive until the dynamic call ends; accesses through that alias
+do not retarget to a replacement array. Thus writes through an old alias do not
+modify a newly allocated replacement, even when the same index still exists.
+An alias to the whole array continues to refer to its variable/descriptor and
+observes replacement values. A prepared indexed assignment destination likewise
+retains its selected storage through RHS evaluation until commit or abandonment.
+Compiler-owned storage retention is released on success and failure paths;
+this does not perform user-owned resource cleanup or permit references to escape.
 
 For VB compatibility, an extra pair of parentheses around an individual
 argument to a `ByRef` parameter forces value evaluation. UBE evaluates and

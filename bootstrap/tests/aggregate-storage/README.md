@@ -5,7 +5,14 @@ The gate accepts an existing `-BootstrapExe` and retains generated artifacts.
 It checks fixed rank-one arrays, finite scalar-field records, independent value
 copies, aliases and guarded indexing in actual compiled source at O0 and O2.
 
-On 2026-11-10 the gate built the bootstrap with VB6 6.00.9782 and passed 38 groups.
+On 2026-11-10 the updated gate passed 35 groups against the VB6-built compiler
+in `ube dynamic storage cd871c2d-4cb0-40d5-aa6e-22bed7b6fd84/build`.
+Evidence: `ube aggregate storage 686642c7-c424-4926-9682-2978ece9fc13` in the
+temporary directory. Three former unsupported cases (dynamic declarations,
+different-bound copies and borrowed-descriptor copies) moved to positive
+dynamic-storage coverage.
+
+The initial gate built the bootstrap with VB6 6.00.9782 and passed 38 groups.
 Evidence: `ube aggregate storage 464b9387-76b0-4159-b3ff-459aa6113b20` in the
 printed temporary root; its `build/UBE-Bootstrap.exe` is the tested binary.
 
@@ -37,7 +44,9 @@ SYMBOL/BOUND metadata assertions check nominal Type identity, ordered field
 ownership/offsets, fixed array bounds, rank-only parameter shape and resolved
 writable access. Negative cases distinguish invalid programs from deliberately
 unsupported operations. An invalid aggregate program must preserve an existing
-LLVM artifact. No allocation-failure or heap-ownership behavior is claimed.
+LLVM artifact. Whole-array assignments now exercise independent heap-backed
+replacement even for fixed declarations. Allocation failure and ownership
+accounting are covered by the separate dynamic-storage gate.
 The metadata gate also checks field-declaration scope ownership, a nominal
 `Type [Long]` alongside primitive Long, and escaped `Type [A|B]` names across
 AST, SYMBOL and BOUND records without corrupting field framing.

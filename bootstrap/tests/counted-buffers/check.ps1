@@ -103,9 +103,12 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
     return $result
 }
 
+. (Join-Path $PSScriptRoot '../NativeMemory.ps1')
 # Compiles the same generated library+harness IR at a selected optimization level.
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
-    $result = Invoke-BoundedProcess $Clang @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,'-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
+    $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $result = Invoke-BoundedProcess $Clang $arguments
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -201,7 +204,7 @@ $prior = '0'
 for ($index = 0; $index -lt $checks.Count; $index++) {
     $symbol = Find-Procedure $bound $checks[$index] 2
     $bit = 1 -shl $index
-    $harness += @('  call void @ube.context.init(ptr %ctx)',"  %init$index = call i1 @ube.project.init(ptr %ctx)","  %input$index = load volatile i64, ptr @test.input","  %pair$index = call { i1, i64 } @ube.proc.$($symbol.Id)(ptr %ctx, i64 %input$index)","  %ok$index = extractvalue { i1, i64 } %pair$index, 0","  %value$index = extractvalue { i1, i64 } %pair$index, 1","  %zero$index = icmp eq i64 %value$index, 0","  %good$index = and i1 %ok$index, %zero$index","  %ready$index = and i1 %good$index, %init$index","  %fail$index = select i1 %ready$index, i32 0, i32 $bit","  %mask$index = or i32 $prior, %fail$index")
+    $harness += @('  call void @ube.context.init(ptr %ctx)',"  %init$index = call i1 @ube.project.init(ptr %ctx)","  %input$index = load volatile i64, ptr @test.input","  %pair$index = call { i1, i64 } @ube.proc.$($symbol.Id)(ptr %ctx, i64 %input$index)","  %ok$index = extractvalue { i1, i64 } %pair$index, 0","  %value$index = extractvalue { i1, i64 } %pair$index, 1","  %zero$index = icmp eq i64 %value$index, 0","  %good$index = and i1 %ok$index, %zero$index","  %disposed$index = call i1 @ube.context.dispose(ptr %ctx)","  %available$index = and i1 %init$index, %disposed$index","  %ready$index = and i1 %good$index, %available$index","  %fail$index = select i1 %ready$index, i32 0, i32 $bit","  %mask$index = or i32 $prior, %fail$index")
     $prior = '%mask' + $index
 }
 $harness += @("  ret i32 $prior",'}')
@@ -235,7 +238,7 @@ $cases = @(
     @{ Name='wrong target'; Body="$lengthHeader`nAttribute Other.UBE_Primitive = `"Array.Length`"`nEnd Function"; Code='E_TYPE' },
     @{ Name='ordinary declaration binding'; Body="Function Measure(ByRef Values() As Byte) As Long`n$lengthAttribute`nEnd Function"; Code='E_TYPE' },
     @{ Name='unknown role'; Body="$lengthHeader`nAttribute Measure.UBE_Primitive = `"Array.Unknown`"`nEnd Function"; Code='E_UNSUPPORTED' },
-    @{ Name='deferred allocation role'; Body="$lengthHeader`nAttribute Measure.UBE_Primitive = `"Array.TryResize`"`nEnd Function"; Code='E_UNSUPPORTED' },
+    @{ Name='deferred collection role'; Body="$lengthHeader`nAttribute Measure.UBE_Primitive = `"Memory.Collect`"`nEnd Function"; Code='E_UNSUPPORTED' },
     @{ Name='role whitespace not trimmed'; Body="$lengthHeader`nAttribute Measure.UBE_Primitive = `" Array.Length `"`nEnd Function"; Code='E_UNSUPPORTED' },
     @{ Name='intrinsic body forbidden'; Body="$lengthHeader`n$lengthAttribute`nMeasure = 1`nEnd Function"; Code='E_PARSE' },
     @{ Name='nonstring binding'; Body="$lengthHeader`nAttribute Measure.UBE_Primitive = 1`nEnd Function"; Code='E_PARSE' },

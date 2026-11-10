@@ -32,6 +32,8 @@ Private Type EmissionState
     FailureSeen() As Boolean
     FailureCount As Long
     ModuleDependencies() As Byte
+    PinSlot() As Long
+    PinCount() As Long
 End Type
 
 ' Reports a controlled emission diagnostic at a retained source span.
@@ -138,6 +140,15 @@ Private Sub GuardCall(ByRef State As EmissionState, ByVal Result As String)
     SuccessBlock = BlockName(State, "call.ok")
     Call RegisterFailure(State)
     Call AddLine(State, "  " & Success & " = extractvalue { i1, i64 } " & Result & ", 0")
+    Call AddLine(State, "  br i1 " & Success & ", label %" & SuccessBlock & ", label %failure.dispatch")
+    Call AddLine(State, SuccessBlock & ":")
+End Sub
+
+' Converts a primitive operation status to the ordinary failed-statement edge without overwriting Err.
+Private Sub GuardStatus(ByRef State As EmissionState, ByVal Success As String)
+    Dim SuccessBlock As String
+    SuccessBlock = BlockName(State, "operation.ok")
+    Call RegisterFailure(State)
     Call AddLine(State, "  br i1 " & Success & ", label %" & SuccessBlock & ", label %failure.dispatch")
     Call AddLine(State, SuccessBlock & ":")
 End Sub
@@ -340,7 +351,13 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     Dim Name As String
     Dim Cells As Long
     Dim Child As Long
+    Dim Statement As Long
+    Dim Parent As Long
+    Dim StatementPins() As Long
     ReDim Slots(1 To Bound.SymbolCount)
+    ReDim State.PinSlot(1 To Parsed.NodeCount)
+    ReDim State.PinCount(1 To Bound.SymbolCount)
+    ReDim StatementPins(1 To Parsed.NodeCount)
     ReDim State.FieldIndex(1 To Bound.SymbolCount)
     For Symbol = 1 To Bound.SymbolCount
         Kind = Bound.Symbols(Symbol).Kind
@@ -382,16 +399,32 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
         If Bound.Nodes(Node).ArgumentMode = "temp" Then
             If Not AddFrameCells(Project, Parsed, Slots, Scope, 1, Node, Diagnostic) Then Exit Function
         End If
+        If Bound.Nodes(Node).AccessKind = "index" Then
+            Statement = Node
+            Parent = Parsed.Nodes(Statement).Parent
+            Do While Parent <> 0
+                Kind = Parsed.Nodes(Parent).Kind
+                If Kind = "body" Or Kind = "then" Or Kind = "else" Or Kind = "module" Then Exit Do
+                Statement = Parent
+                Parent = Parsed.Nodes(Statement).Parent
+            Loop
+            StatementPins(Statement) = StatementPins(Statement) + 1
+            State.PinSlot(Node) = StatementPins(Statement)
+            If State.PinSlot(Node) > State.PinCount(Scope) Then
+                If Not AddFrameCells(Project, Parsed, Slots, Scope, 1, Node, Diagnostic) Then Exit Function
+                State.PinCount(Scope) = State.PinSlot(Node)
+            End If
+        End If
         If Parsed.Nodes(Node).Kind = "assignment" Or Parsed.Nodes(Node).Kind = "variable" Then
             Cells = Bound.Nodes(Node).StorageCells
             If Parsed.Nodes(Node).Kind = "assignment" Then
                 Child = Parsed.Nodes(Node).FirstChild
                 Cells = Bound.Nodes(Child).StorageCells
-                If Bound.Nodes(Child).ArrayRank = 0 And Bound.Nodes(Child).TypeSymbol = 0 Then Cells = 0
+                If Bound.Nodes(Child).ArrayRank <> 0 Or Bound.Nodes(Child).TypeSymbol = 0 Then Cells = 0
             Else
                 Symbol = Bound.Nodes(Node).SymbolIndex
                 Cells = Bound.Symbols(Symbol).StorageCells
-                If Bound.Symbols(Symbol).ArrayRank = 0 And Bound.Symbols(Symbol).TypeSymbol = 0 Then Cells = 0
+                If Bound.Symbols(Symbol).ArrayRank <> 0 Or Bound.Symbols(Symbol).TypeSymbol = 0 Then Cells = 0
                 Child = DeclarationValueNode(Parsed, Node)
                 If Child = 0 Then Cells = 0
             End If
@@ -455,7 +488,8 @@ Private Function EmitAddress(ByRef Parsed As ParsedProject, ByRef Bound As Bound
     Dim Receiver As Long, IndexNode As Long, Symbol As Long
     Dim Base As String, Result As String, IndexValue As String
     Dim Lower As String, Upper As String, UpperPointer As String
-    Dim Below As String, Above As String, Invalid As String, Relative As String, Offset As String, Payload As String
+    Dim Below As String, Above As String, Invalid As String, Relative As String, Offset As String
+    Dim DataPointer As String, Data As String, BlockPointer As String, Block As String
     If Parsed.Nodes(Node).Kind = "group" Then
         EmitAddress = EmitAddress(Parsed, Bound, State, Parsed.Nodes(Node).FirstChild)
         Exit Function
@@ -470,27 +504,80 @@ Private Function EmitAddress(ByRef Parsed As ParsedProject, ByRef Bound As Bound
         Receiver = Parsed.Nodes(Node).FirstChild
         IndexNode = Parsed.Nodes(Receiver).NextSibling
         Base = EmitAddress(Parsed, Bound, State, Receiver)
-        IndexValue = EmitExpression(Parsed, Bound, State, IndexNode)
-        IndexValue = ConvertNative(State, IndexValue, Bound.Nodes(IndexNode).TypeName, "LongLong")
         Lower = ValueName(State): UpperPointer = ValueName(State): Upper = ValueName(State)
+        DataPointer = ValueName(State): Data = ValueName(State): BlockPointer = ValueName(State): Block = ValueName(State)
         Below = ValueName(State): Above = ValueName(State): Invalid = ValueName(State)
         Call AddLine(State, "  " & Lower & " = load i64, ptr " & Base)
         Call AddLine(State, "  " & UpperPointer & " = getelementptr i64, ptr " & Base & ", i64 1")
         Call AddLine(State, "  " & Upper & " = load i64, ptr " & UpperPointer)
+        Call AddLine(State, "  " & DataPointer & " = getelementptr i64, ptr " & Base & ", i64 2")
+        Call AddLine(State, "  " & Data & " = load ptr, ptr " & DataPointer)
+        Call AddLine(State, "  " & BlockPointer & " = getelementptr i64, ptr " & Base & ", i64 3")
+        Call AddLine(State, "  " & Block & " = load ptr, ptr " & BlockPointer)
+        Call AddLine(State, "  call void @ube.block.retain(ptr " & Block & ")")
+        Call AddLine(State, "  store ptr " & Block & ", ptr %pin." & CStr(State.PinSlot(Node)))
+        ' Receiver identity is captured before index evaluation can resize its descriptor.
+        IndexValue = EmitExpression(Parsed, Bound, State, IndexNode)
+        IndexValue = ConvertNative(State, IndexValue, Bound.Nodes(IndexNode).TypeName, "LongLong")
         Call AddLine(State, "  " & Below & " = icmp slt i64 " & IndexValue & ", " & Lower)
         Call AddLine(State, "  " & Above & " = icmp sgt i64 " & IndexValue & ", " & Upper)
         Call AddLine(State, "  " & Invalid & " = or i1 " & Below & ", " & Above)
         Call GuardError(State, Invalid, 9)
-        Relative = ValueName(State): Offset = ValueName(State): Payload = ValueName(State): Result = ValueName(State)
+        Relative = ValueName(State): Offset = ValueName(State): Result = ValueName(State)
         Call AddLine(State, "  " & Relative & " = sub i64 " & IndexValue & ", " & Lower)
         Call AddLine(State, "  " & Offset & " = mul i64 " & Relative & ", " & CStr(Bound.Nodes(Receiver).ElementCells))
-        Call AddLine(State, "  " & Payload & " = add i64 " & Offset & ", 2")
-        Call AddLine(State, "  " & Result & " = getelementptr i64, ptr " & Base & ", i64 " & Payload)
+        Call AddLine(State, "  " & Result & " = getelementptr i64, ptr " & Data & ", i64 " & Offset)
     Else
         Result = StorageAddress(Bound, State, Bound.Nodes(Node).SymbolIndex)
     End If
     EmitAddress = Result
 End Function
+
+' Releases a prepared element borrow once; nulling its slot makes all exit paths idempotent.
+Private Sub ReleasePin(ByRef State As EmissionState, ByVal Slot As Long)
+    Dim Block As String
+    Block = ValueName(State)
+    Call AddLine(State, "  " & Block & " = load ptr, ptr %pin." & CStr(Slot))
+    Call AddLine(State, "  store ptr null, ptr %pin." & CStr(Slot))
+    Call AddLine(State, "  call void @ube.block.drop(ptr " & Block & ")")
+End Sub
+
+' Ends only the indexed borrows contained in a completed value or call argument tree.
+Private Sub ReleaseNodePins(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long)
+    Dim Child As Long
+    If Not EmissionWork(State) Then Exit Sub
+    If Bound.Nodes(Node).AccessKind = "index" Then Call ReleasePin(State, State.PinSlot(Node))
+    Child = Parsed.Nodes(Node).FirstChild
+    Do While Child <> 0
+        Call ReleaseNodePins(Parsed, Bound, State, Child)
+        Child = Parsed.Nodes(Child).NextSibling
+    Loop
+End Sub
+
+' Clears every pending borrow on statement abandonment, branch, or procedure exit.
+Private Sub ReleaseAllPins(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState)
+    Dim Node As Long, Collected As String
+    For Node = 1 To State.PinCount(State.CurrentSymbol)
+        If Not EmissionWork(State) Then Exit Sub
+        Call ReleasePin(State, Node)
+    Next Node
+    Collected = ValueName(State)
+    Call AddLine(State, "  " & Collected & " = call i1 @ube.memory.collect(ptr %ctx)")
+End Sub
+
+' Releases compiler-owned local array values; borrowed array parameters never lose caller ownership.
+Private Sub ReleaseLocalArrays(ByRef Bound As BoundProject, ByRef State As EmissionState)
+    Dim Symbol As Long, Collected As String
+    If Not State.CountedDepth Then Exit Sub
+    For Symbol = 1 To Bound.SymbolCount
+        If Not EmissionWork(State) Then Exit Sub
+        If Bound.Symbols(Symbol).ScopeSymbol = State.CurrentSymbol And Bound.Symbols(Symbol).Kind = "variable" And Bound.Symbols(Symbol).ArrayRank = 1 Then
+            Call AddLine(State, "  call void @ube.array.clear(ptr %slot." & CStr(Symbol) & ")")
+        End If
+    Next Symbol
+    Collected = ValueName(State)
+    Call AddLine(State, "  " & Collected & " = call i1 @ube.memory.collect(ptr %ctx)")
+End Sub
 
 ' Reads a complete value before mutation; volatile bulk cells prevent unavailable libc copy synthesis.
 Private Sub SnapshotCells(ByRef State As EmissionState, ByVal Address As String, ByVal Count As Long, ByRef Values() As String)
@@ -514,19 +601,42 @@ Private Sub StoreCells(ByRef State As EmissionState, ByVal Address As String, By
 End Sub
 
 ' Establishes neutral scalar cells and the immutable admitted fixed-array shape.
-Private Sub NeutralStorage(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long, ByVal Address As String, Optional ByVal HeaderOnly As Boolean = False)
-    Dim Index As Long, Count As Long, Pointer As String, Value As String, Store As String
+Private Sub NeutralStorage(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long, ByVal Address As String, Optional ByVal HeaderOnly As Boolean = False, Optional ByVal ReleaseExisting As Boolean = True)
+    Dim Index As Long, Count As Long, Pointer As String, Value As String, Store As String, Data As String
     Count = Bound.Symbols(Symbol).StorageCells
-    If HeaderOnly Then Count = 2
+    If Bound.Symbols(Symbol).ArrayRank = 1 Then
+        If ReleaseExisting Then Call AddLine(State, "  call void @ube.array.clear(ptr " & Address & ")")
+        Pointer = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 1")
+        If Bound.Symbols(Symbol).HasBounds Then
+            Call AddLine(State, "  store i64 " & CStr(Bound.Symbols(Symbol).LowerBound) & ", ptr " & Address)
+            Call AddLine(State, "  store i64 " & CStr(Bound.Symbols(Symbol).UpperBound) & ", ptr " & Pointer)
+            Data = ValueName(State)
+            Call AddLine(State, "  " & Data & " = getelementptr i64, ptr " & Address & ", i64 4")
+        Else
+            Call AddLine(State, "  store i64 0, ptr " & Address)
+            Call AddLine(State, "  store i64 -1, ptr " & Pointer)
+            Data = "null"
+        End If
+        Pointer = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 2")
+        Call AddLine(State, "  store ptr " & Data & ", ptr " & Pointer)
+        Pointer = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 3")
+        Call AddLine(State, "  store ptr null, ptr " & Pointer)
+        If HeaderOnly Then Exit Sub
+        For Index = 4 To Count - 1
+            Pointer = ValueName(State)
+            Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 " & CStr(Index))
+            Call AddLine(State, "  store volatile i64 0, ptr " & Pointer)
+        Next Index
+        Exit Sub
+    End If
     Store = "  store i64 "
     ' Bulk volatile neutralization prevents an optimizer-created dependency on CRT memset.
     If Count > 1 Then Store = "  store volatile i64 "
     For Index = 0 To Count - 1
         Value = "0"
-        If Bound.Symbols(Symbol).ArrayRank = 1 Then
-            If Index = 0 Then Value = CStr(Bound.Symbols(Symbol).LowerBound)
-            If Index = 1 Then Value = CStr(Bound.Symbols(Symbol).UpperBound)
-        End If
         Pointer = ValueName(State)
         Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 " & CStr(Index))
         Call AddLine(State, Store & Value & ", ptr " & Pointer)
@@ -542,8 +652,10 @@ Private Function EmitRecordComparison(ByRef Parsed As ParsedProject, ByRef Bound
     Count = Bound.Nodes(LeftNode).StorageCells
     Address = EmitAddress(Parsed, Bound, State, LeftNode)
     Call SnapshotCells(State, Address, Count, LeftValues)
+    Call ReleaseNodePins(Parsed, Bound, State, LeftNode)
     Address = EmitAddress(Parsed, Bound, State, RightNode)
     Call SnapshotCells(State, Address, Count, RightValues)
+    Call ReleaseNodePins(Parsed, Bound, State, RightNode)
     Equal = "true"
     For Index = 0 To Count - 1
         Test = ValueName(State): Combined = ValueName(State)
@@ -644,6 +756,7 @@ Private Function EmitCall(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Call EnsureModule(State, Bound.Symbols(Symbol).ModuleIndex)
     Pair = ValueName(State)
     Call AddLine(State, "  " & Pair & " = call { i1, i64 } @ube.proc." & CStr(Symbol) & "(" & Arguments & ")")
+    Call ReleaseNodePins(Parsed, Bound, State, Node)
     Call GuardCall(State, Pair)
     Result = ValueName(State)
     Call AddLine(State, "  " & Result & " = extractvalue { i1, i64 } " & Pair & ", 1")
@@ -671,6 +784,7 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         Address = EmitAddress(Parsed, Bound, State, Node)
         Result = ValueName(State)
         Call AddLine(State, "  " & Result & " = load i64, ptr " & Address)
+        Call ReleaseNodePins(Parsed, Bound, State, Node)
         EmitExpression = Result
         Exit Function
     End If
@@ -748,6 +862,8 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Dim SourceAddress As String
     Dim Cells As Long
     Dim Aggregate As Boolean
+    Dim ArrayRank As Long
+    Dim Stride As Long
     State.CurrentNode = Node
     State.ErrorNode = Node
     State.CurrentNext = Continuation
@@ -764,6 +880,8 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
             Call NeutralStorage(Bound, State, Symbol, Address)
             Aggregate = Bound.Symbols(Symbol).ArrayRank <> 0 Or Bound.Symbols(Symbol).TypeSymbol <> 0
             Cells = Bound.Symbols(Symbol).StorageCells
+            ArrayRank = Bound.Symbols(Symbol).ArrayRank
+            Stride = Bound.Symbols(Symbol).ElementCells
         Else
             Child = Parsed.Nodes(Node).FirstChild
             ValueNode = Parsed.Nodes(Child).NextSibling
@@ -771,12 +889,21 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
             Address = EmitAddress(Parsed, Bound, State, Child)
             Aggregate = Bound.Nodes(Child).ArrayRank <> 0 Or Bound.Nodes(Child).TypeSymbol <> 0
             Cells = Bound.Nodes(Child).StorageCells
+            ArrayRank = Bound.Nodes(Child).ArrayRank
+            Stride = Bound.Nodes(Child).ElementCells
         End If
         If ValueNode <> 0 Then
             If Aggregate Then
                 SourceAddress = EmitAddress(Parsed, Bound, State, ValueNode)
-                Call SnapshotCells(State, SourceAddress, Cells, Values)
-                Call StoreCells(State, Address, Values)
+                If ArrayRank = 1 Then
+                    Test = ValueName(State)
+                    Call AddLine(State, "  " & Test & " = call i1 @ube.array.trycopy(ptr %ctx, ptr " & Address & ", ptr " & SourceAddress & ", i64 " & CStr(Stride) & ")")
+                    Call GuardStatus(State, Test)
+                Else
+                    Call SnapshotCells(State, SourceAddress, Cells, Values)
+                    Call StoreCells(State, Address, Values)
+                End If
+                Call ReleaseNodePins(Parsed, Bound, State, ValueNode)
             Else
                 Value = EmitExpression(Parsed, Bound, State, ValueNode)
                 If Kind = "variable" Then
@@ -790,6 +917,7 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Case "call"
         Value = EmitCall(Parsed, Bound, State, Node, Terminated)
     Case "goto"
+        Call ReleaseAllPins(Parsed, Bound, State)
         Call AddLine(State, "  br label %" & StatementLabel(Bound.Symbols(Bound.Nodes(Node).SymbolIndex).DeclarationNode))
         Terminated = True
     Case "exit"
@@ -805,6 +933,7 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Value = EmitExpression(Parsed, Bound, State, Child)
         Test = ValueName(State)
         Call AddLine(State, "  " & Test & " = icmp ne i64 " & Value & ", 0")
+        Call ReleaseAllPins(Parsed, Bound, State)
         Call AddLine(State, "  br i1 " & Test & ", label %" & SequenceEntry(Parsed, ThenNode, Continuation) & ", label %" & SequenceEntry(Parsed, ElseNode, Continuation))
         Call EmitSequence(Parsed, Bound, State, ThenNode, Continuation)
         If ElseNode <> 0 Then Call EmitSequence(Parsed, Bound, State, ElseNode, Continuation)
@@ -812,7 +941,10 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Case "constant", "label"
         ' Constants have no runtime storage; a label remains an actual branch target.
     End Select
-    If Not Terminated Then Call AddLine(State, "  br label %" & Continuation)
+    If Not Terminated Then
+        Call ReleaseAllPins(Parsed, Bound, State)
+        Call AddLine(State, "  br label %" & Continuation)
+    End If
 End Sub
 
 ' Emits all sibling statements with separate source-level failure continuations.
@@ -841,6 +973,7 @@ Private Sub EmitFailureDispatch(ByRef Parsed As ParsedProject, ByRef Bound As Bo
     Dim Eligible As String
     Dim Site As String
     Call AddLine(State, "failure.dispatch:")
+    Call ReleaseAllPins(Parsed, Bound, State)
     Active = ValueName(State)
     Target = ValueName(State)
     Enabled = ValueName(State)
@@ -899,11 +1032,11 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
                     If Kind = "parameter" Then
                         Call AddLine(State, "  store i64 %arg." & CStr(Index) & ", ptr %slot." & CStr(Index))
                     Else
-                        Call NeutralStorage(Bound, State, Index, "%slot." & CStr(Index))
+                        Call NeutralStorage(Bound, State, Index, "%slot." & CStr(Index), False, False)
                     End If
                 ElseIf Bound.Symbols(Index).ArrayRank = 1 Then
                     Address = StorageAddress(Bound, State, Index)
-                    Call NeutralStorage(Bound, State, Index, Address, True)
+                    Call NeutralStorage(Bound, State, Index, Address, True, False)
                 End If
             End If
         End If
@@ -914,15 +1047,21 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
             Call AddLine(State, "  %temp." & CStr(Index) & " = alloca i64, align 8")
         End If
     Next Index
+    For Index = 1 To State.PinCount(State.CurrentSymbol)
+        Call AddLine(State, "  %pin." & CStr(Index) & " = alloca ptr, align 8")
+        Call AddLine(State, "  store ptr null, ptr %pin." & CStr(Index))
+    Next Index
 End Sub
 
 ' Emits balanced depth accounting and success/failure returns without clearing Err.
-Private Sub EmitReturns(ByRef State As EmissionState)
+Private Sub EmitReturns(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState)
     Dim Value As String
     Dim Result As String
     Dim Depth As String
     Dim Reduced As String
     Call AddLine(State, "return.ok:")
+    Call ReleaseAllPins(Parsed, Bound, State)
+    Call ReleaseLocalArrays(Bound, State)
     If State.CountedDepth Then
         Depth = ValueName(State)
         Reduced = ValueName(State)
@@ -939,6 +1078,8 @@ Private Sub EmitReturns(ByRef State As EmissionState)
     Call AddLine(State, "  " & Result & " = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 " & Value & ", 1")
     Call AddLine(State, "  ret { i1, i64 } " & Result)
     Call AddLine(State, "return.fail:")
+    Call ReleaseAllPins(Parsed, Bound, State)
+    Call ReleaseLocalArrays(Bound, State)
     If State.CountedDepth Then
         Depth = ValueName(State)
         Reduced = ValueName(State)
@@ -949,6 +1090,281 @@ Private Sub EmitReturns(ByRef State As EmissionState)
     Call AddLine(State, "  ret { i1, i64 } { i1 false, i64 0 }")
     Call AddLine(State, "}")
     Call AddLine(State, "")
+End Sub
+
+' Emits bounded pointer-free allocation ownership and target adapters without source-name magic.
+Private Sub EmitMemoryRuntime(ByRef State As EmissionState)
+    Call AddLine(State, "%ube.block = type { ptr, i64, i64 }")
+    Call AddLine(State, "declare dllimport ptr @VirtualAlloc(ptr, i64, i32, i32)")
+    Call AddLine(State, "declare dllimport i32 @VirtualFree(ptr, i64, i32)")
+    Call AddLine(State, "define ptr @ube.target.allocate(i64 %bytes) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %p = call ptr @VirtualAlloc(ptr null, i64 %bytes, i32 12288, i32 4)")
+    Call AddLine(State, "  ret ptr %p")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define i1 @ube.target.release(ptr %block) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %status = call i32 @VirtualFree(ptr %block, i64 0, i32 32768)")
+    Call AddLine(State, "  %ok = icmp ne i32 %status, 0")
+    Call AddLine(State, "  ret i1 %ok")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal void @ube.block.retain(ptr %block) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %exists = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %exists, label %retain, label %done")
+    Call AddLine(State, "retain:")
+    Call AddLine(State, "  %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1")
+    Call AddLine(State, "  %refs = load i64, ptr %refs.ptr")
+    Call AddLine(State, "  %next = add i64 %refs, 1")
+    Call AddLine(State, "  store i64 %next, ptr %refs.ptr")
+    Call AddLine(State, "  br label %done")
+    Call AddLine(State, "done:")
+    Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal void @ube.block.drop(ptr %block) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %exists = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %exists, label %drop, label %done")
+    Call AddLine(State, "drop:")
+    Call AddLine(State, "  %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1")
+    Call AddLine(State, "  %refs = load i64, ptr %refs.ptr")
+    Call AddLine(State, "  %next = sub i64 %refs, 1")
+    Call AddLine(State, "  store i64 %next, ptr %refs.ptr")
+    Call AddLine(State, "  br label %done")
+    Call AddLine(State, "done:")
+    Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal i1 @ube.memory.collect(ptr %ctx) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %head = getelementptr %ube.context, ptr %ctx, i32 0, i32 4")
+    Call AddLine(State, "  %bytes.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 5")
+    Call AddLine(State, "  %count.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 6")
+    Call AddLine(State, "  br label %scan")
+    Call AddLine(State, "scan:")
+    Call AddLine(State, "  %link = phi ptr [ %head, %entry ], [ %block, %keep ], [ %link, %freed ]")
+    Call AddLine(State, "  %worked = phi i1 [ false, %entry ], [ %worked, %keep ], [ true, %freed ]")
+    Call AddLine(State, "  %block = load ptr, ptr %link")
+    Call AddLine(State, "  %exists = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %exists, label %inspect, label %done")
+    Call AddLine(State, "inspect:")
+    Call AddLine(State, "  %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1")
+    Call AddLine(State, "  %refs = load i64, ptr %refs.ptr")
+    Call AddLine(State, "  %unused = icmp eq i64 %refs, 0")
+    Call AddLine(State, "  br i1 %unused, label %release, label %keep")
+    Call AddLine(State, "release:")
+    Call AddLine(State, "  %next = load ptr, ptr %block")
+    Call AddLine(State, "  %charge.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 2")
+    Call AddLine(State, "  %charge = load i64, ptr %charge.ptr")
+    Call AddLine(State, "  %ok = call i1 @ube.target.release(ptr %block)")
+    Call AddLine(State, "  br i1 %ok, label %freed, label %keep")
+    Call AddLine(State, "freed:")
+    Call AddLine(State, "  store ptr %next, ptr %link")
+    Call AddLine(State, "  %bytes = load i64, ptr %bytes.ptr")
+    Call AddLine(State, "  %less.bytes = sub i64 %bytes, %charge")
+    Call AddLine(State, "  store i64 %less.bytes, ptr %bytes.ptr")
+    Call AddLine(State, "  %count = load i64, ptr %count.ptr")
+    Call AddLine(State, "  %less.count = sub i64 %count, 1")
+    Call AddLine(State, "  store i64 %less.count, ptr %count.ptr")
+    Call AddLine(State, "  br label %scan")
+    Call AddLine(State, "keep:")
+    Call AddLine(State, "  br label %scan")
+    Call AddLine(State, "done:")
+    Call AddLine(State, "  ret i1 %worked")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal ptr @ube.memory.new(ptr %ctx, i64 %count, i64 %stride) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %negative = icmp sle i64 %count, 0")
+    Call AddLine(State, "  %large = icmp sgt i64 %count, 4096")
+    Call AddLine(State, "  %bad.stride.low = icmp sle i64 %stride, 0")
+    Call AddLine(State, "  %bad.stride.high = icmp sgt i64 %stride, 128")
+    Call AddLine(State, "  %bad.count = or i1 %negative, %large")
+    Call AddLine(State, "  %bad.stride = or i1 %bad.stride.low, %bad.stride.high")
+    Call AddLine(State, "  %bad = or i1 %bad.count, %bad.stride")
+    Call AddLine(State, "  br i1 %bad, label %failed, label %size")
+    Call AddLine(State, "size:")
+    Call AddLine(State, "  %cells = mul i64 %count, %stride")
+    Call AddLine(State, "  %payload.bytes = mul i64 %cells, 8")
+    Call AddLine(State, "  %total = add i64 %payload.bytes, 24")
+    Call AddLine(State, "  %rounded = add i64 %total, 4095")
+    Call AddLine(State, "  %pages = lshr i64 %rounded, 12")
+    Call AddLine(State, "  %charge = shl i64 %pages, 12")
+    Call AddLine(State, "  %available = sub i64 67108864, %charge")
+    Call AddLine(State, "  %head = getelementptr %ube.context, ptr %ctx, i32 0, i32 4")
+    Call AddLine(State, "  %bytes.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 5")
+    Call AddLine(State, "  %count.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 6")
+    Call AddLine(State, "  br label %attempt")
+    Call AddLine(State, "attempt:")
+    Call AddLine(State, "  %retry = phi i1 [ false, %size ], [ true, %collect ]")
+    Call AddLine(State, "  %bytes = load i64, ptr %bytes.ptr")
+    Call AddLine(State, "  %blocks = load i64, ptr %count.ptr")
+    Call AddLine(State, "  %over.bytes = icmp ugt i64 %bytes, %available")
+    Call AddLine(State, "  %over.blocks = icmp uge i64 %blocks, 4096")
+    Call AddLine(State, "  %over = or i1 %over.bytes, %over.blocks")
+    Call AddLine(State, "  br i1 %over, label %miss, label %allocate")
+    Call AddLine(State, "allocate:")
+    Call AddLine(State, "  %block = call ptr @ube.target.allocate(i64 %charge)")
+    Call AddLine(State, "  %ok = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %ok, label %allocated, label %miss")
+    Call AddLine(State, "miss:")
+    Call AddLine(State, "  br i1 %retry, label %failed, label %collect")
+    Call AddLine(State, "collect:")
+    Call AddLine(State, "  %collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  br label %attempt")
+    Call AddLine(State, "allocated:")
+    Call AddLine(State, "  %old.head = load ptr, ptr %head")
+    Call AddLine(State, "  store ptr %old.head, ptr %block")
+    Call AddLine(State, "  %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1")
+    Call AddLine(State, "  store i64 1, ptr %refs.ptr")
+    Call AddLine(State, "  %charge.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 2")
+    Call AddLine(State, "  store i64 %charge, ptr %charge.ptr")
+    Call AddLine(State, "  store ptr %block, ptr %head")
+    Call AddLine(State, "  %new.bytes = add i64 %bytes, %charge")
+    Call AddLine(State, "  %new.blocks = add i64 %blocks, 1")
+    Call AddLine(State, "  store i64 %new.bytes, ptr %bytes.ptr")
+    Call AddLine(State, "  store i64 %new.blocks, ptr %count.ptr")
+    Call AddLine(State, "  %data = getelementptr %ube.block, ptr %block, i64 1")
+    Call AddLine(State, "  br label %zero")
+    Call AddLine(State, "zero:")
+    Call AddLine(State, "  %index = phi i64 [ 0, %allocated ], [ %next.index, %zero ]")
+    Call AddLine(State, "  %cell = getelementptr i64, ptr %data, i64 %index")
+    Call AddLine(State, "  store volatile i64 0, ptr %cell")
+    Call AddLine(State, "  %next.index = add i64 %index, 1")
+    Call AddLine(State, "  %more = icmp ult i64 %next.index, %cells")
+    Call AddLine(State, "  br i1 %more, label %zero, label %done")
+    Call AddLine(State, "done:")
+    Call AddLine(State, "  ret ptr %block")
+    Call AddLine(State, "failed:")
+    Call AddLine(State, "  ret ptr null")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal void @ube.array.clear(ptr %array) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %upper.ptr = getelementptr i64, ptr %array, i64 1")
+    Call AddLine(State, "  %data.ptr = getelementptr i64, ptr %array, i64 2")
+    Call AddLine(State, "  %block.ptr = getelementptr i64, ptr %array, i64 3")
+    Call AddLine(State, "  %old = load ptr, ptr %block.ptr")
+    Call AddLine(State, "  store i64 0, ptr %array")
+    Call AddLine(State, "  store i64 -1, ptr %upper.ptr")
+    Call AddLine(State, "  store ptr null, ptr %data.ptr")
+    Call AddLine(State, "  store ptr null, ptr %block.ptr")
+    Call AddLine(State, "  call void @ube.block.drop(ptr %old)")
+    Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal void @ube.array.install(ptr %array, ptr %block, i64 %lower, i64 %upper) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %upper.ptr = getelementptr i64, ptr %array, i64 1")
+    Call AddLine(State, "  %data.ptr = getelementptr i64, ptr %array, i64 2")
+    Call AddLine(State, "  %block.ptr = getelementptr i64, ptr %array, i64 3")
+    Call AddLine(State, "  %old = load ptr, ptr %block.ptr")
+    Call AddLine(State, "  %data = getelementptr %ube.block, ptr %block, i64 1")
+    Call AddLine(State, "  store i64 %lower, ptr %array")
+    Call AddLine(State, "  store i64 %upper, ptr %upper.ptr")
+    Call AddLine(State, "  store ptr %data, ptr %data.ptr")
+    Call AddLine(State, "  store ptr %block, ptr %block.ptr")
+    Call AddLine(State, "  call void @ube.block.drop(ptr %old)")
+    Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal void @ube.cells.copy(ptr %source, ptr %destination, i64 %count) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %empty = icmp eq i64 %count, 0")
+    Call AddLine(State, "  br i1 %empty, label %done, label %copy")
+    Call AddLine(State, "copy:")
+    Call AddLine(State, "  %index = phi i64 [ 0, %entry ], [ %next, %copy ]")
+    Call AddLine(State, "  %from = getelementptr i64, ptr %source, i64 %index")
+    Call AddLine(State, "  %to = getelementptr i64, ptr %destination, i64 %index")
+    Call AddLine(State, "  %value = load volatile i64, ptr %from")
+    Call AddLine(State, "  store volatile i64 %value, ptr %to")
+    Call AddLine(State, "  %next = add i64 %index, 1")
+    Call AddLine(State, "  %more = icmp ult i64 %next, %count")
+    Call AddLine(State, "  br i1 %more, label %copy, label %done")
+    Call AddLine(State, "done:")
+    Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal i1 @ube.array.tryresize(ptr %ctx, ptr %array, i64 %count, i64 %preserve, i64 %stride) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0")
+    Call AddLine(State, "  %negative = icmp slt i64 %count, 0")
+    Call AddLine(State, "  br i1 %negative, label %argument.fail, label %empty.test")
+    Call AddLine(State, "empty.test:")
+    Call AddLine(State, "  %empty = icmp eq i64 %count, 0")
+    Call AddLine(State, "  br i1 %empty, label %empty.resize, label %allocate")
+    Call AddLine(State, "empty.resize:")
+    Call AddLine(State, "  call void @ube.array.clear(ptr %array)")
+    Call AddLine(State, "  %empty.collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  ret i1 true")
+    Call AddLine(State, "allocate:")
+    Call AddLine(State, "  %block = call ptr @ube.memory.new(ptr %ctx, i64 %count, i64 %stride)")
+    Call AddLine(State, "  %ok = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %ok, label %prepared, label %memory.fail")
+    Call AddLine(State, "prepared:")
+    Call AddLine(State, "  %upper = sub i64 %count, 1")
+    Call AddLine(State, "  %keep = icmp ne i64 %preserve, 0")
+    Call AddLine(State, "  br i1 %keep, label %intersection, label %publish")
+    Call AddLine(State, "intersection:")
+    Call AddLine(State, "  %old.lower = load i64, ptr %array")
+    Call AddLine(State, "  %old.upper.ptr = getelementptr i64, ptr %array, i64 1")
+    Call AddLine(State, "  %old.upper = load i64, ptr %old.upper.ptr")
+    Call AddLine(State, "  %positive.lower = icmp sgt i64 %old.lower, 0")
+    Call AddLine(State, "  %first = select i1 %positive.lower, i64 %old.lower, i64 0")
+    Call AddLine(State, "  %smaller.upper = icmp slt i64 %old.upper, %upper")
+    Call AddLine(State, "  %last = select i1 %smaller.upper, i64 %old.upper, i64 %upper")
+    Call AddLine(State, "  %overlap = icmp sle i64 %first, %last")
+    Call AddLine(State, "  br i1 %overlap, label %copy, label %publish")
+    Call AddLine(State, "copy:")
+    Call AddLine(State, "  %old.data.ptr = getelementptr i64, ptr %array, i64 2")
+    Call AddLine(State, "  %old.data = load ptr, ptr %old.data.ptr")
+    Call AddLine(State, "  %data = getelementptr %ube.block, ptr %block, i64 1")
+    Call AddLine(State, "  %old.index = sub i64 %first, %old.lower")
+    Call AddLine(State, "  %old.offset = mul i64 %old.index, %stride")
+    Call AddLine(State, "  %new.offset = mul i64 %first, %stride")
+    Call AddLine(State, "  %source = getelementptr i64, ptr %old.data, i64 %old.offset")
+    Call AddLine(State, "  %destination = getelementptr i64, ptr %data, i64 %new.offset")
+    Call AddLine(State, "  %distance = sub i64 %last, %first")
+    Call AddLine(State, "  %elements = add i64 %distance, 1")
+    Call AddLine(State, "  %cells = mul i64 %elements, %stride")
+    Call AddLine(State, "  call void @ube.cells.copy(ptr %source, ptr %destination, i64 %cells)")
+    Call AddLine(State, "  br label %publish")
+    Call AddLine(State, "publish:")
+    Call AddLine(State, "  call void @ube.array.install(ptr %array, ptr %block, i64 0, i64 %upper)")
+    Call AddLine(State, "  %collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  ret i1 true")
+    Call AddLine(State, "argument.fail:")
+    Call AddLine(State, "  store i64 5, ptr %err")
+    Call AddLine(State, "  ret i1 false")
+    Call AddLine(State, "memory.fail:")
+    Call AddLine(State, "  store i64 7, ptr %err")
+    Call AddLine(State, "  ret i1 false")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define internal i1 @ube.array.trycopy(ptr %ctx, ptr %destination, ptr %source, i64 %stride) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0")
+    Call AddLine(State, "  %lower = load i64, ptr %source")
+    Call AddLine(State, "  %upper.ptr = getelementptr i64, ptr %source, i64 1")
+    Call AddLine(State, "  %upper = load i64, ptr %upper.ptr")
+    Call AddLine(State, "  %distance = sub i64 %upper, %lower")
+    Call AddLine(State, "  %count = add i64 %distance, 1")
+    Call AddLine(State, "  %empty = icmp eq i64 %count, 0")
+    Call AddLine(State, "  br i1 %empty, label %empty.copy, label %allocate")
+    Call AddLine(State, "empty.copy:")
+    Call AddLine(State, "  call void @ube.array.clear(ptr %destination)")
+    Call AddLine(State, "  %empty.collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  ret i1 true")
+    Call AddLine(State, "allocate:")
+    Call AddLine(State, "  %block = call ptr @ube.memory.new(ptr %ctx, i64 %count, i64 %stride)")
+    Call AddLine(State, "  %ok = icmp ne ptr %block, null")
+    Call AddLine(State, "  br i1 %ok, label %copy, label %memory.fail")
+    Call AddLine(State, "copy:")
+    Call AddLine(State, "  %source.data.ptr = getelementptr i64, ptr %source, i64 2")
+    Call AddLine(State, "  %source.data = load ptr, ptr %source.data.ptr")
+    Call AddLine(State, "  %destination.data = getelementptr %ube.block, ptr %block, i64 1")
+    Call AddLine(State, "  %cells = mul i64 %count, %stride")
+    Call AddLine(State, "  call void @ube.cells.copy(ptr %source.data, ptr %destination.data, i64 %cells)")
+    Call AddLine(State, "  call void @ube.array.install(ptr %destination, ptr %block, i64 %lower, i64 %upper)")
+    Call AddLine(State, "  %collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  ret i1 true")
+    Call AddLine(State, "memory.fail:")
+    Call AddLine(State, "  store i64 7, ptr %err")
+    Call AddLine(State, "  ret i1 false")
+    Call AddLine(State, "}")
 End Sub
 
 ' Emits identity-bound counted-array primitives with usable Boolean status rather than language FAIL.
@@ -971,6 +1387,19 @@ Private Sub EmitArrayIntrinsic(ByRef Bound As BoundProject, ByRef State As Emiss
     Loop
     Call AddLine(State, "define { i1, i64 } @ube.proc." & CStr(Symbol) & "(" & Signature & ") {")
     Call AddLine(State, "entry:")
+    If Role = "array.tryresize" Or Role = "array.trycopy" Then
+        Parameter = Bound.Symbols(Symbol).FirstParameter
+        If Role = "array.tryresize" Then
+            Call AddLine(State, "  %accepted = call i1 @ube.array.tryresize(ptr %ctx, ptr " & Arguments(0) & ", i64 " & Arguments(1) & ", i64 " & Arguments(2) & ", i64 " & CStr(Bound.Symbols(Parameter).ElementCells) & ")")
+        Else
+            Call AddLine(State, "  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", i64 " & CStr(Bound.Symbols(Parameter).ElementCells) & ")")
+        End If
+        Call AddLine(State, "  %value = select i1 %accepted, i64 -1, i64 0")
+        Call AddLine(State, "  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1")
+        Call AddLine(State, "  ret { i1, i64 } %result")
+        Call AddLine(State, "}")
+        Exit Sub
+    End If
     Call AddLine(State, "  %source.lower = load i64, ptr " & Arguments(0))
     Call AddLine(State, "  %source.upper.ptr = getelementptr i64, ptr " & Arguments(0) & ", i64 1")
     Call AddLine(State, "  %source.upper = load i64, ptr %source.upper.ptr")
@@ -1008,8 +1437,10 @@ Private Sub EmitArrayIntrinsic(ByRef Bound As BoundProject, ByRef State As Emiss
         Call AddLine(State, "  %empty = icmp eq i64 " & Arguments(4) & ", 0")
         Call AddLine(State, "  br i1 %empty, label %copy.done, label %copy.choose")
         Call AddLine(State, "copy.choose:")
-        Call AddLine(State, "  %source.data = getelementptr i64, ptr " & Arguments(0) & ", i64 2")
-        Call AddLine(State, "  %destination.data = getelementptr i64, ptr " & Arguments(2) & ", i64 2")
+        Call AddLine(State, "  %source.data.ptr = getelementptr i64, ptr " & Arguments(0) & ", i64 2")
+        Call AddLine(State, "  %source.data = load ptr, ptr %source.data.ptr")
+        Call AddLine(State, "  %destination.data.ptr = getelementptr i64, ptr " & Arguments(2) & ", i64 2")
+        Call AddLine(State, "  %destination.data = load ptr, ptr %destination.data.ptr")
         Call AddLine(State, "  %same = icmp eq ptr " & Arguments(0) & ", " & Arguments(2))
         Call AddLine(State, "  %later = icmp sgt i64 " & Arguments(3) & ", " & Arguments(1))
         Call AddLine(State, "  %backward = and i1 %same, %later")
@@ -1103,7 +1534,7 @@ Private Sub EmitProcedure(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Call AddLine(State, "  br label %" & SequenceEntry(Parsed, Body, "return.ok"))
     If Body <> 0 Then Call EmitSequence(Parsed, Bound, State, Body, "return.ok")
     Call EmitFailureDispatch(Parsed, Bound, State)
-    Call EmitReturns(State)
+    Call EmitReturns(Parsed, Bound, State)
 End Sub
 
 ' Emits scalar module initialization with the ordinary failed-statement continuation rule.
@@ -1148,7 +1579,7 @@ Private Sub EmitModuleInitializer(ByRef Parsed As ParsedProject, ByRef Bound As 
         Node = NextNode
     Loop
     Call EmitFailureDispatch(Parsed, Bound, State)
-    Call EmitReturns(State)
+    Call EmitReturns(Parsed, Bound, State)
     Call AddLine(State, "define internal i1 @ube.module.ensure." & CStr(ModuleIndex) & "(ptr %ctx) {")
     Call AddLine(State, "entry:")
     Call AddLine(State, "  %state.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 2, i64 " & CStr(ModuleIndex))
@@ -1167,11 +1598,11 @@ Private Sub EmitModuleInitializer(ByRef Parsed As ParsedProject, ByRef Bound As 
 End Sub
 
 ' Emits caller-owned context setup and manifest-order startup without hidden runtime allocation.
-Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef State As EmissionState)
+Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState)
     Dim Words As Long
     Dim Index As Long
-    Words = 2 + Parsed.ModuleCount + State.FieldCount
-    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64] }")
+    Words = 5 + Parsed.ModuleCount + State.FieldCount
+    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64], ptr, i64, i64 }")
     Call AddLine(State, "")
     Call AddLine(State, "declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)")
@@ -1196,6 +1627,27 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef State As EmissionSt
     Call AddLine(State, "  br i1 %more, label %zero, label %done")
     Call AddLine(State, "done:")
     Call AddLine(State, "  ret void")
+    Call AddLine(State, "}")
+    Call AddLine(State, "define i1 @ube.context.dispose(ptr %ctx) {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1")
+    Call AddLine(State, "  %depth = load i64, ptr %depth.ptr")
+    Call AddLine(State, "  %active = icmp ne i64 %depth, 0")
+    Call AddLine(State, "  br i1 %active, label %busy, label %release")
+    Call AddLine(State, "busy:")
+    Call AddLine(State, "  ret i1 false")
+    Call AddLine(State, "release:")
+    For Index = 1 To Bound.SymbolCount
+        If State.FieldIndex(Index) >= 0 And Bound.Symbols(Index).ArrayRank = 1 Then
+            Call AddLine(State, "  %array." & CStr(Index) & " = getelementptr %ube.context, ptr %ctx, i32 0, i32 3, i64 " & CStr(State.FieldIndex(Index)))
+            Call AddLine(State, "  call void @ube.array.clear(ptr %array." & CStr(Index) & ")")
+        End If
+    Next Index
+    Call AddLine(State, "  %collected = call i1 @ube.memory.collect(ptr %ctx)")
+    Call AddLine(State, "  %head.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 4")
+    Call AddLine(State, "  %head = load ptr, ptr %head.ptr")
+    Call AddLine(State, "  %empty = icmp eq ptr %head, null")
+    Call AddLine(State, "  ret i1 %empty")
     Call AddLine(State, "}")
     Call AddLine(State, "define i1 @ube.project.init(ptr %ctx) {")
     Call AddLine(State, "entry:")
@@ -1222,8 +1674,12 @@ Private Sub EmitEntry(ByRef Bound As BoundProject, ByRef State As EmissionState)
     Call AddLine(State, "complete:")
     Call AddLine(State, "  %value = extractvalue { i1, i64 } %result, 1")
     Call AddLine(State, "  %status = trunc i64 %value to i32")
+    Call AddLine(State, "  %disposed = call i1 @ube.context.dispose(ptr @ube.entry.context)")
+    Call AddLine(State, "  br i1 %disposed, label %finished, label %unavailable")
+    Call AddLine(State, "finished:")
     Call AddLine(State, "  ret i32 %status")
     Call AddLine(State, "unavailable:")
+    Call AddLine(State, "  %cleanup = call i1 @ube.context.dispose(ptr @ube.entry.context)")
     Call AddLine(State, "  ; Defensive native-launch transport status, never a successful UBE FAIL value.")
     Call AddLine(State, "  ret i32 1")
     Call AddLine(State, "}")
@@ -1249,7 +1705,8 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     Call AddLine(State, "; UBE scalar native output; fresh success flag is separate from sticky Err.")
     Call AddLine(State, "target triple = " & Chr$(34) & "x86_64-pc-windows-msvc" & Chr$(34))
     Call AddLine(State, "")
-    Call EmitContext(Parsed, State)
+    Call EmitContext(Parsed, Bound, State)
+    Call EmitMemoryRuntime(State)
     For Index = 0 To Parsed.ModuleCount - 1
         Call EmitModuleInitializer(Parsed, Bound, State, Index)
         If State.Failed Then Exit For
@@ -1258,7 +1715,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
         Kind = Bound.Symbols(Index).Kind
         If Bound.Symbols(Index).Origin = "source" Then
             If Kind = "sub" Or Kind = "function" Then
-                If Bound.Symbols(Index).BindingId = "array.length" Or Bound.Symbols(Index).BindingId = "memory.copybytes" Then
+                If Bound.Symbols(Index).BindingId = "array.length" Or Bound.Symbols(Index).BindingId = "memory.copybytes" Or Bound.Symbols(Index).BindingId = "array.tryresize" Or Bound.Symbols(Index).BindingId = "array.trycopy" Then
                     Call EmitArrayIntrinsic(Bound, State, Index)
                 Else
                     Call EmitProcedure(Parsed, Bound, State, Index)

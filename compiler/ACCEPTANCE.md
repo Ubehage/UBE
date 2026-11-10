@@ -114,8 +114,10 @@ paths explicitly, qualify new storage/layout limits, and preserve prior output
 after a failed emission. Existing integer, native, semantic, parser and loader
 gates must pass on the same final executable.
 
-This gate covers fixed owned scalar storage under AGGREGATES.md; it does not
-qualify dynamic allocation, managed roots, public layouts or self-hosting.
+This gate covers declared fixed bounds and finite records under AGGREGATES.md.
+Replacement now shares the dynamic-storage machinery; allocation/lifetime
+failure assertions belong to the separate gate below. Neither gate qualifies
+managed roots, public layouts or self-hosting.
 
 ## Counted-buffer primitive and UBECore gate
 
@@ -134,6 +136,23 @@ unsupported metadata/signatures with source locations; a failed emission must
 preserve the earlier output. All existing bootstrap gates remain regressions.
 Allocation, empty dynamic arrays, collector behavior and I/O are outside this
 allocation-free gate.
+
+## Growing storage and retained-alias gate
+
+`../bootstrap/tests/dynamic-storage/check.ps1` must compile actual UBE source
+at O0/O2 for empty arrays, scalar/record growth, preserved coordinate
+intersections, neutralization, independent copies and replacement bounds.
+Prepared element aliases must keep original storage through later arguments,
+callee replacement and assignment RHS evaluation, including abandonment.
+
+Inject allocation failure at the narrow target wrappers: assert one retry,
+record-only False versus assignment FAIL, unchanged destinations, sticky Err
+on success and owner/borrow cleanup. Check production storage quotas and
+failed target-release recovery. Successful context disposal must leave no live
+allocations. Reject invalid signatures and unsupported syntax with controlled
+diagnostics. Missing or failing import tools must preserve earlier artifacts.
+The existing aggregate, counted-buffer, integer, native, semantic, parser and
+loader gates must pass on the same final bootstrap binary.
 
 ## Final compiler concurrency gate
 

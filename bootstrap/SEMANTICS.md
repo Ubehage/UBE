@@ -6,11 +6,15 @@ remain authoritative. Native lowering consumes these bindings under
 [the lowering contract](LOWERING.md), with its own execution gate.
 
 The bounded [aggregate extension](AGGREGATES.md) adds nominal finite Type
-records and fixed rank-one arrays. Bindings retain type identity, field offsets,
-element strides, rank and known bounds; ByRef array parameters retain unknown
-caller bounds until execution. Known invalid indexing is rejected statically.
-Record equality and independent record/same-known-bounds array copies are
-admitted. Other aggregate paths listed there receive explicit diagnostics.
+records and rank-one scalar/record arrays. The [dynamic-storage extension](DYNAMIC-STORAGE.md)
+adds dynamic owners, resizing and general independent
+array copies. Bindings retain type identity, field offsets, element strides and
+rank. Symbols retain fixed declaration bounds; node bounds are current proofs
+only. ArrayBoundsMayChange conservatively invalidates them for mutating primitive
+declarations and whole-array replacement. ByRef arrays retain unknown caller
+bounds. Stable known-invalid indexing is rejected statically. Record equality
+and independent record/array copies are admitted; array copies may have different
+or unknown bounds. Other aggregate paths listed there receive explicit diagnostics.
 
 ## Binding and ownership
 
@@ -153,11 +157,17 @@ threshold is not separately qualified. Commands and artifact paths are in
 
 Intrinsic declarations retain a Boolean syntax marker and a `primitive` child
 containing the attribute target and decoded role. Binding requires exactly one
-matching attribute and the complete declared signature for Array.Length or
-Memory.CopyBytes. Only then is the canonical role published in the symbol's
+matching attribute and the complete declared signature for Array.Length,
+Memory.CopyBytes, Array.TryResize or Array.TryCopy. The latter two belong to the
+dynamic-storage extension. TryResize requires a rank-one ByRef
+array, ByVal Long count and ByVal Boolean preserve flag, returning Boolean.
+TryCopy requires two rank-one ByRef arrays of the same resolved element type,
+including nominal record identity, returning Boolean. Only then is the canonical role published in the symbol's
 existing BindingId field. Ordinary names, including user functions named like
 the library declarations, carry no primitive authority. Unknown roles and
-unsupported declarations fail explicitly. See COUNTED-BUFFERS.md.
+unsupported declarations fail explicitly. See COUNTED-BUFFERS.md and
+[DYNAMIC-STORAGE.md](DYNAMIC-STORAGE.md). Source origin and existing dump formats
+remain unchanged; the project effect fact is not a new inspection field.
 
 ## Bound inspection records
 

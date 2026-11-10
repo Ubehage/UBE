@@ -189,12 +189,15 @@ Failed:
     CreateStage = Reject(Diagnostic, "E_OUTPUT", "cannot create staging directory beside output")
 End Function
 
-' Deletes only the three known files in a directory reserved by this invocation.
+' Deletes only known build files in the directory reserved by this invocation.
 Private Sub RemoveStage(ByVal Stage As String)
     If Len(Stage) = 0 Then Exit Sub
     DeleteFileW StrPtr(Stage & "\input.ll")
     DeleteFileW StrPtr(Stage & "\output.exe")
     DeleteFileW StrPtr(Stage & "\clang.log")
+    DeleteFileW StrPtr(Stage & "\import.log")
+    DeleteFileW StrPtr(Stage & "\kernel32-memory.def")
+    DeleteFileW StrPtr(Stage & "\kernel32-memory.lib")
     RemoveDirectoryW StrPtr(Stage)
 End Sub
 
@@ -263,16 +266,16 @@ Private Function ReadLog(ByVal Handle As Long) As String
 Failed:
 End Function
 
-' Runs Clang in a kill-on-close job, bounding time, redirected log size and every child lifetime.
-Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Optimization As String, ByRef Diagnostic As String) As Boolean
+' Runs a selected backend tool in a kill-on-close job with bounded output and child lifetime.
+Private Function RunBackendTool(ByVal Application As String, ByVal Arguments As String, ByVal Stage As String, ByVal LogName As String, ByVal ToolName As String, ByRef Diagnostic As String) As Boolean
     Dim Startup As StartupInformation, Process As ProcessInformation, Security As SecurityAttributes
     Dim JobInfo(0 To 111) As Byte, Job As Long, Log As Long, InputHandle As Long
-    Dim Command As String, LogPath As String, InputPath As String, OutputPath As String, NullPath As String
+    Dim Command As String, LogPath As String, NullPath As String
     Dim Index As Long, WaitCode As Long, ExitCode As Long, Count As Long, High As Long, Detail As String
     On Error GoTo Failed
     Log = -1: InputHandle = -1
     Security.Length = Len(Security): Security.Inherit = 1
-    LogPath = Stage & "\clang.log": InputPath = Stage & "\input.ll": OutputPath = Stage & "\output.exe"
+    LogPath = Stage & "\" & LogName
     Log = CreateFileW(StrPtr(LogPath), &HC0000000, 1, VarPtr(Security), 1, &H80, 0)
     If Log = -1 Then GoTo Failed
     NullPath = "NUL"
@@ -285,26 +288,26 @@ Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Op
     If SetInformationJobObject(Job, 9, JobInfo(0), 112) = 0 Then GoTo Failed
     Startup.Size = Len(Startup): Startup.Flags = &H101
     Startup.InputHandle = InputHandle: Startup.OutputHandle = Log: Startup.ErrorHandle = Log
-    Command = QuoteArgument(Clang) & " --target=x86_64-pc-windows-msvc -fuse-ld=lld -nostdlib " & Optimization & " -x ir " & QuoteArgument(InputPath) & " -o " & QuoteArgument(OutputPath) & " -Wl,/entry:main,/subsystem:console,/stack:8388608"
+    Command = QuoteArgument(Application) & " " & Arguments
     If Len(Command) > 32766 Then Detail = "backend command exceeds Windows command limit": GoTo Failed
-    If CreateProcessW(StrPtr(Clang), StrPtr(Command), 0, 0, 1, &H8000004, 0, StrPtr(Stage), Startup, Process) = 0 Then Detail = "cannot start Clang: " & Clang: GoTo Failed
-    If AssignProcessToJobObject(Job, Process.Process) = 0 Then Detail = "cannot contain Clang process tree": GoTo Failed
+    If CreateProcessW(StrPtr(Application), StrPtr(Command), 0, 0, 1, &H8000004, 0, StrPtr(Stage), Startup, Process) = 0 Then Detail = "cannot start " & ToolName & ": " & Application: GoTo Failed
+    If AssignProcessToJobObject(Job, Process.Process) = 0 Then Detail = "cannot contain " & ToolName & " process tree": GoTo Failed
     If ResumeThread(Process.Thread) = -1 Then GoTo Failed
     For Index = 1 To 600
         WaitCode = WaitForSingleObject(Process.Process, 50)
         Count = GetFileSize(Log, High)
-        If High <> 0 Or Count < 0 Or Count > MaximumLogBytes Then Detail = "Clang diagnostic output exceeds 65536 bytes": GoTo Failed
+        If High <> 0 Or Count < 0 Or Count > MaximumLogBytes Then Detail = ToolName & " diagnostic output exceeds 65536 bytes": GoTo Failed
         If WaitCode = 0 Then Exit For
         If WaitCode <> 258 Then GoTo Failed
     Next Index
-    If WaitCode <> 0 Then Detail = "Clang exceeded 30 second timeout": GoTo Failed
+    If WaitCode <> 0 Then Detail = ToolName & " exceeded 30 second timeout": GoTo Failed
     If GetExitCodeProcess(Process.Process, ExitCode) = 0 Then GoTo Failed
-    If ExitCode <> 0 Then Detail = "Clang failed with exit " & CStr(ExitCode) & vbCrLf & ReadLog(Log): GoTo Failed
-    RunClang = True
+    If ExitCode <> 0 Then Detail = ToolName & " failed with exit " & CStr(ExitCode) & vbCrLf & ReadLog(Log): GoTo Failed
+    RunBackendTool = True
     GoTo Cleanup
 Failed:
     On Error Resume Next
-    If Len(Detail) = 0 Then Detail = "cannot complete bounded Clang invocation"
+    If Len(Detail) = 0 Then Detail = "cannot complete bounded " & ToolName & " invocation"
     Diagnostic = "UBE: E_BACKEND: " & Detail
     If Job <> 0 Then TerminateJobObject Job, 1
     If Process.Process <> 0 Then
@@ -318,6 +321,45 @@ Cleanup:
     If Process.Process <> 0 Then CloseHandle Process.Process
     If InputHandle <> -1 Then CloseHandle InputHandle
     If Log <> -1 Then CloseHandle Log
+End Function
+
+' Checks the bounded archive produced by the installed import-library tool.
+Private Function CheckImportLibrary(ByVal Path As String, ByRef Diagnostic As String) As Boolean
+    Dim Handle As Long, Count As Long, High As Long, Completed As Long
+    Dim Header(0 To 7) As Byte
+    On Error GoTo Failed
+    Handle = -1
+    Handle = CreateFileW(StrPtr(Path), &H80000000, 1, 0, 3, &H80, 0)
+    If Handle = -1 Then GoTo Failed
+    Count = GetFileSize(Handle, High)
+    If High <> 0 Or Count < 8 Or Count > 65536 Then GoTo Failed
+    If ReadFile(Handle, Header(0), 8, Completed, 0) = 0 Or Completed <> 8 Then GoTo Failed
+    If Header(0) <> 33 Or Header(1) <> 60 Or Header(2) <> 97 Or Header(3) <> 114 Or Header(4) <> 99 Or Header(5) <> 104 Or Header(6) <> 62 Or Header(7) <> 10 Then GoTo Failed
+    CloseHandle Handle
+    CheckImportLibrary = True
+    Exit Function
+Failed:
+    On Error Resume Next
+    If Handle <> -1 Then CloseHandle Handle
+    CheckImportLibrary = Reject(Diagnostic, "E_BACKEND", "LLVM import tool did not produce a bounded memory import library")
+End Function
+
+' Prepares only the known target memory imports, then invokes Clang with the generated archive.
+Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Optimization As String, ByVal MemoryImports As Boolean, ByRef Diagnostic As String) As Boolean
+    Dim Arguments As String, Tool As String, Definition As String, Library As String
+    If MemoryImports Then
+        Tool = Left$(Clang, InStrRev(Clang, "\")) & "llvm-dlltool.exe"
+        Definition = "LIBRARY KERNEL32.dll" & vbCrLf & "EXPORTS" & vbCrLf & "VirtualAlloc" & vbCrLf & "VirtualFree" & vbCrLf
+        If Not WriteIR(Stage & "\kernel32-memory.def", Definition, Diagnostic) Then Exit Function
+        Library = Stage & "\kernel32-memory.lib"
+        Arguments = "-m i386:x86-64 -d " & QuoteArgument(Stage & "\kernel32-memory.def") & " -l " & QuoteArgument(Library)
+        If Not RunBackendTool(Tool, Arguments, Stage, "import.log", "LLVM import tool", Diagnostic) Then Exit Function
+        If Not CheckImportLibrary(Library, Diagnostic) Then Exit Function
+    End If
+    Arguments = "--target=x86_64-pc-windows-msvc -fuse-ld=lld -nostdlib " & Optimization & " -x ir " & QuoteArgument(Stage & "\input.ll")
+    If MemoryImports Then Arguments = Arguments & " -x none " & QuoteArgument(Library)
+    Arguments = Arguments & " -o " & QuoteArgument(Stage & "\output.exe") & " -Wl,/entry:main,/subsystem:console,/stack:8388608"
+    RunClang = RunBackendTool(Clang, Arguments, Stage, "clang.log", "Clang", Diagnostic)
 End Function
 
 ' Checks bounded DOS/PE headers and the AMD64 executable machine before publication.
@@ -395,10 +437,16 @@ Public Function BuildNativeProject(ByRef Project As ProjectContext, ByRef IRText
         BuildNativeProject = Reject(Diagnostic, "E_OUTPUT", "output cannot replace the backend executable")
         Exit Function
     End If
+    If InStr(IRText, "@VirtualAlloc") > 0 Then
+        If SamePath(Output, Left$(Clang, InStrRev(Clang, "\")) & "llvm-dlltool.exe") Then
+            BuildNativeProject = Reject(Diagnostic, "E_OUTPUT", "output cannot replace the LLVM import tool")
+            Exit Function
+        End If
+    End If
     If Not CreateStage(Directory, Stage, Diagnostic) Then Exit Function
     InputPath = Stage & "\input.ll": NativePath = Stage & "\output.exe"
     If Not WriteIR(InputPath, IRText, Diagnostic) Then GoTo Cleanup
-    If Not RunClang(Clang, Stage, Optimization, Diagnostic) Then GoTo Cleanup
+    If Not RunClang(Clang, Stage, Optimization, InStr(IRText, "@VirtualAlloc") > 0, Diagnostic) Then GoTo Cleanup
     If Not CheckNative(NativePath, Diagnostic) Then GoTo Cleanup
     If Not ResolveOutput(Project, OutputPath, Output, Directory, Diagnostic) Then GoTo Cleanup
     If MoveFileExW(StrPtr(NativePath), StrPtr(Output), 9) = 0 Then

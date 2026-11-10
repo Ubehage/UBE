@@ -200,8 +200,9 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps
 ```
 
 The gate checks actual source execution at O0/O2, including bounds failures and
-copy/alias behavior. Dynamic arrays, managed text and aggregate ByVal/results
-remain later dependencies. Exact results are in compiler/Progress.md.
+copy/alias behavior. Growing arrays extend this boundary as described below;
+managed text and aggregate ByVal/results remain later dependencies.
+Exact results are in compiler/Progress.md.
 
 ## Counted buffers and UBECore
 
@@ -219,4 +220,21 @@ This gate passed 25 groups, including actual UBECore execution at O0/O2, overlap
 failure preservation and exact binding. The UBECore project is
 `../std-lib/UBECore.UBE`. Consumers currently include its source modules in their
 manifest; automatic library discovery and native library packaging remain
-unimplemented. Dynamic allocation and file I/O are separate dependencies.
+unimplemented. File I/O remains a separate dependency.
+
+## Growing arrays
+
+Dynamic rank-one arrays can hold the admitted scalars and finite records.
+Array.TryResize and Array.TryCopy prepare replacement storage before publishing
+it. Whole-array assignment copies values and bounds independently. Element
+references prepared before replacement keep their original storage alive until
+the call or assignment finishes.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/dynamic-storage/check.ps1
+```
+
+The [dynamic-storage contract](DYNAMIC-STORAGE.md) defines ownership, limits,
+allocation retry and failure behavior. Native builds that allocate use the
+installed LLVM `llvm-dlltool.exe` beside Clang to create their Windows import
+library offline. ReDim/Erase syntax and managed elements remain unsupported.

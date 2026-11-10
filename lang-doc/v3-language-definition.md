@@ -273,6 +273,13 @@ array to its unallocated state and resets every element of a fixed array to its
 neutral value. `ReDim` discards old contents and initializes new elements to
 neutral values.
 
+Prepared element aliases retain their original storage through the call when
+the array is resized, erased or replaced; they do not follow the same index in
+replacement storage. This includes aliases prepared before later arguments
+mutate the array. Prepared indexed assignment destinations retain storage until
+commit or abandonment. Whole-array aliases observe the replacement descriptor.
+The owner-approved lifetime rule is specified in language-spec.md section 6.
+
 `ReDim Preserve` retains elements whose full coordinate exists in both the old
 and new bounds, and releases managed contents of removed elements. It may
 resize any dimension, unlike VB6, but cannot change rank or element type. New

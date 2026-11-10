@@ -142,8 +142,15 @@ product baseline.
   The counted-buffers gate passed 25 groups: actual source execution at O0/O2,
   overlap, record-only status versus FAIL, exact declaration binding and
   failed-output preservation. All six earlier suites passed on the same build.
-  Exact commands and artifacts are in compiler/Progress.md. Dynamic allocation
-  and live element-alias ownership remain later dependencies.
+  Exact commands and artifacts are in compiler/Progress.md. Growing storage
+  and live element-alias ownership are addressed by the next item.
+- [x] Implement growing rank-one scalar/finite-record arrays, resize/copy
+  primitives and independent whole-array assignment. The owner selected
+  original-storage lifetime for prepared element aliases during replacement.
+  The dynamic-storage gate passed 41 groups at O0/O2, including allocation
+  retry, the charged-byte quota, owner/borrow cleanup and failure preservation.
+  Exact regression evidence is in compiler/Progress.md; ReDim/Erase syntax,
+  managed fields and counted file I/O remain later work.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

@@ -313,6 +313,10 @@ Private Function ParseArrayShape(ByRef P As ParsedProject, ByRef S As ParserStat
     Node = NewNode(P, S, "array-shape", "fixed", Start, Diagnostic)
     If Node = 0 Then Exit Function
     S.Position = S.Position + 1
+    If AtToken(P, S, ",") Then
+        Call SyntaxError(P, S, Diagnostic, "only one-dimensional arrays are admitted", "E_UNSUPPORTED")
+        Exit Function
+    End If
     If AtToken(P, S, ")") Then
         P.Nodes(Node).Text = "dynamic"
     Else

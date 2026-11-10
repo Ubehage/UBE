@@ -1,19 +1,83 @@
 # Compiler development handoff
 
-## Current handoff: counted buffer operations and UBECore source
+## Current handoff: growing arrays and retained element aliases
+
+The owner approved keeping original element storage alive through a call when
+an array is resized or replaced. The completed storage increment admits dynamic rank-one
+scalar/finite-record arrays, Array.TryResize/TryCopy and independent array
+assignment with changed bounds. The scope is `../bootstrap/DYNAMIC-STORAGE.md`.
+The dynamic gate passed 41 groups, including allocation retry, owner/borrow
+release, prepared-address failure paths and the real charged-byte quota at
+O0/O2. ReDim/Erase syntax and managed fields remain later dependencies.
+Minor unspecified details follow VB6 only where
+consistent with the already defined UBE behavior and architecture.
+
+Next measure counted file input/output and practical source-scanning needs
+under the existing bootstrap-dependencies roadmap item. Growing bytes and
+token records are demonstrated; managed text, broader aggregate ownership,
+loops, library packaging and the UBE-written compiler remain unfinished.
+
+### Dynamic-storage verification — 2026-11-10
+
+VB6 6.00.9782 built the final executable using the dynamic-storage runner.
+Clang 23.1.3 compiled generated native programs at O0/O2. All commands below
+used the same final executable; the native backend gate requires execution
+outside the sandbox because its isolated copied LLVM import tool is otherwise
+denied access. No VB6 administrator-mode change was needed by this increment.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/dynamic-storage/check.ps1
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube dynamic storage cd871c2d-4cb0-40d5-aa6e-22bed7b6fd84\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/dynamic-storage/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/counted-buffers/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-compilation/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Evidence directories below are under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+| Gate | Passed | Evidence directory |
+|---|---:|---|
+| Dynamic storage | 41 | `ube dynamic storage db0f711b-c22d-409d-b303-06d8ccb9e958` |
+| Aggregate storage | 35 | `ube aggregate storage 686642c7-c424-4926-9682-2978ece9fc13` |
+| Counted buffers | 25 | `ube counted buffers 59a1e48a-6074-40ea-ab76-698c585fb38f` |
+| Integer types | 46 | `ube integer types b8851084-de8b-4969-a219-90eff3f73f03` |
+| Native compilation | 23 | `ube native compilation cd9df334-498c-43c6-8110-a9cf1938293f` |
+| Source semantics | 76 | `ube source semantics 0b1ffc68-cc0e-43a2-9b29-9723421966d0` |
+| Source parsing | 37 | `ube source parsing d337e006-5635-4a6d-8a48-af94213b3eaf` |
+| Project loading | 54 | `ube project loading 34b67cbc-600a-43cb-a675-7d396cc98a40` |
+
+The aggregate count changed from 38 to 35 because three rejection cases are
+now admitted: dynamic declarations, different-bound copies and unknown-bound
+copies. Positive coverage lives in the dynamic gate. Its fixtures cover actual
+UTF-8 bytes and token records, index-intersection preservation, neutralization,
+independent copies, prepared aliases across later arguments/callee/RHS changes,
+abandonment, local cleanup and zero live allocations after disposal. Target
+fault injection checks retry and failed-release recovery without production
+test flags. The 64 MiB quota includes allocation headers and page rounding;
+the 4,096-live-block quota is implemented but not exhausted by this suite.
+
+The first aggregate run exposed accumulated per-expression borrow slots;
+statement-lifetime slot reuse fixed the frame regression. The backend deadline
+probe now checks elapsed time and the precise timeout diagnostic, preventing
+an earlier import-tool failure from falsely passing that assertion.
+
+## Previous dependency: counted buffer operations and UBECore source
 
 The completed dependency increment adds exact Intrinsic declaration binding for
 Array.Length and Memory.CopyBytes, and ordinary UBECore AppendBytes source.
 The boundary is `../bootstrap/COUNTED-BUFFERS.md`; its acceptance gate is
 `../bootstrap/tests/counted-buffers/check.ps1`. The operations use existing
 fixed arrays without allocation and preserve the specified distinction between
-usable primitive False and language FAIL. Dynamic growth requires the ownership
-and live element-alias decisions recorded in bootstrap/DEPENDENCIES.md first.
+usable primitive False and language FAIL. The subsequent dynamic increment
+implements the ownership and alias decision recorded above.
 
-Next settle that resize/alias boundary and assess allocator ownership, cleanup
-and failure recovery before implementing growing buffers. Counted file I/O and
-text remain further dependencies. Do not infer a resize-time pin, stale alias
-or new runtime rejection from the current fixed-array implementation.
+The resize/alias boundary is now owner-approved as described above. Counted
+file I/O and text remain further dependencies after growing buffers.
 
 ## Previous dependency: bounded source buffers and finite records
 

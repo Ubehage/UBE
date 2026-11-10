@@ -64,9 +64,9 @@ spans, sticky Err, error handlers and append publication at O0/O2. Exact results
 and commands belong in compiler/Progress.md. Earlier bootstrap gates remain
 required regressions.
 
-The full roles also define neutral empty arrays; constructing those values is
-outside the current fixed-array profile. Runtime-typed invalid element storage
-is likewise outside this statically typed Byte boundary. Dynamic arrays,
-ReDim/Erase, allocation recovery, managed roots, file I/O, broader intrinsic
-roles and public native layouts remain separate unimplemented dependencies.
-This allocation-free increment makes no allocation-failure or collection claim.
+The dynamic-storage extension now constructs neutral empty arrays and admits
+Array.TryResize/TryCopy; see [DYNAMIC-STORAGE.md](DYNAMIC-STORAGE.md) and its
+separate allocation/lifetime gate. These counted-buffer operations themselves
+remain allocation-free. Runtime-typed invalid element storage, ReDim/Erase,
+managed roots, file I/O, broader intrinsic roles and public native layouts
+remain outside this boundary.

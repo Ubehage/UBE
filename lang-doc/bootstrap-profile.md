@@ -2,6 +2,8 @@
 
 **Status:** bounded scalar and aggregate source-to-native compilation implemented and tested
 on Windows x64. This file does not grant exceptions to language semantics.
+The dynamic-storage extension below passed its separate 41-group native gate;
+exact results and regression evidence are recorded in compiler/Progress.md.
 
 Project loading is implemented separately from source compilation. On
 2026-11-10, `bootstrap/tests/project-loading/check.ps1` built the VB6 loader and
@@ -36,10 +38,10 @@ compiler handoff; arrays, records and foreign layouts are not covered.
 and fixed rank-one array extension. Its exact admission and storage limits are
 in [AGGREGATES.md](../bootstrap/AGGREGATES.md). It retains source bytes and
 token/tree records, checks bounds, borrows fields/elements/arrays ByRef and
-copies independent values. Whole-array copy currently requires identical known
-bounds; general bound-adopting assignment remains explicitly unsupported.
-Managed fields, dynamic arrays, aggregate ByVal/results and foreign layouts
-are not included. This extension uses existing GoTo traversal, without adding
+copies independent values. Its original fixed-storage acceptance required
+identical known bounds for whole-array copies; the dynamic extension below
+removes that admission restriction. Managed fields, aggregate ByVal/results and
+foreign layouts remain outside the profile. This extension uses existing GoTo traversal, without adding
 loop-header failure semantics.
 
 The counted-buffer extension validates exact Intrinsic declarations for the
@@ -47,8 +49,21 @@ existing Array.Length and Memory.CopyBytes roles and executes portable UBECore
 AppendBytes source. `bootstrap/tests/counted-buffers/check.ps1` passed 25 groups
 covering identity binding, actual O0/O2 execution, overlap, span failures,
 record-only Boolean status and explicit wrapper FAIL. Its allocation-free
-boundary is in [COUNTED-BUFFERS.md](../bootstrap/COUNTED-BUFFERS.md). Other
-primitive roles, dynamic arrays and I/O remain unimplemented.
+boundary is in [COUNTED-BUFFERS.md](../bootstrap/COUNTED-BUFFERS.md).
+
+The current [dynamic-storage extension](../bootstrap/DYNAMIC-STORAGE.md) is
+implemented. It adds empty dynamic declarations, exact Array.TryResize
+and Array.TryCopy intrinsic bindings, and independent whole-array assignment
+for matching element type/rank with different or unknown bounds. Descriptors
+contain lower/upper bounds and payload/owner pointers; initial fixed payloads
+are inline and replacements use separately owned blocks. Prepared aliases retain
+original storage through calls or assignment completion/abandonment. Replacement
+values are independent of later writes through old aliases. A conservative
+project effect invalidates current-bound proofs when shapes may change, while
+declaration metadata retains initial fixed bounds. Final evidence must come from
+`bootstrap/tests/dynamic-storage/check.ps1` and regression gates on the same
+executable; no pass is asserted here. Managed fields, ReDim/Erase syntax,
+aggregate ByVal/results, broader primitives and I/O remain deferred.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
@@ -135,8 +150,9 @@ Add and prove these only as compiler-source needs demand them:
   implemented by the integer dependency extension; its gate is
   `bootstrap/tests/integer-types/check.ps1`. This does not imply arrays or records;
 - Unicode text and counted byte I/O, with explicit encoding and source spans;
-- dynamic arrays and broader aggregate storage; finite scalar-field records and
-  fixed rank-one arrays with bounded independent copies are now implemented;
+- broader aggregate storage; finite scalar-field records and fixed rank-one arrays
+  are qualified by the aggregate gate, while growing arrays and general bound-adopting
+  copies are covered by the dynamic-storage acceptance gate described above;
 - strings and precise managed-storage lifetimes if used by the compiler;
 - broader loop forms, additional operators and further UBECore procedures;
   ordinary calls into the counted-buffer UBECore source are now qualified;

@@ -65,6 +65,7 @@ Public Type BoundProject
     EntrySymbol As Long
     PackageSymbol As Long
     ModuleSymbols() As Long
+    ArrayBoundsMayChange As Boolean
 End Type
 
 Private Type BindingState
@@ -518,6 +519,7 @@ Private Sub SymbolValue(ByRef Bound As BoundProject, ByVal Node As Long, ByVal S
         .TypeSymbol = Bound.Symbols(Symbol).TypeSymbol
         .ArrayRank = Bound.Symbols(Symbol).ArrayRank
         .HasBounds = Bound.Symbols(Symbol).HasBounds
+        If .ArrayRank <> 0 And Bound.ArrayBoundsMayChange Then .HasBounds = False
         .LowerBound = Bound.Symbols(Symbol).LowerBound
         .UpperBound = Bound.Symbols(Symbol).UpperBound
         .ElementCells = Bound.Symbols(Symbol).ElementCells
@@ -663,8 +665,11 @@ Private Function BindArrayShape(ByRef Project As ProjectContext, ByRef Parsed As
         If Bound.Symbols(Symbol).Kind = "parameter" And Bound.Symbols(Symbol).PassingMode = "ByRef" Then
             Bound.Symbols(Symbol).StorageCells = 0
             BindArrayShape = True
+        ElseIf Bound.Symbols(Symbol).Kind = "variable" Then
+            Bound.Symbols(Symbol).StorageCells = 4
+            BindArrayShape = True
         Else
-            BindArrayShape = BindingError(Project, Parsed, Shape, Diagnostic, "E_UNSUPPORTED", "only rank-only ByRef parameters admit an unknown array shape")
+            BindArrayShape = BindingError(Project, Parsed, Shape, Diagnostic, "E_UNSUPPORTED", "dynamic arrays require owned variables or rank-only ByRef parameters")
         End If
         Exit Function
     End If
@@ -690,7 +695,7 @@ Private Function BindArrayShape(ByRef Project As ProjectContext, ByRef Parsed As
         Exit Function
     End If
     Bound.Symbols(Symbol).HasBounds = True
-    Bound.Symbols(Symbol).StorageCells = 2 + CLng(Count) * Bound.Symbols(Symbol).ElementCells
+    Bound.Symbols(Symbol).StorageCells = 4 + CLng(Count) * Bound.Symbols(Symbol).ElementCells
     BindArrayShape = True
 End Function
 
@@ -750,7 +755,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 Role = FoldAscii(Parsed.Nodes(AttributeNode).Text)
-                If Role <> "array.length" And Role <> "memory.copybytes" Then
+                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" Then
                     ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_UNSUPPORTED", "unknown or unsupported primitive role " & Parsed.Nodes(AttributeNode).Text)
                     Exit Function
                 End If
@@ -761,6 +766,10 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                 SignatureMatches = (Kind = "function")
                 If Role = "array.length" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Long" And Bound.Symbols(Symbol).ParameterCount = 1
+                ElseIf Role = "array.tryresize" Then
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 3
+                ElseIf Role = "array.trycopy" Then
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 2
                 Else
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 5
                 End If
@@ -768,9 +777,11 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                 Position = 1
                 Do While Parameter <> 0
                     ArrayParameter = IntrinsicArrayParameter(Parsed, Bound, Parameter)
-                    If Role = "array.length" Or Position = 1 Or Position = 3 Then
+                    If Role = "array.length" Or Role = "array.trycopy" Or Position = 1 Or (Role = "memory.copybytes" And Position = 3) Then
                         SignatureMatches = SignatureMatches And ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByRef"
                         If Role = "memory.copybytes" Then SignatureMatches = SignatureMatches And Bound.Symbols(Parameter).TypeName = "Byte"
+                    ElseIf Role = "array.tryresize" And Position = 3 Then
+                        SignatureMatches = SignatureMatches And Not ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByVal" And Bound.Symbols(Parameter).TypeName = "Boolean"
                     Else
                         SignatureMatches = SignatureMatches And Not ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByVal" And Bound.Symbols(Parameter).TypeName = "Long"
                     End If
@@ -782,6 +793,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 Bound.Symbols(Symbol).BindingId = Role
+                If Role = "array.tryresize" Or Role = "array.trycopy" Then Bound.ArrayBoundsMayChange = True
             End If
         End If
     Next Symbol
@@ -876,6 +888,58 @@ Private Function PrepareValueTypes(ByRef Project As ProjectContext, ByRef Parsed
         If Symbol <> 0 Then Call SymbolValue(Bound, Node, Symbol)
     Next Node
     PrepareValueTypes = True
+End Function
+
+' Validates resolved primitive element identity and conservatively invalidates mutable shape facts.
+Private Function PrepareArrayEffects(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByRef Diagnostic As String) As Boolean
+    Dim Symbol As Long
+    Dim First As Long
+    Dim Second As Long
+    Dim Node As Long
+    Dim Target As Long
+    Dim Receiver As Long
+    For Symbol = 1 To Bound.SymbolCount
+        If Bound.Symbols(Symbol).BindingId = "array.trycopy" Then
+            First = Bound.Symbols(Symbol).FirstParameter
+            Second = Bound.Symbols(First).NextParameter
+            If Bound.Symbols(First).TypeSymbol <> Bound.Symbols(Second).TypeSymbol Or Bound.Symbols(First).TypeName <> Bound.Symbols(Second).TypeName Then
+                PrepareArrayEffects = BindingError(Project, Parsed, Bound.Symbols(Symbol).DeclarationNode, Diagnostic, "E_TYPE", "array.trycopy parameters require the same nominal element type")
+                Exit Function
+            End If
+        End If
+    Next Symbol
+    If Not Bound.ArrayBoundsMayChange Then
+        For Node = 1 To Parsed.NodeCount
+            Target = 0
+            If Parsed.Nodes(Node).Kind = "variable" Then
+                Symbol = Bound.Nodes(Node).SymbolIndex
+                If Symbol <> 0 Then
+                    If Bound.Symbols(Symbol).ArrayRank <> 0 Then
+                        If DeclarationValueNode(Parsed, Node) <> 0 Then Bound.ArrayBoundsMayChange = True
+                    End If
+                End If
+            ElseIf Parsed.Nodes(Node).Kind = "assignment" Then
+                Target = Parsed.Nodes(Node).FirstChild
+                ' Whole arrays can only be names or qualified module members: array fields and nested arrays are not admitted.
+                Receiver = Target
+                Do While Parsed.Nodes(Receiver).Kind = "member"
+                    Receiver = Parsed.Nodes(Receiver).FirstChild
+                Loop
+                If Parsed.Nodes(Receiver).Kind = "name" Then
+                    Symbol = ResolveReference(Project, Parsed, Bound, State, Target, True, Diagnostic)
+                    If Symbol = 0 Then Exit Function
+                    If Bound.Symbols(Symbol).ArrayRank <> 0 Then Bound.ArrayBoundsMayChange = True
+                End If
+            End If
+            If Bound.ArrayBoundsMayChange Then Exit For
+        Next Node
+    End If
+    If Bound.ArrayBoundsMayChange Then
+        For Node = 1 To Bound.NodeCount
+            If Bound.Nodes(Node).ArrayRank <> 0 Then Bound.Nodes(Node).HasBounds = False
+        Next Node
+    End If
+    PrepareArrayEffects = True
 End Function
 
 ' Returns fixed integer width for the admitted storage and intermediate types.
@@ -1475,16 +1539,6 @@ Private Function BindAssignment(ByRef Project As ProjectContext, ByRef Parsed As
             BindAssignment = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "aggregate assignment requires identical nominal/element type and rank")
             Exit Function
         End If
-        If Bound.Nodes(Target).ArrayRank <> 0 Then
-            If Not Bound.Nodes(Target).HasBounds Or Not Bound.Nodes(Value).HasBounds Then
-                BindAssignment = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "whole-array copy with unknown bounds is outside this fixed-shape profile")
-                Exit Function
-            End If
-            If Bound.Nodes(Target).LowerBound <> Bound.Nodes(Value).LowerBound Or Bound.Nodes(Target).UpperBound <> Bound.Nodes(Value).UpperBound Then
-                BindAssignment = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "array assignment with replacement bounds is outside this fixed-shape profile")
-                Exit Function
-            End If
-        End If
         Call CopyValue(Bound, Node, Target)
         Bound.Nodes(Node).ConstantKnown = False
         Bound.Nodes(Value).ConvertedType = TypeName
@@ -1618,6 +1672,7 @@ Public Function BindProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     If Not CollectDeclarations(Project, Parsed, Bound, State, Diagnostic) Then GoTo Rejected
     If Not ValidateIntrinsicDeclarations(Project, Parsed, Bound, Diagnostic) Then GoTo Rejected
     If Not PrepareValueTypes(Project, Parsed, Bound, State, Diagnostic) Then GoTo Rejected
+    If Not PrepareArrayEffects(Project, Parsed, Bound, State, Diagnostic) Then GoTo Rejected
     ' Complete constant declarations before ordinary expressions, independent of caller module order.
     For Index = 1 To Bound.SymbolCount
         If Bound.Symbols(Index).Kind = "constant" Then
@@ -1646,6 +1701,7 @@ Private Sub ClearBound(ByRef Bound As BoundProject)
     Bound.NodeCount = 0
     Bound.EntrySymbol = 0
     Bound.PackageSymbol = 0
+    Bound.ArrayBoundsMayChange = False
     Erase Bound.Symbols
     Erase Bound.Nodes
     Erase Bound.ModuleSymbols

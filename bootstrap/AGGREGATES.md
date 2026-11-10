@@ -3,7 +3,10 @@
 This increment implements the next dependency identified in DEPENDENCIES.md.
 It extends the existing project pipeline; it is not a separate compiler or a
 claim that the complete self-hosting storage model is implemented. Exact test
-evidence belongs in `../compiler/Progress.md`.
+evidence belongs in `../compiler/Progress.md`. The dynamic-storage extension
+described below has its separate dynamic-storage gate; earlier fixed-storage
+evidence alone does not qualify it. Its detailed contract is in
+[DYNAMIC-STORAGE.md](DYNAMIC-STORAGE.md).
 
 ## Admitted source values
 
@@ -15,12 +18,16 @@ independently, and equality/inequality compare its scalar fields semantically.
 Unrelated record declarations do not become compatible because their fields
 have the same layout. Ordering is not defined for records.
 
-One-dimensional arrays have compile-time-known bounds and scalar or admitted
-record elements. Negative lower bounds are supported; an omitted lower bound
+One-dimensional arrays have scalar or admitted record elements. Fixed declarations
+have compile-time-known initial bounds; dynamic declarations such as
+`Dim Values() As Byte` begin empty. Negative lower bounds are supported; an omitted lower bound
 uses zero in this profile, which does not admit Option Base changes. Bounds and
 index expressions use LongLong semantics. Runtime indexing checks the complete
 range before computing an element address, reporting Err 9 on failure.
-Known-invalid bounds and indexes receive compile-time diagnostics.
+Known-invalid declaration bounds receive compile-time diagnostics. Index
+diagnostics use known current bounds only: a conservative project effect fact
+invalidates node-bound proofs when mutating primitive declarations or whole-array
+replacement occur. Declaration symbols retain their initial bounds.
 
 Ordinary element/field reads and writes, direct ByRef element/field arguments,
 and whole-record/whole-array ByRef parameters preserve caller storage identity.
@@ -34,41 +41,50 @@ Use explicit `Let Values (Index) = Value` when separating the parentheses.
 This bounded parsing rule preserves existing no-parentheses procedure calls
 such as `Take (Value) = 1`, whose argument is a Boolean comparison.
 
-The initial copy boundary admits whole arrays only when both bounds are
-statically known and equal. Same-element-type arrays with different bounds are
-not different language types: their general assignment must adopt the source
-bounds. This implementation reports E_UNSUPPORTED for that replacement and for
-whole-array copies through parameters with unknown bounds. It never silently
-retains different destination bounds. ByVal aggregates, aggregate results and
+Whole-array assignment adopts source bounds and copies independent element
+values, including different bounds and unknown caller shapes. Array.TryCopy
+provides the same replacement as a Boolean-status operation; Array.TryResize
+changes the zero-based element count and optionally preserves the coordinate
+intersection. Element type and rank must match, including nominal record identity.
+ByVal aggregates, aggregate results and
 grouped aggregate ByRef temporaries remain unsupported until their value and
 lifetime paths are implemented. Existing scalar ByVal/results/temporaries work
 for individual array elements and record fields.
 
 ## Storage and failure boundaries
 
-This profile uses fixed owned storage, with no runtime resizing or heap
-allocation. Locals belong to their procedure frame and module storage to its
-execution context. Aggregate ByRef borrows end with the call; no escaping
-aggregate references or managed roots are admitted. Dynamic arrays, ReDim,
-managed String and allocation-failure recovery are separate dependencies.
+Array descriptors belong to their procedure frame or execution context; dynamic
+payloads use separately owned blocks. Prepared element/field aliases retain
+their original storage through call completion or abandonment, including later
+argument failures. Replacement storage is independent of subsequent old-alias
+writes. Indexed assignment destinations retain storage through RHS evaluation
+and commit/abandonment. No escaping aggregate references or managed roots are
+admitted. ReDim/Erase syntax and managed String remain separate dependencies.
 
 The private native representation flattens scalar record fields into i64 cells.
-An array has two descriptor cells for its current lower/upper bounds followed
-by its element cells. Field offsets, element strides and nominal identities are
+An array has four descriptor cells: current lower/upper bounds, payload pointer
+and owning-block pointer. Initial fixed payload cells follow the descriptor;
+dynamic owners occupy only the descriptor, and ByRef parameters borrow it.
+Empty dynamic descriptors have bounds 0 through -1 and null pointers.
+Field offsets, element strides and nominal identities are
 bound metadata, not reconstructed from field spelling during emission. This
 representation is not a foreign ABI or a public memory-layout guarantee.
 
-Copies snapshot source cells before publishing destination cells, preserving
-self-aliasing and evaluation order. Failure paths use the existing fresh FAIL
-and sticky Err protocol; no incomplete assignment is published. Fixed storage
+Record copies snapshot source cells. Array replacements prepare independent
+payloads before publishing descriptors, preserving self-aliasing and evaluation
+order. TryResize/TryCopy return usable Boolean status and record Err on failure;
+ordinary assignment translates failed replacement into fresh FAIL without commit.
+Allocation failure collects eligible unowned/unborrowed leaf blocks and retries
+once. Success preserves sticky Err. Fixed storage
 begins neutral before an initializer runs. Declared records and array elements
 containing only scalar values require no tracing collector in this profile.
 
 Admission limits are 4,096 elements per array, 128 flattened cells per record,
 64 recursive layout visits, and 65,536 total module storage cells per execution
 context. The existing 128-cell frame limit includes four control cells, local
-aggregate payloads/descriptors, ByRef pointers, scalar temporaries and aggregate
-copy/comparison snapshots. Excessive inputs
+aggregate payloads/descriptors, ByRef pointers, borrow slots, scalar temporaries
+and record copy/comparison snapshots. Dynamic payloads have separate 64 MiB
+charged-storage and 4,096-live-block limits, including retained borrows. Excessive inputs
 receive diagnostics rather than creating uncontrolled stack or memory demand.
 The broader language retains its existing array and managed-memory semantics.
 
