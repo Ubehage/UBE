@@ -14,10 +14,13 @@ Full debugger information is not yet qualified, including when a manifest
 requests Line or Full information.
 
 The private procedure ABI uses `{ i1, i64 }`: the first field is fresh success,
-and the second is usable only when success is true. Long storage is represented
-in signed i64 cells, with its signed-32-bit range enforced at typed operations
-and conversions. Boolean cells use 0 and -1. Intermediate LongLong operations
-retain signed-64-bit checks. The representation is not a foreign ABI or a
+and the second is usable only when success is true. Boolean and fixed integer
+storage use i64 cells, enforcing each source type's range at typed operations
+and conversions. Byte is zero-extended; Integer and Long are sign-extended;
+Boolean cells use 0 and -1. Integer/Long/LongLong arithmetic uses checked
+16/32/64-bit operations respectively, with Byte arithmetic promoted to Integer.
+Narrowing checks compare the original value with the narrowed, re-extended
+value before publishing it. The representation is not a foreign ABI or a
 promise about future public type layouts.
 
 Calls receive an explicit execution-context pointer, followed by value cells

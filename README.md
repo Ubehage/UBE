@@ -76,7 +76,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 **UBE is in early development and is not ready for production use.**
 
 The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
-The agreed error-handling behavior passes tests with optimization both off and on. Support for the wider language and self-hosting comes next.
+It now handles small and large whole numbers with checked arithmetic and conversions. The agreed error-handling behavior passes tests with optimization both off and on.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 

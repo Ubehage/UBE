@@ -14,6 +14,12 @@ nearer roadmap or progress file.
 
 ## Restart baseline — 2026-11-10
 
+The final UBE-written compiler must be multithreaded, with all compiler code
+thread-safe from the start, as reaffirmed by the owner on 2026-11-10. The VB6
+bootstrap may remain sequential. The concrete architecture requirement is in
+`project-docs/Development-Plan.md`; its pending concurrency gate is in
+`compiler/ACCEPTANCE.md`. This requirement is independent of the later IDE.
+
 ### Active definition priority: error handling
 
 The owner identified error handling as the failure point of the previous
@@ -116,6 +122,13 @@ product baseline.
   addresses, dereferences memory or bypasses known invalid types.
 - [ ] Define the minimum bootstrap source subset needed to build the
   UBE-written compiler, with explicit rejection of unsupported constructs.
+- [x] Extend the scalar bootstrap with Byte, Integer and LongLong storage,
+  arguments/results and checked conversions. The concrete dependency evidence
+  is in `bootstrap/DEPENDENCIES.md`; this is an incremental extension within the
+  approved bootstrap dependency work, not a complete self-hosting subset.
+  The integer gate passed 46 groups, including 113 runtime boundary cases
+  across 25 conversion pairs at O0/O2. The same executable passed all 23 native,
+  76 semantic, 37 parser and 54 loading regressions. See compiler/Progress.md.
 - [ ] Implement and test that subset, then establish reproducible self-hosting.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.

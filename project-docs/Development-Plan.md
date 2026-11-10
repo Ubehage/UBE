@@ -51,6 +51,38 @@ Keep state per compilation/request. Do not introduce global mutable compiler
 state that would prevent later parallel compilation. Actual parallel build
 support is a separate tested capability, not inferred from this rule.
 
+### Final compiler concurrency requirement
+
+Owner clarification, 2026-11-10: the final UBE-written compiler must be
+multithreaded, and all of its code must be thread-safe. This is a compiler
+architecture requirement from the start, independent of the later IDE.
+The VB6 bootstrap may remain sequential; it need not implement a worker scheduler.
+
+The final compiler must execute independent compilation work concurrently,
+including independent work within a multi-module project where dependencies
+permit. Merely launching several single-threaded compiler processes does not
+satisfy this requirement. Dependency-sensitive work must wait for its inputs;
+parallelism must not change name resolution, initialization order or language
+semantics.
+
+Mutable state belongs to an explicit compilation/request or work item. Sharing
+immutable data is preferred; shared mutable caches, symbol data, diagnostics,
+allocation facilities and output publication require explicit ownership and
+synchronization. All compiler code, including library/backend interfaces used
+by workers, must be safe under its documented concurrent calling contract.
+Non-thread-safe dependencies must be isolated or serialized at that boundary.
+Do not rely on a process-global current project, current procedure or last error.
+Worker failures must return to the owning request without contaminating another
+request's diagnostics or error state.
+
+Thread safety and useful parallel execution are distinct acceptance obligations.
+The compiler must produce deterministic results and diagnostics regardless of
+worker scheduling. A single-worker mode provides a comparison baseline.
+The required concurrency evidence is specified in `../compiler/ACCEPTANCE.md`;
+the current bootstrap tests do not establish it. This requirement concerns the
+compiler implementation; generated programs retain their separately specified
+threading semantics.
+
 Do not implement Adaptive, assembly lowering, complicated Resume targets,
 cross-thread failure transfer or foreign callback behavior until their remaining
 contracts are closed. They do not block proving the agreed scalar failure flow.

@@ -81,7 +81,7 @@ also prints its retained syntax tree, including child links and physical source
 spans. Both fail the whole request on the first error; no partial tree is
 published as success. The diagnostic includes the source path, line and column.
 
-The implemented syntax covers typed Boolean/Long declarations, Subs/Functions,
+The implemented syntax covers typed Boolean/Byte/Integer/Long/LongLong declarations, Subs/Functions,
 ByVal/ByRef parameters, scalar expressions, qualified calls, assignments,
 single-line and block If/ElseIf/Else, labels/GoTo, Exit Sub/Function and the
 three admitted On Error forms. Err members are ordinary syntax at this point.
@@ -170,3 +170,19 @@ The [lowering contract](LOWERING.md) documents the internal ABI, limits and
 deferred boundaries. Source positions remain in the pipeline and IR comments;
 Line/Full debugger information is not yet emitted. This is a bounded scalar
 compiler, not full VB6 compatibility or a self-hosting compiler.
+
+## Integer dependencies
+
+Byte, Integer and LongLong storage now join Boolean and Long throughout the
+same pipeline. Integer suffixes `%`, `&` and `^` work on declarations, uses and
+literals; a use suffix must match its declaration. Arithmetic and narrowing
+conversions check the selected type's range, preserving the error behavior
+described above. The private scalar ABI does not define foreign memory layouts.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1
+```
+
+This gate tests exact constants, typed conversions, ByRef rules and actual
+native execution at O0/O2. The [dependency assessment](DEPENDENCIES.md) explains
+why these types come next and what is still needed before self-hosting.

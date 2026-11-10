@@ -1,6 +1,26 @@
 # Compiler development handoff
 
-## Current handoff: scalar native path complete; bootstrap dependencies next
+## Current handoff: integer dependencies complete; source buffers and trees next
+
+The completed incremental bootstrap dependency is Byte, Integer and LongLong
+storage, parameters and results, including checked conversions and authoritative
+integer suffixes. `../bootstrap/DEPENDENCIES.md` records the evidence from the
+existing pipeline and the remaining array/text/library prerequisites. The
+existing parser, semantic pass and emitter were extended, retaining all earlier
+error-flow and multi-module gates. The new gate is
+`../bootstrap/tests/integer-types/check.ps1`.
+
+Next measure the array, finite-record, text and loop capabilities needed to
+represent source buffers and retained compiler trees in UBE, then admit those
+dependencies incrementally under the existing development plan. The complete
+UBE-written compiler and its self-hosting subset are not yet established.
+
+Owner clarification, 2026-11-10: the final UBE-written compiler must be
+multithreaded and all compiler code thread-safe. The bootstrap may remain
+sequential. Apply explicit ownership and synchronization from the first UBE
+compiler implementation; do not postpone this architecture until IDE work.
+The development plan and ACCEPTANCE.md now state the requirement and its
+pending concurrency gate. Current bootstrap evidence does not verify concurrency.
 
 The owner authorized the restart sequence in
 `../project-docs/Development-Plan.md`. The planned scalar source boundary is
@@ -28,13 +48,58 @@ from fixture names or ordinary user procedure spellings.
 Next follow the existing development-plan item **Extend bootstrap dependencies**:
 measure the UBE-written compiler's required source/storage/library dependencies,
 then extend and test the admitted profile incrementally. Byte/Integer/LongLong
-storage, text, arrays/records, loops and explicit library I/O are candidates in
-the profile, not a newly approved all-at-once implementation. Self-hosting and
+storage is now implemented; text, arrays/records, loops and explicit library I/O
+remain candidates in the profile, not an all-at-once implementation. Self-hosting and
 full-language support remain incomplete.
 
 Adaptive context inference, assembly lowering and compound-header failure
 continuations are outside this first implementation. The runtime inventory in
 `../std-lib/INVENTORY.md` remains a planning input, not a support claim.
+
+## Integer storage and conversion gate
+
+On 2026-11-10, the updated bootstrap built with VB6 6.00.9782 and passed all
+76 existing semantic cases using:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1`
+
+Build and semantic evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube source semantics 76b57bdc-1612-43b6-9cc7-c918a8fcff02`.
+
+The following commands all passed on that same unchanged executable:
+
+```powershell
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube source semantics 76b57bdc-1612-43b6-9cc7-c918a8fcff02\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-compilation/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Final evidence under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+- `ube integer types caa47339-8e01-4b4e-9ec8-30e0f0d02268`: **46 groups**.
+- `ube native compilation 0fbc7a2e-a36b-496c-aa46-0047aa5ff8d3`: **23 groups**.
+- `ube source parsing f9c4eef5-2c1e-46bb-80cf-2a232ad95d32`: **37 cases**.
+- `ube project loading 9b50c4f8-661c-4017-9f12-d4293ce134f2`: **54 cases**.
+
+The integer gate checks exact bounds, destination-context constant typing,
+authoritative %, & and ^ literal suffixes, declaration/use suffix agreement,
+Byte-to-Integer promotion, and typed ByRef alias/temporary bindings. Actual
+source-generated native code runs at O0 and O2 using volatile harness input.
+The 25-cell scalar matrix covers assignment, ByVal and result conversions;
+113 additional runtime boundary cases cover source minima/maxima/zero and
+destination bounds plus/minus one where representable by the source type.
+Failures must preserve the destination sentinel and record Err 6; success
+must report fresh success. The four-check input-zero negative control returns
+exact mask 15. Known invalid constants and all 20 incompatible direct ByRef
+pairs are rejected, and a failed emission preserves prior LLVM output.
+
+Native tools remain Clang 23.1.3 and LLD. No new tool dependency, target ABI,
+operator family or compiler generation was introduced. Public memory layouts,
+arrays/records, source text, foreign interfaces and concurrent compiler execution
+remain unqualified. The final compiler's concurrency requirement and pending
+gate are recorded separately from these sequential bootstrap results.
 
 ## Scalar source-to-native gate
 

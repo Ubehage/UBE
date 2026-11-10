@@ -209,8 +209,8 @@ Private Function EnterSyntax(ByRef P As ParsedProject, ByRef S As ParserState, B
     EnterSyntax = True
 End Function
 
-' Reads the explicit scalar type annotation, including the Long name suffix.
-Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Suffix As Boolean, ByRef TypeName As String, ByRef Diagnostic As String) As Boolean
+' Reads an explicit scalar annotation and checks any adjacent identifier type suffix.
+Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Suffix As String, ByRef TypeName As String, ByRef Diagnostic As String) As Boolean
     If AtToken(P, S, "as") Then
         If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         S.Position = S.Position + 1
@@ -219,17 +219,23 @@ Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVa
             TypeName = "Long"
         ElseIf AtToken(P, S, "boolean") Then
             TypeName = "Boolean"
+        ElseIf AtToken(P, S, "byte") Then
+            TypeName = "Byte"
+        ElseIf AtToken(P, S, "integer") Then
+            TypeName = "Integer"
+        ElseIf AtToken(P, S, "longlong") Then
+            TypeName = "LongLong"
         Else
-            ReadType = SyntaxError(P, S, Diagnostic, "only Boolean and Long types are admitted", "E_UNSUPPORTED")
+            ReadType = SyntaxError(P, S, Diagnostic, "only Boolean, Byte, Integer, Long and LongLong types are admitted", "E_UNSUPPORTED")
             Exit Function
         End If
         S.Position = S.Position + 1
-        If Suffix And TypeName <> "Long" Then
-            ReadType = SyntaxError(P, S, Diagnostic, "Long suffix conflicts with As type")
+        If Len(Suffix) > 0 And TypeName <> Suffix Then
+            ReadType = SyntaxError(P, S, Diagnostic, "identifier suffix conflicts with As type")
             Exit Function
         End If
-    ElseIf Suffix Then
-        TypeName = "Long"
+    ElseIf Len(Suffix) > 0 Then
+        TypeName = Suffix
     Else
         ReadType = SyntaxError(P, S, Diagnostic, "explicit scalar type required")
         Exit Function
@@ -238,12 +244,21 @@ Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVa
 End Function
 
 ' Consumes the supported declaration suffix only when adjacent to its name.
-Private Function LongSuffix(ByRef P As ParsedProject, ByRef S As ParserState) As Boolean
-    If Not AtToken(P, S, "&") Then Exit Function
+Private Function ScalarSuffix(ByRef P As ParsedProject, ByRef S As ParserState) As String
+    Dim SelectedType As String
+    If AtToken(P, S, "&") Then
+        SelectedType = "Long"
+    ElseIf AtToken(P, S, "%") Then
+        SelectedType = "Integer"
+    ElseIf AtToken(P, S, "^") Then
+        SelectedType = "LongLong"
+    Else
+        Exit Function
+    End If
     If S.Position < 1 Then Exit Function
     If P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Offset + P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Length <> P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Offset Then Exit Function
     S.Position = S.Position + 1
-    LongSuffix = True
+    ScalarSuffix = SelectedType
 End Function
 
 ' Builds a qualified ordinary name; Err members receive no special syntax binding.
@@ -256,12 +271,14 @@ Private Function ParseName(ByRef P As ParsedProject, ByRef S As ParserState, ByR
     If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
     Node = NewNode(P, S, "name", Name, Start, Diagnostic)
     If Node = 0 Then Exit Function
+    P.Nodes(Node).TypeName = ScalarSuffix(P, S)
     Call FinishNode(P, S, Node)
     Do While AtToken(P, S, ".")
         S.Position = S.Position + 1
         If Not ReadName(P, S, Name, Diagnostic, True) Then Exit Function
         Member = NewNode(P, S, "member", Name, Start, Diagnostic)
         If Member = 0 Then Exit Function
+        P.Nodes(Member).TypeName = ScalarSuffix(P, S)
         Call AddChild(P, Member, Node)
         Node = Member
         Call FinishNode(P, S, Node)
@@ -313,8 +330,8 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
         If Not Expect(P, S, ")", Diagnostic) Then Exit Function
     ElseIf Kind = "number" Then
         Text = P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text
-        If Not LongLiteral(Text) Then
-            Call SyntaxError(P, S, Diagnostic, "only Long integer literals are admitted", "E_UNSUPPORTED")
+        If Not IntegerLiteral(Text) Then
+            Call SyntaxError(P, S, Diagnostic, "only integer literals are admitted", "E_UNSUPPORTED")
             Exit Function
         End If
         S.Position = S.Position + 1
@@ -348,11 +365,11 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
 End Function
 
 ' Admits integer syntax only; value/range checking belongs to scalar semantic analysis.
-Private Function LongLiteral(ByVal Text As String) As Boolean
+Private Function IntegerLiteral(ByVal Text As String) As Boolean
     Dim Index As Long
     Dim Digits As String
     Dim Character As String
-    If Right$(Text, 1) = "&" Then Text = Left$(Text, Len(Text) - 1)
+    If InStr("%&^", Right$(Text, 1)) > 0 Then Text = Left$(Text, Len(Text) - 1)
     Digits = "0123456789"
     If FoldAscii(Left$(Text, 2)) = "&h" Then
         Digits = "0123456789abcdef"
@@ -366,7 +383,7 @@ Private Function LongLiteral(ByVal Text As String) As Boolean
         Character = FoldAscii(Mid$(Text, Index, 1))
         If InStr(Digits, Character) = 0 Then Exit Function
     Next Index
-    LongLiteral = True
+    IntegerLiteral = True
 End Function
 
 ' Returns the admitted normative precedence, with comparison below addition.
@@ -436,13 +453,13 @@ Private Function ParseVariables(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Name As String
     Dim Kind As String
     Dim TypeName As String
-    Dim Suffix As Boolean
+    Dim Suffix As String
     Kind = "variable"
     If Constant Then Kind = "constant"
     Do
         Start = S.Position
         If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-        Suffix = LongSuffix(P, S)
+        Suffix = ScalarSuffix(P, S)
         If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
         Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
         If Node = 0 Then Exit Function
@@ -727,7 +744,7 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
     Dim Name As String
     Dim Mode As String
     Dim TypeName As String
-    Dim Suffix As Boolean
+    Dim Suffix As String
     Dim Node As Long
     S.Position = S.Position + 1
     If Not AtToken(P, S, ")") Then
@@ -741,7 +758,7 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
                 S.Position = S.Position + 1
             End If
             If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-            Suffix = LongSuffix(P, S)
+            Suffix = ScalarSuffix(P, S)
             If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
             Node = NewNode(P, S, "parameter", Name, Start, Diagnostic)
             If Node = 0 Then Exit Function
@@ -762,7 +779,7 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Name As String
     Dim Kind As String
     Dim TypeName As String
-    Dim Suffix As Boolean
+    Dim Suffix As String
     Dim Node As Long
     Dim Body As Long
     Start = S.Position
@@ -771,7 +788,7 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     S.Position = S.Position + 1
     If Not RequireSpace(P, S, Diagnostic) Then Exit Function
     If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-    If Kind = "function" Then Suffix = LongSuffix(P, S)
+    If Kind = "function" Then Suffix = ScalarSuffix(P, S)
     Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
     If Node = 0 Then Exit Function
     P.Nodes(Node).Modifiers = Visibility

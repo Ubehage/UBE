@@ -77,6 +77,56 @@ Every crash fix adds the smallest regression that reproduces the prior crash.
 - Keep tool versions and commands in the handoff. No network fetches or
   undocumented installed prerequisites.
 
+## Integer dependency gate
+
+`../bootstrap/tests/integer-types/check.ps1` checks the next admitted storage
+dependency: Byte, Integer and LongLong alongside Boolean/Long. Require exact
+typed minima/maxima, constant rejection beyond the ranges, destination-context
+literals, authoritative literal suffixes and declaration-consistent use suffixes.
+Byte arithmetic promotes to Integer; explicit narrow arithmetic must still
+overflow before conversion to a wider destination.
+
+Exercise the admitted conversion matrix through assignment, ByVal arguments
+and function results. Include runtime minima/maxima and destination boundaries
+where representable by the source type, unsigned rejection of True, signed
+extension, wide values and numeric-to-Boolean normalization. Run actual source
+at O0/O2 using volatile harness inputs; assert value, fresh success, sticky Err
+and unchanged destinations on failure. Direct ByRef requires exact declared
+types; grouped arguments use checked disposable temporaries. Existing native
+failure-flow, semantic, parser and loader gates must remain passing.
+
+These tests qualify scalar value semantics, not foreign memory layout, arrays,
+records, threading or self-hosting. Exact evidence belongs in Progress.md.
+
+## Final compiler concurrency gate
+
+This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.
+All compiler code must follow explicit ownership/synchronization contracts;
+passing ordinary sequential tests is not evidence of thread safety.
+
+- Demonstrate overlapping worker execution on independent work within a
+  multi-module project. Separate compiler processes alone are insufficient.
+- Compare generated IR/artifacts and ordered diagnostics with a single-worker
+  baseline, across repeated runs, worker counts and varied task schedules.
+  Normalize only documented nondeterministic packaging fields if applicable.
+- Compile multiple independent requests concurrently in the same compiler
+  process. Assert that symbols, source buffers, caches, temporary paths,
+  diagnostics and failure status cannot leak between requests.
+- Exercise dependency ordering, shared-data publication and competing output
+  publication. No request may consume an unfinished declaration table or
+  partially published artifact; failed builds retain the existing output.
+- Inject worker failures and cancellation alongside successful work. Assert
+  controlled completion, isolation of error state, bounded resource cleanup
+  and absence of deadlock; another request must remain usable afterward.
+- Review every mutable shared-state boundary and library/backend calling
+  contract. Use race detection where available and repeat contention tests;
+  report the tested schedules and limits rather than claiming that stress
+  testing alone proves the absence of all races.
+
+Performance measurements must accompany the overlap evidence, so useful
+parallelism is assessed separately from correctness. No fixed speedup is
+promised independently of workload and hardware. This gate is currently pending.
+
 ## Self-hosting gate, after source dependencies are implemented
 
 Build the UBE-written compiler with VB6 bootstrap, then rebuild it through

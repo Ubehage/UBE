@@ -429,6 +429,12 @@ Private Function ResolveReference(ByRef Project As ProjectContext, ByRef Parsed 
         Exit Function
     End If
     Bound.Nodes(Node).SymbolIndex = Symbol
+    If Len(Parsed.Nodes(Node).TypeName) > 0 Then
+        If Parsed.Nodes(Node).TypeName <> Bound.Symbols(Symbol).TypeName Then
+            Call BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "identifier suffix must agree with the selected declaration type")
+            Exit Function
+        End If
+    End If
     Bound.Nodes(Node).TypeName = Bound.Symbols(Symbol).TypeName
     Kind = Bound.Symbols(Symbol).Kind
     Bound.Nodes(Node).Writable = (Kind = "variable" Or Kind = "parameter" Or Kind = "result")
@@ -453,30 +459,80 @@ Private Sub CopyValue(ByRef Bound As BoundProject, ByVal Destination As Long, By
     If Bound.Nodes(Source).ConstantKnown Then Bound.Nodes(Destination).ConstantValue = Bound.Nodes(Source).ConstantValue
 End Sub
 
+' Returns fixed integer width for the admitted storage and intermediate types.
+Public Function IntegerWidth(ByVal TypeName As String) As Long
+    Select Case TypeName
+    Case "Byte": IntegerWidth = 8
+    Case "Integer": IntegerWidth = 16
+    Case "Long": IntegerWidth = 32
+    Case "LongLong": IntegerWidth = 64
+    End Select
+End Function
+
+' Supplies canonical exact lower bounds to semantic checking and native conversion guards.
+Public Function IntegerMinimumText(ByVal TypeName As String) As String
+    Select Case TypeName
+    Case "Byte": IntegerMinimumText = "0"
+    Case "Integer": IntegerMinimumText = "-32768"
+    Case "Long": IntegerMinimumText = "-2147483648"
+    Case "LongLong": IntegerMinimumText = "-9223372036854775808"
+    End Select
+End Function
+
+' Supplies canonical exact upper bounds without a floating-point intermediary.
+Public Function IntegerMaximumText(ByVal TypeName As String) As String
+    Select Case TypeName
+    Case "Byte": IntegerMaximumText = "255"
+    Case "Integer": IntegerMaximumText = "32767"
+    Case "Long": IntegerMaximumText = "2147483647"
+    Case "LongLong": IntegerMaximumText = "9223372036854775807"
+    End Select
+End Function
+
+' Classifies whether any value in the admitted source domain can fail conversion.
+Public Function IntegerConversionMayFail(ByVal SourceType As String, ByVal DestinationType As String) As Boolean
+    Dim Minimum As Variant
+    Dim Maximum As Variant
+    If DestinationType = "Boolean" Or SourceType = DestinationType Then Exit Function
+    If IntegerWidth(DestinationType) = 0 Then Exit Function
+    If SourceType = "Boolean" Then
+        Minimum = CDec(-1)
+        Maximum = CDec(0)
+    ElseIf IntegerWidth(SourceType) > 0 Then
+        Minimum = CDec(IntegerMinimumText(SourceType))
+        Maximum = CDec(IntegerMaximumText(SourceType))
+    Else
+        IntegerConversionMayFail = True
+        Exit Function
+    End If
+    IntegerConversionMayFail = (Minimum < CDec(IntegerMinimumText(DestinationType)) Or Maximum > CDec(IntegerMaximumText(DestinationType)))
+End Function
+
 ' Tests exact integer ranges using Decimal variants, never floating intermediates.
 Private Function FitsInteger(ByVal Value As Variant, ByVal TypeName As String) As Boolean
-    If TypeName = "Long" Then
-        FitsInteger = (Value >= CDec("-2147483648") And Value <= CDec("2147483647"))
-    ElseIf TypeName = "LongLong" Then
-        FitsInteger = (Value >= CDec("-9223372036854775808") And Value <= CDec("9223372036854775807"))
-    End If
+    If IntegerWidth(TypeName) = 0 Then Exit Function
+    FitsInteger = (Value >= CDec(IntegerMinimumText(TypeName)) And Value <= CDec(IntegerMaximumText(TypeName)))
 End Function
 
 ' Reads decimal literal magnitude exactly and applies a directly attached unary sign before range selection.
-Private Function BindNumber(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Node As Long, ByVal Negated As Boolean, ByRef Diagnostic As String) As Boolean
+Private Function BindNumber(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Node As Long, ByVal Negated As Boolean, ByRef Diagnostic As String, Optional ByVal DestinationType As String = "") As Boolean
     Dim Text As String
     Dim Index As Long
     Dim Digit As Long
     Dim Value As Variant
-    Dim ExplicitLong As Boolean
+    Dim ExplicitType As String
     Dim TypeName As String
     Text = Parsed.Nodes(Node).Text
     If Left$(Text, 1) = "&" Then
         BindNumber = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "hexadecimal and octal value interpretation is not admitted by this semantic profile")
         Exit Function
     End If
-    ExplicitLong = (Right$(Text, 1) = "&")
-    If ExplicitLong Then Text = Left$(Text, Len(Text) - 1)
+    Select Case Right$(Text, 1)
+    Case "%": ExplicitType = "Integer"
+    Case "&": ExplicitType = "Long"
+    Case "^": ExplicitType = "LongLong"
+    End Select
+    If Len(ExplicitType) > 0 Then Text = Left$(Text, Len(Text) - 1)
     Value = CDec(0)
     For Index = 1 To Len(Text)
         Digit = AscW(Mid$(Text, Index, 1)) - 48
@@ -491,8 +547,14 @@ Private Function BindNumber(ByRef Project As ProjectContext, ByRef Parsed As Par
         End If
     Next Index
     If Negated Then Value = -Value
-    TypeName = "Long"
-    If Not FitsInteger(Value, TypeName) And Not ExplicitLong Then TypeName = "LongLong"
+    TypeName = ExplicitType
+    If Len(TypeName) = 0 Then
+        TypeName = DestinationType
+        If IntegerWidth(TypeName) = 0 Then TypeName = "Long"
+        If Not FitsInteger(Value, TypeName) And TypeName = "Byte" Then TypeName = "Integer"
+        If Not FitsInteger(Value, TypeName) And TypeName = "Integer" Then TypeName = "Long"
+        If Not FitsInteger(Value, TypeName) And TypeName = "Long" Then TypeName = "LongLong"
+    End If
     If Not FitsInteger(Value, TypeName) Then
         BindNumber = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "integer literal is outside its selected type")
         Exit Function
@@ -508,11 +570,11 @@ Private Function ConvertValue(ByRef Project As ProjectContext, ByRef Parsed As P
     Dim Source As String
     Dim Value As Variant
     Source = Bound.Nodes(Node).TypeName
-    If Source <> "Boolean" And Source <> "Long" And Source <> "LongLong" Then
+    If Source <> "Boolean" And IntegerWidth(Source) = 0 Then
         ConvertValue = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "value cannot convert to " & Destination)
         Exit Function
     End If
-    If Destination <> "Boolean" And Destination <> "Long" And Destination <> "LongLong" Then
+    If Destination <> "Boolean" And IntegerWidth(Destination) = 0 Then
         ConvertValue = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "unsupported scalar destination")
         Exit Function
     End If
@@ -552,6 +614,10 @@ Private Function IntegerAnd(ByVal LeftValue As Variant, ByVal RightValue As Vari
     Dim RightHalf As Variant
     Width = 32
     Modulus = CDec("4294967296")
+    If TypeName = "Integer" Then
+        Width = 16
+        Modulus = CDec("65536")
+    End If
     If TypeName = "LongLong" Then
         Width = 64
         Modulus = CDec("18446744073709551616")
@@ -613,7 +679,7 @@ Private Function EvaluateConstant(ByRef Project As ProjectContext, ByRef Parsed 
         EvaluateConstant = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "required constant has no initializer")
         Exit Function
     End If
-    If Not BindExpression(Project, Parsed, Bound, State, Initializer, Symbol, Diagnostic) Then Exit Function
+    If Not BindExpression(Project, Parsed, Bound, State, Initializer, Symbol, Diagnostic, Bound.Symbols(Symbol).TypeName) Then Exit Function
     If Not Bound.Nodes(Initializer).ConstantKnown Then
         EvaluateConstant = BindingError(Project, Parsed, Initializer, Diagnostic, "E_CONSTANT", "initializer is not a required constant")
         Exit Function
@@ -663,7 +729,7 @@ Private Function BindCall(ByRef Project As ProjectContext, ByRef Parsed As Parse
     Parameter = Bound.Symbols(Symbol).FirstParameter
     Argument = Parsed.Nodes(Callee).NextSibling
     Do While Argument <> 0
-        If Not BindExpression(Project, Parsed, Bound, State, Argument, 0, Diagnostic) Then Exit Function
+        If Not BindExpression(Project, Parsed, Bound, State, Argument, 0, Diagnostic, Bound.Symbols(Parameter).TypeName) Then Exit Function
         If Bound.Symbols(Parameter).PassingMode = "ByVal" Then
             Bound.Nodes(Argument).ArgumentMode = "value"
             If Not ConvertValue(Project, Parsed, Bound, Argument, Bound.Symbols(Parameter).TypeName, Diagnostic) Then Exit Function
@@ -694,7 +760,7 @@ Private Function BindCall(ByRef Project As ProjectContext, ByRef Parsed As Parse
 End Function
 
 ' Applies the selected eager scalar operator and folds only when both operands are known.
-Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByVal Required As Long, ByRef Diagnostic As String) As Boolean
+Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByVal Required As Long, ByRef Diagnostic As String, ByVal DestinationType As String) As Boolean
     Dim LeftNode As Long
     Dim RightNode As Long
     Dim LeftType As String
@@ -706,10 +772,13 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
     Dim RightValue As Variant
     Dim Comparison As Boolean
     Dim Truth As Boolean
+    Dim OperandContext As String
     LeftNode = Parsed.Nodes(Node).FirstChild
     RightNode = Parsed.Nodes(LeftNode).NextSibling
-    If Not BindExpression(Project, Parsed, Bound, State, LeftNode, Required, Diagnostic) Then Exit Function
-    If Not BindExpression(Project, Parsed, Bound, State, RightNode, Required, Diagnostic) Then Exit Function
+    Operator = Parsed.Nodes(Node).Text
+    If Operator = "+" Or Operator = "and" Then OperandContext = DestinationType
+    If Not BindExpression(Project, Parsed, Bound, State, LeftNode, Required, Diagnostic, OperandContext) Then Exit Function
+    If Not BindExpression(Project, Parsed, Bound, State, RightNode, Required, Diagnostic, OperandContext) Then Exit Function
     LeftType = Bound.Nodes(LeftNode).TypeName
     RightType = Bound.Nodes(RightNode).TypeName
     Operator = Parsed.Nodes(Node).Text
@@ -717,7 +786,8 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
         BindBinary = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "mixed Boolean/integer operator domain is not admitted")
         Exit Function
     End If
-    SelectedType = "Long"
+    SelectedType = "Integer"
+    If LeftType = "Long" Or RightType = "Long" Then SelectedType = "Long"
     If LeftType = "LongLong" Or RightType = "LongLong" Then SelectedType = "LongLong"
     If LeftType = "Boolean" Then SelectedType = "Boolean"
     Comparison = (Operator = "=" Or Operator = "<>" Or Operator = "<" Or Operator = ">" Or Operator = "<=" Or Operator = ">=")
@@ -769,7 +839,7 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
 End Function
 
 ' Binds expression identities and types, retaining checked constants rather than executing source calls.
-Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByVal Required As Long, ByRef Diagnostic As String) As Boolean
+Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByVal Required As Long, ByRef Diagnostic As String, Optional ByVal DestinationType As String = "") As Boolean
     Dim Kind As String
     Dim Symbol As Long
     Dim Child As Long
@@ -778,7 +848,7 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
     Kind = Parsed.Nodes(Node).Kind
     Select Case Kind
     Case "number"
-        If Not BindNumber(Project, Parsed, Bound, Node, False, Diagnostic) Then Exit Function
+        If Not BindNumber(Project, Parsed, Bound, Node, False, Diagnostic, DestinationType) Then Exit Function
     Case "boolean"
         Bound.Nodes(Node).TypeName = "Boolean"
         Bound.Nodes(Node).ConstantKnown = True
@@ -800,24 +870,32 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
         End If
     Case "group"
         Child = Parsed.Nodes(Node).FirstChild
-        If Not BindExpression(Project, Parsed, Bound, State, Child, Required, Diagnostic) Then Exit Function
+        If Not BindExpression(Project, Parsed, Bound, State, Child, Required, Diagnostic, DestinationType) Then Exit Function
         Call CopyValue(Bound, Node, Child)
         Bound.Nodes(Node).Writable = False
     Case "unary"
         Child = Parsed.Nodes(Node).FirstChild
         If Parsed.Nodes(Node).Text = "-" And Parsed.Nodes(Child).Kind = "number" Then
-            If Not BindNumber(Project, Parsed, Bound, Child, True, Diagnostic) Then Exit Function
+            If Not BindNumber(Project, Parsed, Bound, Child, True, Diagnostic, DestinationType) Then Exit Function
             Call CopyValue(Bound, Node, Child)
+            If Bound.Nodes(Node).TypeName = "Byte" Then
+                Bound.Nodes(Node).TypeName = "Integer"
+                Bound.Nodes(Child).ConvertedType = "Integer"
+            End If
             ' This token magnitude belongs to the signed literal; it is not a standalone positive value.
             Bound.Nodes(Child).ConstantKnown = False
             Bound.Nodes(Child).ConstantValue = Empty
         Else
-            If Not BindExpression(Project, Parsed, Bound, State, Child, Required, Diagnostic) Then Exit Function
+            If Not BindExpression(Project, Parsed, Bound, State, Child, Required, Diagnostic, DestinationType) Then Exit Function
             If Bound.Nodes(Child).TypeName = "Boolean" Then
                 BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "Boolean unary arithmetic is outside the operator domain")
                 Exit Function
             End If
             Call CopyValue(Bound, Node, Child)
+            If Bound.Nodes(Node).TypeName = "Byte" Then
+                Bound.Nodes(Node).TypeName = "Integer"
+                Bound.Nodes(Child).ConvertedType = "Integer"
+            End If
             If Bound.Nodes(Node).ConstantKnown Then
                 Value = Bound.Nodes(Node).ConstantValue
                 If Parsed.Nodes(Node).Text = "-" Then Value = -Value
@@ -829,7 +907,7 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
             End If
         End If
     Case "binary"
-        If Not BindBinary(Project, Parsed, Bound, State, Node, Required, Diagnostic) Then Exit Function
+        If Not BindBinary(Project, Parsed, Bound, State, Node, Required, Diagnostic, DestinationType) Then Exit Function
     Case "call"
         If Required <> 0 Then
             BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "required constants cannot call procedures")
@@ -869,7 +947,7 @@ Private Function BindAssignment(ByRef Project As ProjectContext, ByRef Parsed As
         Bound.Nodes(Node).SymbolIndex = Symbol
     End If
     TypeName = Bound.Symbols(Symbol).TypeName
-    If Not BindExpression(Project, Parsed, Bound, State, Value, 0, Diagnostic) Then Exit Function
+    If Not BindExpression(Project, Parsed, Bound, State, Value, 0, Diagnostic, TypeName) Then Exit Function
     If Not ConvertValue(Project, Parsed, Bound, Value, TypeName, Diagnostic) Then Exit Function
     Bound.Nodes(Node).TypeName = TypeName
     If Bound.Nodes(Value).ConstantKnown Then

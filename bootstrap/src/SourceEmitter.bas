@@ -146,6 +146,8 @@ Private Function ConvertNative(ByRef State As EmissionState, ByVal Value As Stri
     Dim Test As String
     Dim Result As String
     Dim Narrow As String
+    Dim Width As String
+    Dim Extension As String
     If Len(DestinationType) = 0 Or SourceType = DestinationType Then
         ConvertNative = Value
         Exit Function
@@ -155,12 +157,15 @@ Private Function ConvertNative(ByRef State As EmissionState, ByVal Value As Stri
         Result = ValueName(State)
         Call AddLine(State, "  " & Test & " = icmp ne i64 " & Value & ", 0")
         Call AddLine(State, "  " & Result & " = select i1 " & Test & ", i64 -1, i64 0")
-    ElseIf DestinationType = "Long" And SourceType = "LongLong" Then
+    ElseIf IntegerConversionMayFail(SourceType, DestinationType) Then
+        Width = "i" & CStr(IntegerWidth(DestinationType))
+        Extension = "sext"
+        If DestinationType = "Byte" Then Extension = "zext"
         Narrow = ValueName(State)
         Result = ValueName(State)
         Test = ValueName(State)
-        Call AddLine(State, "  " & Narrow & " = trunc i64 " & Value & " to i32")
-        Call AddLine(State, "  " & Result & " = sext i32 " & Narrow & " to i64")
+        Call AddLine(State, "  " & Narrow & " = trunc i64 " & Value & " to " & Width)
+        Call AddLine(State, "  " & Result & " = " & Extension & " " & Width & " " & Narrow & " to i64")
         Call AddLine(State, "  " & Test & " = icmp ne i64 " & Value & ", " & Result)
         Call GuardError(State, Test, 6)
     Else
@@ -190,7 +195,7 @@ Private Function ConditionMayFail(ByRef Parsed As ParsedProject, ByRef Bound As 
     End Select
     Child = Parsed.Nodes(Node).FirstChild
     Do While Child <> 0
-        If Bound.Nodes(Child).ConvertedType = "Long" And Bound.Nodes(Child).TypeName = "LongLong" Then
+        If IntegerConversionMayFail(Bound.Nodes(Child).TypeName, Bound.Nodes(Child).ConvertedType) Then
             ConditionMayFail = True
             Exit Function
         End If
@@ -400,17 +405,16 @@ Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue
     Dim Overflow As String
     Dim NarrowResult As String
     Dim Result As String
-    Width = "i64"
+    Width = "i" & CStr(IntegerWidth(TypeName))
     Operation = "sadd"
     If Subtract Then Operation = "ssub"
     LeftOperand = LeftValue
     RightOperand = RightValue
-    If TypeName = "Long" Then
-        Width = "i32"
+    If Width <> "i64" Then
         LeftOperand = ValueName(State)
         RightOperand = ValueName(State)
-        Call AddLine(State, "  " & LeftOperand & " = trunc i64 " & LeftValue & " to i32")
-        Call AddLine(State, "  " & RightOperand & " = trunc i64 " & RightValue & " to i32")
+        Call AddLine(State, "  " & LeftOperand & " = trunc i64 " & LeftValue & " to " & Width)
+        Call AddLine(State, "  " & RightOperand & " = trunc i64 " & RightValue & " to " & Width)
     End If
     Pair = ValueName(State)
     Overflow = ValueName(State)
@@ -420,9 +424,9 @@ Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue
     Call GuardError(State, Overflow, 6)
     Call AddLine(State, "  " & NarrowResult & " = extractvalue { " & Width & ", i1 } " & Pair & ", 0")
     Result = NarrowResult
-    If Width = "i32" Then
+    If Width <> "i64" Then
         Result = ValueName(State)
-        Call AddLine(State, "  " & Result & " = sext i32 " & NarrowResult & " to i64")
+        Call AddLine(State, "  " & Result & " = sext " & Width & " " & NarrowResult & " to i64")
     End If
     CheckedArithmetic = Result
 End Function
@@ -531,6 +535,7 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
             Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, False)
         ElseIf Parsed.Nodes(Node).Text = "and" Then
             Result = ValueName(State)
+            ' Canonical signed extension makes i64 And equal the selected integral-width result.
             Call AddLine(State, "  " & Result & " = and i64 " & LeftValue & ", " & RightValue)
         Else
             Select Case Parsed.Nodes(Node).Text
@@ -870,8 +875,10 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef State As EmissionSt
     Words = 2 + Parsed.ModuleCount + State.FieldCount
     Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64] }")
     Call AddLine(State, "")
+    Call AddLine(State, "declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)")
     Call AddLine(State, "declare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)")
+    Call AddLine(State, "declare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)")
     Call AddLine(State, "declare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)")
     Call AddLine(State, "")

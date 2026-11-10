@@ -68,27 +68,40 @@ diagnostic.
 
 ## Scalar values and calls
 
-Storage and declared signatures admit Boolean and Long. Implicit Boolean/Long
-assignment and ByVal/result conversions follow the normative matrix: False is
-0, True is -1, and a numeric zero/nonzero becomes False/True. Direct ByRef
+Storage and declared signatures admit Boolean, Byte, Integer, Long and LongLong.
+Implicit assignment and ByVal/result conversions follow the normative matrix:
+False is 0, True is -1, and a numeric zero/nonzero becomes False/True. Conversion
+to Byte checks 0 through 255, so True cannot convert to Byte. Signed integer
+destinations enforce their 16-, 32- or 64-bit ranges. Direct ByRef
 requires exact-type writable storage. An extra grouping pair on an individual
 argument instead requests a converted temporary, with callee writes discarded.
 The call's argument-list delimiters alone do not request that temporary.
 
 Integer addition, unary signs, comparisons and Boolean logical And retain
-their typed operations. Integral And is bitwise in the common integer type.
+their typed operations. Byte arithmetic and unary signs promote to Integer;
+binary integral operations select the common Integer, Long or LongLong type.
+Integral And is bitwise in that common integer type.
 Mixed Boolean/integer operator domains remain explicitly unsupported rather
 than inferred from VB6 behavior; ordinary assignment conversions remain valid.
 Boolean comparisons currently admit equality and inequality; Boolean ordering
 and unary numeric operations remain deferred.
 
 Decimal integer literals follow destination-context/default Long-or-LongLong
-typing and authoritative explicit suffixes. Exact signed-64-bit intermediates
-are necessary even though LongLong storage declarations remain outside this
-profile: `2147483648 + -1` can yield a valid Long destination, while
-`2147483647 + 1` overflows its selected Long arithmetic. Constant folding must
+typing and authoritative explicit %, & and ^ suffixes. A numeric destination
+context flows through grouping, addition, unary signs and integral And; it does
+not turn a comparison's numeric operands into Boolean values. A literal which
+outgrows its context widens before the expression's final conversion.
+`2147483648 + -1` can yield a valid Long destination, while
+`2147483647 + 1` overflows when Long arithmetic is selected. A LongLong
+destination instead supplies LongLong context to those unsuffixed literals.
+Constant folding must
 check every selected operation and final conversion, retain source locations,
 and never use floating-point approximation for integer values.
+
+The same three suffixes are accepted on declarations and references. They are
+not part of name identity and must agree with the selected declaration's type.
+They do not request conversion of an ordinary function's return value; Adaptive
+functions remain outside this profile. Byte and Boolean declarations require As.
 
 Required constants may depend only on earlier visible constants, with no
 variable reads, calls or dependency cycles. Literal-only arithmetic in normal

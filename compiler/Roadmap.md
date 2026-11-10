@@ -4,6 +4,11 @@ The owner authorized a restart on 2026-11-10. This plan preserves the approved
 UBE language and minimal compiler/library boundary. It does not carry forward
 completion claims from removed implementations.
 
+The final UBE-written compiler must be multithreaded, with all compiler code
+thread-safe from its initial design. This is mandatory independently of the
+IDE; the VB6 bootstrap may remain sequential. Ownership, dependency ordering
+and shared-state rules are in the development plan's concurrency requirement.
+
 ## Bootstrap and self-hosting
 
 - [x] Prove the owner-selected VB6 bootstrap path using the gate in
@@ -40,9 +45,18 @@ completion claims from removed implementations.
   Expansion to the source/storage/library dependencies needed for self-hosting
   remains the next approved development-plan item; measure those dependencies
   before selecting each extension.
+  Byte, Integer and LongLong storage and checked conversions are now complete,
+  motivated in `../bootstrap/DEPENDENCIES.md`. The integer dependency gate passed
+  46 groups, including 113 boundary cases at O0/O2, and all earlier gates pass.
+  Arrays, records, text, loops and library I/O remain. Measure source-buffer and
+  retained-tree needs before selecting the next incremental extension.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.
+- [ ] Implement and qualify concurrent compilation in the UBE-written compiler:
+  execute independent project work in parallel, isolate simultaneous requests,
+  and pass the concurrency gate in ACCEPTANCE.md. Preserve the same semantics
+  and deterministic results in single-worker and multi-worker execution.
 
 ## Complete language and product support
 
@@ -50,8 +64,8 @@ completion claims from removed implementations.
   algorithms in UBE libraries and only irreducible operations as intrinsics.
 - [ ] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
-- [ ] Deliver source-level debug information, compiler services and
-  thread-safe parallel compilation for the native IDE.
+- [ ] Deliver source-level debug information and compiler services for the
+  native IDE, using the compiler's required thread-safe parallel implementation.
 - [ ] Qualify optimization, diagnostics, malformed-input recovery and target
   portability independently; LLVM target availability alone is not evidence.
 - [ ] Meet release requirements, sample requirements and offline documentation

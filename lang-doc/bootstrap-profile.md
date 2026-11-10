@@ -20,11 +20,17 @@ described below separately executes the oracle.
 contract in `../bootstrap/SEMANTICS.md`, including trusted Err declarations,
 shadowing, package/module lookup, visibility, duplicate/undeclared names,
 signatures, ByRef alias/temporary treatment, labels and checked constants.
-Decimal LongLong intermediates are admitted for expressions while storage
-declarations remain Boolean/Long. Hex/octal interpretation, mixed Boolean/integer
+The subsequent integer dependency extension admits Byte, Integer and LongLong
+storage alongside Boolean/Long. Hex/octal interpretation, mixed Boolean/integer
 operator domains, cross-module required-constant dependencies and colliding
 package/module three-part qualifiers are explicitly deferred as documented
 there. No UBE runtime behavior is claimed by semantic acceptance.
+
+`bootstrap/tests/integer-types/check.ps1` separately checks Byte, Integer and
+LongLong storage and the full admitted scalar conversion matrix. It asserts
+exact typed constants, suffix agreement, Byte promotion, checked narrowing,
+ByRef rules and native behavior at O0/O2. Its evidence is recorded in the
+compiler handoff; arrays, records and foreign layouts are not covered.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
@@ -33,8 +39,9 @@ recursion, x64 output, deterministic IR and failed-build output preservation.
 The implemented lowering and remaining boundaries are in
 `../bootstrap/LOWERING.md`; exact evidence is in `../compiler/Progress.md`.
 
-The parser also admits ordinary typed scalar constants/initializers, Long `&`
-declaration suffixes, unary signs, integer radix spellings, ASCII bracketed
+The parser also admits ordinary typed scalar constants/initializers, integer
+`%`, `&` and `^` declaration/reference/literal suffixes, unary signs, integer
+radix spellings, ASCII bracketed
 names, numeric labels, ElseIf and redundant Option Explicit/On. Unsupported
 types, operators, declarations and control forms fail explicitly. It reports
 the first error and does not provide IDE multi-error recovery. Parser limits
@@ -51,7 +58,7 @@ possible or that its minimum dependencies have all been measured.
 |---|---|
 | Container | UTF-8 `.UBE` project manifest with multiple ordered `.bas` modules, each with `UBE SOURCE 1 MODULE` and Attribute UBE_Name; project loading is required from the first implementation |
 | Entry | One package-wide module-level `Function Main() As Long` or `Sub Main()` for an Exe project |
-| Types/storage | Boolean and Long; explicitly typed locals, parameters and function results; neutral initialization; scalar module variables for assertion traces |
+| Types/storage | Boolean, Byte, Integer, Long and LongLong; explicitly typed locals, parameters and function results; neutral initialization; scalar module variables |
 | Procedures | Module Subs and Functions; ByVal and exact writable-storage ByRef; parameterless and positional calls; Exit Sub/Function |
 | Expressions | Literals, names, calls, comparisons, eager Boolean And and checked Long addition needed by the error fixtures; evaluation once in source order |
 | Statements | Scalar declarations/assignments, procedure calls, single-line and block If/Else, procedure-local labels and GoTo |
@@ -106,7 +113,9 @@ profile is not a prerequisite for starting the parser.
 
 Add and prove these only as compiler-source needs demand them:
 
-- Byte, Integer and LongLong storage and checked conversions/arithmetic;
+- Byte, Integer and LongLong storage and checked conversions/arithmetic are
+  implemented by the integer dependency extension; its gate is
+  `bootstrap/tests/integer-types/check.ps1`. This does not imply arrays or records;
 - Unicode text and counted byte I/O, with explicit encoding and source spans;
 - dynamic arrays and finite value records with independent copy semantics;
 - strings and precise managed-storage lifetimes if used by the compiler;
