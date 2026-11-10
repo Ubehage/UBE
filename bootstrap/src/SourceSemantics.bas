@@ -694,6 +694,100 @@ Private Function BindArrayShape(ByRef Project As ProjectContext, ByRef Parsed As
     BindArrayShape = True
 End Function
 
+' Recognizes the exact rank-only parameter shape required by intrinsic declarations.
+Private Function IntrinsicArrayParameter(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Parameter As Long) As Boolean
+    Dim Child As Long
+    Child = Parsed.Nodes(Bound.Symbols(Parameter).DeclarationNode).FirstChild
+    If Child = 0 Then Exit Function
+    IntrinsicArrayParameter = (Parsed.Nodes(Child).Kind = "array-shape" And Parsed.Nodes(Child).Text = "dynamic")
+End Function
+
+' Validates only explicitly attributed intrinsic declarations; ordinary names carry no authority.
+Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef Diagnostic As String) As Boolean
+    Dim Symbol As Long
+    Dim Node As Long
+    Dim Child As Long
+    Dim AttributeNode As Long
+    Dim AttributeCount As Long
+    Dim Parameter As Long
+    Dim Position As Long
+    Dim Role As String
+    Dim Kind As String
+    Dim ArrayParameter As Boolean
+    Dim SignatureMatches As Boolean
+    For Symbol = 1 To Bound.SymbolCount
+        Kind = Bound.Symbols(Symbol).Kind
+        If Bound.Symbols(Symbol).Origin = "source" And (Kind = "sub" Or Kind = "function") Then
+            Node = Bound.Symbols(Symbol).DeclarationNode
+            AttributeNode = 0
+            AttributeCount = 0
+            Child = Parsed.Nodes(Node).FirstChild
+            Do While Child <> 0
+                If Parsed.Nodes(Child).Kind = "primitive" Then
+                    AttributeCount = AttributeCount + 1
+                    AttributeNode = Child
+                End If
+                If Parsed.Nodes(Node).IsIntrinsic And Parsed.Nodes(Child).Kind = "body" Then
+                    If Parsed.Nodes(Child).FirstChild <> 0 Then
+                        ValidateIntrinsicDeclarations = BindingError(Project, Parsed, Child, Diagnostic, "E_TYPE", "Intrinsic declarations cannot contain an implemented source body")
+                        Exit Function
+                    End If
+                End If
+                Child = Parsed.Nodes(Child).NextSibling
+            Loop
+            If Not Parsed.Nodes(Node).IsIntrinsic Then
+                If AttributeCount <> 0 Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_TYPE", "UBE_Primitive requires an Intrinsic declaration")
+                    Exit Function
+                End If
+            Else
+                If AttributeCount <> 1 Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Intrinsic requires exactly one UBE_Primitive attribute")
+                    Exit Function
+                End If
+                If FoldAscii(Parsed.Nodes(AttributeNode).TypeName) <> FoldAscii(Bound.Symbols(Symbol).Name) Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_TYPE", "UBE_Primitive target must match its containing declaration")
+                    Exit Function
+                End If
+                Role = FoldAscii(Parsed.Nodes(AttributeNode).Text)
+                If Role <> "array.length" And Role <> "memory.copybytes" Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_UNSUPPORTED", "unknown or unsupported primitive role " & Parsed.Nodes(AttributeNode).Text)
+                    Exit Function
+                End If
+                If Project.KindName = "exe" And FoldAscii(Bound.Symbols(Symbol).Name) = "main" Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Main cannot be an Intrinsic declaration")
+                    Exit Function
+                End If
+                SignatureMatches = (Kind = "function")
+                If Role = "array.length" Then
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Long" And Bound.Symbols(Symbol).ParameterCount = 1
+                Else
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 5
+                End If
+                Parameter = Bound.Symbols(Symbol).FirstParameter
+                Position = 1
+                Do While Parameter <> 0
+                    ArrayParameter = IntrinsicArrayParameter(Parsed, Bound, Parameter)
+                    If Role = "array.length" Or Position = 1 Or Position = 3 Then
+                        SignatureMatches = SignatureMatches And ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByRef"
+                        If Role = "memory.copybytes" Then SignatureMatches = SignatureMatches And Bound.Symbols(Parameter).TypeName = "Byte"
+                    Else
+                        SignatureMatches = SignatureMatches And Not ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByVal" And Bound.Symbols(Parameter).TypeName = "Long"
+                    End If
+                    Parameter = Bound.Symbols(Parameter).NextParameter
+                    Position = Position + 1
+                Loop
+                If Not SignatureMatches Then
+                    ValidateIntrinsicDeclarations = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "declaration does not match the required " & Role & " signature")
+                    Exit Function
+                End If
+                Bound.Symbols(Symbol).BindingId = Role
+            End If
+        End If
+    Next Symbol
+    ValidateIntrinsicDeclarations = True
+End Function
+
 ' Completes nominal types and declaration shapes before ordinary expression checking.
 Private Function PrepareValueTypes(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByRef Diagnostic As String) As Boolean
     Dim OriginalCount As Long
@@ -1522,6 +1616,7 @@ Public Function BindProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     State.ProjectName = Project.ProjectName
     Bound.NodeCount = Parsed.NodeCount
     If Not CollectDeclarations(Project, Parsed, Bound, State, Diagnostic) Then GoTo Rejected
+    If Not ValidateIntrinsicDeclarations(Project, Parsed, Bound, Diagnostic) Then GoTo Rejected
     If Not PrepareValueTypes(Project, Parsed, Bound, State, Diagnostic) Then GoTo Rejected
     ' Complete constant declarations before ordinary expressions, independent of caller module order.
     For Index = 1 To Bound.SymbolCount

@@ -951,6 +951,105 @@ Private Sub EmitReturns(ByRef State As EmissionState)
     Call AddLine(State, "")
 End Sub
 
+' Emits identity-bound counted-array primitives with usable Boolean status rather than language FAIL.
+Private Sub EmitArrayIntrinsic(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long)
+    Dim Signature As String, Parameter As Long, Index As Long
+    Dim Arguments(0 To 4) As String, Role As String
+    State.ErrorNode = Bound.Symbols(Symbol).DeclarationNode
+    Role = Bound.Symbols(Symbol).BindingId
+    Signature = "ptr %ctx"
+    Parameter = Bound.Symbols(Symbol).FirstParameter
+    Do While Parameter <> 0
+        Arguments(Index) = "%arg." & CStr(Parameter)
+        If Bound.Symbols(Parameter).PassingMode = "ByRef" Then
+            Signature = Signature & ", ptr " & Arguments(Index)
+        Else
+            Signature = Signature & ", i64 " & Arguments(Index)
+        End If
+        Index = Index + 1
+        Parameter = Bound.Symbols(Parameter).NextParameter
+    Loop
+    Call AddLine(State, "define { i1, i64 } @ube.proc." & CStr(Symbol) & "(" & Signature & ") {")
+    Call AddLine(State, "entry:")
+    Call AddLine(State, "  %source.lower = load i64, ptr " & Arguments(0))
+    Call AddLine(State, "  %source.upper.ptr = getelementptr i64, ptr " & Arguments(0) & ", i64 1")
+    Call AddLine(State, "  %source.upper = load i64, ptr %source.upper.ptr")
+    Call AddLine(State, "  %source.distance = sub i64 %source.upper, %source.lower")
+    Call AddLine(State, "  %source.length = add i64 %source.distance, 1")
+    If Role = "array.length" Then
+        Call AddLine(State, "  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %source.length, 1")
+        Call AddLine(State, "  ret { i1, i64 } %result")
+    Else
+        Call AddLine(State, "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0")
+        Call AddLine(State, "  %count.invalid = icmp slt i64 " & Arguments(4) & ", 0")
+        Call AddLine(State, "  br i1 %count.invalid, label %argument.fail, label %span.starts")
+        Call AddLine(State, "span.starts:")
+        Call AddLine(State, "  %destination.lower = load i64, ptr " & Arguments(2))
+        Call AddLine(State, "  %destination.upper.ptr = getelementptr i64, ptr " & Arguments(2) & ", i64 1")
+        Call AddLine(State, "  %destination.upper = load i64, ptr %destination.upper.ptr")
+        Call AddLine(State, "  %destination.distance = sub i64 %destination.upper, %destination.lower")
+        Call AddLine(State, "  %destination.length = add i64 %destination.distance, 1")
+        Call AddLine(State, "  %source.negative = icmp slt i64 " & Arguments(1) & ", 0")
+        Call AddLine(State, "  %destination.negative = icmp slt i64 " & Arguments(3) & ", 0")
+        Call AddLine(State, "  %source.past = icmp sgt i64 " & Arguments(1) & ", %source.length")
+        Call AddLine(State, "  %destination.past = icmp sgt i64 " & Arguments(3) & ", %destination.length")
+        Call AddLine(State, "  %negative = or i1 %source.negative, %destination.negative")
+        Call AddLine(State, "  %past = or i1 %source.past, %destination.past")
+        Call AddLine(State, "  %start.invalid = or i1 %negative, %past")
+        Call AddLine(State, "  br i1 %start.invalid, label %span.fail, label %span.count")
+        Call AddLine(State, "span.count:")
+        Call AddLine(State, "  %source.remaining = sub i64 %source.length, " & Arguments(1))
+        Call AddLine(State, "  %destination.remaining = sub i64 %destination.length, " & Arguments(3))
+        Call AddLine(State, "  %source.short = icmp sgt i64 " & Arguments(4) & ", %source.remaining")
+        Call AddLine(State, "  %destination.short = icmp sgt i64 " & Arguments(4) & ", %destination.remaining")
+        Call AddLine(State, "  %span.invalid = or i1 %source.short, %destination.short")
+        Call AddLine(State, "  br i1 %span.invalid, label %span.fail, label %copy.test")
+        Call AddLine(State, "copy.test:")
+        Call AddLine(State, "  %empty = icmp eq i64 " & Arguments(4) & ", 0")
+        Call AddLine(State, "  br i1 %empty, label %copy.done, label %copy.choose")
+        Call AddLine(State, "copy.choose:")
+        Call AddLine(State, "  %source.data = getelementptr i64, ptr " & Arguments(0) & ", i64 2")
+        Call AddLine(State, "  %destination.data = getelementptr i64, ptr " & Arguments(2) & ", i64 2")
+        Call AddLine(State, "  %same = icmp eq ptr " & Arguments(0) & ", " & Arguments(2))
+        Call AddLine(State, "  %later = icmp sgt i64 " & Arguments(3) & ", " & Arguments(1))
+        Call AddLine(State, "  %backward = and i1 %same, %later")
+        Call AddLine(State, "  br i1 %backward, label %copy.backward, label %copy.forward")
+        Call AddLine(State, "copy.forward:")
+        Call AddLine(State, "  %forward.index = phi i64 [ 0, %copy.choose ], [ %forward.next, %copy.forward ]")
+        Call AddLine(State, "  %forward.source.index = add i64 " & Arguments(1) & ", %forward.index")
+        Call AddLine(State, "  %forward.destination.index = add i64 " & Arguments(3) & ", %forward.index")
+        Call AddLine(State, "  %forward.source = getelementptr i64, ptr %source.data, i64 %forward.source.index")
+        Call AddLine(State, "  %forward.destination = getelementptr i64, ptr %destination.data, i64 %forward.destination.index")
+        ' Logical bytes occupy private i64 cells; volatile movement prevents CRT memcpy synthesis.
+        Call AddLine(State, "  %forward.value = load volatile i64, ptr %forward.source")
+        Call AddLine(State, "  store volatile i64 %forward.value, ptr %forward.destination")
+        Call AddLine(State, "  %forward.next = add i64 %forward.index, 1")
+        Call AddLine(State, "  %forward.more = icmp slt i64 %forward.next, " & Arguments(4))
+        Call AddLine(State, "  br i1 %forward.more, label %copy.forward, label %copy.done")
+        Call AddLine(State, "copy.backward:")
+        Call AddLine(State, "  %backward.remaining = phi i64 [ " & Arguments(4) & ", %copy.choose ], [ %backward.index, %copy.backward ]")
+        Call AddLine(State, "  %backward.index = sub i64 %backward.remaining, 1")
+        Call AddLine(State, "  %backward.source.index = add i64 " & Arguments(1) & ", %backward.index")
+        Call AddLine(State, "  %backward.destination.index = add i64 " & Arguments(3) & ", %backward.index")
+        Call AddLine(State, "  %backward.source = getelementptr i64, ptr %source.data, i64 %backward.source.index")
+        Call AddLine(State, "  %backward.destination = getelementptr i64, ptr %destination.data, i64 %backward.destination.index")
+        Call AddLine(State, "  %backward.value = load volatile i64, ptr %backward.source")
+        Call AddLine(State, "  store volatile i64 %backward.value, ptr %backward.destination")
+        Call AddLine(State, "  %backward.more = icmp ne i64 %backward.index, 0")
+        Call AddLine(State, "  br i1 %backward.more, label %copy.backward, label %copy.done")
+        Call AddLine(State, "argument.fail:")
+        Call AddLine(State, "  store i64 5, ptr %err")
+        Call AddLine(State, "  ret { i1, i64 } { i1 true, i64 0 }")
+        Call AddLine(State, "span.fail:")
+        Call AddLine(State, "  store i64 9, ptr %err")
+        Call AddLine(State, "  ret { i1, i64 } { i1 true, i64 0 }")
+        Call AddLine(State, "copy.done:")
+        Call AddLine(State, "  ret { i1, i64 } { i1 true, i64 -1 }")
+    End If
+    Call AddLine(State, "}")
+    Call AddLine(State, "")
+End Sub
+
 ' Starts one source procedure with checked call depth and a neutral frame.
 Private Sub EmitProcedure(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long)
     Dim Signature As String
@@ -1158,7 +1257,13 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     For Index = 1 To Bound.SymbolCount
         Kind = Bound.Symbols(Index).Kind
         If Bound.Symbols(Index).Origin = "source" Then
-            If Kind = "sub" Or Kind = "function" Then Call EmitProcedure(Parsed, Bound, State, Index)
+            If Kind = "sub" Or Kind = "function" Then
+                If Bound.Symbols(Index).BindingId = "array.length" Or Bound.Symbols(Index).BindingId = "memory.copybytes" Then
+                    Call EmitArrayIntrinsic(Bound, State, Index)
+                Else
+                    Call EmitProcedure(Parsed, Bound, State, Index)
+                End If
+            End If
         End If
         If State.Failed Then Exit For
     Next Index

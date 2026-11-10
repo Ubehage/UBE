@@ -137,6 +137,13 @@ product baseline.
   token/tree-record execution at O0/O2. The same executable passed all 46 integer,
   23 native, 76 semantic, 37 parser and 54 loading regressions. Exact evidence
   and remaining dynamic-storage/text/I/O work are in compiler/Progress.md.
+- [x] Implement the counted-buffer prerequisite through validated
+  Array.Length/Memory.CopyBytes intrinsics and ordinary UBECore AppendBytes.
+  The counted-buffers gate passed 25 groups: actual source execution at O0/O2,
+  overlap, record-only status versus FAIL, exact declaration binding and
+  failed-output preservation. All six earlier suites passed on the same build.
+  Exact commands and artifacts are in compiler/Progress.md. Dynamic allocation
+  and live element-alias ownership remain later dependencies.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

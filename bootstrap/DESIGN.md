@@ -44,6 +44,13 @@ selects procedure invocation or array indexing; member nodes retain their
 receiver. Nominal identity and storage layout are semantic metadata, described
 in [AGGREGATES.md](AGGREGATES.md).
 
+Intrinsic declarations keep their ordinary function/sub node and an explicit
+IsIntrinsic marker. Primitive metadata is a child node with the decoded role
+as Text and attribute target as TypeName, retaining its physical span. The
+binder validates this metadata before any native role is assigned. Intrinsic
+bodies must be empty. The existing dump framing remains unchanged; metadata
+children and bound BindingId fields expose the selected role for inspection.
+
 ## Failure boundaries
 
 The current command reports the first lexical or syntax error and fails the

@@ -202,3 +202,21 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps
 The gate checks actual source execution at O0/O2, including bounds failures and
 copy/alias behavior. Dynamic arrays, managed text and aggregate ByVal/results
 remain later dependencies. Exact results are in compiler/Progress.md.
+
+## Counted buffers and UBECore
+
+The bootstrap validates explicitly attributed Intrinsic declarations for
+Array.Length and Memory.CopyBytes. The first portable UBECore source modules
+compose those primitives in ordinary AppendBytes code. CopyBytes returns usable
+Boolean status; AppendBytes explicitly raises a language error when it fails.
+The [counted-buffer contract](COUNTED-BUFFERS.md) records the exact boundary.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/counted-buffers/check.ps1
+```
+
+This gate passed 25 groups, including actual UBECore execution at O0/O2, overlap,
+failure preservation and exact binding. The UBECore project is
+`../std-lib/UBECore.UBE`. Consumers currently include its source modules in their
+manifest; automatic library discovery and native library packaging remain
+unimplemented. Dynamic allocation and file I/O are separate dependencies.

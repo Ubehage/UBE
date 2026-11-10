@@ -51,6 +51,10 @@ and shared-state rules are in the development plan's concurrency requirement.
   Fixed rank-one arrays and finite scalar-field records now provide bounded
   source buffers and retained token/tree storage; the admission boundary is
   `../bootstrap/AGGREGATES.md`; the aggregate-storage gate passed 38 groups.
+  Validated Array.Length/Memory.CopyBytes bindings and ordinary UBECore
+  AppendBytes source now pass the 25-group counted-buffer gate at O0/O2.
+  These operations allocate nothing; dynamic growth still requires the live
+  element-alias ownership decision recorded in bootstrap/DEPENDENCIES.md.
   Dynamic storage, managed text, broader loops and explicit library I/O remain.
   Measure the growing source/token buffer and input/output needs next, extending
   this same pipeline under the existing bootstrap-dependencies item.

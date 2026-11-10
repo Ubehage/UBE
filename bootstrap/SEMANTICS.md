@@ -149,6 +149,16 @@ are exercised by the gate; the lookup-work guard is defensive and its exact
 threshold is not separately qualified. Commands and artifact paths are in
 `../compiler/Progress.md`.
 
+## Explicit primitive declarations
+
+Intrinsic declarations retain a Boolean syntax marker and a `primitive` child
+containing the attribute target and decoded role. Binding requires exactly one
+matching attribute and the complete declared signature for Array.Length or
+Memory.CopyBytes. Only then is the canonical role published in the symbol's
+existing BindingId field. Ordinary names, including user functions named like
+the library declarations, carry no primitive authority. Unknown roles and
+unsupported declarations fail explicitly. See COUNTED-BUFFERS.md.
+
 ## Bound inspection records
 
 `--analyze` publishes the ordered project/module summary and ANALYZE OK only

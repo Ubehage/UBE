@@ -117,6 +117,24 @@ gates must pass on the same final executable.
 This gate covers fixed owned scalar storage under AGGREGATES.md; it does not
 qualify dynamic allocation, managed roots, public layouts or self-hosting.
 
+## Counted-buffer primitive and UBECore gate
+
+`../bootstrap/tests/counted-buffers/check.ps1` must compile actual UBECore source
+through a multi-module project and run its primitives and append algorithm at
+O0/O2. Assert actual descriptor lengths, logical byte offsets independent of
+lower bounds, overlap in both directions, self-copy, zero-count end offsets,
+full-span validation before writing and unchanged destinations on failure.
+Distinguish record-only False from language FAIL, including sticky Err,
+continued expression evaluation, enabled handlers and failing argument
+conversion. Prove that append publishes used length only after success.
+
+Inspection must assert role-to-declaration binding, renamed declarations and
+ordinary-name counterexamples. Reject missing, duplicate, mismatched and
+unsupported metadata/signatures with source locations; a failed emission must
+preserve the earlier output. All existing bootstrap gates remain regressions.
+Allocation, empty dynamic arrays, collector behavior and I/O are outside this
+allocation-free gate.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

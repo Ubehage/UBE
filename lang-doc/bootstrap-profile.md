@@ -42,6 +42,14 @@ Managed fields, dynamic arrays, aggregate ByVal/results and foreign layouts
 are not included. This extension uses existing GoTo traversal, without adding
 loop-header failure semantics.
 
+The counted-buffer extension validates exact Intrinsic declarations for the
+existing Array.Length and Memory.CopyBytes roles and executes portable UBECore
+AppendBytes source. `bootstrap/tests/counted-buffers/check.ps1` passed 25 groups
+covering identity binding, actual O0/O2 execution, overlap, span failures,
+record-only Boolean status and explicit wrapper FAIL. Its allocation-free
+boundary is in [COUNTED-BUFFERS.md](../bootstrap/COUNTED-BUFFERS.md). Other
+primitive roles, dynamic arrays and I/O remain unimplemented.
+
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
 multi-module initialization/calls, ByRef behavior, checked failures, bounded
@@ -130,7 +138,8 @@ Add and prove these only as compiler-source needs demand them:
 - dynamic arrays and broader aggregate storage; finite scalar-field records and
   fixed rank-one arrays with bounded independent copies are now implemented;
 - strings and precise managed-storage lifetimes if used by the compiler;
-- loop forms, additional operators and ordinary UBECore procedure calls;
+- broader loop forms, additional operators and further UBECore procedures;
+  ordinary calls into the counted-buffer UBECore source are now qualified;
 - further cross-module resolution features beyond the initial scalar package;
 - deterministic diagnostics, file ownership and backend invocation.
 

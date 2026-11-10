@@ -47,6 +47,15 @@ or volatile semantics in the source language.
 
 ## Error flow
 
+The identity-bound Array.Length and Memory.CopyBytes functions use the same
+private procedure ABI. CopyBytes validates both complete spans before movement
+and returns `{ true, False }` when its documented status is False, recording
+Err 5 or 9 without a language failure edge. Forward/backward cell movement
+handles overlap in the current logical-Byte representation without allocation
+or CRT imports. A normal UBECore wrapper can explicitly raise after checking
+that status. Argument conversion and evaluation still use ordinary FAIL paths.
+The exact scope is in [COUNTED-BUFFERS.md](COUNTED-BUFFERS.md).
+
 Every potentially failing operation branches on its own fresh result. Err is
 sticky information, not a success predicate. Trusted Raise records its number
 and immediately returns FAIL from the containing procedure, bypassing that

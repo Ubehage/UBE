@@ -11,6 +11,7 @@ Public Type SyntaxNode
     Text As String
     TypeName As String
     Modifiers As String
+    IsIntrinsic As Boolean
     ModuleIndex As Long
     FirstToken As Long
     LastToken As Long
@@ -910,8 +911,38 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
     ParseParameters = Expect(P, S, ")", Diagnostic)
 End Function
 
-' Retains procedure signature and body; name/type binding is a later compiler pass.
-Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByVal Visibility As String, ByRef Diagnostic As String) As Boolean
+' Retains explicit primitive metadata for declaration-identity validation by binding.
+Private Function ParsePrimitiveAttribute(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByRef Diagnostic As String) As Boolean
+    Dim Start As Long, Node As Long
+    Dim Target As String, AttributeName As String, Role As String
+    Start = S.Position
+    S.Position = S.Position + 1
+    If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+    If Not ReadName(P, S, Target, Diagnostic) Then Exit Function
+    If Not Expect(P, S, ".", Diagnostic) Then Exit Function
+    If Not ReadName(P, S, AttributeName, Diagnostic, True) Then Exit Function
+    If FoldAscii(AttributeName) <> "ube_primitive" Then
+        ParsePrimitiveAttribute = SyntaxError(P, S, Diagnostic, "only UBE_Primitive procedure metadata is admitted", "E_UNSUPPORTED")
+        Exit Function
+    End If
+    If Not Expect(P, S, "=", Diagnostic) Then Exit Function
+    If TokenKind(P, S) <> "string" Then
+        ParsePrimitiveAttribute = SyntaxError(P, S, Diagnostic, "UBE_Primitive requires one role string")
+        Exit Function
+    End If
+    Role = P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text
+    Role = Replace(Mid$(Role, 2, Len(Role) - 2), Chr$(34) & Chr$(34), Chr$(34))
+    S.Position = S.Position + 1
+    Node = NewNode(P, S, "primitive", Role, Start, Diagnostic)
+    If Node = 0 Then Exit Function
+    P.Nodes(Node).TypeName = Target
+    Call FinishNode(P, S, Node)
+    Call AddChild(P, Parent, Node)
+    ParsePrimitiveAttribute = EndLine(P, S, Diagnostic)
+End Function
+
+' Retains procedure signature, explicit metadata and body without inferring intrinsic roles from names.
+Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByVal Visibility As String, ByRef Diagnostic As String, Optional ByVal IsIntrinsic As Boolean = False) As Boolean
     Dim Start As Long
     Dim Name As String
     Dim Kind As String
@@ -920,6 +951,7 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Node As Long
     Dim Body As Long
     Start = S.Position
+    If IsIntrinsic Then Start = Start - 1
     Kind = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
     S.ProcedureKind = Kind
     S.Position = S.Position + 1
@@ -929,6 +961,7 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
     If Node = 0 Then Exit Function
     P.Nodes(Node).Modifiers = Visibility
+    P.Nodes(Node).IsIntrinsic = IsIntrinsic
     If AtToken(P, S, "(") Then
         If Not ParseParameters(P, S, Node, Diagnostic) Then Exit Function
     End If
@@ -937,10 +970,22 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
         P.Nodes(Node).TypeName = TypeName
     End If
     If Not EndLine(P, S, Diagnostic) Then Exit Function
+    Call SkipLines(P, S)
+    Do While AtToken(P, S, "attribute")
+        If Not ParsePrimitiveAttribute(P, S, Node, Diagnostic) Then Exit Function
+        Call SkipLines(P, S)
+    Loop
     Body = NewNode(P, S, "body", "", S.Position, Diagnostic)
     If Body = 0 Then Exit Function
     Call AddChild(P, Node, Body)
-    If Not ParseBody(P, S, Body, Diagnostic) Then Exit Function
+    If IsIntrinsic Then
+        If Not AtToken(P, S, "end") Then
+            ParseProcedure = SyntaxError(P, S, Diagnostic, "Intrinsic declarations cannot contain an executable body")
+            Exit Function
+        End If
+    Else
+        If Not ParseBody(P, S, Body, Diagnostic) Then Exit Function
+    End If
     Call FinishNode(P, S, Body)
     If Not Expect(P, S, "end", Diagnostic) Then Exit Function
     If Not Expect(P, S, Kind, Diagnostic) Then Exit Function
@@ -1082,7 +1127,18 @@ Private Function ParseModule(ByRef P As ParsedProject, ByRef S As ParserState, B
                 Visibility = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
                 S.Position = S.Position + 1
             End If
-            If AtToken(P, S, "sub") Or AtToken(P, S, "function") Then
+            If AtToken(P, S, "intrinsic") Then
+                If Len(Visibility) > 0 Then
+                    If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+                End If
+                S.Position = S.Position + 1
+                If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+                If Not AtToken(P, S, "sub") And Not AtToken(P, S, "function") Then
+                    ParseModule = SyntaxError(P, S, Diagnostic, "Intrinsic requires a Sub or Function declaration")
+                    Exit Function
+                End If
+                If Not ParseProcedure(P, S, Root, Visibility, Diagnostic, True) Then Exit Function
+            ElseIf AtToken(P, S, "sub") Or AtToken(P, S, "function") Then
                 If Not ParseProcedure(P, S, Root, Visibility, Diagnostic) Then Exit Function
             ElseIf AtToken(P, S, "type") Then
                 If Not ParseRecord(P, S, Root, Visibility, Diagnostic) Then Exit Function

@@ -53,6 +53,20 @@ later for a practical compiler and are explicitly deferred.
 
 ## Remaining evidence to gather
 
+The completed counted-buffer prerequisite provides access through the existing
+Array.Length and Memory.CopyBytes roles, described in COUNTED-BUFFERS.md.
+HostFiles' counted reads/writes and retained lexer byte spans need lengths and
+overlap-safe range copies. Their status contracts are already explicit, and an
+ordinary UBECore append function can compose them without allocation.
+
+Dynamic resizing needs stable descriptors, replacement-before-publication,
+cleanup on every return/FAIL, and allocation recovery. In particular, resolve
+the lifetime/observable identity of an element ByRef alias when a later argument
+or the callee resizes, erases or replaces the owning array. Freeing the old
+payload while such an alias is live is unsafe; neither a pinning policy nor a
+new resize rejection is selected by this increment. The existing call-lifetime
+alias guarantee must be preserved. These requirements precede admitting growth.
+
 Porting practical source buffers and retained trees still needs dynamic growth
 and broader aggregate ownership beyond the admitted fixed arrays/finite records;
 ordinary scanning needs loop forms and further operators; reading source and
@@ -66,6 +80,7 @@ State remains owned by compilation requests and work items, with immutable
 sharing or explicit synchronization. The sequential VB6 host remains an
 implementation prerequisite, not evidence of final-compiler concurrency.
 
-Acceptance belongs in `tests/integer-types/check.ps1` and
-`tests/aggregate-storage/check.ps1`; exact executed results and next work belong in
+Acceptance belongs in `tests/integer-types/check.ps1`,
+`tests/aggregate-storage/check.ps1` and `tests/counted-buffers/check.ps1`;
+exact executed results and next work belong in
 `../compiler/Progress.md`.

@@ -1,6 +1,21 @@
 # Compiler development handoff
 
-## Current handoff: bounded source buffers and finite records
+## Current handoff: counted buffer operations and UBECore source
+
+The completed dependency increment adds exact Intrinsic declaration binding for
+Array.Length and Memory.CopyBytes, and ordinary UBECore AppendBytes source.
+The boundary is `../bootstrap/COUNTED-BUFFERS.md`; its acceptance gate is
+`../bootstrap/tests/counted-buffers/check.ps1`. The operations use existing
+fixed arrays without allocation and preserve the specified distinction between
+usable primitive False and language FAIL. Dynamic growth requires the ownership
+and live element-alias decisions recorded in bootstrap/DEPENDENCIES.md first.
+
+Next settle that resize/alias boundary and assess allocator ownership, cleanup
+and failure recovery before implementing growing buffers. Counted file I/O and
+text remain further dependencies. Do not infer a resize-time pin, stale alias
+or new runtime rejection from the current fixed-array implementation.
+
+## Previous dependency: bounded source buffers and finite records
 
 The latest dependency increment adds finite scalar-field Type records and fixed
 rank-one arrays, including arrays of records, checked field/index access,
@@ -65,6 +80,55 @@ full-language support remain incomplete.
 Adaptive context inference, assembly lowering and compound-header failure
 continuations are outside this first implementation. The runtime inventory in
 `../std-lib/INVENTORY.md` remains a planning input, not a support claim.
+
+## Counted-buffer and UBECore gate
+
+On 2026-11-10, this command built the final compiler with VB6 6.00.9782 outside
+the sandbox and passed all **37 parser cases**:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1`
+
+Build and parser evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube source parsing b6c7eb7c-7edc-4625-877a-d1fa56158962`.
+
+The following commands passed on that same unchanged executable:
+
+```powershell
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube source parsing b6c7eb7c-7edc-4625-877a-d1fa56158962\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/counted-buffers/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-compilation/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Evidence directories under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+- `ube counted buffers 4334e8d5-f25d-45a1-9f0a-ca00fa925fe5`: **25 groups**.
+- `ube aggregate storage 00cd26b0-fb9b-4eec-afa5-f9e045c5f64a`: **38 groups**.
+- `ube integer types 5d1ad42b-daad-4de4-94f5-2a0c84930230`: **46 groups**.
+- `ube native compilation 180d9e56-9869-4873-bc39-207b00b22ba3`: **23 groups**.
+- `ube source semantics c5c0b630-2fc6-4616-b0b9-a66a3c59b3a6`: **76 cases**.
+- `ube project loading 56f66e7e-bbde-4d28-9754-da536de6d998`: **54 cases**.
+
+The new gate binds the actual UBECore project and compiles its portable sources
+with independent fixtures. Five native checks run at O0/O2 for copying, usable
+primitive status, append success/failure, append validation and pre-call
+conversion failure. A changed volatile input produces exactly mask 5, detecting
+the copy and append observations. Assertions cover varied/negative bounds,
+finite-record lengths, a LongLong-minimum singleton, overlap in both directions,
+self-copy, zero-count endpoints, extreme Long spans, unchanged destinations,
+sticky Err, continued eager expression evaluation on False, and handler
+transfer on actual language FAIL. A narrowing argument failure records Err 6
+and preserves the receiving Boolean, separately from primitive False.
+
+Binding assertions distinguish renamed/casefolded primitive roles from ordinary
+same-name source procedures. Seventeen malformed/unsupported binding cases,
+executable versus library Main treatment and failed-emission preservation pass.
+Native tools remain Clang 23.1.3 and LLD. No allocation, collection, empty dynamic
+arrays, file I/O, native library packaging or concurrency is qualified by this
+gate. UBECore contains real portable source but is not a complete library.
 
 ## Bounded source-buffer and record gate
 

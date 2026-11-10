@@ -1,0 +1,5 @@
+UBE-Project 1
+Name = "UBECore"
+Kind = "Library"
+Source = "src/portable/BufferPrimitives.bas"
+Source = "src/portable/ByteBuffers.bas"
