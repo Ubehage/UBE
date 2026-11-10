@@ -9,8 +9,9 @@ additional modules from the working directory.
 requests a syntax tree for the admitted scalar profile. `--dump-ast` additionally
 serializes that tree for inspection and structural assertions. `--analyze` and
 `--dump-bound` additionally resolve declarations and check admitted scalar types
-under [the semantic contract](SEMANTICS.md). No command executes error handling
-or emits native code yet.
+under [the semantic contract](SEMANTICS.md). The native commands extend that
+same pipeline through [scalar lowering](LOWERING.md): `--emit-llvm` publishes
+LLVM text, and `--build` invokes the bounded backend and publishes an executable.
 Success output is written only after every module completes the requested pass.
 
 ## Source and syntax ownership

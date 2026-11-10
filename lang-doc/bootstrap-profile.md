@@ -1,7 +1,7 @@
 # UBE compiler bootstrap source profile
 
-**Status:** scalar syntax and bounded semantic analysis implemented and tested;
-native emission remains planned. This file does not grant exceptions to language semantics.
+**Status:** bounded scalar source-to-native compilation implemented and tested
+on Windows x64. This file does not grant exceptions to language semantics.
 
 Project loading is implemented separately from source compilation. On
 2026-11-10, `bootstrap/tests/project-loading/check.ps1` built the VB6 loader and
@@ -13,8 +13,8 @@ The VB6 lexer/parser now retains syntax trees for the scalar forms below.
 `bootstrap/tests/source-parsing/check.ps1` passed 37 cases for tree structure, source spans,
 the actual failure-flow source oracle, malformed/unsupported input and parsing
 limits. That gate proves syntax only. The separate semantic gate below qualifies
-entry-point resolution, symbols, arguments and scalar types. The oracle is not
-executed; runtime error behavior and native emission remain subsequent work.
+entry-point resolution, symbols, arguments and scalar types. The native gate
+described below separately executes the oracle.
 
 `bootstrap/tests/source-semantics/check.ps1` passed 76 cases for the bounded
 contract in `../bootstrap/SEMANTICS.md`, including trusted Err declarations,
@@ -25,6 +25,13 @@ declarations remain Boolean/Long. Hex/octal interpretation, mixed Boolean/intege
 operator domains, cross-module required-constant dependencies and colliding
 package/module three-part qualifiers are explicitly deferred as documented
 there. No UBE runtime behavior is claimed by semantic acceptance.
+
+`bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
+the complete pipeline and asserts the eight error-oracle checks at O0/O2,
+multi-module initialization/calls, ByRef behavior, checked failures, bounded
+recursion, x64 output, deterministic IR and failed-build output preservation.
+The implemented lowering and remaining boundaries are in
+`../bootstrap/LOWERING.md`; exact evidence is in `../compiler/Progress.md`.
 
 The parser also admits ordinary typed scalar constants/initializers, Long `&`
 declaration suffixes, unary signs, integer radix spellings, ASCII bracketed
@@ -58,13 +65,19 @@ give arbitrary user declarations magic behavior by name. The concrete
 declaration/binding representation is documented in `../bootstrap/SEMANTICS.md`;
 the test-only native prototype does not decide that interface.
 
-The pending SourceOracle.bas is a module of callable checks, not a standalone
-executable. A test-only native harness will supply runtime arguments and call
-its compiled procedures; this does not expose ordinary Public procedures as
+SourceOracle.bas is a module of callable checks, not a standalone executable.
+A test-only native harness supplies runtime arguments and calls its compiled
+procedures; this does not expose ordinary Public procedures as
 foreign exports. Separate standalone Main fixtures qualify executable startup.
 Failure within an If condition or other compound control header is outside the
 initial gate until its exact continuation target is settled; conditions in the
 initial oracle are nonfailing scalar comparisons.
+
+The emitter rejects potentially failing If headers, lifecycle hooks, explicit
+Raise in the executable root Main, and potential cross-module initializer cycles.
+These bounded-profile rejections preserve the open full-language contracts;
+they are not new semantics for those cases. Debug locations survive as source
+spans and IR comments, but full native debugger information remains unimplemented.
 
 The first runtime failure cases pass variable input so the compiler is not
 asked to silently execute a provably invalid constant operation. Separately

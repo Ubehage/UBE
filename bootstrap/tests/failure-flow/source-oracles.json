@@ -1,7 +1,8 @@
 {
-  "status": "pending-source-compiler",
+  "status": "source-compiled-native-verified",
   "source": "SourceOracle.bas",
-  "harness": "Invoke each public check independently with runtime-supplied Long FailureInput = 1; assert successful call and Long result 0. Do not bake the input into the UBE source or claim execution from the hand-authored IR gate.",
+  "harness": "The native-compilation gate emits this actual UBE source, resolves each public check's bound symbol, and invokes it with fresh context and volatile runtime Long FailureInput = 1. The same emitted LLVM runs at O0 and O2; every check must return successful status and Long result 0. The input-zero O2 negative control must fail all eight observations (mask 255).",
+  "verification": "2026-11-10: native-compilation/check.ps1 passed all 23 groups, including source-oracle O0/O2 checks and input-zero negative control; evidence directory ube native compilation 7ad953f1-5dfb-4994-b557-cbcc35084c7d.",
   "cases": [
     { "procedure": "CheckSuccessZero", "expectedResult": 0, "failureBit": 1 },
     { "procedure": "CheckRaiseExit", "expectedResult": 0, "failureBit": 2 },

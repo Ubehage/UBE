@@ -18,9 +18,10 @@ completion claims from removed implementations.
   actual self-hosting dependencies remains evidence-driven.
 - [x] Qualify the native failure-flow prototype: the command in Progress.md
   passed eight assertions at O0/O2 and rejected both negative controls.
-- [ ] Compile matching UBE source through the real pipeline.
+- [x] Compile matching UBE source through the real pipeline.
   [ACCEPTANCE.md](ACCEPTANCE.md) separates native feasibility from compiler
-  conformance.
+  conformance. The native gate passed 23 groups, including all eight actual
+  source-oracle checks at O0/O2 and the input-zero negative control.
 - [x] Start the VB6 bootstrap with `.UBE` project loading and multiple ordered
   modules. Qualify bounded loading and manifest/source-header diagnostics before
   feeding the same retained sources to the parser. The 54-case gate in
@@ -33,7 +34,12 @@ completion claims from removed implementations.
   The bounded semantic gate passed 76 cases, plus all parser/loading regressions.
 - [ ] Implement the bootstrap subset with bounded input handling, controlled
   failures, source locations and deterministic output.
-  Bounded syntax and semantic checks are implemented; native lowering remains pending.
+  The initial bounded scalar profile now compiles to native Windows x64, with
+  checked error flow and output-preserving backend invocation. The same build
+  passed 23 native, 76 semantic, 37 parser and 54 loading groups/cases.
+  Expansion to the source/storage/library dependencies needed for self-hosting
+  remains the next approved development-plan item; measure those dependencies
+  before selecting each extension.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

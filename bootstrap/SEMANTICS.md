@@ -2,7 +2,8 @@
 
 This is the implemented boundary for the approved name-resolution and scalar
 type-checking step. The normative language specification and conversion table
-remain authoritative. LLVM emission and execution are separate subsequent work.
+remain authoritative. Native lowering consumes these bindings under
+[the lowering contract](LOWERING.md), with its own execution gate.
 
 ## Binding and ownership
 
@@ -54,10 +55,10 @@ does not fall back to the support declaration. A user module's Raise procedure
 remains an ordinary call.
 
 The pass validates the admitted signatures and retains their role bindings.
-Later lowering must implement immediate procedure exit/FAIL for `error.raise`,
+Native lowering implements immediate procedure exit/FAIL for `error.raise`,
 record clearing for `error.clear`, and the current thread's error-number read
 for `error.number`. The existing record-only Error.Set primitive is not Raise.
-No runtime behavior is implemented by this semantic step.
+The semantic pass itself does not execute these operations.
 
 Only Number reads are admitted here; this does not settle full-language member
 write capabilities. Optional Raise parameters, other Err members and legal

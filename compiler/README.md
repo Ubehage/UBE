@@ -1,7 +1,9 @@
 # UBE compiler projects
 
-UBE's compiler implementation is being restarted. No working compiler source
-or verified build is currently present in this directory.
+The VB6 bootstrap in [../bootstrap](../bootstrap/README.md) now compiles the
+admitted scalar language into native Windows x64 programs. This directory
+holds the final UBE-written compiler's contracts and development plan; its
+self-hosting implementation remains future work.
 
 The final compiler will be written in UBE and use LLVM to produce native
 64-bit programs. The owner selected VB6 as the bootstrap host if feasible.

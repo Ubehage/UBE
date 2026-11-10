@@ -26,7 +26,8 @@ skipping and explicit resource cleanup before raising. These are normative in
 review. Normative contracts and affected public articles have been reconciled
 for the scoped failure-result claims. The static documentation validator passed
 274 HTML files; browser verification and execution of manual examples remain
-unverified. No source-compiler conformance result is claimed.
+unverified. That documentation audit alone does not establish compiler conformance;
+the scalar source-to-native gate below supplies its own execution evidence.
 
 The authorized execution order is now in `project-docs/Development-Plan.md`,
 with a planned scalar admission set in `lang-doc/bootstrap-profile.md` and
@@ -55,15 +56,22 @@ source acceptance requirements in `compiler/ACCEPTANCE.md`.
   the same VB6 executable passed 37 parser and 54 loader cases. Assertions cover
   declaration identities, conversion/ByRef treatment, exact constants and
   diagnostics. Exact commands and evidence are in `compiler/Progress.md`.
-- [ ] Emit LLVM from the bound scalar project and qualify actual native
+- [x] Emit LLVM from the bound scalar project and qualify actual native
   execution, including the approved FAIL protocol and SourceOracle cases.
+  `bootstrap/tests/native-compilation/check.ps1` passed 23 assertion groups,
+  including actual source execution at O0/O2, x64 output, deterministic IR,
+  checked failures and output preservation after backend failures/timeouts.
+  The same binary passed 76 semantic, 37 parser and 54 loading cases. The internal
+  contract is in `bootstrap/LOWERING.md`; exact evidence is in compiler/Progress.md.
 
 - [x] Native failure-flow feasibility: `rtk proxy powershell -NoProfile -File
   bootstrap/tests/failure-flow/check.ps1` passed on Clang 23.1.3. O0/O2 assert
   x64 PE and exact exit 0 for eight behavior cases. Negative controls return
   exact masks 158 and 4. Hand-authored IR only; no source compiler is implied.
-- [ ] Compile the matching UBE source oracle through the VB6 bootstrap and
-  qualify real parsing/lowering against those observations.
+- [x] Compile the matching UBE source oracle through the VB6 bootstrap and
+  qualify real parsing/lowering against those observations. All eight checks
+  pass independently at O0/O2 with volatile runtime input; input zero rejects
+  all eight observations with exact negative-control mask 255.
 
 ### Implementation baseline
 

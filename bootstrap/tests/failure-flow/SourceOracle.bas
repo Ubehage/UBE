@@ -1,7 +1,7 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "FailureFlowOracle"
 
-' Source-level acceptance oracle for the future compiler; not yet executable here.
+' Source-level acceptance oracle compiled and executed by the native-compilation gate.
 Private AfterRaise As Long
 Private OperandCalls As Long
 Private Cleaned As Long

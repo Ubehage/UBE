@@ -1,6 +1,7 @@
 # Compiler acceptance gates
 
-**Status:** predefined requirements; source-compiler execution pending.
+**Status:** bounded scalar source-compiler gates now pass; broader language and
+self-hosting requirements remain pending. Exact commands are in Progress.md.
 
 The current work is the scalar admission set in
 `../lang-doc/bootstrap-profile.md`, under the authorized development plan.
@@ -28,11 +29,12 @@ requirements below.
 The lexer/parser gate in `../bootstrap/tests/source-parsing/check.ps1` now
 asserts retained syntax-tree structure, source positions, admitted syntax,
 malformed/unsupported input and resource bounds. The real failure-flow oracle
-is parsed there, but execution requirements below are still pending.
+is parsed there; the separate native compiler gate executes it.
 
 The native fixture in `../bootstrap/tests/failure-flow/` tests the feasibility
-of the approved behavior. A real compiler must later accept matching UBE source
-and reproduce the same outcomes, without consulting a test name or embedding
+of the approved behavior. The real compiler gate in
+`../bootstrap/tests/native-compilation/` now accepts matching UBE source
+and reproduces the same outcomes, without consulting a test name or embedding
 expected results. Each case must observe values, error state and control flow.
 
 | Scenario | Required observation |
@@ -84,7 +86,10 @@ actual differences; never treat a successful self-build alone as conformance.
 
 ## Current limits
 
-The prototype does not qualify source parsing/lowering, complete Err metadata,
-TLS/thread isolation, stack exhaustion recovery, managed-resource cleanup,
-real external-resource release, foreign ABI or optimizer correctness outside
-the asserted scenarios. Add focused gates before claiming those capabilities.
+The scalar compiler gate qualifies its admitted source parsing/lowering and
+controlled recursion-depth refusal. It does not qualify complete Err metadata,
+TLS/thread isolation, arbitrary OS stack-exhaustion recovery, managed-resource
+cleanup, real external-resource release, foreign ABI, full debugging or
+optimizer correctness outside the asserted scenarios. Add focused gates before
+claiming those capabilities. The older hand-authored prototype alone remains
+insufficient evidence of source compilation.

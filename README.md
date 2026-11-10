@@ -75,11 +75,8 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 
 **UBE is in early development and is not ready for production use.**
 
-Implementation is being restarted with a VB6 bootstrap host.  
-The language contracts and executable feasibility tests guide the
-restart; there is not yet a working UBE source compiler in this checkout.  
-The VB6 bootstrap can load `.UBE` projects containing multiple ordered modules and parse the initial scalar syntax into retained trees.  
-Name resolution and bounded scalar type checking are implemented. Native compilation and runtime error-flow verification remain subsequent work.
+The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
+The agreed error-handling behavior passes tests with optimization both off and on. Support for the wider language and self-hosting comes next.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
@@ -104,7 +101,7 @@ ownership and design authority remain with Ube.
 ## Development builds
 
 See the [build documentation](bootstrap/README.md) for prerequisites and
-instructions for project-loading checks and bootstrap feasibility tests. The compiler implementation
+instructions for compiling admitted programs and running the bootstrap tests. The compiler
 is not yet available as a working release.
 
 ## Repository guide
@@ -114,7 +111,7 @@ is not yet available as a working release.
 - [project-docs/](project-docs/README.md) — architecture and development roadmap
 - [compiler/](compiler/README.md) — compiler plan, source profile and acceptance gates
 - [std-lib/](std-lib/README.md) — fresh UBECore standard-library project
-- [bootstrap/](bootstrap/README.md) — VB6 project loader and native feasibility tests
+- [bootstrap/](bootstrap/README.md) — VB6 bootstrap compiler and native tests
 - [Release-Requirements.md](Release-Requirements.md) — owner-defined release requirements
 - [Workplan.md](Workplan.md) — current repository-wide work checkpoint
 

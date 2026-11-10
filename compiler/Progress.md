@@ -1,6 +1,6 @@
 # Compiler development handoff
 
-## Active work: scalar source-to-native implementation
+## Current handoff: scalar native path complete; bootstrap dependencies next
 
 The owner authorized the restart sequence in
 `../project-docs/Development-Plan.md`. The planned scalar source boundary is
@@ -19,16 +19,80 @@ compiler precedes it.
 The bounded lexer/parser retains syntax trees, and the semantic pass now
 resolves symbols, checks scalar types and constants, validates Main and binds
 the trusted error-support declarations described in `../bootstrap/SEMANTICS.md`.
-Next emit LLVM from those bound trees and qualify real native execution of the
-SourceOracle.bas cases, including the approved FAIL protocol. Preserve the
-retained conversions, argument modes, exact constants and declaration roles;
-do not rediscover behavior from source spellings or fixture names.
+The emitter now lowers those bound trees into LLVM and the bounded backend
+builds Windows x64 executables. Actual SourceOracle.bas execution qualifies
+the approved scalar FAIL protocol. Conversions, argument modes, exact constants
+and trusted declaration roles feed lowering directly; behavior is not inferred
+from fixture names or ordinary user procedure spellings.
+
+Next follow the existing development-plan item **Extend bootstrap dependencies**:
+measure the UBE-written compiler's required source/storage/library dependencies,
+then extend and test the admitted profile incrementally. Byte/Integer/LongLong
+storage, text, arrays/records, loops and explicit library I/O are candidates in
+the profile, not a newly approved all-at-once implementation. Self-hosting and
+full-language support remain incomplete.
 
 Adaptive context inference, assembly lowering and compound-header failure
 continuations are outside this first implementation. The runtime inventory in
 `../std-lib/INVENTORY.md` remains a planning input, not a support claim.
 
-## Semantic gate
+## Scalar source-to-native gate
+
+On 2026-11-10, the following command built the final VB6 bootstrap outside the
+sandbox and passed all **23 native assertion groups**:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/native-compilation/check.ps1`
+
+Tools: VB6 6.00.9782 and Clang 23.1.3 (LLVM revision
+`0d261d1ca552c95a8f007e061c787ac7132fbcbc`), with the installed LLD linker.
+Evidence and the tested executable are retained under:
+`C:\Users\Ubehage\AppData\Local\Temp\ube native compilation 7ad953f1-5dfb-4994-b557-cbcc35084c7d`.
+
+The gate compiles actual SourceOracle.bas and invokes all eight public checks
+independently with volatile input 1, requiring fresh success and result zero
+at O0 and O2. The same generated source code with harness input zero must
+return exactly mask 255. Multi-module executable fixtures assert forward and
+once-only initialization, neutral failed initializers, expression/argument
+order, direct ByRef aliases, discarded grouped temporaries, declaration
+reexecution, Boolean/Long conversions, runtime arithmetic and narrowing
+failures, sticky Err, consumed callee failures, explicit handler modes,
+Err.Clear while a handler is active, and guarded recursion (Err 28).
+An ordinary user module Err remains ordinary. Demo returns 42; Sub Main returns 0.
+
+The runner checks AMD64 PE output and repeatable LLVM, then proves prior-output
+hash preservation for source failure, missing Clang, nonzero backend exit,
+false-success backend with missing output, a timed-out backend, input/output
+collision and unsupported/over-limit emission. A preserved executable still
+returns 42 afterward. The timeout backend is contained and terminated by the
+driver. The initial harness used dynamic alloca and exposed a missing __chkstk
+link dependency; test-owned static context storage removed that dependency.
+No production workaround or external runtime was added.
+
+The same final executable passed all earlier gates:
+
+```powershell
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube native compilation 7ad953f1-5dfb-4994-b557-cbcc35084c7d\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Final regression evidence under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+- `ube source semantics caeef0c8-282b-4399-ba0b-a2a1a321d70c`: 76 cases.
+- `ube source parsing 3b0ff74d-767a-41cf-bd18-f130087b9a43`: 37 cases.
+- `ube project loading 0962dc36-0c0d-42e1-b218-d600eb31a143`: 54 cases.
+
+`../bootstrap/LOWERING.md` records the internal result/context ABI, numerical
+limits and deferred cases. Frame/parameter limits are exercised; exact IR-size,
+scan-budget and log-size thresholds are defensive and not separately qualified.
+Root Raise, potentially failing If headers, lifecycle hooks and potential
+initializer cycles are explicitly rejected. Native libraries/foreign ABI,
+threads, full Err metadata, arbitrary OS stack exhaustion, managed resources,
+debug-info emission and self-hosting remain unqualified. Manifest debug settings
+do not yet produce Line/Full native debug information.
+
+## Semantic gate (historical isolated step)
 
 On 2026-11-10 this command built with VB6 6.00.9782 outside the sandbox and
 passed all 76 semantic cases:
@@ -66,8 +130,9 @@ limits fail cleanly. The lookup-work guard is not separately threshold-tested.
 No source procedure is executed by these commands. Deferred cases remain
 explicit in `../bootstrap/SEMANTICS.md`: hex/octal interpretation, mixed
 Boolean/integer operator domains, cross-module required-constant dependencies,
-and colliding package/module three-part qualifiers. Full Err signatures and
-runtime behavior remain future work. Actual concurrent compilation and editor
+and colliding package/module three-part qualifiers. Full Err signatures remain
+future work; runtime behavior is covered only to the extent of the newer native gate above.
+Actual concurrent compilation and editor
 multi-error recovery are not qualified.
 
 ## Lexer/parser gate
@@ -105,7 +170,7 @@ records. Limits, source ownership and UTF-16 span conventions are documented
 in `../bootstrap/DESIGN.md`. One diagnostic ends a failed request; editor
 multi-error recovery is unimplemented. This historical gate qualifies syntax;
 the semantic gate above now covers its admitted name/type/entry checks.
-Native execution remains subsequent work.
+Native execution is covered separately by the newer gate above.
 
 ## Project-loading gate
 
@@ -128,7 +193,7 @@ and project files, now specified by `.gitattributes`.
 
 `--check` validates manifest metadata and source envelopes only. Procedure syntax
 is handled by the separate parse commands; the analysis commands check Main
-and cross-module call binding. LLVM emission remains unimplemented.
+and cross-module call binding. Native commands now extend the same pipeline.
 It emits no target artifact. Full Unicode identifiers, references/resources and
 non-MODULE source kinds are explicitly outside the current admission boundary.
 See `../bootstrap/README.md` for input bounds. The gate does not qualify reuse
@@ -149,7 +214,7 @@ error numbers. O2 negative controls were rejected with exact masks 158 and 4.
 These are hand-authored native test calls, not UBE compiler output. Full Err
 metadata, TLS, actual OS resource release, source parsing/lowering and public
 ABI are not qualified. SourceOracle.bas and source-oracles.json define the
-matching future source gate and are explicitly unexecuted.
+matching source gate, now executed separately by the native compiler runner above.
 
 ## Completed bootstrap feasibility experiment
 
