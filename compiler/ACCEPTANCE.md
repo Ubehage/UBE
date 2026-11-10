@@ -286,6 +286,17 @@ Test malformed input, semantic-depth limits and native entry refusal. Run prior
 declaration/parser/scanner gates and inspect production native output separately
 from test support. No full-program validity claim may bypass pending passes.
 
+## UBE intrinsic authority and finite storage gate
+
+Before lowering the UBE-written frontend facts, require the distinct intrinsic
+authority and finite storage gates in `../bootstrap/SEMANTIC-STORAGE.md`.
+`../bootstrap/tests/semantic-storage/check.ps1` must cover all approved primitive
+signatures, no authority from ordinary names, exact nominal array identity,
+record offsets/strides, fixed/dynamic/borrowed storage, finite limits and cycles.
+The allocation companion must qualify both public passes separately at O0/O2,
+including each observed allocation, previous-output preservation and depth
+refusal. These checks do not replace frame/lowering or concurrency acceptance.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

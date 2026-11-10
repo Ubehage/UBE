@@ -80,11 +80,15 @@ and shared-state rules are in the development plan's concurrency requirement.
   nominal field/index access and source-located failures. The existing name
   index is shared; no new host feature was needed. The contract and native
   gates are in bootstrap/EXPRESSION-BINDING.md and Progress.md.
-  Next implement reviewed intrinsic-role validation and finite aggregate layout
-  in UBE, as distinct checks over these identities and facts, before lowering.
-  Measure any additional source dependencies before extending this bootstrap.
-  Expression success alone does not grant primitive authority, establish a
-  runtime layout or qualify a complete compiler.
+  Reviewed intrinsic-role validation and finite aggregate layout are now
+  implemented as distinct UBE passes; scope and qualification are tracked in
+  bootstrap/SEMANTIC-STORAGE.md and Progress.md. Names alone grant no authority;
+  finite layout rejects recursive storage without rejecting nominal graph
+  identities in the earlier declaration pass.
+  Next implement native lowering from these checked UBE facts under the existing
+  bootstrap lowering/runtime contracts. Measure concrete source dependencies
+  before extending the same host. Qualify generated programs, frame/temporary
+  planning and error/ownership behavior before claiming UBE-written generation.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

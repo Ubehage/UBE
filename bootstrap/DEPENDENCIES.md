@@ -94,8 +94,10 @@ Existing finite records and arrays suffice; no new host primitive or managed
 String representation was required. Symbols retain nominal Type graph edges,
 not recursive runtime layouts. EXPRESSION-BINDING.md records the completed
 expression/reference and checked constant pass, also using the existing host
-and UBECore unchanged. Reviewed intrinsic-role validation and finite aggregate
-layout are the next source dependencies, kept distinct before lowering.
+and UBECore unchanged. SEMANTIC-STORAGE.md records reviewed intrinsic-role
+validation and finite aggregate layout as distinct UBE passes, also using the
+existing host and UBECore. Native lowering from the checked UBE facts is the
+next source dependency; existing VB6 emission is not proof of that handoff.
 
 The final compiler's multithreading requirement applies to all of that work.
 State remains owned by compilation requests and work items, with immutable

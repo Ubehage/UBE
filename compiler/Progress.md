@@ -1,6 +1,66 @@
 # Compiler development handoff
 
-## Current handoff: UBE expression and constant binding completed
+## Current handoff: intrinsic authority and finite aggregate layout completed
+
+PrimitiveRoles now validates all eleven admitted intrinsic signatures, metadata
+targets, empty bodies and nominal array-copy identity, publishing role IDs only
+at procedure declaration nodes. Ordinary names confer no primitive authority.
+AggregateLayout separately computes finite record widths/field offsets and
+fixed, dynamic and borrowed array sizes from revalidated declaration/expression
+facts. It rejects cycles, excessive storage and malformed shape metadata.
+`../bootstrap/SEMANTIC-STORAGE.md` defines APIs, result mapping and diagnostics.
+
+Both passes use private scratch state and caller-owned atomic outputs. No new
+host operation or UBECore primitive was needed. The sequential host remains
+unchanged from the IDE-safe fix; final-compiler concurrent execution is still
+an independent acceptance requirement.
+
+Next implement native lowering from the checked UBE facts under
+`../bootstrap/LOWERING.md` and the existing integer, aggregate, dynamic-storage
+and error contracts. Resolve calls by declaration identity and validated role,
+then plan frame/control/borrow slots and temporaries before emission. Logical
+storage facts are not final frame offsets, a foreign ABI or proof of complete
+program executability. Qualify generated programs and failure/ownership paths;
+do not claim self-hosting from frontend acceptance. Measure additional source
+dependencies before extending the same bootstrap.
+
+Final semantic acceptance and allocation/depth qualification passed.
+Commands use `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<script> -BootstrapExe <binary>` with the unchanged VB6 6.00.9782
+host and Clang 23.1.3. The binary is
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading dbd30a59-26f6-43b5-a9d9-e3b4c6143261\build\UBE-Bootstrap.exe`.
+Evidence directories are under `C:\Users\Ubehage\AppData\Local\Temp`.
+
+| Script | Passed | Evidence directory |
+|---|---:|---|
+| semantic-storage/check.ps1 | 50 cases, 16,263 assertions at each O0/O2 | `ube semantic storage 1a6965b9-bb6a-493b-a180-d8639b38bfc9` |
+| semantic-storage/allocation-check.ps1 -Pass Primitive | 38 allocation/depth checks plus two baseline measurements | `ube semantic allocation ba1b2e59-ee73-4bf9-914b-51bc4b325ddb` |
+| semantic-storage/allocation-check.ps1 -Pass Layout | 72 allocation/depth checks plus two baseline measurements | `ube semantic allocation 64234d5b-3b19-49d7-a836-1df9c3836f00` |
+| expression-binding/check.ps1 | 60 cases, 22,697 assertions at each O0/O2 | `ube expression binding 540bc176-999b-4a1d-9371-b9b3b6295a32` |
+| declaration-binding/check.ps1 | 31 cases, 19,239 assertions at each O0/O2 | `ube declaration binding a4b72661-24fc-46ee-9870-bdd150385251` |
+| module-parsing/check.ps1 | 27 cases, 6,394 assertions at each O0/O2 | `ube module parsing fe191433-bff1-475e-9d9b-9b036037622a` |
+| source-scanning/check.ps1 | 86 groups | `ube source scanning d5824b74-6c33-4f56-aff4-b1e9847a5380` |
+
+The main gate includes all actual compiler/library sources, precise second-module
+diagnostics, two-module storage totals, exact 128-cell/64-visit/65,536-cell limits,
+malformed primitive placement and complete-but-invalid array shape subtrees.
+Its changed-role negative control fails exact assertion 432. Production-only
+assembly passes the hidden-stack-helper checks at both optimization levels.
+Final main-gate source snapshots match the working sources. All regression
+negative controls pass. A declaration gate run exceeded its unchanged 30-second
+Clang compilation deadline during concurrent test load; rerunning the unchanged
+gate passed as recorded above. No acceptance assertion was relaxed.
+
+Fault injection covers all 10 observed primitive-pass allocation sites and all
+27 layout-pass sites at both optimization levels. Each injected allocation and
+its retry fail, older output fields survive, public count becomes zero, the
+subsequent successful attempt preserves sticky Err, and final disposal leaves
+zero live blocks. Depth probes at 0, 192, 224, 240, 248, 252, 254, 255 and 256
+require normal success at the low boundaries and controlled refusal at the
+high boundaries. Final source comparisons ignore only line-ending/trailing
+blank-line normalization; no tested production logic changed afterward.
+
+## Previous handoff: UBE expression and constant binding completed
 
 ExpressionBinder checks references, calls, assignments, result/argument
 conversions, ByRef storage, labels and conditions over retained multi-module

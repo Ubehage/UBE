@@ -198,6 +198,10 @@ product baseline.
   library bodies. Exact constants and all 15 observed allocation sites have
   dedicated acceptance. Evidence and the next intrinsic/layout handoff are in
   compiler/Progress.md; this does not yet qualify UBE-written code generation.
+- [x] Implement reviewed intrinsic-role validation and finite aggregate layout
+  in UBE before lowering, under bootstrap/SEMANTIC-STORAGE.md. Native acceptance
+  passes 50 cases at O0/O2 plus 110 allocation/depth checks across both passes;
+  exact evidence and the native-lowering handoff are in compiler/Progress.md.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

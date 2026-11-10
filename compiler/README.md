@@ -14,9 +14,14 @@ actual compiler modules, invalid references and independent results.
 The [expression binder](src/ExpressionBinder.bas) now checks references, calls,
 assignments and exact [typed constants](src/ConstantValues.bas), including actual
 compiler/library bodies. Its [native gate](../bootstrap/tests/expression-binding/README.md)
-records both optimization levels and controlled failure cases. Intrinsic-role
-authority, aggregate layout and code generation remain separate work; this is
-not self-hosting.
+records both optimization levels and controlled failure cases.
+[PrimitiveRoles](src/PrimitiveRoles.bas) validates the exact declarations that
+may invoke core operations; [AggregateLayout](src/AggregateLayout.bas) computes
+bounded record and array storage facts. Their separate
+[contract](../bootstrap/SEMANTIC-STORAGE.md) and
+[native gate](../bootstrap/tests/semantic-storage/README.md) preserve the
+authority/layout boundary. Native lowering from these facts remains ahead;
+this is not self-hosting.
 
 The final compiler will be written in UBE and use LLVM to produce native
 64-bit programs. The owner selected VB6 as the bootstrap host if feasible.

@@ -207,8 +207,9 @@ conversions, ByRef modes, labels and exact scalar constants under
 `../bootstrap/EXPRESSION-BINDING.md`. Its native gate qualifies actual compiler
 and library bodies at O0/O2, with precise diagnostics and failure preservation.
 Nominal recursive equality is checked as a type fact, not executed or laid out.
-Source intrinsic authority, finite aggregate layout and lowering still use the
-VB6 bootstrap; expression success is not a complete compiler qualification.
+Separate UBE passes now validate intrinsic authority and finite aggregate
+layout under `../bootstrap/SEMANTIC-STORAGE.md`. Lowering still uses the VB6
+bootstrap; the new facts do not yet qualify a complete UBE-written compiler.
 Exact native and failure-gate evidence is in `../compiler/Progress.md`.
 
 ## Explicitly outside the initial implementation
