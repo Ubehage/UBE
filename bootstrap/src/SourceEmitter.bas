@@ -1367,7 +1367,56 @@ Private Sub EmitMemoryRuntime(ByRef State As EmissionState)
     Call AddLine(State, "}")
 End Sub
 
-' Emits identity-bound counted-array primitives with usable Boolean status rather than language FAIL.
+' Binds validated file roles to record-only runtime results without treating False as FAIL.
+Private Sub EmitFileIntrinsic(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long)
+    Dim Parameter As Long, Index As Long
+    Dim Arguments(0 To 5) As String, Signature As String, Role As String
+    Role = Bound.Symbols(Symbol).BindingId
+    State.ErrorNode = Bound.Symbols(Symbol).DeclarationNode
+    Signature = "ptr %ctx"
+    Parameter = Bound.Symbols(Symbol).FirstParameter
+    Do While Parameter <> 0
+        Arguments(Index) = "%arg." & CStr(Parameter)
+        If Bound.Symbols(Parameter).PassingMode = "ByRef" Then
+            Signature = Signature & ", ptr " & Arguments(Index)
+        Else
+            Signature = Signature & ", i64 " & Arguments(Index)
+        End If
+        Index = Index + 1
+        Parameter = Bound.Symbols(Parameter).NextParameter
+    Loop
+    Call AddLine(State, "define { i1, i64 } @ube.proc." & CStr(Symbol) & "(" & Signature & ") {")
+    Call AddLine(State, "entry:")
+    Select Case Role
+    Case "file.tryopen"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.open(ptr %ctx, ptr " & Arguments(0) & ", i64 " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ", ptr " & Arguments(4) & ", i1 false)")
+    Case "file.trycreatenew"
+        Call AddLine(State, "  %length = alloca i64, align 8")
+        Call AddLine(State, "  %accepted = call i1 @ube.file.open(ptr %ctx, ptr " & Arguments(0) & ", i64 2147483647, ptr " & Arguments(1) & ", ptr %length, ptr " & Arguments(2) & ", i1 true)")
+    Case "file.tryread", "file.trywrite"
+        Signature = "false"
+        If Role = "file.trywrite" Then Signature = "true"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.transfer(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", i64 " & Arguments(2) & ", i64 " & Arguments(3) & ", ptr " & Arguments(4) & ", ptr " & Arguments(5) & ", i1 " & Signature & ")")
+    Case "file.tryclose"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.close(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "file.tryflush"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.flush(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "error.set"
+        Call AddLine(State, "  %positive = icmp sgt i64 " & Arguments(0) & ", 0")
+        Call AddLine(State, "  %number = select i1 %positive, i64 " & Arguments(0) & ", i64 5")
+        Call AddLine(State, "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0")
+        Call AddLine(State, "  store i64 %number, ptr %err")
+        Call AddLine(State, "  ret { i1, i64 } { i1 true, i64 0 }")
+        Call AddLine(State, "}")
+        Exit Sub
+    End Select
+    Call AddLine(State, "  %value = select i1 %accepted, i64 -1, i64 0")
+    Call AddLine(State, "  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1")
+    Call AddLine(State, "  ret { i1, i64 } %result")
+    Call AddLine(State, "}")
+End Sub
+
+' Emits array primitives using the same fresh-result ABI as ordinary source procedures.
 Private Sub EmitArrayIntrinsic(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long)
     Dim Signature As String, Parameter As Long, Index As Long
     Dim Arguments(0 To 4) As String, Role As String
@@ -1601,8 +1650,9 @@ End Sub
 Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState)
     Dim Words As Long
     Dim Index As Long
-    Words = 5 + Parsed.ModuleCount + State.FieldCount
-    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64], ptr, i64, i64 }")
+    Words = 325 + Parsed.ModuleCount + State.FieldCount
+    Call AddLine(State, "%ube.file = type { i64, ptr, ptr, i64, i64 }")
+    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64], ptr, i64, i64, [64 x %ube.file] }")
     Call AddLine(State, "")
     Call AddLine(State, "declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)")
@@ -1632,7 +1682,10 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProje
     Call AddLine(State, "entry:")
     Call AddLine(State, "  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1")
     Call AddLine(State, "  %depth = load i64, ptr %depth.ptr")
-    Call AddLine(State, "  %active = icmp ne i64 %depth, 0")
+    Call AddLine(State, "  %depth.active = icmp ne i64 %depth, 0")
+    Call AddLine(State, "  %files.empty = call i1 @ube.file.empty(ptr %ctx)")
+    Call AddLine(State, "  %files.live = xor i1 %files.empty, true")
+    Call AddLine(State, "  %active = or i1 %depth.active, %files.live")
     Call AddLine(State, "  br i1 %active, label %busy, label %release")
     Call AddLine(State, "busy:")
     Call AddLine(State, "  ret i1 false")
@@ -1690,6 +1743,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     Dim State As EmissionState
     Dim Index As Long
     Dim Kind As String
+    Dim FileLines() As String
     On Error GoTo Failed
     IRText = ""
     Diagnostic = ""
@@ -1707,6 +1761,10 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     Call AddLine(State, "")
     Call EmitContext(Parsed, Bound, State)
     Call EmitMemoryRuntime(State)
+    FileLines = Split(NativeFileIR(), vbCrLf)
+    For Index = 0 To UBound(FileLines)
+        Call AddLine(State, FileLines(Index))
+    Next Index
     For Index = 0 To Parsed.ModuleCount - 1
         Call EmitModuleInitializer(Parsed, Bound, State, Index)
         If State.Failed Then Exit For
@@ -1717,6 +1775,8 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
             If Kind = "sub" Or Kind = "function" Then
                 If Bound.Symbols(Index).BindingId = "array.length" Or Bound.Symbols(Index).BindingId = "memory.copybytes" Or Bound.Symbols(Index).BindingId = "array.tryresize" Or Bound.Symbols(Index).BindingId = "array.trycopy" Then
                     Call EmitArrayIntrinsic(Bound, State, Index)
+                ElseIf Left$(Bound.Symbols(Index).BindingId, 5) = "file." Or Bound.Symbols(Index).BindingId = "error.set" Then
+                    Call EmitFileIntrinsic(Bound, State, Index)
                 Else
                     Call EmitProcedure(Parsed, Bound, State, Index)
                 End If

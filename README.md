@@ -76,7 +76,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 **UBE is in early development and is not ready for production use.**
 
 The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
-UBECore can now grow and copy byte buffers safely, keeping existing references valid when storage changes. The agreed error-handling behavior passes tests with optimization both off and on.
+UBECore can now grow byte buffers and read or write small binary files, with checks for incomplete operations and failed cleanup. The agreed error-handling behavior passes tests with optimization both off and on.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 

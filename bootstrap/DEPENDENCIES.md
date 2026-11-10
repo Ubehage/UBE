@@ -74,7 +74,10 @@ defaults to VB6 only where it does not conflict with explicit UBE contracts.
 The current dynamic-storage increment supplies growth for scalar/finite-record
 buffers. Porting practical retained trees still needs broader aggregate ownership;
 ordinary scanning needs loop forms and further operators; reading source and
-writing output need explicit library I/O. Text representation, ownership,
+writing output need explicit library I/O. The counted I/O increment now being
+qualified is documented in FILE-IO.md, with ordinary UBECore progress loops and
+explicit owner tokens. It does not decode source text or establish self-hosting.
+Text representation, ownership,
 allocation failures and corresponding UBECore interfaces must be admitted and
 tested before porting those algorithms. Integer support alone does not make
 the bootstrap self-hosting.

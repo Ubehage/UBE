@@ -345,11 +345,15 @@ Failed:
 End Function
 
 ' Prepares only the known target memory imports, then invokes Clang with the generated archive.
-Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Optimization As String, ByVal MemoryImports As Boolean, ByRef Diagnostic As String) As Boolean
+Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Optimization As String, ByVal MemoryImports As Boolean, ByVal FileImports As Boolean, ByRef Diagnostic As String) As Boolean
     Dim Arguments As String, Tool As String, Definition As String, Library As String
     If MemoryImports Then
         Tool = Left$(Clang, InStrRev(Clang, "\")) & "llvm-dlltool.exe"
         Definition = "LIBRARY KERNEL32.dll" & vbCrLf & "EXPORTS" & vbCrLf & "VirtualAlloc" & vbCrLf & "VirtualFree" & vbCrLf
+        If FileImports Then
+            Definition = Definition & "CreateFileW" & vbCrLf & "ReadFile" & vbCrLf & "WriteFile" & vbCrLf & "CloseHandle" & vbCrLf
+            Definition = Definition & "GetFileSizeEx" & vbCrLf & "GetFileType" & vbCrLf & "FlushFileBuffers" & vbCrLf & "MultiByteToWideChar" & vbCrLf
+        End If
         If Not WriteIR(Stage & "\kernel32-memory.def", Definition, Diagnostic) Then Exit Function
         Library = Stage & "\kernel32-memory.lib"
         Arguments = "-m i386:x86-64 -d " & QuoteArgument(Stage & "\kernel32-memory.def") & " -l " & QuoteArgument(Library)
@@ -446,7 +450,7 @@ Public Function BuildNativeProject(ByRef Project As ProjectContext, ByRef IRText
     If Not CreateStage(Directory, Stage, Diagnostic) Then Exit Function
     InputPath = Stage & "\input.ll": NativePath = Stage & "\output.exe"
     If Not WriteIR(InputPath, IRText, Diagnostic) Then GoTo Cleanup
-    If Not RunClang(Clang, Stage, Optimization, InStr(IRText, "@VirtualAlloc") > 0, Diagnostic) Then GoTo Cleanup
+    If Not RunClang(Clang, Stage, Optimization, InStr(IRText, "@VirtualAlloc") > 0, InStr(IRText, "@CreateFileW") > 0, Diagnostic) Then GoTo Cleanup
     If Not CheckNative(NativePath, Diagnostic) Then GoTo Cleanup
     If Not ResolveOutput(Project, OutputPath, Output, Directory, Diagnostic) Then GoTo Cleanup
     If MoveFileExW(StrPtr(NativePath), StrPtr(Output), 9) = 0 Then

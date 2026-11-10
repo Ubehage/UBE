@@ -707,6 +707,37 @@ Private Function IntrinsicArrayParameter(ByRef Parsed As ParsedProject, ByRef Bo
     IntrinsicArrayParameter = (Parsed.Nodes(Child).Kind = "array-shape" And Parsed.Nodes(Child).Text = "dynamic")
 End Function
 
+' Describes exact host-operation parameters: A is ByRef Byte(), V is ByVal Long, R is ByRef Long.
+Private Function HostPrimitiveSignature(ByVal Role As String) As String
+    Select Case Role
+    Case "file.tryopen": HostPrimitiveSignature = "AVRRR"
+    Case "file.trycreatenew": HostPrimitiveSignature = "ARR"
+    Case "file.tryread", "file.trywrite": HostPrimitiveSignature = "VAVVRR"
+    Case "file.tryclose": HostPrimitiveSignature = "RR"
+    Case "file.tryflush": HostPrimitiveSignature = "VR"
+    Case "error.set": HostPrimitiveSignature = "V"
+    End Select
+End Function
+
+' Checks host-operation scalar outputs and counted-byte arrays without admitting shape/type substitutions.
+Private Function HostPrimitiveParameter(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Parameter As Long, ByVal Expected As String) As Boolean
+    Dim Child As Long
+    If Expected = "A" Then
+        HostPrimitiveParameter = IntrinsicArrayParameter(Parsed, Bound, Parameter) And Bound.Symbols(Parameter).TypeName = "Byte" And Bound.Symbols(Parameter).PassingMode = "ByRef"
+        Exit Function
+    End If
+    Child = Parsed.Nodes(Bound.Symbols(Parameter).DeclarationNode).FirstChild
+    If Child <> 0 Then
+        If Parsed.Nodes(Child).Kind = "array-shape" Then Exit Function
+    End If
+    If Bound.Symbols(Parameter).TypeName <> "Long" Then Exit Function
+    If Expected = "V" Then
+        HostPrimitiveParameter = (Bound.Symbols(Parameter).PassingMode = "ByVal")
+    ElseIf Expected = "R" Then
+        HostPrimitiveParameter = (Bound.Symbols(Parameter).PassingMode = "ByRef")
+    End If
+End Function
+
 ' Validates only explicitly attributed intrinsic declarations; ordinary names carry no authority.
 Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef Diagnostic As String) As Boolean
     Dim Symbol As Long
@@ -717,6 +748,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
     Dim Parameter As Long
     Dim Position As Long
     Dim Role As String
+    Dim HostSignature As String
     Dim Kind As String
     Dim ArrayParameter As Boolean
     Dim SignatureMatches As Boolean
@@ -755,7 +787,8 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 Role = FoldAscii(Parsed.Nodes(AttributeNode).Text)
-                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" Then
+                HostSignature = HostPrimitiveSignature(Role)
+                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" And Len(HostSignature) = 0 Then
                     ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_UNSUPPORTED", "unknown or unsupported primitive role " & Parsed.Nodes(AttributeNode).Text)
                     Exit Function
                 End If
@@ -764,7 +797,9 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 SignatureMatches = (Kind = "function")
-                If Role = "array.length" Then
+                If Len(HostSignature) > 0 Then
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = Len(HostSignature)
+                ElseIf Role = "array.length" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Long" And Bound.Symbols(Symbol).ParameterCount = 1
                 ElseIf Role = "array.tryresize" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 3
@@ -777,7 +812,9 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                 Position = 1
                 Do While Parameter <> 0
                     ArrayParameter = IntrinsicArrayParameter(Parsed, Bound, Parameter)
-                    If Role = "array.length" Or Role = "array.trycopy" Or Position = 1 Or (Role = "memory.copybytes" And Position = 3) Then
+                    If Len(HostSignature) > 0 Then
+                        SignatureMatches = SignatureMatches And HostPrimitiveParameter(Parsed, Bound, Parameter, Mid$(HostSignature, Position, 1))
+                    ElseIf Role = "array.length" Or Role = "array.trycopy" Or Position = 1 Or (Role = "memory.copybytes" And Position = 3) Then
                         SignatureMatches = SignatureMatches And ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByRef"
                         If Role = "memory.copybytes" Then SignatureMatches = SignatureMatches And Bound.Symbols(Parameter).TypeName = "Byte"
                     ElseIf Role = "array.tryresize" And Position = 3 Then

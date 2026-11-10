@@ -238,3 +238,20 @@ The [dynamic-storage contract](DYNAMIC-STORAGE.md) defines ownership, limits,
 allocation retry and failure behavior. Native builds that allocate use the
 installed LLVM `llvm-dlltool.exe` beside Clang to create their Windows import
 library offline. ReDim/Erase syntax and managed elements remain unsupported.
+
+## Counted file input/output
+
+The current file-I/O increment has a separate native acceptance gate. Its attributed
+primitives open counted UTF-8 paths, create new files exclusively, read/write
+byte spans, flush and close explicit file tokens. Ordinary UBECore helpers own
+the progress loops and publish whole-input results only after successful close.
+They currently admit at most 4,096 bytes per whole-input result.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/file-io/check.ps1
+```
+
+[FILE-IO.md](FILE-IO.md) records the boundary and tests. Tokens retain ownership
+when close fails. Current Byte cells require bounded packing for OS calls;
+this implementation adds no C runtime, CRT dependency or SDK import library.
+General String/file syntax and Process.TryArgument remain outside this increment.

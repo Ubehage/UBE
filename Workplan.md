@@ -150,7 +150,13 @@ product baseline.
   The dynamic-storage gate passed 41 groups at O0/O2, including allocation
   retry, the charged-byte quota, owner/borrow cleanup and failure preservation.
   Exact regression evidence is in compiler/Progress.md; ReDim/Erase syntax,
-  managed fields and counted file I/O remain later work.
+  managed fields remain later work; counted file I/O follows below.
+- [x] Implement counted file input/output for source and output byte buffers
+  under the existing bootstrap-dependencies item. The surviving File.*
+  role signatures and removed contract history were reconciled; the owner
+  approved exclusive creation and bounded byte packing. The file gate qualifies
+  actual UBE O0/O2 progress, ownership, failure and publication behavior.
+  Exact commands, limits and evidence are in compiler/Progress.md.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

@@ -1,5 +1,84 @@
 # Compiler development handoff
 
+## Current handoff: counted file input/output completed
+
+The completed bootstrap dependency is documented in `../bootstrap/FILE-IO.md`.
+The surviving normative File.* signatures were compared with the two removed
+contracts at revision 1376e39f. No historical implementation or passing test
+claim has been restored. The owner approved both decisions: exclusive writable
+file creation through File.TryCreateNew, and bounded byte packing for the
+current i64-cell Byte representation. The final file-I/O gate passed 56 groups.
+
+Read/open/close and write/flush signatures fit the current intrinsic attribute
+mechanism without parser or binding-dump changes. Runtime alias checks must
+compare actual scalar output addresses before writing them. Current arrays
+admit at most 4,096 elements, so actual transfer spans are bounded by that
+capacity even though the historical role ceiling is 65,536 bytes. Ordinary
+UBECore TryReadAllBytes and TryWriteAllBytes implement progress, cleanup and
+publication policy. Process.TryArgument, text decoding, general file syntax
+and actual concurrent I/O remain outside this increment.
+
+Next measure practical source-scanning requirements, including the operators,
+loop forms and text handling needed by the UBE-written lexer and parser. Extend
+the same pipeline under the existing bootstrap-dependencies item; file I/O alone
+does not establish a self-hosting compiler.
+
+Final native acceptance: VB6 6.00.9782 built
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading 65843f86-7ee9-407b-8748-8d5ad6d40320\build\UBE-Bootstrap.exe`.
+The following existing gates passed against that same executable, using
+`rtk proxy powershell -NoProfile -File bootstrap/tests/<gate>/check.ps1
+-BootstrapExe <executable>` (project-loading built it without that argument).
+Evidence directories below are under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+| Gate | Passed | Evidence directory |
+|---|---:|---|
+| Project loading | 54 | `ube project loading 65843f86-7ee9-407b-8748-8d5ad6d40320` |
+| File I/O | 56 | `ube file io 71990967-6774-46fe-a1a5-56978319903d` |
+| Aggregate storage | 35 | `ube aggregate storage d923f23c-ee39-428d-b26d-9940510759c7` |
+| Counted buffers | 25 | `ube counted buffers ddf7661b-8357-4e37-984e-fffd7f44fbe0` |
+| Dynamic storage | 41 | `ube dynamic storage 05a3a221-463a-4bc5-b047-976e081334ea` |
+| Integer types | 46 | `ube integer types 27d74113-7e10-4957-9a34-6d5ab496ccb5` |
+| Native compilation | 23 | `ube native compilation f02956a8-c5c9-4817-84e2-9836d98e404a` |
+| Source semantics | 76 | `ube source semantics 4715a1f1-e0b3-4158-8044-56cb1bbdf9b0` |
+| Source parsing | 37 | `ube source parsing e2569044-c2be-4a08-af68-09550b6e38c3` |
+
+The exact new-gate command was:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/file-io/check.ps1 -BootstrapExe 'C:\Users\Ubehage\AppData\Local\Temp\ube project loading 65843f86-7ee9-407b-8748-8d5ad6d40320\build\UBE-Bootstrap.exe'
+```
+
+It checks actual UBE source at O0/O2, independent bytes on disk, empty/full
+4,096-byte files, partial progress, EOF/growth, zero-write rejection, read
+failure preservation, exclusive creation, sticky Err, exact signature binding,
+invalid output aliases and explicit cleanup before Raise. Fault injection
+observes real calls and allocations, including one-failure retry and primary
+Err 7 surviving cleanup Err 57 with a retained token. All native scenarios
+require balanced file owners and allocator blocks after successful disposal.
+The 64-owner registry limit, slot reuse, stale/foreign tokens and refusal to
+dispose live files are exercised. The unchanged generated program also passes
+the production --build/link/entry path; repeating creation preserves prior bytes.
+Changed runtime input must invalidate the oracle.
+
+Executed packing/unpacking stores are counted: the short-write case packs
+4,810 bytes while ultimately writing a 256-byte result, so no zero-copy cost
+claim is made. Each file owns a 12,296-byte scratch payload charged at 16,384
+bytes, and transfers allocate no new scratch. The process-wide token counter's
+exhaustion and actual concurrent I/O are explicitly untested; sequential gates
+do not qualify thread safety or full language memory/foreign interfaces.
+
+Documentation validation: `rtk proxy powershell -NoProfile -File
+docs/assets/tools/validate-docs.ps1` passed 274 HTML files. The browser-control
+service was unavailable, so installed Firefox 159.0.1 rendered the two changed
+pages directly from file URLs using isolated temporary profiles and
+`--headless --no-remote --screenshot --window-size 1440,4500`. Exit zero and
+screenshot existence were asserted. Visual inspection checked the qualification
+text, failure table, counted-file section and local styles; reciprocal relative
+link targets were asserted and both destination files rendered successfully.
+Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube file docs 6590a904-2a7b-485b-bdfc-1330128432ef`.
+Clipboard interaction and literal link clicking were not exercised; no shared
+interactive code changed. This scoped check does not qualify the entire manual.
+
 ## Host error-handler correction — 2026-11-10
 
 BootstrapMain's Unexpected handler now resumes at a separate reporting label

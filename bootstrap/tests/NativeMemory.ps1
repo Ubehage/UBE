@@ -2,11 +2,16 @@
 # The invoking gate supplies bounded process execution, assertions and UTF-8 writing.
 function Get-NativeMemoryLinkArguments([string]$IR, [string]$Clang, [string]$Directory) {
     $text = [IO.File]::ReadAllText($IR)
-    if (-not $text.Contains('@VirtualAlloc')) { return }
-    $library = Join-Path $Directory 'kernel32-memory.lib'
+    $fileImports = $text.Contains('@CreateFileW')
+    if (-not $text.Contains('@VirtualAlloc') -and -not $fileImports) { return }
+    $stem = 'kernel32-memory'
+    if ($fileImports) { $stem = 'kernel32-files' }
+    $library = Join-Path $Directory ($stem + '.lib')
     if (-not (Test-Path -LiteralPath $library)) {
-        $definition = Join-Path $Directory 'kernel32-memory.def'
-        Write-Text $definition "LIBRARY KERNEL32.dll`r`nEXPORTS`r`nVirtualAlloc`r`nVirtualFree`r`n"
+        $definition = Join-Path $Directory ($stem + '.def')
+        $exports = "LIBRARY KERNEL32.dll`r`nEXPORTS`r`nVirtualAlloc`r`nVirtualFree`r`n"
+        if ($fileImports) { $exports += "CreateFileW`r`nReadFile`r`nWriteFile`r`nCloseHandle`r`nGetFileSizeEx`r`nGetFileType`r`nFlushFileBuffers`r`nMultiByteToWideChar`r`n" }
+        Write-Text $definition $exports
         $tool = Join-Path ([IO.Path]::GetDirectoryName($Clang)) 'llvm-dlltool.exe'
         Require (Test-Path -LiteralPath $tool) "Required installed LLVM import tool missing: $tool"
         $result = Invoke-BoundedProcess $tool @('-m','i386:x86-64','-d',$definition,'-l',$library)

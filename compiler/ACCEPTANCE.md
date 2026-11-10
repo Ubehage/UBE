@@ -154,6 +154,39 @@ diagnostics. Missing or failing import tools must preserve earlier artifacts.
 The existing aggregate, counted-buffer, integer, native, semantic, parser and
 loader gates must pass on the same final bootstrap binary.
 
+## Counted file input/output gate
+
+`../bootstrap/tests/file-io/check.ps1` must compile ordinary UBECore file
+algorithms and exact attributed primitives through the multi-module pipeline,
+then run actual file operations at O0/O2. Independent host readback must compare
+every byte, including zero and non-ASCII byte values. The restored contracts
+are `../std-lib/FILE-BYTES-CONTRACT.md` and FILE-OUTPUT-CONTRACT.md.
+
+| Case | Required observation |
+|---|---|
+| Empty and bounded input | Exact result length/data; EOF is usable zero progress |
+| Partial input/output | Ordinary UBE advances by confirmed progress, without repeated or omitted bytes |
+| Zero write progress | Whole-output algorithm terminates with a fresh failure |
+| Rejected read | Existing destination and result remain unchanged |
+| Existing output path | Exclusive creation fails; earlier bytes remain identical |
+| Bad span/path/mode/token | Controlled status and no accidental OS I/O |
+| Aliased outputs | Rejected before mutation; a live token is not overwritten |
+| Prior Err | Success preserves it while Failure becomes zero |
+| Allocation failure | Bounded retry and no leaked metadata, scratch or OS handle |
+| Read/write/flush failure | Exact fresh status; confirmed write progress is not represented as rollback |
+| Close failure | Token remains live for retry; successful close clears it |
+| Rejected open plus close failure | Caller receives the live owner for cleanup |
+| Context isolation | A foreign or stale token cannot name another context's live owner |
+| Disposal with live file | Reports incomplete disposal without silently closing user-owned resources |
+| Explicit Raise after cleanup | Fresh FAIL reaches caller while cleanup has already completed |
+
+Use narrow target-wrapper fault injection, assert that every injected path was
+actually reached, and observe native calls, packed-byte copies and live-resource
+counts. Add changed-input/omitted-operation controls so a vacuous success cannot
+pass. Signature negatives must reject wrong types, ranks and passing modes and
+preserve earlier emitted output. Run relevant prior gates on the same final
+VB6 executable. Sequential acceptance does not qualify native concurrency.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

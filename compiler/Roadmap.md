@@ -58,8 +58,11 @@ and shared-state rules are in the development plan's concurrency requirement.
   pass the 41-group dynamic-storage gate at O0/O2; see DYNAMIC-STORAGE.md in
   bootstrap for the ownership and allocation boundary.
   Managed text, broader aggregate ownership/loops and explicit library I/O remain.
-  Measure counted input/output and practical source-scanning needs next, extending
-  this same pipeline under the existing bootstrap-dependencies item.
+  Counted file input/output now adds explicit owned tokens, exclusive creation,
+  bounded OS byte packing and ordinary UBECore read/write progress algorithms;
+  its gate and limits are in `../bootstrap/FILE-IO.md` and Progress.md.
+  Measure practical source-scanning and text/loop needs next, extending this
+  same pipeline under the existing bootstrap-dependencies item.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

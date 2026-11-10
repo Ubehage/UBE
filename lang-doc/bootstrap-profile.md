@@ -149,7 +149,9 @@ Add and prove these only as compiler-source needs demand them:
 - Byte, Integer and LongLong storage and checked conversions/arithmetic are
   implemented by the integer dependency extension; its gate is
   `bootstrap/tests/integer-types/check.ps1`. This does not imply arrays or records;
-- Unicode text and counted byte I/O, with explicit encoding and source spans;
+- Unicode text and broader input processing, with explicit encoding and source
+  spans; counted UTF-8-path byte I/O is admitted through the exact File.* roles
+  in language-spec.md and the bounded contract in bootstrap/FILE-IO.md;
 - broader aggregate storage; finite scalar-field records and fixed rank-one arrays
   are qualified by the aggregate gate, while growing arrays and general bound-adopting
   copies are covered by the dynamic-storage acceptance gate described above;

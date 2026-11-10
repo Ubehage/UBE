@@ -748,6 +748,7 @@ signature and passing modes are required:
 | Role | Required Function signature |
 |---|---|
 | `File.TryOpen` | `(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Token As Long, ByRef Length As Long, ByRef Failure As Long) As Boolean` |
+| `File.TryCreateNew` | `(ByRef PathUtf8() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean` |
 | `File.TryRead` | `(ByVal Token As Long, ByRef Destination() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef ReadCount As Long, ByRef Failure As Long) As Boolean` |
 | `File.TryClose` | `(ByRef Token As Long, ByRef Failure As Long) As Boolean` |
 | `File.TryWrite` | `(ByVal Token As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef WrittenCount As Long, ByRef Failure As Long) As Boolean` |
@@ -765,6 +766,13 @@ It is not a language-level Raise/control-transfer operation. Success preserves
 Err. Exact limits, failure codes, alias restrictions and the temporary Windows
 adapter removal condition are in
 [`../std-lib/FILE-BYTES-CONTRACT.md`](../std-lib/FILE-BYTES-CONTRACT.md).
+
+Owner clarification, 2026-11-10: File.TryCreateNew creates a writable regular
+file exclusively from a counted UTF-8 path, failing if the path already exists.
+It follows the same explicit token ownership and failure rules as TryOpen.
+The bootstrap may pack/unpack its private Byte cells through bounded temporary
+storage for OS byte I/O; copying costs must be recorded and tested rather than
+claimed to be zero. This does not change language-level Byte values.
 
 The counted output dependency selected for the first native executable adds
 write/flush bindings over admitted writable file tokens. Their borrowed-byte,
