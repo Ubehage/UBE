@@ -1,5 +1,19 @@
 # Compiler development handoff
 
+## Host error-handler correction — 2026-11-10
+
+BootstrapMain's Unexpected handler now resumes at a separate reporting label
+before enabling On Error Resume Next. This leaves VB6's active handler so a
+second error during diagnostic output is suppressed and the process exits 1.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/host-error-recovery/check.ps1`
+passed four synthetic cases using the actual Main recovery tail: the old tail
+lets a reporting error escape to the test caller (exit 77), while the corrected
+tail exits 1 both with and without that second error. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube host error recovery c0a7e73e-52f8-41f5-8e65-1d0c2da66e5c`.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1`
+rebuilt the full bootstrap with VB6 6.00.9782 and passed all 54 loader/CLI cases;
+evidence directory: `ube project loading 55c35d11-b8d7-4af1-a9f3-a589115ae7cd`.
+
 ## Current handoff: growing arrays and retained element aliases
 
 The owner approved keeping original element storage alive through a call when

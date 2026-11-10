@@ -91,6 +91,9 @@ Failed:
     ExitProcess 1
     Exit Sub
 Unexpected:
+    ' Resume clears VB6's active handler before diagnostic output can fail again.
+    Resume ReportUnexpected
+ReportUnexpected:
     On Error Resume Next
     Call WriteOutput("UBE: E_INTERNAL: unable to complete project command", True)
     ExitProcess 1
