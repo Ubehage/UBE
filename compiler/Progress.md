@@ -16,16 +16,59 @@ multiple source modules in manifest order in a caller-owned ProjectContext.
 The owner explicitly requires this from the outset. No separate single-file
 compiler precedes it.
 
-The bounded lexer/parser now retains syntax trees over those source buffers.
-Next implement name resolution and scalar type checking: package/module lookup
-and visibility, duplicate declarations, Main validation, signatures and ByRef
-requirements. Specify the official Err declaration/binding before lowering.
-Then generate native code for the parsed SourceOracle.bas acceptance cases;
-no test-name special cases or hard-coded expected program output.
+The bounded lexer/parser retains syntax trees, and the semantic pass now
+resolves symbols, checks scalar types and constants, validates Main and binds
+the trusted error-support declarations described in `../bootstrap/SEMANTICS.md`.
+Next emit LLVM from those bound trees and qualify real native execution of the
+SourceOracle.bas cases, including the approved FAIL protocol. Preserve the
+retained conversions, argument modes, exact constants and declaration roles;
+do not rediscover behavior from source spellings or fixture names.
 
 Adaptive context inference, assembly lowering and compound-header failure
 continuations are outside this first implementation. The runtime inventory in
 `../std-lib/INVENTORY.md` remains a planning input, not a support claim.
+
+## Semantic gate
+
+On 2026-11-10 this command built with VB6 6.00.9782 outside the sandbox and
+passed all 76 semantic cases:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1`
+
+Build and initial evidence directory:
+`C:\Users\Ubehage\AppData\Local\Temp\ube source semantics 2642cea7-48b2-4d25-9412-86e46fce5061`.
+
+The final runner added exact label-target and 64-bit And intermediate assertions.
+It passed all 76 cases against that unchanged executable. The parser and loader
+regressions also passed against the same executable, using these commands:
+
+```powershell
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube source semantics 2642cea7-48b2-4d25-9412-86e46fce5061\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Final artifacts under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+- Semantic: `ube source semantics b8a3d49e-8c97-424b-8183-c6067f684306` (76 cases).
+- Parser: `ube source parsing 373323ab-d6e2-48fa-934f-ec567849554a` (37 cases).
+- Loader: `ube project loading 595feb50-3001-4be7-815b-fd3f1c6a79ef` (54 cases).
+
+Assertions cover declaration/entry identities, module/package visibility and
+ambiguity, shadowing, duplicate/undeclared names, exact signatures, conversions,
+ByRef aliases versus temporaries, constant boundaries, labels/handlers and
+trusted Err roles. The actual source oracle binds to trusted error operations;
+an ordinary user module Err does not. Negative diagnostics assert locations,
+failed analyses publish no partial bound result, and semantic symbol/depth
+limits fail cleanly. The lookup-work guard is not separately threshold-tested.
+
+No source procedure is executed by these commands. Deferred cases remain
+explicit in `../bootstrap/SEMANTICS.md`: hex/octal interpretation, mixed
+Boolean/integer operator domains, cross-module required-constant dependencies,
+and colliding package/module three-part qualifiers. Full Err signatures and
+runtime behavior remain future work. Actual concurrent compilation and editor
+multi-error recovery are not qualified.
 
 ## Lexer/parser gate
 
@@ -60,8 +103,9 @@ ones; this does not qualify reuse within one process or concurrent compilation.
 `--parse` validates admitted syntax; `--dump-ast` additionally emits inspection
 records. Limits, source ownership and UTF-16 span conventions are documented
 in `../bootstrap/DESIGN.md`. One diagnostic ends a failed request; editor
-multi-error recovery is unimplemented. Name resolution, target type semantics,
-entry-point validation and execution remain subsequent work.
+multi-error recovery is unimplemented. This historical gate qualifies syntax;
+the semantic gate above now covers its admitted name/type/entry checks.
+Native execution remains subsequent work.
 
 ## Project-loading gate
 
@@ -83,8 +127,8 @@ changes. An initial compile error was resolved by preserving CRLF in VB6 source
 and project files, now specified by `.gitattributes`.
 
 `--check` validates manifest metadata and source envelopes only. Procedure syntax
-is handled by the separate parse commands; Main resolution, cross-module call
-binding and LLVM emission remain unimplemented.
+is handled by the separate parse commands; the analysis commands check Main
+and cross-module call binding. LLVM emission remains unimplemented.
 It emits no target artifact. Full Unicode identifiers, references/resources and
 non-MODULE source kinds are explicitly outside the current admission boundary.
 See `../bootstrap/README.md` for input bounds. The gate does not qualify reuse

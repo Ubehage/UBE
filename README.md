@@ -79,7 +79,7 @@ Implementation is being restarted with a VB6 bootstrap host.
 The language contracts and executable feasibility tests guide the
 restart; there is not yet a working UBE source compiler in this checkout.  
 The VB6 bootstrap can load `.UBE` projects containing multiple ordered modules and parse the initial scalar syntax into retained trees.  
-Name resolution, type checking and native compilation remain subsequent implementation work.
+Name resolution and bounded scalar type checking are implemented. Native compilation and runtime error-flow verification remain subsequent work.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 

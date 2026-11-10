@@ -871,6 +871,10 @@ Private Function ParseModule(ByRef P As ParsedProject, ByRef S As ParserState, B
                 If Not ParseProcedure(P, S, Root, Visibility, Diagnostic) Then Exit Function
             Else
                 Constant = AtToken(P, S, "const")
+                If Len(Visibility) > 0 And AtToken(P, S, "dim") Then
+                    Call SyntaxError(P, S, Diagnostic, "Dim cannot be combined with a visibility modifier")
+                    Exit Function
+                End If
                 If AtToken(P, S, "dim") Or Constant Then
                     S.Position = S.Position + 1
                 ElseIf Len(Visibility) = 0 Then

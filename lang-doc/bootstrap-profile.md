@@ -1,7 +1,7 @@
 # UBE compiler bootstrap source profile
 
-**Status:** scalar syntax implemented and tested; semantic analysis and native
-emission remain planned. This file does not grant exceptions to language semantics.
+**Status:** scalar syntax and bounded semantic analysis implemented and tested;
+native emission remains planned. This file does not grant exceptions to language semantics.
 
 Project loading is implemented separately from source compilation. On
 2026-11-10, `bootstrap/tests/project-loading/check.ps1` built the VB6 loader and
@@ -12,9 +12,19 @@ bodies. Current limits and supported manifest keys are in `../bootstrap/README.m
 The VB6 lexer/parser now retains syntax trees for the scalar forms below.
 `bootstrap/tests/source-parsing/check.ps1` passed 37 cases for tree structure, source spans,
 the actual failure-flow source oracle, malformed/unsupported input and parsing
-limits. This is syntax support only: entry-point resolution, duplicate symbol
-checks, argument/type validation, error behavior and native emission remain
-subsequent passes. The oracle is parsed, not executed.
+limits. That gate proves syntax only. The separate semantic gate below qualifies
+entry-point resolution, symbols, arguments and scalar types. The oracle is not
+executed; runtime error behavior and native emission remain subsequent work.
+
+`bootstrap/tests/source-semantics/check.ps1` passed 76 cases for the bounded
+contract in `../bootstrap/SEMANTICS.md`, including trusted Err declarations,
+shadowing, package/module lookup, visibility, duplicate/undeclared names,
+signatures, ByRef alias/temporary treatment, labels and checked constants.
+Decimal LongLong intermediates are admitted for expressions while storage
+declarations remain Boolean/Long. Hex/octal interpretation, mixed Boolean/integer
+operator domains, cross-module required-constant dependencies and colliding
+package/module three-part qualifiers are explicitly deferred as documented
+there. No UBE runtime behavior is claimed by semantic acceptance.
 
 The parser also admits ordinary typed scalar constants/initializers, Long `&`
 declaration suffixes, unary signs, integer radix spellings, ASCII bracketed
@@ -45,8 +55,8 @@ This table selects surface features, not an alternate grammar. Match the
 normative EBNF and strict declaration rules for every admitted source form.
 Err operations must resolve to the official error-support contract rather than
 give arbitrary user declarations magic behavior by name. The concrete
-declaration/binding representation must be documented before production code
-is introduced; the test-only native prototype does not decide that interface.
+declaration/binding representation is documented in `../bootstrap/SEMANTICS.md`;
+the test-only native prototype does not decide that interface.
 
 The pending SourceOracle.bas is a module of callable checks, not a standalone
 executable. A test-only native harness will supply runtime arguments and call

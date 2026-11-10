@@ -1,0 +1,144 @@
+# Bootstrap scalar semantic contract
+
+This is the implemented boundary for the approved name-resolution and scalar
+type-checking step. The normative language specification and conversion table
+remain authoritative. LLVM emission and execution are separate subsequent work.
+
+## Binding and ownership
+
+The semantic pass consumes the retained ordered project syntax tree and produces
+caller-owned symbols and per-node bindings. A binding records the declaration
+identity and resulting type, rather than relying on a name string during later
+lowering. Source nodes and their diagnostic spans remain available. A failed
+pass does not publish a successful partial result.
+
+Lookup uses the language's local/parameter region, Function-result assignment
+context, current module, then accessible package members. Ambiguity at the
+selected level is an error; a wrong signature does not cause a second lookup.
+Module and package qualification select actual declarations and enforce access.
+Labels occupy a separate procedure-local region. GoTo and On Error targets must
+resolve there; this step introduces no additional prohibition on jumping into
+an If branch. Duplicate declarations follow the normative case-insensitive
+regions, not a single project-wide name table.
+
+If a three-part qualifier's root simultaneously names the current package and
+a module, namespace precedence is not yet defined by the full contract. This
+case receives E_UNSUPPORTED. Ordinary two-part module qualification remains
+available; failed member selection never retries a different namespace.
+
+Executable projects require exactly one module-level Main, with no parameters,
+declared as Sub or Function returning Long. Library projects have no startup
+entry selection; a normally declared procedure named Main does not acquire an
+entry role merely from its name.
+
+## Official error-support declarations
+
+The bootstrap supplies a compiler-owned, trusted declaration set for the
+already-approved scalar error surface. This is an explicit support interface,
+not a claim that the removed UBECore implementation has been restored or that
+project references are already implemented.
+
+| Receiver/member | Admitted signature | Stable binding role |
+|---|---|---|
+| Err | Error-support receiver | `error.object` |
+| Err.Raise | Sub, one ByVal Number As Long | `error.raise` |
+| Err.Clear | Sub, no arguments | `error.clear` |
+| Err.Number | Long value read | `error.number` |
+
+These declarations enter symbol resolution with explicit trusted origin and
+role identities. An ordinary user declaration cannot acquire a role through
+its spelling, its file/module name or a matching signature. User locals,
+module/package members and a user module named Err take precedence over the
+fallback support receiver. Once a user receiver is selected, a missing member
+does not fall back to the support declaration. A user module's Raise procedure
+remains an ordinary call.
+
+The pass validates the admitted signatures and retains their role bindings.
+Later lowering must implement immediate procedure exit/FAIL for `error.raise`,
+record clearing for `error.clear`, and the current thread's error-number read
+for `error.number`. The existing record-only Error.Set primitive is not Raise.
+No runtime behavior is implemented by this semantic step.
+
+Only Number reads are admitted here; this does not settle full-language member
+write capabilities. Optional Raise parameters, other Err members and legal
+error-number value ranges remain pending. A literal Err.Raise call is legal
+syntax and binding in a reusable procedure, not an automatic constant-error
+diagnostic.
+
+## Scalar values and calls
+
+Storage and declared signatures admit Boolean and Long. Implicit Boolean/Long
+assignment and ByVal/result conversions follow the normative matrix: False is
+0, True is -1, and a numeric zero/nonzero becomes False/True. Direct ByRef
+requires exact-type writable storage. An extra grouping pair on an individual
+argument instead requests a converted temporary, with callee writes discarded.
+The call's argument-list delimiters alone do not request that temporary.
+
+Integer addition, unary signs, comparisons and Boolean logical And retain
+their typed operations. Integral And is bitwise in the common integer type.
+Mixed Boolean/integer operator domains remain explicitly unsupported rather
+than inferred from VB6 behavior; ordinary assignment conversions remain valid.
+Boolean comparisons currently admit equality and inequality; Boolean ordering
+and unary numeric operations remain deferred.
+
+Decimal integer literals follow destination-context/default Long-or-LongLong
+typing and authoritative explicit suffixes. Exact signed-64-bit intermediates
+are necessary even though LongLong storage declarations remain outside this
+profile: `2147483648 + -1` can yield a valid Long destination, while
+`2147483647 + 1` overflows its selected Long arithmetic. Constant folding must
+check every selected operation and final conversion, retain source locations,
+and never use floating-point approximation for integer values.
+
+Required constants may depend only on earlier visible constants, with no
+variable reads, calls or dependency cycles. Literal-only arithmetic in normal
+initializers/assignments receives the same checked folding. Runtime-dependent
+expressions retain their types and conversions for lowering.
+
+The current boundary admits earlier constants in the same module or procedure
+and visible containing-module constants. The full specification does not yet
+define a cross-module declaration order for required constant dependencies.
+Cross-module Const-to-Const dependencies therefore receive E_UNSUPPORTED;
+manifest order is not invented as a constant-evaluation rule. Ordinary
+expressions may read accessible constants from another module once those
+constants have been checked, including modules later in the manifest.
+
+Hexadecimal/octal bit-pattern interpretation and noninteger operator domains
+remain deferred by the normative specification. Their recognized syntax is
+explicitly rejected by this semantic boundary. No host VB6 conversion silently
+decides those language rules.
+
+## Verification boundary
+
+The semantic gate must assert resolved declaration identities, result and
+conversion types, ByRef argument treatment, constants and trusted roles as
+well as success/failure. Negative cases require source locations and controlled
+diagnostics. Existing parser and loader gates must continue passing on the same
+binary. Bounds and exact commands/results are recorded in the compiler handoff
+before any completion claim.
+
+The implementation bounds retained symbols at 16,384 and semantic expression
+recursion at 128 levels. The latter is independent of syntactic nesting: a long
+left-associative expression can have a deep tree without nested parentheses.
+Hash-table candidate inspection has a separate four-million-step work budget.
+These resource limits do not change the full language's semantics.
+
+On 2026-11-10 the semantic gate passed all 76 cases with VB6 6.00.9782. The
+same executable passed 37 parser cases and 54 loading cases. Symbol/depth limits
+are exercised by the gate; the lookup-work guard is defensive and its exact
+threshold is not separately qualified. Commands and artifact paths are in
+`../compiler/Progress.md`.
+
+## Bound inspection records
+
+`--analyze` publishes the ordered project/module summary and ANALYZE OK only
+after the complete project passes. `--dump-bound` additionally prints ENTRY
+(the selected symbol, or zero for a library), SYMBOL declaration records and
+BOUND node records. The test runner asserts these development records;
+they are not a library serialization format or ABI.
+
+Expression constants describe the value before a surrounding conversion.
+Declaration/assignment constants describe the converted destination value.
+Each argument retains its formal destination type and value/alias/temp mode.
+A directly signed integer literal is represented by its unary node's exact
+constant; the magnitude token does not advertise a standalone positive value
+that would exceed its selected signed type. All source syntax remains retained.

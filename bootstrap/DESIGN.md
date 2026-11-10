@@ -7,8 +7,10 @@ additional modules from the working directory.
 
 `--check` validates only the project and native source envelopes. `--parse`
 requests a syntax tree for the admitted scalar profile. `--dump-ast` additionally
-serializes that tree for inspection and structural assertions. No command at
-this point resolves declarations, executes error handling or emits native code.
+serializes that tree for inspection and structural assertions. `--analyze` and
+`--dump-bound` additionally resolve declarations and check admitted scalar types
+under [the semantic contract](SEMANTICS.md). No command executes error handling
+or emits native code yet.
 Success output is written only after every module completes the requested pass.
 
 ## Source and syntax ownership
@@ -27,8 +29,9 @@ tokens and the original source buffer, including intervening whitespace.
 
 The tree represents syntax rather than resolved meaning. In particular,
 `Err.Raise`, `Err.Clear` and `Err.Number` are ordinary member/call syntax here.
-The subsequent binding pass must connect them to the official error-support
-contract. A parsed call is not proof that its target exists or has a compatible
+The binding pass connects resolved trusted declarations to the official
+error-support contract in a separate caller-owned BoundProject. A parsed call
+alone is not proof that its target exists or has a compatible
 signature. Likewise, parsing a project does not prove a valid `Main` exists.
 
 ## Failure boundaries

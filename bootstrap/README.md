@@ -2,9 +2,9 @@
 
 The owner selected VB6 as the preferred bootstrap implementation on 2026-11-10,
 subject to a successful build and native-output feasibility test. This folder
-contains the VB6 project loader, lexer, parser and separate feasibility tests.
-The source pipeline retains syntax trees; semantic analysis and code generation
-remain unimplemented.
+contains the VB6 project loader, lexer, parser, scalar semantic checker and
+separate feasibility tests. The pipeline retains syntax trees and resolved
+bindings; native code generation remains unimplemented.
 
 The bootstrap is a temporary development prerequisite. The final compiler is
 written in UBE; generated UBE programs do not depend on the VB6 runtime.
@@ -39,7 +39,7 @@ The loader reads the manifest and retains every source buffer in its specified
 order for the parser. Paths resolve relative to the project file, not the
 process's working directory. The
 [two-module sample](examples/multi-module/Demo.UBE) shows the project structure;
-its cross-module call is intended for the later semantic/code-generation gate.
+its cross-module call is checked by the semantic gate; code generation follows.
 `--check` checks project metadata and source headers, not procedure bodies or
 whether `Main` exists. It produces no target executable.
 
@@ -106,6 +106,34 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1
 On 2026-11-10 this gate passed all 37 cases with VB6 6.00.9782. The same binary
 also passed all 54 project-loading cases. See the compiler progress record for
 exact artifact paths and the assertions covered.
+
+## Semantic checking
+
+```text
+UBE-Bootstrap.exe --analyze path/to/Project.UBE
+UBE-Bootstrap.exe --dump-bound path/to/Project.UBE
+```
+
+These commands resolve declarations across modules, enforce visibility and
+unique names, validate Main, check scalar expressions/calls/assignments and
+ByRef storage, bind labels and error-handler targets, and check exact integer
+constant arithmetic. The dump exposes declaration identities, argument modes,
+types, conversions and constants for inspection.
+
+Official Err support has trusted declaration identities. A user module named
+Err has ordinary members and cannot acquire built-in Raise behavior by spelling.
+The [semantic contract](SEMANTICS.md) defines this binding and explicit limits:
+16,384 symbols, 128 semantic recursion levels and a bounded lookup-work budget.
+It also records the deferred operator/constant/qualifier cases. Failures produce
+one source-located diagnostic and no successful partial semantic result.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1
+```
+
+On 2026-11-10, the semantic gate passed 76 cases with VB6 6.00.9782; the same
+binary passed all 37 parser and 54 loader cases. No UBE procedures are executed
+by these checks. LLVM emission and runtime FAIL behavior are subsequent work.
 
 The [native failure-flow gate](tests/failure-flow/README.md) separately checks
 the agreed FAIL protocol and statement continuation with hand-authored LLVM.

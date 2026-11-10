@@ -47,9 +47,16 @@ source acceptance requirements in `compiler/ACCEPTANCE.md`.
   error oracle, unsupported/malformed input and parsing limits. The same binary
   passed all 54 project-loading cases. Exact commands/artifacts are recorded in
   `compiler/Progress.md`. This proves parsing, not execution or error behavior.
-- [ ] Implement name resolution and scalar type checking over those trees,
+- [x] Implement name resolution and scalar type checking over those trees,
   including package/module visibility, Main validation, typed arguments/ByRef,
   duplicate declarations and the official Err binding. LLVM emission follows.
+  The bounded semantic contract and trusted error-support declarations are
+  documented in `bootstrap/SEMANTICS.md`. The semantic gate passed 76 cases;
+  the same VB6 executable passed 37 parser and 54 loader cases. Assertions cover
+  declaration identities, conversion/ByRef treatment, exact constants and
+  diagnostics. Exact commands and evidence are in `compiler/Progress.md`.
+- [ ] Emit LLVM from the bound scalar project and qualify actual native
+  execution, including the approved FAIL protocol and SourceOracle cases.
 
 - [x] Native failure-flow feasibility: `rtk proxy powershell -NoProfile -File
   bootstrap/tests/failure-flow/check.ps1` passed on Clang 23.1.3. O0/O2 assert

@@ -28,11 +28,12 @@ completion claims from removed implementations.
 - [x] Implement the bounded lexer/parser with retained syntax trees, source
   spans and malformed/unsupported-input diagnostics. The 37-case syntax gate
   and all 54 loading regressions passed on the same VB6 build.
-- [ ] Implement name resolution and scalar type checking over the retained
+- [x] Implement name resolution and scalar type checking over the retained
   trees, including entry validation, module visibility and official Err binding.
+  The bounded semantic gate passed 76 cases, plus all parser/loading regressions.
 - [ ] Implement the bootstrap subset with bounded input handling, controlled
   failures, source locations and deterministic output.
-  Syntax is implemented; semantic checks and native lowering remain pending.
+  Bounded syntax and semantic checks are implemented; native lowering remains pending.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

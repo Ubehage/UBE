@@ -19,6 +19,12 @@ generation; those require actual source-compiler gates below.
 
 ## Failure-flow oracle
 
+The semantic gate in `../bootstrap/tests/source-semantics/check.ps1` now checks
+resolved symbols, entry/signatures, scalar types, ByRef modes, constants, labels
+and trusted error-support identities. The boundaries and deferred cases are in
+`../bootstrap/SEMANTICS.md`. This qualifies static checks, not the execution
+requirements below.
+
 The lexer/parser gate in `../bootstrap/tests/source-parsing/check.ps1` now
 asserts retained syntax-tree structure, source positions, admitted syntax,
 malformed/unsupported input and resource bounds. The real failure-flow oracle

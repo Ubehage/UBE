@@ -4,6 +4,7 @@ Module=HostFiles; src\HostFiles.bas
 Module=ProjectLoader; src\ProjectLoader.bas
 Module=SourceLexer; src\SourceLexer.bas
 Module=SourceParser; src\SourceParser.bas
+Module=SourceSemantics; src\SourceSemantics.bas
 Startup="Sub Main"
 Name="UBEBootstrap"
 ExeName32="UBE-Bootstrap.exe"
