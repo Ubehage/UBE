@@ -1366,7 +1366,7 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
     LeftNode = Parsed.Nodes(Node).FirstChild
     RightNode = Parsed.Nodes(LeftNode).NextSibling
     Operator = Parsed.Nodes(Node).Text
-    If Operator = "+" Or Operator = "and" Then OperandContext = DestinationType
+    If Operator = "+" Or Operator = "-" Or Operator = "and" Or Operator = "or" Then OperandContext = DestinationType
     If Not BindExpression(Project, Parsed, Bound, State, LeftNode, Required, Diagnostic, OperandContext) Then Exit Function
     If Not BindExpression(Project, Parsed, Bound, State, RightNode, Required, Diagnostic, OperandContext) Then Exit Function
     LeftType = Bound.Nodes(LeftNode).TypeName
@@ -1399,7 +1399,7 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
     If LeftType = "Boolean" Then SelectedType = "Boolean"
     Comparison = (Operator = "=" Or Operator = "<>" Or Operator = "<" Or Operator = ">" Or Operator = "<=" Or Operator = ">=")
     If SelectedType = "Boolean" Then
-        If Operator <> "and" And Operator <> "=" And Operator <> "<>" Then
+        If Operator <> "and" And Operator <> "or" And Operator <> "=" And Operator <> "<>" Then
             BindBinary = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "noninteger arithmetic/order domain is not admitted")
             Exit Function
         End If
@@ -1415,6 +1415,14 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
         Select Case Operator
         Case "+"
             Result = LeftValue + RightValue
+        Case "-"
+            Result = LeftValue - RightValue
+        Case "or"
+            If SelectedType = "Boolean" Then
+                If LeftValue <> CDec(0) Or RightValue <> CDec(0) Then Result = CDec(-1) Else Result = CDec(0)
+            Else
+                Result = LeftValue + RightValue - IntegerAnd(LeftValue, RightValue, SelectedType)
+            End If
         Case "and"
             If SelectedType = "Boolean" Then
                 If LeftValue <> CDec(0) And RightValue <> CDec(0) Then Result = CDec(-1) Else Result = CDec(0)
@@ -1498,7 +1506,7 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
                 BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "aggregate values do not support unary arithmetic")
                 Exit Function
             End If
-            If Bound.Nodes(Child).TypeName = "Boolean" Then
+            If Bound.Nodes(Child).TypeName = "Boolean" And Parsed.Nodes(Node).Text <> "not" Then
                 BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "Boolean unary arithmetic is outside the operator domain")
                 Exit Function
             End If
@@ -1507,10 +1515,12 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
                 Bound.Nodes(Node).TypeName = "Integer"
                 Bound.Nodes(Child).ConvertedType = "Integer"
             End If
+            Bound.Nodes(Child).ConvertedType = Bound.Nodes(Node).TypeName
             If Bound.Nodes(Node).ConstantKnown Then
                 Value = Bound.Nodes(Node).ConstantValue
                 If Parsed.Nodes(Node).Text = "-" Then Value = -Value
-                If Not FitsInteger(Value, Bound.Nodes(Node).TypeName) Then
+                If Parsed.Nodes(Node).Text = "not" Then Value = CDec(-1) - Value
+                If Bound.Nodes(Node).TypeName <> "Boolean" And Not FitsInteger(Value, Bound.Nodes(Node).TypeName) Then
                     BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "unary constant overflows its selected integer type")
                     Exit Function
                 End If
@@ -1666,10 +1676,24 @@ Private Function CheckNodes(ByRef Project As ProjectContext, ByRef Parsed As Par
         Select Case Kind
         Case "variable", "assignment"
             If Not BindAssignment(Project, Parsed, Bound, State, Node, Diagnostic) Then Exit Function
-        Case "if"
+        Case "if", "do"
             Child = Parsed.Nodes(Node).FirstChild
-            If Not BindExpression(Project, Parsed, Bound, State, Child, 0, Diagnostic) Then Exit Function
-            If Not ConvertValue(Project, Parsed, Bound, Child, "Boolean", Diagnostic) Then Exit Function
+            If Parsed.Nodes(Child).Kind <> "body" Then
+                If Not BindExpression(Project, Parsed, Bound, State, Child, 0, Diagnostic) Then Exit Function
+                If Not ConvertValue(Project, Parsed, Bound, Child, "Boolean", Diagnostic) Then Exit Function
+            End If
+        Case "exit"
+            If Parsed.Nodes(Node).Text = "do" Then
+                Parent = Parsed.Nodes(Node).Parent
+                Do While Parent <> 0
+                    If Parsed.Nodes(Parent).Kind = "do" Then Exit Do
+                    Parent = Parsed.Nodes(Parent).Parent
+                Loop
+                If Parent = 0 Then
+                    CheckNodes = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Exit Do requires an enclosing Do loop")
+                    Exit Function
+                End If
+            End If
         Case "goto", "on-error"
             If Not BindBranch(Project, Parsed, Bound, State, Node, Diagnostic) Then Exit Function
         Case "call"

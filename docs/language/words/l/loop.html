@@ -11,5 +11,6 @@ Loop [While condition | Until condition]</code></pre><h2>Example</h2><pre><code>
         Count = Count + 1
         Print Count
     Loop Until Count = 2
-End Sub</code></pre><h3>Expected result</h3><p>1<br>2</p><h2>Important rules</h2><p>A condition after <code>Loop</code> is tested after the body, so the body runs at least once.</p>
+End Sub</code></pre><h3>Expected result</h3><p>1<br>2</p><h2>Important rules</h2><p>A condition after <code>Loop</code> is tested after the body, so the body runs at least once. A failed condition exits the whole loop under default continuation; it is not a successful False, even for Until. Completed body effects remain completed. An enabled handler still receives control.</p>
+<p>See <a href="../d/do.html" data-doc-path="language/words/d/do.html">Do</a> for loop forms and <a href="../../../learn/errors.html" data-doc-path="learn/errors.html">Errors and Err</a> for failure behavior. The Print example illustrates specified behavior, not an executed bootstrap test.</p>
 <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="longlong.html" data-doc-path="language/words/l/longlong.html">← Previous: LongLong</a><a href="lset.html" data-doc-path="language/words/l/lset.html">Next: LSet →</a></nav><footer class="article-footer">Article ID: language.word.loop · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

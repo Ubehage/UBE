@@ -33,7 +33,9 @@ End Sub</code></pre>
     <h3>Expected result</h3>
     <p>0, 1, and 2 are printed on separate lines.</p>
     <h2>Important rules</h2>
-    <p>A condition after Do is checked before the body. A condition after Loop is checked after the body.</p>
+    <p>A condition after Do is checked before the body. A condition after Loop is checked after the body. Use at most one condition per loop. <code>Exit Do</code> leaves the nearest enclosing Do loop.</p>
+    <p>If evaluating the condition fails, default execution continues after the entire loop. FAIL is neither True nor False, including in an Until condition. An enabled error handler still receives control. A failed ordinary statement inside the body skips only that statement.</p>
+    <p>See <a href="../../../learn/errors.html" data-doc-path="learn/errors.html">Errors and Err</a> for continuation and handler rules. The Print example above illustrates the language contract; it is not a bootstrap execution test.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/dim.html" data-doc-path="language/words/d/dim.html">← Previous: Dim</a><a href="../d/double.html" data-doc-path="language/words/d/double.html">Next: Double →</a></nav>
     <footer class="article-footer">Article ID: language.word.do · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
   </main>

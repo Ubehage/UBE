@@ -77,6 +77,25 @@ not a transaction and does not imply rollback of earlier calls or ByRef writes.
 Each operation retains any specific preservation guarantee in its own contract,
 such as preserving an existing array when replacement allocation fails.
 
+## Failure in an If or Do condition
+
+Owner decision, 2026-11-10: failure while evaluating an `If`/`ElseIf` condition
+or a `Do`/`Loop` condition abandons the entire affected conditional or loop.
+Default execution continues after the complete `End If` or `Loop`, rather than
+entering another branch or another iteration. The same rule applies to a
+single-line If and to both pre-test and post-test While/Until loops. FAIL is
+neither True nor False. Effects completed before failure remain completed.
+
+An enabled label handler still receives control. `Resume Next` selects the
+continuation after the complete construct; `Resume` retries the failed
+condition. Retrying a failed post-test condition does not repeat the body first.
+When a handler is already running, the construct is skipped without reentering
+the handler or replacing its saved resume location.
+
+A failed ordinary statement within a loop body still skips only that statement.
+This decision does not settle the separate control boundaries of For, Select
+Case or SyncLock.
+
 ## Failure while a handler is running
 
 Owner decision: a call that returns FAIL while an error handler is already
@@ -125,7 +144,7 @@ applies; continuing with corrupt state is forbidden.
 This settles Err.Raise, fresh FAIL status, default statement continuation,
 caller label handling, assignment preservation and cleanup responsibility.
 Full Err member signatures, explicit Error statement equivalence,
-special control-statement resume targets,
+control-statement resume targets other than If and Do,
 Try-style record-only APIs and cross-thread/foreign lifecycle boundaries still
 require the detailed decisions listed in the project review. They must not
 silently weaken the approved behavior above.

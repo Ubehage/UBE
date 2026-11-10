@@ -30,6 +30,9 @@
 End Sub</code></pre>
     <p>If InputText cannot convert to Long, Count remains 25 and Print executes. The addition is not performed. No zero is substituted to make Count become 10. If the input is "12", the assignment succeeds and Count becomes 22. These are specified outcomes, not executed compiler test results.</p>
     <p>Already completed side effects remain. Skipping a statement does not undo earlier procedure calls, output, or writes through ByRef arguments. A failed declaration initializer leaves its already established variable at its neutral initial value.</p>
+    <h2>Failed conditions</h2>
+    <p>If an <code>If</code> or <code>ElseIf</code> condition fails, default execution skips the entire conditional, including its Else branch. If a <code>Do</code> or <code>Loop</code> condition fails, execution continues after the loop. This applies to While and Until, before or after the body. FAIL is neither True nor False. An enabled error handler still receives control; an already active handler skips the construct without recursive entry.</p>
+    <p>A failed ordinary statement inside a loop body skips only that statement. Earlier iterations and completed side effects remain completed.</p>
     <h2>Raise an error from a procedure</h2>
     <pre><code>Function RequirePositive(ByVal Value As Long) As Long
     If Value &lt;= 0 Then
@@ -59,7 +62,7 @@ End Sub</code></pre>
     <p>An old nonzero Err.Number does not mean a later call failed. UBE uses the fresh call outcome for control flow. When manually inspecting Err, clear it before the operation if you need to distinguish a newly recorded error, or use the operation's explicitly documented fresh status.</p>
     <p>A Try-style API may explicitly report validation failure, timeout, cancellation or another ordinary non-success through a returned status. That contract is separate from a raised language failure; the name Try alone does not decide its behavior.</p>
     <h2>Resume and limits</h2>
-    <p>Valid <code>Resume</code>, <code>Resume Next</code> and <code>Resume label</code> leave an active handler and clear Err. Default skipping and <code>On Error Resume Next</code> retain the error. Exact resume targets for special compound control statements remain under definition; a failed condition must not be treated as a successful False.</p>
+    <p>Valid <code>Resume</code>, <code>Resume Next</code> and <code>Resume label</code> leave an active handler and clear Err. Default skipping and <code>On Error Resume Next</code> retain the error. For a failed If or Do condition, Resume retries the condition and Resume Next continues after the complete construct. Retrying a post-test condition does not repeat the body first. These Resume forms remain specified, outside the current bootstrap subset. Boundaries for For, Select Case and SyncLock remain under definition.</p>
     <p>Provably invalid operations are compile-time errors. A safely refused call due to insufficient stack records error 28 and returns FAIL without entering the callee. When safe continuation or reporting is impossible, UBE follows a controlled fatal-failure path rather than executing with corrupt state.</p>
     <p>The Error statement's equivalence to Err.Raise, complete Err member signatures, and error delivery across callback, worker, startup and foreign boundaries still need their detailed contracts. Their presence in the language is not evidence of an implemented runtime.</p>
     <footer class="article-footer">Article ID: learn.errors · Specified; implementation pending · Last reviewed 2026-11-10</footer>

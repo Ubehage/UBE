@@ -60,10 +60,27 @@ are inline and replacements use separately owned blocks. Prepared aliases retain
 original storage through calls or assignment completion/abandonment. Replacement
 values are independent of later writes through old aliases. A conservative
 project effect invalidates current-bound proofs when shapes may change, while
-declaration metadata retains initial fixed bounds. Final evidence must come from
-`bootstrap/tests/dynamic-storage/check.ps1` and regression gates on the same
-executable; no pass is asserted here. Managed fields, ReDim/Erase syntax,
-aggregate ByVal/results, broader primitives and I/O remain deferred.
+declaration metadata retains initial fixed bounds. Its 41-group gate is
+`bootstrap/tests/dynamic-storage/check.ps1`; exact evidence and same-build
+regressions are in compiler/Progress.md. Managed fields, ReDim/Erase syntax,
+aggregate ByVal/results and broader primitives remain deferred. Counted file
+I/O is qualified separately below.
+
+The counted file-I/O gate `bootstrap/tests/file-io/check.ps1` passed 56 groups
+for explicit owned tokens, exclusive creation, bounded byte transfers and
+ordinary UBECore progress/cleanup helpers at O0/O2. Its limits and target
+boundary are in [FILE-IO.md](../bootstrap/FILE-IO.md).
+
+The source-scanning extension admits the loop and operator forms listed below
+and executes `compiler/src/SourceScanner.bas` with ordinary UBECore UTF-8
+validation. `bootstrap/tests/source-scanning/check.ps1` passed 82 groups for
+actual file input, retained tokens/positions and controlled malformed-input
+diagnostics. Separate gates passed 42 allocation/depth checks, 37 UTF-8 cases
+at O0/O2 plus a changed-input control, and 13 syntax/binding cases. Its input
+limit is 4,096 bytes, with at most 4,096 tokens. This is the current ASCII
+identifier profile; managed String storage, full Unicode identifiers and a
+UBE-written parser remain deferred. Exact contracts and evidence are in
+[SOURCE-SCANNING.md](../bootstrap/SOURCE-SCANNING.md) and compiler/Progress.md.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
@@ -93,8 +110,8 @@ possible or that its minimum dependencies have all been measured.
 | Entry | One package-wide module-level `Function Main() As Long` or `Sub Main()` for an Exe project |
 | Types/storage | Boolean, Byte, Integer, Long and LongLong; explicitly typed locals, parameters and function results; neutral initialization; scalar module variables |
 | Procedures | Module Subs and Functions; ByVal and exact writable-storage ByRef; parameterless and positional calls; Exit Sub/Function |
-| Expressions | Literals, names, calls, comparisons, eager Boolean And and checked Long addition needed by the error fixtures; evaluation once in source order |
-| Statements | Scalar declarations/assignments, procedure calls, single-line and block If/Else, procedure-local labels and GoTo |
+| Expressions | Literals, names, calls, comparisons, eager Boolean/integral And/Or/Not, checked integer addition/subtraction and unary signs; evaluation once in source order |
+| Statements | Scalar declarations/assignments, procedure calls, single-line and block If/Else, procedure-local labels and GoTo; Do/Loop with pre-test or post-test While/Until, unconditional Do and nearest-loop Exit Do |
 | Errors | Err.Raise with a Long code, Err.Number read, Err.Clear; default continuation; On Error GoTo label, On Error Resume Next and On Error GoTo 0; failure while a handler is active |
 | Output oracle | Main's process result plus harness observations; production Print is not required merely to report test success |
 
@@ -109,11 +126,13 @@ SourceOracle.bas is a module of callable checks, not a standalone executable.
 A test-only native harness supplies runtime arguments and calls its compiled
 procedures; this does not expose ordinary Public procedures as
 foreign exports. Separate standalone Main fixtures qualify executable startup.
-Failure within an If condition or other compound control header is outside the
-initial gate until its exact continuation target is settled; conditions in the
-initial oracle are nonfailing scalar comparisons.
+The initial oracle uses nonfailing scalar comparisons. The source-scanning
+extension now admits failing If/ElseIf and Do/Loop conditions: default execution
+skips the entire affected construct, while enabled handlers still receive
+control. A failed condition is not a Boolean. See
+[`SOURCE-SCANNING.md`](../bootstrap/SOURCE-SCANNING.md) for the dependency scope.
 
-The emitter rejects potentially failing If headers, lifecycle hooks, explicit
+The emitter rejects lifecycle hooks, explicit
 Raise in the executable root Main, and potential cross-module initializer cycles.
 These bounded-profile rejections preserve the open full-language contracts;
 they are not new semantics for those cases. Debug locations survive as source
@@ -171,8 +190,9 @@ from actual UBE compiler source and its build, not presumed by this list.
 Classes/events, collection and GC of arbitrary object graphs, native threads,
 foreign exports/callbacks, UI/designer formats, Adaptive result inference,
 assembly/bytecode lowering and full library compatibility are not admitted by
-the scalar profile. Resume retry/control-construct resume targets and complete
-Err descriptive fields follow their exact contracts when settled. Reject them
+the scalar profile. Resume syntax remains unsupported; the If/Do targets are
+specified, while other compound-control targets and complete Err descriptive
+fields still need detailed contracts. Reject unsupported forms
 explicitly until implemented; their approved full-language semantics remain.
 
 See `../compiler/ACCEPTANCE.md` for the gate. Update this file with named tests

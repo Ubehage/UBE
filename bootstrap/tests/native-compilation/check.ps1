@@ -269,10 +269,31 @@ $collisionManifest = Copy-Fixtures 'input collision' @((Join-Path $fixtureDirect
 $sourceTarget = Join-Path (Split-Path $collisionManifest) 'Program.bas'
 Assert-PreservedFailure 'input-output collision' @('--build',$collisionManifest,$sourceTarget,'--clang',$Clang) 'E_OUTPUT' $sourceTarget
 Assert-PreservedFailure 'IR publication frontend diagnostic' @('--emit-llvm',$invalid,$oracleIR) 'E_NAME' $oracleIR
+# Calls in conditions now use ordinary Boolean conversion and fresh failure edges.
+# A failed condition skips both branches rather than becoming False.
+$conditionCases = @(
+    @{ Name='successful called If condition'; Expected=23; Body="Function Main() As Long`nIf Check() = 1 Then`nMain = 23`nElse`nMain = 41`nEnd If`nEnd Function`nFunction Check() As Long`nCheck = 1`nEnd Function" },
+    @{ Name='failed If condition skips both branches'; Expected=37; Body="Function Main() As Long`nDim Result As Long = 37`nIf Check(5) = 1 Then`nResult = 1`nElse`nResult = 2`nEnd If`nIf Err.Number <> 5 Then Result = 99`nMain = Result`nEnd Function`nFunction Check(ByVal Code As Long) As Long`nErr.Raise Code`nEnd Function" }
+)
+foreach ($case in $conditionCases) {
+    $manifest = New-Fixture $case.Name @($case.Body) @('Example') 'Exe'
+    foreach ($level in @('0','2')) {
+        $manifestText = [IO.File]::ReadAllText($manifest, $utf8)
+        $manifestText = [regex]::Replace($manifestText, '(?m)^Optimization = "[^"]*"\r?\n', '')
+        $manifestText += 'Optimization = "' + $level + '"' + "`r`n"
+        Write-Text $manifest $manifestText
+        $conditionExe = Join-Path $artifacts ($case.Name + '-O' + $level + '.exe')
+        $null = Invoke-Compiler @('--build',$manifest,$conditionExe,'--clang',$Clang) 'BUILD OK'
+        Assert-X64 $conditionExe
+        $conditionRun = Invoke-BoundedProcess $conditionExe @()
+        Require ($conditionRun.ExitCode -eq $case.Expected) "$($case.Name) O$level expected $($case.Expected), got $($conditionRun.ExitCode). Evidence: $($conditionRun.Evidence)"
+        $script:passed++
+        Write-Output "PASS: $($case.Name) O$level"
+    }
+}
 $unsupported = @(
     @{ Name='root explicit Raise boundary'; Bodies=@("Function Main() As Long`nErr.Raise 5`nEnd Function"); Modules=@('Example') },
     @{ Name='module lifecycle hook boundary'; Bodies=@("Private Sub Module_Initialize()`nEnd Sub`nFunction Main() As Long`nEnd Function"); Modules=@('Example') },
-    @{ Name='potentially failing If header boundary'; Bodies=@("Function Main() As Long`nIf Check() = 1 Then Main = 0`nEnd Function`nFunction Check() As Long`nCheck = 1`nEnd Function"); Modules=@('Example') },
     @{ Name='potential initialization cycle boundary'; Bodies=@("Public Value As Long = Other.ReadValue()`nFunction Main() As Long`nMain = Value`nEnd Function`nFunction ReadValue() As Long`nReadValue = Value`nEnd Function", "Public Value As Long = Program.ReadValue()`nFunction ReadValue() As Long`nReadValue = Value`nEnd Function"); Modules=@('Program','Other') }
 )
 foreach ($case in $unsupported) {

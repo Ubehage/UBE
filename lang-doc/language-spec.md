@@ -1057,6 +1057,13 @@ the first matching part executes. Comma-separated clauses are alternatives,
 `Case Else` matches only when no earlier part did. Each clause expression is
 evaluated only if reached.
 
+Failure while evaluating an If/ElseIf or Do/Loop condition skips the entire
+affected conditional or loop under default continuation, including post-test
+and Until forms. It never supplies a Boolean value or selects an Else branch.
+An enabled error handler still receives control. A failed ordinary statement
+inside the body retains ordinary statement-skipping behavior. The detailed
+continuation and retry contract is in [error-handling.md](error-handling.md).
+
 A `Do` loop has either one precondition after `Do`, one postcondition after
 `Loop`, or no condition; it never has both. `While` continues while true and
 `Until` continues while false. `On expression GoTo` and `On expression GoSub`

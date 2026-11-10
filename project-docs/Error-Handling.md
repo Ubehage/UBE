@@ -31,8 +31,10 @@ is tracked separately. No executable conformance is claimed by this document.
 
 The following are still decisions, not accidental implementation defaults:
 
-1. Default resume targets for failures in compound control headers such as If,
-   For, Select Case and SyncLock. A failed Boolean conversion is not False.
+1. Default resume targets for failures in compound control headers other than
+   If and Do, including For, Select Case and SyncLock. The owner approved
+   skipping the entire If/Do construct on a failed condition; an enabled handler
+   still receives control. A failed Boolean conversion is not False.
 2. Exact return/diagnostic behavior for worker entry, event dispatch, raw native
    callbacks, UI-thread routing and module startup/finalization boundaries.
 3. Complete Err signatures/codes, Error statement equivalence, and any new
@@ -129,7 +131,8 @@ Do not implement caller behavior merely by testing Err at procedure return.
 | Failure in a statement under Resume Next | Abandon the rest of that statement; preserve effects already completed; continue at its next executable statement. |
 | Scalar assignment | Approved: store only after successful RHS evaluation and conversion; FAIL skips the commit. |
 | Invalid array write | Record failure; never modify an unrelated element or fabricate a valid index. |
-| Compound control header | Define the precise default continuation target; never treat a failed condition as a successful False or zero. |
+| If/Do condition | Skip the whole construct by default, including Until and post-test conditions; enabled handlers receive control. Never substitute False or zero. Resume retries the condition; Resume Next continues after the construct. |
+| Other compound control header | Define the precise default continuation target for For, Select Case and SyncLock. |
 | Failed allocation/resize | Preserve the destination where the operation promises it; release only unpublished partial work. |
 | Two potential failures in one expression | Approved: the first failure abandons the statement; a later operand is not evaluated. Separate later statements may record newer errors. |
 | Error while already running a handler | Approved: a received FAIL skips the failed statement and continues silently in the handler; update Err but do not re-enter or automatically propagate. Explicit Err.Raise still exits its containing procedure. |

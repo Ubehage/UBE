@@ -25,6 +25,7 @@ Private Type EmissionState
     CurrentNext As String
     ResultSymbol As Long
     CountedDepth As Boolean
+    LoopExit As String
     FieldIndex() As Long
     FieldCount As Long
     FailureSites() As Long
@@ -184,51 +185,6 @@ Private Function ConvertNative(ByRef State As EmissionState, ByVal Value As Stri
         Result = Value
     End If
     ConvertNative = Result
-End Function
-
-' Determines which conditions are outside the unsettled compound-header failure boundary.
-Private Function ConditionMayFail(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Node As Long) As Boolean
-    Dim Child As Long
-    Dim Receiver As Long
-    Dim IndexNode As Long
-    If Bound.Nodes(Node).ConstantKnown Then Exit Function
-    If Bound.Nodes(Node).AccessKind = "index" Then
-        Receiver = Parsed.Nodes(Node).FirstChild
-        IndexNode = Parsed.Nodes(Receiver).NextSibling
-        If Not Bound.Nodes(Receiver).HasBounds Or Not Bound.Nodes(IndexNode).ConstantKnown Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-    End If
-    Select Case Parsed.Nodes(Node).Kind
-    Case "call"
-        If Bound.Nodes(Node).AccessKind <> "index" Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-    Case "binary"
-        If Parsed.Nodes(Node).Text = "+" Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-    Case "unary"
-        If Parsed.Nodes(Node).Text = "-" Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-    End Select
-    Child = Parsed.Nodes(Node).FirstChild
-    Do While Child <> 0
-        If IntegerConversionMayFail(Bound.Nodes(Child).TypeName, Bound.Nodes(Child).ConvertedType) Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-        If ConditionMayFail(Parsed, Bound, Child) Then
-            ConditionMayFail = True
-            Exit Function
-        End If
-        Child = Parsed.Nodes(Child).NextSibling
-    Loop
 End Function
 
 ' Traces initializer-only module accesses, including reachable procedure bodies.
@@ -433,12 +389,6 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
             Child = Parsed.Nodes(Node).FirstChild
             If Bound.Nodes(Child).TypeSymbol <> 0 Then
                 If Not AddFrameCells(Project, Parsed, Slots, Scope, 2 * Bound.Nodes(Child).StorageCells, Node, Diagnostic) Then Exit Function
-            End If
-        End If
-        If Parsed.Nodes(Node).Kind = "if" Then
-            If ConditionMayFail(Parsed, Bound, Parsed.Nodes(Node).FirstChild) Then
-                CheckEmissionProfile = EmissionError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "potential failure in an If condition awaits its compound-header continuation contract")
-                Exit Function
             End If
         End If
         If Parsed.Nodes(Node).Kind = "call" And Scope = Bound.EntrySymbol Then
@@ -709,6 +659,30 @@ Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue
     CheckedArithmetic = Result
 End Function
 
+' Complements a logical value or the exact bound integral width, retaining canonical cell extension.
+Private Function ComplementNative(ByRef State As EmissionState, ByVal Value As String, ByVal TypeName As String) As String
+    Dim Width As Long
+    Dim Operand As String
+    Dim Complement As String
+    Dim Result As String
+    Dim Extension As String
+    Width = IntegerWidth(TypeName)
+    If TypeName = "Boolean" Or Width = 64 Then
+        Result = ValueName(State)
+        Call AddLine(State, "  " & Result & " = xor i64 " & Value & ", -1")
+    Else
+        Operand = ValueName(State)
+        Complement = ValueName(State)
+        Result = ValueName(State)
+        Call AddLine(State, "  " & Operand & " = trunc i64 " & Value & " to i" & CStr(Width))
+        Call AddLine(State, "  " & Complement & " = xor i" & CStr(Width) & " " & Operand & ", -1")
+        Extension = "sext"
+        If TypeName = "Byte" Then Extension = "zext"
+        Call AddLine(State, "  " & Result & " = " & Extension & " i" & CStr(Width) & " " & Complement & " to i64")
+    End If
+    ComplementNative = Result
+End Function
+
 ' Emits source-order argument preparation and dispatches only already-bound trusted identities.
 Private Function EmitCall(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long, ByRef Terminated As Boolean) As String
     Dim Symbol As Long
@@ -804,8 +778,11 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
     Case "unary"
         Child = Parsed.Nodes(Node).FirstChild
         LeftValue = EmitExpression(Parsed, Bound, State, Child)
+        LeftValue = ConvertNative(State, LeftValue, Bound.Nodes(Child).TypeName, Bound.Nodes(Child).ConvertedType)
         If Parsed.Nodes(Node).Text = "-" Then
             Result = CheckedArithmetic(State, "0", LeftValue, Bound.Nodes(Node).TypeName, True)
+        ElseIf Parsed.Nodes(Node).Text = "not" Then
+            Result = ComplementNative(State, LeftValue, Bound.Nodes(Node).TypeName)
         Else
             Result = LeftValue
         End If
@@ -824,10 +801,12 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         RightValue = ConvertNative(State, RightValue, Bound.Nodes(RightNode).TypeName, Bound.Nodes(RightNode).ConvertedType)
         If Parsed.Nodes(Node).Text = "+" Then
             Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, False)
-        ElseIf Parsed.Nodes(Node).Text = "and" Then
+        ElseIf Parsed.Nodes(Node).Text = "-" Then
+            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, True)
+        ElseIf Parsed.Nodes(Node).Text = "and" Or Parsed.Nodes(Node).Text = "or" Then
             Result = ValueName(State)
             ' Canonical signed extension makes i64 And equal the selected integral-width result.
-            Call AddLine(State, "  " & Result & " = and i64 " & LeftValue & ", " & RightValue)
+            Call AddLine(State, "  " & Result & " = " & Parsed.Nodes(Node).Text & " i64 " & LeftValue & ", " & RightValue)
         Else
             Select Case Parsed.Nodes(Node).Text
             Case "=": Predicate = "eq"
@@ -845,6 +824,53 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
     End Select
     EmitExpression = Result
 End Function
+
+' Emits a loop with statement-local body failures and whole-construct condition-failure continuation.
+Private Sub EmitLoop(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long, ByVal Continuation As String)
+    Dim Condition As Long
+    Dim Body As Long
+    Dim Header As String
+    Dim BodyEntry As String
+    Dim PreviousExit As String
+    Dim Value As String
+    Dim Test As String
+    Dim Predicate As String
+    Dim Mode As String
+    Mode = Parsed.Nodes(Node).Text
+    Body = Parsed.Nodes(Node).FirstChild
+    If Mode <> "always" Then
+        Condition = Body
+        Body = Parsed.Nodes(Condition).NextSibling
+    End If
+    Header = BlockName(State, "loop.condition")
+    BodyEntry = SequenceEntry(Parsed, Body, Header)
+    PreviousExit = State.LoopExit
+    State.LoopExit = Continuation
+    If Left$(Mode, 4) = "pre-" Then
+        Call AddLine(State, "  br label %" & Header)
+    Else
+        Call AddLine(State, "  br label %" & BodyEntry)
+    End If
+    Call EmitSequence(Parsed, Bound, State, Body, Header)
+    Call AddLine(State, Header & ":")
+    ' Each iteration restores the header's failure identity after body statements have changed it.
+    State.CurrentNode = Node
+    State.ErrorNode = Node
+    State.CurrentNext = Continuation
+    Call AddLine(State, "  store i32 " & CStr(Node) & ", ptr %failure.site")
+    If Condition <> 0 Then
+        Value = EmitExpression(Parsed, Bound, State, Condition)
+        Test = ValueName(State)
+        Predicate = "ne"
+        If Right$(Mode, 5) = "until" Then Predicate = "eq"
+        Call AddLine(State, "  " & Test & " = icmp " & Predicate & " i64 " & Value & ", 0")
+        Call ReleaseAllPins(Parsed, Bound, State)
+        Call AddLine(State, "  br i1 " & Test & ", label %" & BodyEntry & ", label %" & Continuation)
+    Else
+        Call AddLine(State, "  br label %" & BodyEntry)
+    End If
+    State.LoopExit = PreviousExit
+End Sub
 
 ' Emits a source statement and its explicit continuation; incomplete assignments never store.
 Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long, ByVal Continuation As String)
@@ -921,7 +947,12 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Call AddLine(State, "  br label %" & StatementLabel(Bound.Symbols(Bound.Nodes(Node).SymbolIndex).DeclarationNode))
         Terminated = True
     Case "exit"
-        Call AddLine(State, "  br label %return.ok")
+        If Parsed.Nodes(Node).Text = "do" Then
+            Call ReleaseAllPins(Parsed, Bound, State)
+            Call AddLine(State, "  br label %" & State.LoopExit)
+        Else
+            Call AddLine(State, "  br label %return.ok")
+        End If
         Terminated = True
     Case "on-error"
         Symbol = Bound.Nodes(Node).SymbolIndex
@@ -937,6 +968,9 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Call AddLine(State, "  br i1 " & Test & ", label %" & SequenceEntry(Parsed, ThenNode, Continuation) & ", label %" & SequenceEntry(Parsed, ElseNode, Continuation))
         Call EmitSequence(Parsed, Bound, State, ThenNode, Continuation)
         If ElseNode <> 0 Then Call EmitSequence(Parsed, Bound, State, ElseNode, Continuation)
+        Terminated = True
+    Case "do"
+        Call EmitLoop(Parsed, Bound, State, Node, Continuation)
         Terminated = True
     Case "constant", "label"
         ' Constants have no runtime storage; a label remains an actual branch target.

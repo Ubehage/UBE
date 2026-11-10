@@ -61,8 +61,13 @@ and shared-state rules are in the development plan's concurrency requirement.
   Counted file input/output now adds explicit owned tokens, exclusive creation,
   bounded OS byte packing and ordinary UBECore read/write progress algorithms;
   its gate and limits are in `../bootstrap/FILE-IO.md` and Progress.md.
-  Measure practical source-scanning and text/loop needs next, extending this
-  same pipeline under the existing bootstrap-dependencies item.
+  The source-scanning dependency now adds Do/Loop, Exit Do, subtraction, Or/Not
+  and the first UBE-written scanner with portable UTF-8 validation. Its 82-group
+  file/token gate, 42 allocation/depth checks, 37 UTF-8 cases and 13 syntax cases
+  pass alongside prior regressions; scope is in SOURCE-SCANNING.md in bootstrap.
+  Next measure syntax-tree construction and source-storage needs, including the
+  current 4,096-byte scanner bound, before extending this same pipeline toward
+  a UBE-written parser and complete compiler.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

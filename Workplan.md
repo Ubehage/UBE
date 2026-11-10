@@ -157,6 +157,14 @@ product baseline.
   approved exclusive creation and bounded byte packing. The file gate qualifies
   actual UBE O0/O2 progress, ownership, failure and publication behavior.
   Exact commands, limits and evidence are in compiler/Progress.md.
+- [x] Implement the source-scanning dependency: Do/Loop and Exit Do, checked
+  subtraction, eager Or/Not, and a bounded UBE-written scanner with portable
+  UTF-8 validation and retained source positions. The owner approved skipping
+  the entire If/Do construct after a failed condition. Scope and acceptance are
+  in bootstrap/SOURCE-SCANNING.md. Passed 82 file/scanning groups, 42 allocation,
+  depth and bounds checks, 37 UTF-8 cases at O0/O2 and 13 syntax/binding cases,
+  with changed-input controls and prior gates on the same bootstrap binary.
+  The 4,096-byte source boundary and UBE-written parser remain further work.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

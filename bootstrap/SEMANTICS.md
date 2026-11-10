@@ -88,10 +88,13 @@ requires exact-type writable storage. An extra grouping pair on an individual
 argument instead requests a converted temporary, with callee writes discarded.
 The call's argument-list delimiters alone do not request that temporary.
 
-Integer addition, unary signs, comparisons and Boolean logical And retain
+Integer addition/subtraction, unary signs/Not, comparisons and Boolean logical
+And/Or retain
 their typed operations. Byte arithmetic and unary signs promote to Integer;
 binary integral operations select the common Integer, Long or LongLong type.
-Integral And is bitwise in that common integer type.
+Integral And/Or are bitwise in that common integer type. Not complements the
+promoted integral width, or negates a Boolean. Its precedence is below
+comparisons and above And; And binds more tightly than Or.
 Mixed Boolean/integer operator domains remain explicitly unsupported rather
 than inferred from VB6 behavior; ordinary assignment conversions remain valid.
 Boolean comparisons currently admit equality and inequality; Boolean ordering
@@ -99,7 +102,8 @@ and unary numeric operations remain deferred.
 
 Decimal integer literals follow destination-context/default Long-or-LongLong
 typing and authoritative explicit %, & and ^ suffixes. A numeric destination
-context flows through grouping, addition, unary signs and integral And; it does
+context flows through grouping, addition/subtraction, unary signs/Not and
+integral And/Or; it does
 not turn a comparison's numeric operands into Boolean values. A literal which
 outgrows its context widens before the expression's final conversion.
 `2147483648 + -1` can yield a valid Long destination, while

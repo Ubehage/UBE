@@ -101,8 +101,14 @@ or permitted to expose unfinished storage.
 
 ## Admission and host boundaries
 
-Potentially failing compound-control headers remain unsupported until their
-continuation target is defined. Lifecycle hooks and explicit Raise in the
+If/ElseIf and Do/Loop conditions can fail. Default continuation skips the
+entire affected conditional or loop; enabled handlers still receive control,
+and active handlers quietly skip the construct. Pre-test and post-test While
+and Until share this rule. A loop restores its condition failure site on every
+iteration; failures in ordinary body statements skip only those statements.
+Exit Do selects the nearest enclosing loop's continuation. Resume statements
+and other compound control forms remain outside the admitted profile.
+Lifecycle hooks and explicit Raise in the
 executable root Main remain unsupported pending their failure-boundary
 contracts. Ordinary handled failures within Main do not become process failure
 because Err remains nonzero. Main's successful Long result becomes the process

@@ -1,6 +1,94 @@
 # Compiler development handoff
 
-## Current handoff: counted file input/output completed
+## Current handoff: source-scanning dependency completed
+
+The owner requested completing the next dependency and pushing the result to
+GitHub. Scope is `../bootstrap/SOURCE-SCANNING.md`: Do loops, subtraction,
+Or/Not, and actual UBE scanning of retained UTF-8 bytes. The owner approved
+skipping the complete If/Do construct when its condition fails; existing label
+and active-handler behavior applies. Resume syntax remains deferred.
+
+The actual UBE scanner and portable UTF-8 helper pass their native acceptance
+gates. `bootstrap/tests/source-scanning/check.ps1 -BootstrapExe <binary>` passed
+82 groups: real file reads, all seven token fields, byte/UTF-16 positions, BOM,
+continuations, exact malformed-input diagnostics and 4,096-byte/token bounds.
+It scans the checked-in Arithmetic example and rejects an actual on-disk token
+kind change. The control-flow source returns exactly zero at O0/O2 and exactly
+22 for the changed runtime input. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube source scanning 438c8180-d538-422c-8f15-28e6c0bc3616`.
+
+Next measure syntax-tree construction and source-storage requirements for the
+UBE-written parser, including support for real compiler modules beyond the
+current 4,096-byte input bound. Managed String storage, general Unicode
+identifiers, preprocessing, assembly payloads and self-hosting remain pending.
+The scanner uses caller-owned state without mutable global source/token state;
+actual concurrent compilation still requires the separate acceptance gate.
+
+Current acceptance binary (VB6 6.00.9782):
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading f9237060-f7de-4aee-a644-89756badbc2b\build\UBE-Bootstrap.exe`.
+The source-scanning extension adds no further host changes after this build.
+Existing gates ran with `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<gate>/check.ps1 -BootstrapExe <binary>`; project-loading built
+the binary without that argument. Evidence directories are under
+`C:\Users\Ubehage\AppData\Local\Temp`:
+
+| Gate | Passed | Evidence directory |
+|---|---:|---|
+| Project loading | 54 | `ube project loading f9237060-f7de-4aee-a644-89756badbc2b` |
+| Source parsing | 37 | `ube source parsing 70439a03-c801-4cb1-be10-13b69befc827` |
+| Source semantics | 76 | `ube source semantics 0fa0da46-d5fd-43ec-a44f-665c16e74228` |
+| Native compilation | 26 | `ube native compilation 8487ed45-dac3-4ea4-ab67-9e33702d5014` |
+| Integer types | 46 | `ube integer types 04ffd3c7-32d3-4b0a-ae1c-9ece3db27784` |
+| Aggregate storage | 35 | `ube aggregate storage 111e2ed9-af51-4bd0-9cf7-973baf2aeade` |
+| Counted buffers | 25 | `ube counted buffers 1194374a-2e79-4167-a2f8-c084996f07d6` |
+| Dynamic storage | 41 | `ube dynamic storage 2c026fb2-e28d-45d3-85e7-8a4448ce93c4` |
+| File I/O | 56 | `ube file io 510acca6-ffa1-4595-af3a-749d7b77939a` |
+
+`bootstrap/tests/source-scanning/syntax-check.ps1 -BootstrapExe <binary>` passed
+13 focused parser/binder cases, including exact constant values and located
+negative diagnostics. Evidence: `ube scanning syntax
+749b73db-1e82-4bb2-ba46-c9e68232e847`. The obsolete native rejection of potentially
+failing If was replaced by exact successful/failed-condition execution at O0/O2;
+other rejection and output-preservation assertions remain intact.
+
+`bootstrap/tests/source-scanning/utf8-check.ps1 -BootstrapExe <binary>` passed
+37 ordinary UBE source assertions at O0 and O2, plus a negative volatile-input
+control rejected at exact case 1. This checks strict scalar encodings, widths,
+overlong/surrogate/out-of-range/truncated sequences, invalid offsets and array
+bounds, zeroed failure widths and preserved Err on success. Evidence:
+`ube utf8 widths f7455e6a-0e4e-471c-9c8a-aca894504e76`.
+
+`bootstrap/tests/source-scanning/allocation-check.ps1 -BootstrapExe <binary>`
+passed 42 checks at O0/O2. Four injected allocation stages each fail both
+allocation/retry attempts: initial token growth, expanded growth, final shrink
+and publication copy. Count remains zero, all seven prior sentinel token
+fields survive, Err is 7, and the successful retry preserves that sticky Err.
+Allocation observations assert two retained owners before disposal and zero
+live allocations afterward. Depths 249 through 256, with quoted and ordinary
+source, complete within the five-second deadline; positive and negative source
+lower bounds reject before publication. Evidence:
+`ube scanner allocation 0c47b7d3-e816-4da9-b988-cd4b42f49150`.
+The final run also requires one-based UTF-16/line/column coordinates whenever
+an entered scanner call publishes a failure diagnostic.
+
+Review found that default continuation could swallow a failed helper call and
+prevent cursor advancement near the call-depth limit. Scanner helpers now
+explicitly propagate fresh language failures to the public status/diagnostic
+boundary. The boundary writes its emergency diagnostic without another helper
+call, so reporting does not require an extra call-depth slot. The depth gate
+above covers that correction.
+
+Public-manual reconciliation updated Errors, Do, Loop and Resume. The command
+`rtk proxy powershell -NoProfile -File docs/assets/tools/validate-docs.ps1` passed
+274 HTML files. Headless Firefox rendered the four changed pages through file
+URLs using isolated temporary profiles. Inspection confirmed readable changed
+prose, intact headings/code blocks, local styles and Copy-button initialization;
+the new links resolve to the rendered Errors/Do pages. Evidence:
+`ube scanner docs 2668e63c-0386-422d-9e43-b103252c8c3f`. Click/clipboard and full
+accessibility behavior were not retested; no interactive code changed. Resume
+remains explicitly specified but unsupported by the bootstrap.
+
+## Completed dependency: counted file input/output
 
 The completed bootstrap dependency is documented in `../bootstrap/FILE-IO.md`.
 The surviving normative File.* signatures were compared with the two removed

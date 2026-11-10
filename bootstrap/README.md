@@ -255,3 +255,20 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/file-io/check.ps1
 when close fails. Current Byte cells require bounded packing for OS calls;
 this implementation adds no C runtime, CRT dependency or SDK import library.
 General String/file syntax and Process.TryArgument remain outside this increment.
+
+## UBE-written source scanning
+
+The bootstrap now compiles Do/Loop and Exit Do, checked subtraction, eager Or
+and Not. These support the first UBE-written compiler component: a bounded
+scanner that reads retained UTF-8 bytes and produces tokens with exact source
+positions. A failed If or loop condition skips the complete construct under
+default continuation, rather than supplying a Boolean.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/check.ps1
+```
+
+The [scanning contract](SOURCE-SCANNING.md) and
+[gate README](tests/source-scanning/README.md) describe the 4,096-byte boundary
+and separate syntax, UTF-8 and allocation/depth tests. This component does not
+yet provide a UBE-written parser or self-hosting compiler.

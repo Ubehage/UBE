@@ -187,6 +187,28 @@ pass. Signature negatives must reject wrong types, ranks and passing modes and
 preserve earlier emitted output. Run relevant prior gates on the same final
 VB6 executable. Sequential acceptance does not qualify native concurrency.
 
+## Source-scanning dependency gate
+
+`../bootstrap/tests/source-scanning/check.ps1` must compile and execute the
+actual UBE-written scanner and portable UTF-8 helper, with source bytes read
+through UBECore file input. Run at O0/O2 and compare numeric token kinds,
+original byte spans and physical UTF-16 positions against independent expected
+values. Include comments, continuation lines, quoted escapes, numeric spellings,
+UTF-8/BOM, malformed input, source/token limits and repeated independent scans.
+Failure must report a located diagnostic without publishing partial tokens.
+
+The same gate must execute loop/operator and condition-failure probes: all Do
+forms, nearest Exit Do, eager Or, width-correct Not and checked subtraction;
+default failed If/ElseIf and pre/post While/Until conditions skip the complete
+construct, ordinary failed body statements skip only themselves, and enabled
+or active handlers follow their defined routes. Changed runtime input must
+invalidate the observations. The separate syntax-check.ps1 asserts exact
+constant folding, loop admission and controlled malformed/unsupported
+syntax. Run prior gates on the same final VB6 binary.
+
+This qualifies a bounded scanner component, not a complete UBE parser,
+self-hosting, managed String representation or concurrent compilation.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

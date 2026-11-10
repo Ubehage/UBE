@@ -45,6 +45,7 @@ Private Type ParserState
     Depth As Long
     FilePath As String
     ProcedureKind As String
+    DoDepth As Long
 End Type
 
 ' Reads token kinds with a bounded EOF sentinel for lookahead.
@@ -431,12 +432,17 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
     Dim Kind As String
     Start = S.Position
     Kind = TokenKind(P, S)
-    If AtToken(P, S, "+") Or AtToken(P, S, "-") Then
-        Text = P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text
+    If AtToken(P, S, "+") Or AtToken(P, S, "-") Or AtToken(P, S, "not") Then
+        Text = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
         S.Position = S.Position + 1
         Node = NewNode(P, S, "unary", Text, Start, Diagnostic)
         If Node = 0 Then Exit Function
-        Child = ParseExpression(P, S, 4, Diagnostic)
+        If Text = "not" Then
+            If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+            Child = ParseExpression(P, S, 3, Diagnostic)
+        Else
+            Child = ParseExpression(P, S, 6, Diagnostic)
+        End If
         If Child = 0 Then Exit Function
         Call AddChild(P, Node, Child)
     ElseIf AtToken(P, S, "(") Then
@@ -498,14 +504,16 @@ Private Function IntegerLiteral(ByVal Text As String) As Boolean
     IntegerLiteral = True
 End Function
 
-' Returns the admitted normative precedence, with comparison below addition.
+' Returns normative precedence for the admitted eager logical and arithmetic operators.
 Private Function OperatorRank(ByRef P As ParsedProject, ByRef S As ParserState) As Long
-    If AtToken(P, S, "and") Then
+    If AtToken(P, S, "or") Then
         OperatorRank = 1
-    ElseIf AtToken(P, S, "=") Or AtToken(P, S, "<>") Or AtToken(P, S, "<") Or AtToken(P, S, ">") Or AtToken(P, S, "<=") Or AtToken(P, S, ">=") Then
+    ElseIf AtToken(P, S, "and") Then
         OperatorRank = 2
-    ElseIf AtToken(P, S, "+") Then
-        OperatorRank = 3
+    ElseIf AtToken(P, S, "=") Or AtToken(P, S, "<>") Or AtToken(P, S, "<") Or AtToken(P, S, ">") Or AtToken(P, S, "<=") Or AtToken(P, S, ">=") Then
+        OperatorRank = 4
+    ElseIf AtToken(P, S, "+") Or AtToken(P, S, "-") Then
+        OperatorRank = 5
     End If
 End Function
 
@@ -518,12 +526,16 @@ Private Function ParseExpression(ByRef P As ParsedProject, ByRef S As ParserStat
     Dim Operator As String
     Dim ComparisonSeen As Boolean
     If Not EnterSyntax(P, S, Diagnostic) Then Exit Function
+    If Minimum > 3 And AtToken(P, S, "not") Then
+        Call SyntaxError(P, S, Diagnostic, "Not at this precedence requires parentheses")
+        Exit Function
+    End If
     LeftNode = ParsePrimary(P, S, Diagnostic)
     If LeftNode = 0 Then Exit Function
     Do
         Rank = OperatorRank(P, S)
         If Rank < Minimum Or Rank = 0 Then Exit Do
-        If Rank = 2 Then
+        If Rank = 4 Then
             If ComparisonSeen Then
                 Call SyntaxError(P, S, Diagnostic, "comparison operators cannot be chained")
                 Exit Function
@@ -531,11 +543,11 @@ Private Function ParseExpression(ByRef P As ParsedProject, ByRef S As ParserStat
             ComparisonSeen = True
         End If
         Operator = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
-        If Rank = 1 Then
+        If Rank <= 2 Then
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         End If
         S.Position = S.Position + 1
-        If Rank = 1 Then
+        If Rank <= 2 Then
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         End If
         RightNode = ParseExpression(P, S, Rank + 1, Diagnostic)
@@ -546,7 +558,7 @@ Private Function ParseExpression(ByRef P As ParsedProject, ByRef S As ParserStat
         Call AddChild(P, Node, RightNode)
         Call FinishNode(P, S, Node)
         LeftNode = Node
-        If Rank = 1 Then ComparisonSeen = False
+        If Rank <= 2 Then ComparisonSeen = False
     Loop
     S.Depth = S.Depth - 1
     ParseExpression = LeftNode
@@ -664,6 +676,10 @@ Private Function ParseStatement(ByRef P As ParsedProject, ByRef S As ParserState
     Dim ExplicitCall As Boolean
     Dim ExplicitLet As Boolean
     Start = S.Position
+    If AtToken(P, S, "do") Then
+        ParseStatement = ParseDo(P, S, Diagnostic)
+        Exit Function
+    End If
     If AtToken(P, S, "if") Then
         ParseStatement = ParseIf(P, S, Diagnostic)
         Exit Function
@@ -679,11 +695,19 @@ Private Function ParseStatement(ByRef P As ParsedProject, ByRef S As ParserState
         Node = NewNode(P, S, "goto", Text, Start, Diagnostic)
     ElseIf AtToken(P, S, "exit") Then
         S.Position = S.Position + 1
-        If Not AtToken(P, S, S.ProcedureKind) Then
+        If AtToken(P, S, "do") Then
+            If S.DoDepth = 0 Then
+                Call SyntaxError(P, S, Diagnostic, "Exit Do requires an enclosing Do loop")
+                Exit Function
+            End If
+            Text = "do"
+        ElseIf Not AtToken(P, S, S.ProcedureKind) Then
             Call SyntaxError(P, S, Diagnostic, "Exit must match the containing procedure")
             Exit Function
+        Else
+            Text = S.ProcedureKind
         End If
-        Text = S.ProcedureKind
+        If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         S.Position = S.Position + 1
         Node = NewNode(P, S, "exit", Text, Start, Diagnostic)
     Else
@@ -742,6 +766,10 @@ End Function
 Private Function ParseStatementLine(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByRef Diagnostic As String, Optional ByVal Inline As Boolean = False) As Boolean
     Dim Node As Long
     Do
+        If Inline And AtToken(P, S, "do") Then
+            ParseStatementLine = SyntaxError(P, S, Diagnostic, "Do requires a block statement boundary")
+            Exit Function
+        End If
         Node = ParseStatement(P, S, Diagnostic)
         If Node = 0 Then Exit Function
         Call AddChild(P, Parent, Node)
@@ -767,7 +795,7 @@ Private Function ParseBody(ByRef P As ParsedProject, ByRef S As ParserState, ByV
     If Not EnterSyntax(P, S, Diagnostic) Then Exit Function
     Do
         Call SkipLines(P, S)
-        If TokenKind(P, S) = "eof" Or AtToken(P, S, "end") Or AtToken(P, S, "else") Or AtToken(P, S, "elseif") Then Exit Do
+        If TokenKind(P, S) = "eof" Or AtToken(P, S, "end") Or AtToken(P, S, "else") Or AtToken(P, S, "elseif") Or AtToken(P, S, "loop") Then Exit Do
         If (IsName(P, S) And AtToken(P, S, ":", 1)) Or TokenKind(P, S) = "number" Then
             Start = S.Position
             If Not LabelName(P, S, Name, Diagnostic) Then Exit Function
@@ -790,6 +818,55 @@ NextLine:
     Loop
     S.Depth = S.Depth - 1
     ParseBody = True
+End Function
+
+' Retains one optional pre/post loop condition and a body; each Exit Do selects its nearest loop.
+Private Function ParseDo(ByRef P As ParsedProject, ByRef S As ParserState, ByRef Diagnostic As String) As Long
+    Dim Start As Long
+    Dim Node As Long
+    Dim Body As Long
+    Dim Condition As Long
+    Dim Mode As String
+    Start = S.Position
+    If Not EnterSyntax(P, S, Diagnostic) Then Exit Function
+    S.Position = S.Position + 1
+    Mode = "always"
+    Node = NewNode(P, S, "do", Mode, Start, Diagnostic)
+    If Node = 0 Then Exit Function
+    If AtToken(P, S, "while") Or AtToken(P, S, "until") Then
+        If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+        Mode = "pre-" & FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
+        S.Position = S.Position + 1
+        If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+        Condition = ParseExpression(P, S, 1, Diagnostic)
+        If Condition = 0 Then Exit Function
+    End If
+    If Not EndLine(P, S, Diagnostic) Then Exit Function
+    Body = NewNode(P, S, "body", "", S.Position, Diagnostic)
+    If Body = 0 Then Exit Function
+    S.DoDepth = S.DoDepth + 1
+    If Not ParseBody(P, S, Body, Diagnostic) Then Exit Function
+    S.DoDepth = S.DoDepth - 1
+    Call FinishNode(P, S, Body)
+    If Not Expect(P, S, "loop", Diagnostic) Then Exit Function
+    If AtToken(P, S, "while") Or AtToken(P, S, "until") Then
+        If Condition <> 0 Then
+            Call SyntaxError(P, S, Diagnostic, "Do cannot have both precondition and postcondition")
+            Exit Function
+        End If
+        If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+        Mode = "post-" & FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
+        S.Position = S.Position + 1
+        If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+        Condition = ParseExpression(P, S, 1, Diagnostic)
+        If Condition = 0 Then Exit Function
+    End If
+    P.Nodes(Node).Text = Mode
+    If Condition <> 0 Then Call AddChild(P, Node, Condition)
+    Call AddChild(P, Node, Body)
+    Call FinishNode(P, S, Node)
+    S.Depth = S.Depth - 1
+    ParseDo = Node
 End Function
 
 ' Parses both If forms; ElseIf is retained as an If child of its Else branch.

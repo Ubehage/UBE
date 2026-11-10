@@ -2,7 +2,18 @@
 
 UBECore provides ordinary language-support algorithms as UBE source, with a
 narrow compiler intrinsic and platform boundary. [UBECore.UBE](UBECore.UBE)
-contains its current portable counted-buffer and file-I/O modules.
+contains its current portable counted-buffer, file-I/O and UTF-8 modules.
+
+`Utf8.TrySequenceWidth` validates one Unicode scalar encoding in zero-based
+counted bytes and returns its byte and UTF-16 widths without allocating a
+String. Invalid encodings or spans return False with zero widths; successful
+validation preserves Err. Use distinct width-output variables and immutable
+source bytes. The helper rejects nonzero array bounds, overlong encodings,
+surrogates and values above U+10FFFF; source-specific control-character and
+lexical rules belong to the scanner. Its focused gate passed 37 source cases at both
+optimization levels, plus a changed-input control. See the
+[source-scanning dependency](../bootstrap/SOURCE-SCANNING.md) for its use by the
+UBE-written scanner and the distinction between byte and text positions.
 
 `BufferPrimitives.ByteStorageLength` binds `Array.Length` and returns the logical
 element count. `BufferPrimitives.CopyByteRange` binds `Memory.CopyBytes`; offsets
