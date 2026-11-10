@@ -8,6 +8,10 @@ runtime inventory. It does not add keywords or change semantics. The
 
 ## Compiler responsibilities
 
+The owner-approved [IDE execution-context constant](IDE-CONTEXT.md),
+`IS_IN_IDE`, is planned compiler-supplied Boolean state. The VB6 host equivalent
+is implemented; the UBE binders do not yet expose this predefined constant.
+
 | Surface | Compiler understands | Library supplies |
 |---|---|---|
 | Source | UTF-8, Unicode identifier rules, comments, continuations, literals, native/legacy headers and metadata | Unicode data and reusable text algorithms |

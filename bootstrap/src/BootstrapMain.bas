@@ -2,7 +2,28 @@ Attribute VB_Name = "BootstrapMain"
 Option Explicit
 
 ' Loads, checks and compiles an ordered project with caller-owned compiler state.
-Private Declare Sub ExitProcess Lib "kernel32" (ByVal ExitCode As Long)
+Private Declare Sub NativeExitProcess Lib "kernel32" Alias "ExitProcess" (ByVal ExitCode As Long)
+Private RunningInIDE As Boolean
+
+' Read-only host equivalent of the planned UBE compiler-supplied constant.
+Public Property Get IS_IN_IDE() As Boolean
+    IS_IN_IDE = RunningInIDE
+End Property
+
+' Debug.Assert evaluates its argument only inside VB6, never in a built EXE.
+Private Function DetectIDE() As Boolean
+    Debug.Assert MarkIDE(DetectIDE)
+End Function
+
+Private Function MarkIDE(ByRef Detected As Boolean) As Boolean
+    Detected = True
+    MarkIDE = True
+End Function
+
+' Returning lets Sub Main finish without terminating the hosting VB6 process.
+Private Sub ExitProcess(ByVal ExitCode As Long)
+    If Not IS_IN_IDE Then NativeExitProcess ExitCode
+End Sub
 
 ' Runs the bounded inspection commands without invoking the VB6 interactive error UI.
 Public Sub Main()
@@ -18,6 +39,7 @@ Public Sub Main()
     Dim ClangPath As String
     Dim NativeMode As Boolean
     On Error GoTo Unexpected
+    RunningInIDE = DetectIDE()
     If Not ReadArguments(Arguments, ArgumentCount, Diagnostic) Then GoTo Usage
     If ArgumentCount < 3 Then GoTo Usage
     Mode = Arguments(1)

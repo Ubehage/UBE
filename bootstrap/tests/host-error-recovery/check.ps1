@@ -28,6 +28,8 @@ $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '../../src/BootstrapMa
 $match = [regex]::Match($source, '(?ms)^Unexpected:\r?\n.*?^End Sub')
 if (-not $match.Success) { throw 'Main recovery tail not found' }
 $tail = $match.Value
+$helpers = [regex]::Match($source, '(?ms)^Private RunningInIDE As Boolean\r?\n.*?(?=^'' Runs the bounded inspection)').Value
+if (-not $helpers) { throw 'Host IDE detection/shutdown helpers not found' }
 $oldTail = [regex]::Replace($tail, "(?m)^    ' Resume clears[^\r\n]*\r?\n", '')
 $oldTail = $oldTail.Replace("    Resume ReportUnexpected`r`nReportUnexpected:`r`n", '').Replace("    Resume ReportUnexpected`nReportUnexpected:`n", '')
 if ($oldTail -ceq $tail) { throw 'Recovery negative control did not remove Resume' }
@@ -44,7 +46,8 @@ foreach ($legacy in @($true, $false)) {
         $probe = @"
 Attribute VB_Name = "RecoveryProbe"
 Option Explicit
-Private Declare Sub ExitProcess Lib "kernel32" (ByVal Code As Long)
+Private Declare Sub NativeExitProcess Lib "kernel32" Alias "ExitProcess" (ByVal Code As Long)
+$helpers
 Public Sub Main()
     On Error GoTo Escaped
     RunProbe
