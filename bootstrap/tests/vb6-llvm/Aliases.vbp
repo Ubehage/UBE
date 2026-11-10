@@ -1,0 +1,11 @@
+Type=Exe
+Module=Aliases; Aliases.bas
+Startup="Sub Main"
+Name="AliasProbe"
+ExeName32="AliasProbe.exe"
+CompilationType=0
+OptimizationType=0
+BoundsCheck=1
+OverflowCheck=1
+ThreadPerObject=0
+MaxNumberOfThreads=1

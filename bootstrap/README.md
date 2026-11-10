@@ -1,158 +1,114 @@
-# Stage-zero compiler
+# UBE bootstrap
 
-The historical full build selects previous v3 source under
-`../compiler/archived/UBE_Compiler_v3/` and the archived source library. Its
-`ube-v3-*` output names belong to that old implementation. The fresh v3 now has
-a tested source-input/scanner and bounded grammar consumer; its stage-zero/v2 route is described
-in `../compiler/UBE_Compiler_v3/`. No bootstrap fitness or full historical
-runtime gate is claimed by the archive relocation checks.
+The owner selected VB6 as the preferred bootstrap implementation on 2026-11-10,
+subject to a successful build and native-output feasibility test. This folder
+contains the VB6 project loader, lexer, parser and separate feasibility tests.
+The source pipeline retains syntax trees; semantic analysis and code generation
+remain unimplemented.
 
-This directory contains the temporary C++ implementation used to bootstrap the
-self-hosting UBE compiler. It requires a C++17-capable GCC installation.
+The bootstrap is a temporary development prerequisite. The final compiler is
+written in UBE; generated UBE programs do not depend on the VB6 runtime.
 
-## Source layout
+The proposed bridge is textual LLVM IR emitted by a 32-bit VB6 program and
+compiled by a separate LLVM toolchain for the selected 64-bit target. This
+separates host bitness from target bitness without an in-process LLVM binding.
+The fixed IR bridge passed on 2026-11-10 with VB6 6.00.9782 and Clang 23.1.3;
+see the compiler progress record for the exact assertions and command. This
+probe does not compile UBE source.
 
-| Location | Purpose |
-| --- | --- |
-| `src/`, `include/` | Temporary C++ seed compiler and its headers |
-| `runtime/` | Bootstrap C runtime, Unicode C++ support and managed-value ABI header |
-| `runtime/windows/` | Temporary C adapters for Windows file and thread operations |
-| `tests/`, `tools/` | Bootstrap fixtures and supporting tools |
-| `out/` | Generated builds and qualification evidence |
+Microsoft documents VB6's 32-bit nature and IDE support limitations in its
+[support statement](https://learn.microsoft.com/previous-versions/visualstudio/visual-basic-6/visual-basic-6-support-policy).
+LLVM documents backend toolchain composition in the
+[Clang toolchain guide](https://clang.llvm.org/docs/Toolchain.html).
 
-The owner consolidated native bootstrap support here on 2026-11-01. The former
-root `runtime/` folder and C files from `std-lib/src/win-lib/` now live in
-`bootstrap/runtime/`. Library algorithms remain in UBECore's UBE source;
-the adapters retain their documented replacement conditions. Earlier immutable
-reports and snapshots retain their original paths and hashes.
+See [compiler progress](../compiler/Progress.md) for the required proof.
 
-## Current bounded v2 build
+## Project input
 
-Build the current seed/runtime and source-built v2, with fixed-point and native
-acceptance checks, from the repository root:
+Build `UBE-Bootstrap.vbp` with the installed VB6 compiler. Its command is:
 
-```powershell
-rtk proxy powershell -NoProfile -File bootstrap/build-v2.ps1
+```text
+UBE-Bootstrap.exe --check path/to/Project.UBE
 ```
 
-Each run has a separate `bootstrap/out/v2/` directory. A passing run updates
-`bootstrap/out/v2/current.json`; no backup compiler is needed. Use
-`compile-v2.ps1 -Source <source.bas|project.UBE> -Output <program.exe>` for a
-native program, and `tests/v2_usage_tests.ps1` for that helper's acceptance test.
-The gate now passes 785 grouped assertions, including scalar/native values, managed
-storage, UBECore decoder/buffer behavior/costs, direct source references,
-recoverable byte-file input and the fresh source/scanner/Unicode consumer. All proofs
-must pass before selection changes.
-The bounded production parser also passes its separate native and CLI gates;
-see [the parser evidence](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md)
-for exact commands, both-stage results, failure/cost bounds and the qualified
-local `bootstrap/out/v3/ube.exe`. Those parser checks are additional to the 785
-source assertions; semantic checking and code generation remain unavailable.
-The C runtime is compiled with the already-required Clang Windows target so its
-fixed per-thread error record uses native TLS. First-error publication must work
-without heap allocation; GCC's emulated TLS does not meet that requirement on the
-installed Windows toolchain. GCC/G++ remain the seed and Unicode support tools.
-See [the v2 evidence and limits](../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md).
+Keep the VB6 `.vbp` and `.bas` files in CRLF format; `.gitattributes` enforces
+this on checkout. LF-only versions produced an undefined-function build error
+in VB6 despite the referenced function being present.
 
-## Historical full build
+The loader reads the manifest and retains every source buffer in its specified
+order for the parser. Paths resolve relative to the project file, not the
+process's working directory. The
+[two-module sample](examples/multi-module/Demo.UBE) shows the project structure;
+its cross-module call is intended for the later semantic/code-generation gate.
+`--check` checks project metadata and source headers, not procedure bodies or
+whether `Main` exists. It produces no target executable.
 
-From the repository root in PowerShell:
+The current admission boundary is Exe/Library projects with `.bas` modules,
+native source headers, and Name, Kind, Startup, Source, Optimization and
+DebugInformation keys. Other project features receive unsupported diagnostics.
+Text is strict UTF-8, with an optional initial BOM. Project and module names
+currently accept ASCII identifiers of at most 128 characters; full Unicode
+identifiers await the language's pinned Unicode tables.
 
-```powershell
-./bootstrap/build.ps1
-```
+Input limits are 64 KiB per manifest, 1 MiB per module, 8 MiB of source bytes per
+project, 128 modules and 32767 characters per host path.
+These are bootstrap admission limits, not new language
+limits. Project data is owned by one load context rather than global mutable
+compiler state. Loading is sequential; concurrent compilation is not qualified.
 
-The script builds `bootstrap/out/ubec.exe`, runs the lexer, parser, semantic,
-lowering, runtime, and native execution tests, preserves the complete v1 and
-v2 build chains, and builds the completed Compiler v3 RP8 with both v2
-stages. It requires byte-identical v2-produced compiler LLVM, links and runs
-the RP8 compiler, preserves every inherited success/failure corpus, and
-validates deterministic typed-IR-to-native, managed, project/package,
-debugger, optimization, library, and platform fixtures. The
-self-build gate then
-requires the v2-built compiler to build v3, the self-built compiler to repeat
-that build, and the fixed-point LLVM IR to be byte-identical. COFF objects must
-have equal lengths and identical SHA-256 hashes after normalizing only their
-four-byte producer timestamps.
-V2-built and self-built binaries must also return identical exit codes and
-ordinal output for the recorded positive and negative corpus. Both compilers
-also compile the exact 16-module `UBECore` slice and must produce identical
-LLVM and object files. Collector, low-memory, generated-header, shared-library,
-and external ownership probes are part of the RP8 gate. Beta 1 Phase 1 also
-requires both verified Compiler v2 stages to emit byte-identical LLVM for
-`UBE_Compiler_v3_seed.UBE`, links that sequential seed, and uses it to build
-the production manifest without a pre-existing production compiler. Production
-stages one, two, and three must then emit identical LLVM. The script records
-`bootstrap/out/v3-beta1-build-manifest.json`, including seed and executor
-identities, requested/effective job counts, phase timings, and artifact hashes,
-and creates the named RP8 release candidate only after every test has passed.
-Intermediate build output is intentionally not committed.
-
-To inspect the token stream for a source file:
+Run the [project-loading assertion gate](tests/project-loading/README.md) with:
 
 ```powershell
-./bootstrap/out/ubec.exe --dump-tokens example.bas
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1
 ```
 
-To lex and parse a source file with the currently implemented compiler subset:
+VB6 is an explicit temporary installed prerequisite. A restricted sandbox can
+block its registry access; the earlier feasibility build succeeded outside the
+sandbox without registry changes. The loader tests do not require LLVM.
+
+On 2026-11-10, that command passed outside the sandbox with VB6 6.00.9782:
+the build succeeded and all 54 project-loading/CLI cases passed.
+
+## Source parsing
+
+```text
+UBE-Bootstrap.exe --parse path/to/Project.UBE
+UBE-Bootstrap.exe --dump-ast path/to/Project.UBE
+```
+
+`--parse` validates the admitted scalar syntax in every module. `--dump-ast`
+also prints its retained syntax tree, including child links and physical source
+spans. Both fail the whole request on the first error; no partial tree is
+published as success. The diagnostic includes the source path, line and column.
+
+The implemented syntax covers typed Boolean/Long declarations, Subs/Functions,
+ByVal/ByRef parameters, scalar expressions, qualified calls, assignments,
+single-line and block If/ElseIf/Else, labels/GoTo, Exit Sub/Function and the
+three admitted On Error forms. Err members are ordinary syntax at this point.
+Comments, continuations, ASCII bracketed identifiers and integer literal
+spellings retain source positions. Unsupported syntax receives a diagnostic.
+
+Parsing does not resolve names or types, check that Main exists, implement FAIL
+behavior or generate executable code. The [bootstrap profile](../lang-doc/bootstrap-profile.md)
+distinguishes this syntax support from later semantic requirements.
+
+Limits: 65,536 tokens per module, 262,144 tokens per project, 65,536 syntax nodes,
+64 recursive parsing levels, 4,096 UTF-16 code units per token and 128 decoded
+ASCII characters per identifier. One diagnostic ends a failed invocation.
+See [pipeline design](DESIGN.md) for ownership, spans and the dump format.
+
+Run the [source-parsing assertion gate](tests/source-parsing/README.md):
 
 ```powershell
-./bootstrap/out/ubec.exe --check example.bas
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1
 ```
 
-To emit LLVM IR for the currently supported executable subset:
+On 2026-11-10 this gate passed all 37 cases with VB6 6.00.9782. The same binary
+also passed all 54 project-loading cases. See the compiler progress record for
+exact artifact paths and the assertions covered.
 
-```powershell
-./bootstrap/out/ubec.exe --emit-llvm example.bas
-./bootstrap/out/ubec.exe --emit-llvm example.bas example.ll
-```
-
-To compile and link a native 64-bit executable:
-
-```powershell
-./bootstrap/out/ubec.exe --compile example.bas -o example.exe
-```
-
-Native compilation currently requires LLVM/Clang 23.x and the MinGW-w64
-toolchain targeting `x86_64-w64-windows-gnu`. Set
-`UBE_CLANG` to an explicit `clang.exe` path when LLVM is not on `PATH` or in its
-default installation directory. The build also produces
-`bootstrap/out/bootstrap_runtime.o` and
-`bootstrap/out/bootstrap_unicode_runtime.o`, containing the temporary runtime
-functions referenced by generated IR. The Unicode object reuses the pinned,
-checked-in Unicode 18.0 letter table; builds do not download Unicode data.
-
-## Current scope
-
-The first slice recognizes identifiers and reserved words, numeric, string and
-date literals, operators, punctuation, comments, CRLF/LF newlines, UTF-8 BOMs,
-and VB-style explicit line continuations. Tokens retain byte offset, line, and
-column information for diagnostics.
-
-UTF-8 is validated strictly, token locations use byte offsets with
-character-based line and column numbers, bare identifiers accept Unicode 18.0
-letters, and keyword comparison uses Unicode 18.0 simple case folding. Original
-source spelling is retained in tokens.
-
-The current native Bootstrap Profile also supports typed module-level
-procedures with `ByVal` parameters and explicit or default `ByRef` parameters.
-`ByRef` calls require a directly addressable variable of the exact declared
-type and preserve caller-visible mutation and aliasing.
-
-One-dimensional local dynamic arrays of `Long` and `String` are also native in
-the current profile. They support indexed reads and writes, explicit or
-zero-based bounds, `LBound`, `UBound`, `ReDim`, and `ReDim Preserve`.
-
-Named Bootstrap Profile `Type` records support `Long` and `String` fields,
-direct member reads and writes, deterministic zero initialization, and
-exact-named-type `ByRef` parameters. Structurally identical record declarations
-remain distinct types.
-
-The dependency-free Unicode letter table is checked in. Regenerate it from the
-pinned official Unicode data after intentionally changing the language's
-Unicode version:
-
-```powershell
-./bootstrap/tools/generate-unicode-letter-ranges.ps1
-./bootstrap/tools/generate-unicode-case-folding.ps1
-```
+The [native failure-flow gate](tests/failure-flow/README.md) separately checks
+the agreed FAIL protocol and statement continuation with hand-authored LLVM.
+It is not generated by a UBE source compiler. The planned source admission set
+is in [bootstrap profile](../lang-doc/bootstrap-profile.md), and source-compiler
+acceptance is in [compiler acceptance](../compiler/ACCEPTANCE.md).

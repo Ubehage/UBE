@@ -11,6 +11,12 @@ This file retains the complete expanded rules, examples, and design context.
 `language-spec.md` defines precedence among the normative sources if wording
 conflicts.
 
+The owner-approved 2026-11-10 failure contract in `error-handling.md` governs
+recoverable language errors: fresh FAIL, no usable failed value, default
+statement skipping, caller-side handlers and explicit cleanup before Err.Raise.
+This reconciles the earlier neutral-result-continuation design; it does not
+claim that the new runtime behavior has been implemented.
+
 V3 is the first public-release compiler target. “Final” in this context means
 a frozen, versioned UBE 1.0 contract; later language versions may evolve it
 deliberately without silently changing 1.0 programs.
@@ -22,7 +28,7 @@ UBE 1.0 shall:
 - retain approachable Basic-family source syntax;
 - use strict static types while performing safe, obvious conversions;
 - diagnose provably invalid programs at compile time;
-- turn recoverable runtime failures into neutral results plus thread-local
+- turn recoverable runtime failures into fresh FAIL outcomes plus thread-local
   `Err`, without automatic dialogs or uncontrolled crashes;
 - support native multithreaded programs through an explicit `CallNew` form;
 - support directly and indirectly recursive custom data types;
@@ -162,9 +168,12 @@ checked core-library conversion:
 Dim Count As Long = UserInput
 ```
 
-If `UserInput` is not a valid `Long`, the assignment receives `0` and the
-current thread's `Err` records the conversion failure. No automatic dialog is
-shown and the process does not crash.
+If `UserInput` is not a valid `Long`, conversion reports FAIL and the current
+thread's `Err` records the error. The initializer assignment does not commit;
+the newly declared Count retains its initial neutral storage value, zero. For
+assignment to an existing variable, its previous value is preserved instead.
+The next statement executes by default, or an enabled handler receives control.
+No automatic dialog is shown and the process does not crash.
 
 Successful operations do not implicitly clear an earlier `Err`; code uses
 `Err.Clear` explicitly. Every thread has an independent `Err` state.
@@ -185,9 +194,9 @@ valid prefix and ignores trailing text. Default conversion never depends on
 the host locale.
 
 A malformed constant string used where conversion is required is a
-compile-time error. Malformed runtime-dependent text produces the destination
-type's neutral value and records the conversion failure in the current
-thread's `Err` state.
+compile-time error. Malformed runtime-dependent text reports FAIL and records
+the conversion failure in the current thread's `Err` state. No usable converted
+value is substituted into the failed statement.
 
 A fixed-length declaration `String * n` always stores exactly `n` characters.
 Assignment truncates a longer source after its first `n` characters and pads a
@@ -210,7 +219,8 @@ Integer-to-floating conversion is permitted even when a large integer cannot
 be represented exactly. Floating conversion follows IEEE round-to-nearest,
 ties-to-even; `Currency` and `Decimal` likewise use ties-to-even when reducing
 scale. A known out-of-range constant is a compile-time error. At runtime the
-same condition produces the destination's neutral value and records `Err`.
+same condition reports FAIL and records `Err`; an unfinished destination
+assignment does not commit.
 
 `Single` and `Double` may contain IEEE not-a-number, positive infinity, and
 negative infinity. Their invariant strings are `NaN`, `Infinity`, and
@@ -254,9 +264,9 @@ declared member name. UBE 1.0 has no separate `Flags Enum` syntax.
 
 Array lower and upper bounds and indices use `LongLong`; lower bounds may be
 negative. `Option Base` affects only an omitted lower bound. Reading outside an
-array's bounds produces the element type's neutral value and records `Err`.
-Writing outside the bounds changes nothing and records `Err`. Neither case may
-access invalid memory or crash.
+array's bounds reports FAIL and records `Err`, without producing an element
+value. Writing outside the bounds changes nothing, reports FAIL and records
+`Err`. Neither case may access invalid memory or crash.
 
 Array assignment creates an independent value copy. `Erase` returns a dynamic
 array to its unallocated state and resets every element of a fixed array to its
@@ -303,28 +313,30 @@ Set Instance = Boxed
 Ordinary `=` stores and extracts scalar/value payloads. Assignment from one
 whole `Variant` to another uses `=` and copies the complete type tag and
 payload; if the payload is an object, the copy retains another strong reference
-to the same identity. A runtime-incompatible extraction produces the
-destination's neutral value and records `Err`.
+to the same identity. A runtime-incompatible extraction reports FAIL and
+records `Err`; an unfinished destination assignment remains unchanged.
 
 Assignment from a `Variant` to a fixed scalar applies the ordinary conversion
 table to the contained runtime value. An object payload does not thereby gain
 a general numeric or string conversion. A custom-datatype payload can be
 extracted only as the same declared custom type. An object payload can be
 extracted as `Object` or a runtime-compatible class type; incompatible class
-extraction produces `Nothing` and records `Err`.
+extraction reports FAIL and records `Err` rather than producing Nothing.
 
 An uninitialized `Variant` contains `Empty`. `Empty` converts successfully to
 the requested destination's neutral scalar, string, or object value: `0`,
 `False`, `""`, or `Nothing`, as applicable. `Null` represents explicitly
 missing or unknown data. It remains `Null` in another `Variant`, but conversion
-to a fixed type fails, produces that type's neutral value, and records `Err`.
+to a fixed type reports FAIL and records `Err`, without a usable fixed value.
 The standard library provides `IsEmpty()` and `IsNull()` tests.
 
 `Null` propagates through unary operations, arithmetic, concatenation, and
 comparison when the result remains a `Variant`. `IsNull()` is the reliable test
-for that state. Converting a propagated result to a fixed type produces that
-type's neutral value and records `Err`; consequently `If Null Then` evaluates
-as false through a failed Boolean conversion and records `Err`. `Null Is
+for that state. Converting a propagated result to a fixed type reports FAIL
+and records `Err`; a failed Boolean conversion must not be interpreted as a
+successful False condition. Known-invalid constant conversions are diagnosed
+at compile time. The exact default resume target for a runtime failure in a
+compound control statement remains a separate contract decision. `Null Is
 Nothing` is invalid because `Is` requires object references. `Empty` does not
 propagate and instead converts to the operation's applicable neutral value.
 
@@ -351,9 +363,9 @@ handle layouts, or undocumented host behavior.
 
 Integer, `Currency`, and `Decimal` arithmetic never silently wraps. A provably
 overflowing constant expression is a compile-time error. Runtime overflow
-produces the result type's neutral value and records `Err`. Integer division or
-modulus by zero produces zero plus `Err`; `Currency` and `Decimal` division by
-zero likewise produces their neutral zero plus `Err`.
+reports FAIL and records `Err`. Integer division or modulus by zero, and
+`Currency` or `Decimal` division by zero, likewise report FAIL plus `Err`.
+No zero is substituted and no later operand in that statement is evaluated.
 
 `Single` and `Double` arithmetic follows IEEE-754. Finite nonzero division by
 floating zero produces signed infinity; floating zero divided by floating zero
@@ -697,7 +709,9 @@ code that creates or acquires them.
 Such code must close or dispose of each resource on every relevant success,
 error, cancellation, and early-exit path. UBE 1.0 adds no `Try`/`Finally`,
 `Using`, `Defer`, or automatic resource registry. Cleanup remains an explicit
-call written by the programmer. Programs must never depend on
+call written by the programmer. Err.Raise does not execute application cleanup:
+it exits the procedure immediately, so required resource releases must occur
+before it. Programs must never depend on
 garbage-collection timing to flush data, release a lock, close a file, or
 perform another externally visible operation.
 
@@ -995,7 +1009,7 @@ A `Function`, variable-held callback, computed address, runtime name, or other
 dynamically selected target is a compile-time error in UBE 1.0. Users may write
 a wrapper Sub when a Function's return value is intentionally discarded.
 
-The identifier is an ordinary nonnegative `LongLong`, so it can be stored,
+The successful identifier is an ordinary positive `LongLong`, so it can be stored,
 compared, logged, placed in custom values and arrays, or passed through an API.
 `0` is the invalid value. UBE assigns identifiers uniquely for the lifetime of
 the process and never recycles one in a way that could make a stale ID identify
@@ -1007,8 +1021,8 @@ host operating system's native thread ID or handle. Platform-library calls
 provide native identity explicitly when an OS API requires it; portable code
 must not assume the two values are equal.
 
-Failure to create a thread produces `0` and records the failure in the calling
-thread's `Err`.
+Failure to create a thread reports FAIL and records the failure in the calling
+thread's `Err`; it supplies no usable identifier to the failed statement.
 
 ### 5.2 Argument capture
 
@@ -1104,8 +1118,9 @@ classes:
 Waiting operations use signed `LongLong` milliseconds. `-1` means wait
 indefinitely; zero performs a nonblocking check; other negative values are
 invalid. A wait returns `Long` value `1` when satisfied and `0` on timeout.
-Invalid arguments or an unloaded/destroyed synchronization object return `0`
-and record `Err`, allowing timeout to remain a normal non-error result.
+Invalid arguments or an unloaded/destroyed synchronization object report FAIL
+and record `Err`. Timeout remains a normal non-error zero result, distinct
+from failure.
 
 Manual `Mutex`, condition variables, and statically typed channels are reserved
 beyond UBE 1.0. `SyncLock` supplies the safer structured locking behavior;
@@ -1143,14 +1158,14 @@ control-flow edge.
 
 `ThreadWait` returns `1` when the target has finished and `0` on timeout or
 cancellation. A valid already-completed target returns `1` immediately;
-waiting on the current thread returns `0` and records `Err`. Multiple threads
+waiting on the current thread reports FAIL and records `Err`. Multiple threads
 may wait for the same target.
 
 `ThreadRequestStop` returns `1` when the request is recorded, including when a
 request was already pending. A valid completed thread returns `0` without
 error. `ThreadIsAlive` similarly returns `False` without error for a completed
-thread. An identifier that was never issued produces the operation's neutral
-result and records `Err`.
+thread. An identifier that was never issued reports FAIL and records `Err`;
+it does not produce a successful zero or False result.
 
 `ThreadYield` only offers another runnable thread an execution opportunity;
 program correctness cannot depend on whether a particular thread runs next.
@@ -1212,10 +1227,13 @@ uses the subscriptions in effect when that invocation begins.
 
 Native form/control callbacks enter through the runtime's platform dispatcher
 and otherwise follow the same rules. Every handler uses the executing thread's
-independent `Err` state. A handled runtime error follows ordinary control flow;
-an exhausted recursion/stack limit is reported as a controlled runtime error
-and unwinds safely rather than becoming a native stack overflow or process
-crash. Accepted form/control unloading prevents new dispatches while already
+independent `Err` state. A handled runtime error follows ordinary control flow.
+When stack exhaustion can safely be reported, the next call is refused with
+Err 28 and FAIL; no callee executes or result is fabricated. Otherwise the
+controlled fatal path applies. This does not require native exception unwinding
+or automatic application-resource cleanup. Exact outward failure delivery for
+event dispatch and native callbacks remains a boundary decision. Accepted
+form/control unloading prevents new dispatches while already
 active handlers drain under the unload lifecycle.
 
 The runtime keeps a process alive while either of these is true:

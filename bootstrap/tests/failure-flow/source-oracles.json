@@ -1,0 +1,15 @@
+{
+  "status": "pending-source-compiler",
+  "source": "SourceOracle.bas",
+  "harness": "Invoke each public check independently with runtime-supplied Long FailureInput = 1; assert successful call and Long result 0. Do not bake the input into the UBE source or claim execution from the hand-authored IR gate.",
+  "cases": [
+    { "procedure": "CheckSuccessZero", "expectedResult": 0, "failureBit": 1 },
+    { "procedure": "CheckRaiseExit", "expectedResult": 0, "failureBit": 2 },
+    { "procedure": "CheckDefaultContinuation", "expectedResult": 0, "failureBit": 4 },
+    { "procedure": "CheckCallerHandler", "expectedResult": 0, "failureBit": 8 },
+    { "procedure": "CheckActiveHandler", "expectedResult": 0, "failureBit": 16 },
+    { "procedure": "CheckCleanupOrder", "expectedResult": 0, "failureBit": 32 },
+    { "procedure": "CheckByRefPreservation", "expectedResult": 0, "failureBit": 64 },
+    { "procedure": "CheckRepeatedError", "expectedResult": 0, "failureBit": 128 }
+  ]
+}

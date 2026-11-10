@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "InitializerOrder"
-Kind = "Exe"
-Startup = "Main"
-Source = "State.bas"
-Source = "App.bas"

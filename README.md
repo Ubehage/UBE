@@ -51,7 +51,7 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
   - **Strict declarations, friendly conversions.**<br>
     Variables must be explicitly declared and types are checked, but the runtime still supports convenient automatic conversions where they make sense.<br>
   - **A different approach to runtime errors.**<br>
-    Rather than interrupting execution for ordinary recoverable failures, UBE is designed to return an invalid or default value and record error information for the programmer to inspect.<br>
+    A failing call reports FAIL and records error information. By default, the caller skips the failed statement; an enabled handler can redirect execution. Err.Raise exits the raising procedure immediately, so it must perform its own resource cleanup beforehand.<br>
 - Will UBE compile existing VB6 projects?<br>
   **Yes. All valid VB6 code is intended to compile in UBE.**<br>
   UBE preserves VB6 syntax while deliberately reconsidering some of its underlying semantics, including error handling, type conversions, and other runtime behaviors.<br>
@@ -73,13 +73,13 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
 
 ## Project status
 
-Semantic checking is complete for the supported subset of UBE. Native code
-generation and validation are progressing; generated-storage ownership and
-residency checks are complete. End-to-end executable building remains unfinished.
-Next: register/pointer tracking and control/dataflow validation. The foundations
-of the standard library are in place.
-
 **UBE is in early development and is not ready for production use.**
+
+Implementation is being restarted with a VB6 bootstrap host.  
+The language contracts and executable feasibility tests guide the
+restart; there is not yet a working UBE source compiler in this checkout.  
+The VB6 bootstrap can load `.UBE` projects containing multiple ordered modules and parse the initial scalar syntax into retained trees.  
+Name resolution, type checking and native compilation remain subsequent implementation work.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
@@ -89,8 +89,8 @@ decisions. AI coding agents help turn that direction into specifications,
 compiler code, tests, documentation, and project tooling.
 
 The agents work inside repository-defined boundaries. Their work is reviewed
-against the language specification, automated tests, preserved compiler
-generations, and Ube's requirements. AI is used as an engineering tool; project
+against the language specification, automated tests, and Ube's requirements.
+AI is used as an engineering tool; project
 ownership and design authority remain with Ube.
 
 ## First public-release goals
@@ -104,19 +104,17 @@ ownership and design authority remain with Ube.
 ## Development builds
 
 See the [build documentation](bootstrap/README.md) for prerequisites and
-instructions for the preserved toolchain. The rebuilt Compiler v3 is not yet
-available as a working release.
+instructions for project-loading checks and bootstrap feasibility tests. The compiler implementation
+is not yet available as a working release.
 
 ## Repository guide
 
 - [docs/](docs/README.md) — public UBE language manual
 - [lang-doc/](lang-doc/README.md) — normative language specification and grammar
 - [project-docs/](project-docs/README.md) — architecture and development roadmap
-- [compiler/](compiler/README.md) — active fresh v3 and preserved v1/v2
-- [compiler/archived/](compiler/archived/README.md) — previous v3/v4 implementations and previews
+- [compiler/](compiler/README.md) — compiler plan, source profile and acceptance gates
 - [std-lib/](std-lib/README.md) — fresh UBECore standard-library project
-- [archive/](archive/README.md) — preserved previous library and integrity snapshot
-- [bootstrap/](bootstrap/README.md) — temporary stage-zero compiler and tests
+- [bootstrap/](bootstrap/README.md) — VB6 project loader and native feasibility tests
 - [Release-Requirements.md](Release-Requirements.md) — owner-defined release requirements
 - [Workplan.md](Workplan.md) — current repository-wide work checkpoint
 

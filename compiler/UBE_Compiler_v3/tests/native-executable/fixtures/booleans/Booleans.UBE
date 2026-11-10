@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "BooleansApp"
-Kind = "Exe"
-Startup = "Main"
-Source = "App.bas"

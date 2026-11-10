@@ -6,9 +6,9 @@
   This restriction takes precedence over all general permissions to reorganize, clean up, or modify the repository.
   Agents must preserve the contents and purpose of these files unless a change is explicitly authorized or required by the owner's instructions.
 - The root `LICENSE` file cannot be changed with explicit approval from the owner.
+- Agents may search the web for information whenever needed.
 
 
 When implementation makes new contributor guidance necessary, agents should create
 or update the relevant documentation as part of the same change. Do not assume that a
-document exists merely because an earlier plan mentions it; keep this orientation list
-limited to current, useful entry points.
+document exists merely because an earlier plan mentions it.

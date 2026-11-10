@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "RP1Fixture"
-Kind = "Exe"
-Startup = "Main"
-Source = "fixtures/Main.bas"
-Source = "fixtures/Support.bas"

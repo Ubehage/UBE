@@ -1,5 +1,0 @@
-#define main catalog_base_main
-#include "probe.c"
-#undef main
-#include "cases.h"
-int main(void){size_t failures=0;for(size_t i=0;i<sizeof catalog_cases/sizeof catalog_cases[0];++i){const struct catalog_case* expected=&catalog_cases[i];struct environment e;int intake=open(&e,expected->first,expected->second,expected->split);if(intake){fprintf(stderr,"catalog oracle intake failed: %s\n",expected->id);return 1;}struct failure f={.kind=5,.code=1428};int ok=catalog_build(e.input,&f);if(ok||f.code!=expected->code||f.source!=expected->source||f.first!=expected->first_byte||f.last!=expected->last_byte){fprintf(stderr,"catalog oracle mismatch %s: ok=%d actual=%d:%d:%d:%d:%d expected=%d:%d:%d:%d\n",expected->id,ok,f.kind,f.code,f.source,f.first,f.last,expected->code,expected->source,expected->first_byte,expected->last_byte);++failures;}CHECK(close_env(&e)==0);}if(failures)return 1;printf("PASS catalog oracle diagnostics:%zu assertions:%u\n",sizeof catalog_cases/sizeof catalog_cases[0],assertions);return 0;}

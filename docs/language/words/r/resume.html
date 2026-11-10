@@ -23,18 +23,20 @@
     <h2>Example</h2>
     <pre><code>Sub Main()
     On Error GoTo Handler
-    Error 5
+    Dim Count As Long
+    Count = CLng(Command$())
     Exit Sub
 Handler:
     Resume Finished
 Finished:
     Print "Continued"
 End Sub</code></pre>
-    <h3>Expected result</h3><p>The example prints <code>Continued</code>. At <code>Finished</code>, <code>Err.Number</code> is zero because <code>Resume</code> cleared the recorded error. This is specified behavior; fresh v3 cannot yet execute this example.</p>
+    <h3>Expected result</h3><p>If the runtime command-line text cannot convert to Long, the example enters Handler and prints <code>Continued</code>. At <code>Finished</code>, <code>Err.Number</code> is zero because <code>Resume</code> cleared the recorded error. Valid input exits without printing. These are specified outcomes; compiler execution is not yet verified.</p>
     <h2>Important rules</h2>
     <p>Use <code>Resume</code> only from an active error handler. Every valid form clears the recorded <code>Err</code> information as execution resumes. <code>Resume Next</code> continues after the statement that caused the error. In contrast, <code>On Error Resume Next</code> keeps the newly recorded error while continuing after a failure.</p>
+    <p>Failed-call statement skipping is also the default when no label handler is enabled. A failed call received while the handler is running skips its own statement without recursively entering the handler or replacing the saved resume location. Exact resume targets for compound control statements remain under definition.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../r/rem.html" data-doc-path="language/words/r/rem.html">← Previous: Rem</a><a href="../r/return.html" data-doc-path="language/words/r/return.html">Next: Return →</a></nav>
-    <footer class="article-footer">Article ID: language.word.resume · Status verified against UBE 1.0 · Last reviewed 2026-11-03</footer>
+    <footer class="article-footer">Article ID: language.word.resume · Specified; execution pending · Last reviewed 2026-11-10</footer>
   </main>
 </body>
 </html>

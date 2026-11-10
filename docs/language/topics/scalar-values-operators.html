@@ -36,7 +36,7 @@
     <h2>Date and strings</h2>
     <p><code>Date</code> is a timezone-neutral Gregorian value from year 0001 through 9999 with nanosecond resolution. It supports comparison, not core numeric date arithmetic. String comparisons follow <code>Option Compare</code>; <code>Like</code> uses the classic <code>?</code>, <code>*</code>, <code>#</code>, bracket-list, negated-list, and range patterns.</p>
     <h2>Failures</h2>
-    <p>Known overflow, invalid conversion, or division by zero is a compile-time error. A runtime-dependent checked failure returns the result type's neutral value and records <code>Err</code>. Floating infinity and NaN follow IEEE-754 without automatically setting <code>Err</code>.</p>
+    <p>Known overflow, invalid conversion, or division by zero is a compile-time error. A runtime-dependent checked failure records <code>Err</code> and reports FAIL without a usable result. The containing statement is skipped by default or transfers to its enabled handler; remaining operands and an unfinished assignment do not execute. Floating infinity and NaN follow IEEE-754 without automatically setting <code>Err</code>.</p>
     <footer class="article-footer">Article ID: language.scalar-operators · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer>
   </main>
 </body>

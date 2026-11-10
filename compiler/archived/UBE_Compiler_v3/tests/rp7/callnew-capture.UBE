@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "RP7CallNewCapture"
-Kind = "Exe"
-Startup = "Main"
-Source = "SyncCounter.cls"
-Source = "callnew-capture.bas"

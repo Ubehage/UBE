@@ -33,6 +33,8 @@ This directory contains UBE's normative and internal language documents:
   semantics.
 - [conversion-table.md](conversion-table.md) freezes UBE 1.0 implicit
   conversion relationships and failure behavior for Compiler v3.
+- [error-handling.md](error-handling.md) records the owner-approved FAIL,
+  default statement-skipping and cleanup rules adopted on 2026-11-10.
 - [managed-memory.md](managed-memory.md) defines precise roots, safe points,
   barriers, collection, finalization, and low-memory behavior.
 - [foreign-abi.md](foreign-abi.md) defines generated exports, stable statuses,

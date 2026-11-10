@@ -1,377 +1,69 @@
 # UBE development plan
 
-Date: 2026-10-31.
+**Direction authorized:** 2026-11-10. Reconcile the agreed contracts, define a
+bounded bootstrap subset, prove error flow early, then implement incrementally.
 
-**Status: concurrency and bounded project/parallel frontend input are qualified;
-First semantic checking is complete for its bounded scalar/native MODULE scope
-on accepted source-built cohort 88d.** This plan preserves the owner's vision,
-adopted language rules, established names and separate UBECore/compiler
-responsibilities. It does not approve new language rules, representations,
-phase interfaces or general scheduler APIs.
+## Preserve the product contract
 
-The owner-approved bounded contracts, bootstrap prerequisites and actual
-compiler-owned `TryParseSources` proof are qualified. Existing UBE source,
-scanner and parser bodies run with budgets 1, 2 and 4 over shared immutable
-owners and private results. Exact current gates and limits are in
-[CONCURRENCY-EVIDENCE.md](../compiler/UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md).
-That earlier proof did not complete normal `.UBE` project/reference input or its CLI.
+The final compiler is written in UBE and emits native 64-bit code through LLVM.
+VB6 is the temporary bootstrap host. Ordinary algorithms belong in UBECore;
+the compiler owns syntax, types, control flow, verification and lowering.
+Windows is the first qualified target. No new dependency, compiler generation,
+GUI framework or alternative language semantics is introduced by this plan.
 
-The subsequent bounded `.UBE`/direct-UBECore input and parallel frontend
-integration deliverable was qualified at cohort a732, with 785 source
-assertions and all seven retained gates. Both complete measurement sessions
-retain 252 trials, all hard guards pass, and repeatable initial gains are accepted
-under the owner's 2026-11-01 numerical-policy revision. Original target misses
-remain recorded. Exact commands and limitations are in
-[frontend evidence](../compiler/UBE_Compiler_v3/FRONTEND-PERFORMANCE-EVIDENCE.md).
-First semantic checking now has an owner-approved bounded contract and production
-implementation. Its source/parser detail, measured reusable foundations, catalog,
-expression/call/constant/statement consumers, diagnostics and existing check
-command are qualified on accepted cohort 88d. Maintained native/process/resource/
-retained gates pass for those exact unchanged inputs. [Semantic evidence](../compiler/UBE_Compiler_v3/SEMANTIC-EVIDENCE.md)
-and [progress](../compiler/UBE_Compiler_v3/Progress.md) distinguish successful
-historical runs from the final bounded acceptance record.
+Existing working-tree removals remain in place. Historical implementations and
+their test results are not a passing baseline for the restart. Source recovery
+from history requires a focused reason and review, not wholesale restoration.
 
-The next existing row is First checked native
-executable. Its bounded lowering/backend/tool-handoff contract must be reviewed
-before implementation. Later language, managed-value and product rows remain
-proposed; no new phase, scheduler, generation or public API is introduced here.
-On 2026-10-31 the owner approved making useful parallel speedup an explicit
-acceptance requirement. The [parallel performance gate](#parallel-performance-acceptance)
-below belongs to the existing frontend work; its optimization and measurement
-are now qualified under that revised policy. Further optimization remains planned.
+## Execution order and acceptance
 
-## Why this plan exists
+| Work | Deliverable | Gate before advancing |
+|---|---|---|
+| Reconcile decisions | Normative error contracts and affected manual pages agree on fresh FAIL, default statement skipping, caller handlers and explicit cleanup | Scoped contradiction audit, documentation validator, recorded unresolved decisions |
+| Define bootstrap source boundary | `../lang-doc/bootstrap-profile.md` and compiler acceptance plan | Every admitted feature has an observable oracle; exclusions are diagnosed rather than guessed |
+| Prove native failure flow | `../bootstrap/tests/failure-flow/` prototype | Exact assertion results at O0 and O2; success with stale Err; no assignment on FAIL; no handler re-entry; explicit cleanup; preserved earlier effects |
+| Implement source-to-native scalar path in VB6 | Repository-owned `.UBE` project loader with multiple ordered modules from the outset, source reader, parser, semantic checks and LLVM emission | Assert manifest validation and ordered multi-module loading first; then compile actual UBE fixtures and match the same oracles, including negative/recovery cases; hand-authored IR is not sufficient |
+| Extend bootstrap dependencies | Checked arithmetic, source buffers, arrays/records, library calls and explicit OS I/O | Value/ownership, input-bound, allocation-failure and error-propagation tests for each dependency |
+| Build compiler in UBE | UBE compiler sources and UBECore dependencies using the qualified profile | VB6 bootstrap builds it; it recompiles itself; deterministic artifacts and common conformance corpus agree |
+| Complete language and product | Remaining language, standard library, debugging, IDE, samples and documentation | Their existing normative requirements and release gates pass on each claimed target |
 
-The owner identified three failures in the earlier attempts: UBECore and compiler
-responsibilities became mixed, agents changed function-naming conventions during
-development, and the closest implementation could not support multithreading
-satisfactorily and is now archived. These are requirements for the new plan to
-address, not permission to import the archived architecture.
+The native prototype is test-only evidence about the proposed lowering behavior.
+It does not freeze a public or internal ABI, establish multi-thread safety, or
+justify adding a second production implementation. Its assertions become
+regressions for real source compilation rather than a permanent substitute.
 
-The proposed order therefore proves actual compiler concurrency while the fresh
-implementation is small, before substantial semantic/backend growth. A large
-sequential implementation followed by a concurrency retrofit is not this plan.
-The existing component tests with native workers do not qualify a production
-compiler scheduler or UBE-language thread capture.
+## Immediate scope control
 
-## Product direction that stays fixed
+The first production implementation accepts a small explicit scalar source
+profile; it does not claim support for the entire EBNF. It must reject valid
+but unsupported UBE with a useful diagnostic. Parser recovery, bounded input
+and controlled failure belong in this first implementation, not a later polish
+pass. Debug source locations must survive the initial pipeline even before
+full debug-info emission is qualified.
 
-| Commitment | Consequence for development | Existing authority |
-| --- | --- | --- |
-| A native, fully 64-bit compiler written in UBE | Ordinary production compiler and library logic stays in UBE; GCC/C++ serves bootstrapping, with explicit temporary substrate exceptions and removal conditions | [Project guidance](../AGENTS.md), [architecture](architecture.md) |
-| Classic VB6 textual syntax with defined modern behavior | Implement the frozen language, preserve original source information, and distinguish an unimplemented valid feature from an invalid program | [Core specification](../lang-doc/language-spec.md), [grammar](../lang-doc/grammar/ube.ebnf) |
-| Strict declarations and types, with the specified convenient conversions | No implicit Variant mode, overload invention, name-based builtin shortcuts or host-language conversion rules | [Core specification](../lang-doc/language-spec.md), [conversion table](../lang-doc/conversion-table.md) |
-| UBECore and compiler are separate | Reusable algorithms and datatype behavior belong in UBECore; syntax, binding, diagnostics, target and backend policy belong in the compiler | [Library boundary](../std-lib/DESIGN.md), [compiler boundary](../compiler/UBE_Compiler_v3/DESIGN.md) |
-| Library-defined native datatypes | Use the adopted opaque native-value mechanism; additional representations/lifecycle mechanisms require contracts and evidence rather than hidden compiler implementations | [Native-value contract](../std-lib/NATIVE-TYPE-PROPOSAL.md) |
-| Small, fast native output and an efficient compiler | Measure real work, copying, allocation and memory; maintain reproducible output and prevent whole-project replication per worker | [Architecture](architecture.md), [compiler guidance](../compiler/UBE_Compiler_v3/AGENTS.md) |
-| Multithreaded compilation | Design ownership and publication now, prove real parallel compiler work early, and keep one bounded budget with a deterministic one-job reference | [Compiler guidance](../compiler/UBE_Compiler_v3/AGENTS.md), [threading semantics](../lang-doc/threading.md) |
-| Recoverable failures preserve work | No panic paths, uncontrolled recursion, partial publication or automatic error dialogs; exercise resource exhaustion and cleanup | [Project guidance](../AGENTS.md), [managed memory](../lang-doc/managed-memory.md) |
-| Portable, dependency-minimal implementation | Keep OS details in adapters; no npm, install-time downloads, Tauri, Electron or webview shells | [Dependency policy](../Dependencies.md), [architecture](architecture.md) |
-| Debugging and a native IDE with VB6-like ease of use | Preserve original spans and source identities throughout the compiler; plan debug metadata and tooling without replacing the native product vision | [Project vision](Project-Vision.md), [root README](../README.md) |
+The owner requires `.UBE` project files containing multiple modules from the
+first bootstrap implementation. The same loaded project and source buffers
+feed the later parser and semantic pipeline. Project loading is not deferred
+until after a single-file compiler, and a loading-only check must never claim
+that procedure bodies have been parsed or compiled.
 
-The primary specification and focused normative contracts outrank conflicting
-expanded wording. The approved native-value addition remains in force. A roadmap
-can defer implementation; it cannot silently redefine language behavior.
+Keep state per compilation/request. Do not introduce global mutable compiler
+state that would prevent later parallel compilation. Actual parallel build
+support is a separate tested capability, not inferred from this rule.
 
-## Verified parser checkpoint before concurrency
+Do not implement Adaptive, assembly lowering, complicated Resume targets,
+cross-thread failure transfer or foreign callback behavior until their remaining
+contracts are closed. They do not block proving the agreed scalar failure flow.
 
-The active compiler is the fresh `compiler/UBE_Compiler_v3/`; the previous v3/v4
-trees remain historical. No new compiler generation is proposed.
+## Decision and evidence ownership
 
-- The then-current source-built v2/bootstrap gate passed 501 grouped checks.
-- UBECore provides the qualified byte storage, UTF-8, Unicode/cursor and bounded
-  file-input facilities. General String, collection and library-packaging support
-  must not be inferred from that result.
-- Fresh v3 preserves source bytes, scans and recognizes envelopes, and implements
-  the bounded native MODULE grammar in its parser contract.
-- The production parser gate passes 4049 checks, 188 cases and 10412 real-root
-  capacities through both source-built stages. Its 102 measured cost rows,
-  independent-instance workers and failure retention pass their stated gates.
-- Strict CLI acceptance passes 82 cases and 54 diagnostic controls. The local
-  artifact passes 41 process oracles; the relevant raw LLVM pairs are identical.
+- `../Workplan.md`: repository-wide current position.
+- `../compiler/Roadmap.md`: compiler dependency order.
+- `../compiler/Progress.md`: exact next task, executed gates and limitations.
+- `../compiler/ACCEPTANCE.md`: source-compiler acceptance requirements.
+- `../lang-doc/error-handling.md`: approved language behavior.
+- `Error-Handling.md`: unsettled boundaries and reconciliation audit.
 
-Exact commands, identities, scope and failure evidence are in
-[PARSER-NATIVE-EVIDENCE.md](../compiler/UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md).
-These preserve the plan's starting point. Current source-cohort qualification
-and retained earlier-gate reruns for that checkpoint are in CONCURRENCY-EVIDENCE.md.
-At that point the fresh compiler did not semantically check programs. The later
-bounded checker is integrated as recorded above; native compilation remains
-future work. The parser is not
-the full grammar: pending conditionals, other source kinds, designer syntax and
-the other deferred families remain explicit unfinished work.
-
-## Where decisions and status live
-
-| Information | Maintained source |
-| --- | --- |
-| Product vision and owner requirements | Root guidance/README, [Project-Vision.md](Project-Vision.md), owner-maintained release requirements |
-| Language and observable behavior | `lang-doc/language-spec.md`, focused normative contracts and grammars |
-| Proposed dependency order and reasons | This document |
-| Approved current item and exact next action | Root [Workplan.md](../Workplan.md), compiler [Roadmap.md](../compiler/UBE_Compiler_v3/Roadmap.md) and [Progress.md](../compiler/UBE_Compiler_v3/Progress.md) |
-| Library contracts and current needs | `std-lib/` contracts and [ROADMAP.md](../std-lib/ROADMAP.md) |
-| Completion claims | Maintained gates and evidence identifying the exact source/tool/artifact cohort |
-| Earlier compiler plans and results | Archives and explicitly dated historical evidence; no inherited implementation approval |
-
-The project-wide roadmap remains the long-term feature inventory. Module roadmaps
-link here rather than maintaining competing detailed execution orders. Historical
-contract introductions describe their original checkpoint; current capability
-claims come from current evidence. Conflicting current-state statements must be
-corrected in the affected current documents instead of being copied into new plans.
-
-## Naming and API continuity
-
-The proposal is to preserve established names and use the same conventions for
-new declarations. This applies to private helpers as well as library operations.
-
-- Continue PascalCase and lasting domain names, following the surrounding module.
-  Types name their domain, such as `SourceDocument` and `SyntaxResult`; modules
-  have functional names, such as `ByteBuffer` and `FileBytes`.
-- Reuse exact existing declarations: for example `ByteBufferLength`,
-  `TryAppendBytes`, `TryOpenByteFile`, `TryReadSourceScalar` and `BeginSourceInput`.
-  Do not rename an existing function to make its spelling fit a personal style.
-- New fallible operations follow established fresh-status conventions, normally
-  `Try...` where consistent with the relevant API. This is not a blanket rename
-  of existing Boolean functions. Success must not be inferred from stale `Err`.
-- Agree callable names, passing modes, result/failure meaning and ownership in
-  the selected contract before implementation. Keep declarations, call sites,
-  primitive bindings, tests, documentation and manifest/module identities aligned.
-- No task/phase/session/generation prefixes in production identifiers. Do not
-  introduce a new prefix or abbreviated naming scheme midway through a feature.
-- A necessary rename is a separately identified compatibility change with a
-  reason and complete call-site/API review. An agent's preferred style is not a
-  reason. Check existing declarations against the agreed contract at acceptance.
-
-The authoritative signatures remain in the relevant contracts/source declarations;
-this plan does not create a competing copy of the entire API catalog.
-
-## Ownership and responsibility checks
-
-Classify each planned facility before adding code:
-
-| Work | Owner |
-| --- | --- |
-| General byte/text operations, numeric text parsing/formatting, collections, sorting, hashing and reusable file/process/concurrency facilities | UBECore, after a demonstrated need and a focused contract |
-| Project/reference policy, source mapping, grammar, name resolution, semantic types, diagnostics, lowering and backend policy | Compiler |
-| Irreducible storage, allocation/rooting, atomics, thread transitions and target ABI mechanisms | Small documented compiler/substrate boundary, with exact bindings and tests |
-| OS handles, platform constants and native calls | Platform adapter behind the relevant contract |
-
-A spelling such as `Len` or `Mid$` never grants special parser/backend status.
-Compiler-specific types and policies do not enter UBECore. General algorithms
-do not acquire a duplicate implementation inside the compiler to avoid a missing
-library facility. A shared facility starts small: neither a general collection
-framework nor all 710 library inventory entries are prerequisites to one consumer.
-
-Before selecting worker parameters, document the actual lifetime and sharing of
-sources, tokens, syntax, declarations and output. In particular, ordinary array/
-record value copies and `CallNew` ByVal capture cannot be treated as free aliases.
-Prove an approved way to share immutable backing while keeping the owner alive
-and GC-safe until workers drain. The plan does not choose a handle type, reference
-layout, raw-address escape or new primitive to accomplish this.
-
-## Proposed dependency order
-
-These are deliverables in existing compiler/library responsibilities, not new
-compiler generations or frozen phase APIs. Each row must be split into its own
-bounded contract and acceptance cases before implementation. Work can overlap
-only when its stated dependencies and ownership contracts permit it.
-
-| Deliverable | Prerequisites and bounded result | Completion evidence |
-| --- | --- | --- |
-| Boundary, naming and compiler-concurrency contracts | Current qualified parser; classify required facilities, preserve naming, specify shared-input/private-result lifetimes, fresh status, cancellation and one worker budget | Reviewed contracts, named decisions, independent expectations and preset work/copy bounds; no production scheduling claim |
-| Qualified UBE threading/sharing prerequisites | Small actual UBE programs compiled through both selected v2 stages; prove the precise thread, sharing, roots and error mechanisms the compiler will use | Actual overlap and bounded admission, visibility, TLS Err, immutable lifetime, capture/copy measurements, failures, cancellation/drain and cleanup; extend the bootstrap only for a reproduced missing prerequisite |
-| Bounded project input and parallel frontend | Normal `.UBE` input, ordered native MODULE sources and direct explicit UBECore source references; existing source/scanner/parser bodies perform real work in one compiler process | Same complete graphs/diagnostics in one-job and multi-job runs, original spans, no whole-project/job copies, actual overlap, bounded resources and cleanup; pass the parallel performance gate below |
-| First semantic checking | Qualified frontend/ownership path and passed parallel performance gate; contract for declaration details, scopes, explicit types and selected scalar expressions/statements | Independent binding/type/diagnostic cases, primitive/native-type boundaries, exact spans, failure atomicity and deterministic private body results; not a whole-language checker |
-| First checked native executable | Normal project/reference path, bounded semantic result and reviewed lowering/backend/tool-handoff contracts | Real fresh-v3 compilation of small programs; exact exit/results, ABI and runtime error oracles, validated LLVM, deterministic output, full-disk/tool/cancel failures preserving an old artifact |
-| Compiler-required managed values and library facilities | Concrete programs expose missing array/record/String or conversion/storage needs; adopted native-value mechanism remains authoritative | Library and compiler tests for ordinary user-defined native types, deep value copies, roots, neutral/Err behavior, no hidden String/Decimal/Date/Variant backend implementations |
-| Fresh compiler rebuilds itself | Exact feature/dependency coverage of the real compiler and UBECore source; qualified parallel execution retained as code grows | Reproducible fresh build chain from checked-in source, successive raw LLVM comparison under an agreed policy, independent native/rejection/failure tests and equivalent worker-count results |
-| Remaining language and source coverage | Incremental contracts for conditional selection/inactive text and each deferred grammar/semantic family | A production-by-production coverage ledger, exact positive/reject/deferred cases and integration with earlier native/parallel gates; no claim that the current parser already covers it |
-| Complete type/library/foreign boundaries | Required representations and lifecycle/ABI decisions, explicit source/binary Library contracts, scope from the normative language and library inventory | Public callable contracts, independently tested conversions/types/resources/exports, reference boundaries, reproducibility and platform availability |
-| Debugger, product tooling and native IDE | Preserve locations from the first semantic/native work; build debugger/tooling against stable reviewed compiler outputs | Breakpoints, stepping, locals/stacks, errors and native UI/resource lifecycle tests; VB6-like workflow without a webview shell |
-| Wider targets and release preparation | Explicit owner-selected host/target and release scope, measured compiler/library maturity | Per-target ABI/native/debug evidence, packaging/offline rebuilds, maintained manual, approved samples and the owner's release requirements |
-
-Performance, compiler parallelism, documentation, diagnostic quality, ownership
-and failure tests apply to every row. They are not cleanup tasks reserved for the
-end. Source locations and debug requirements likewise constrain early designs.
-Conditional selection must precede any claimed support for programs needing it;
-it cannot be implemented by requiring a successful raw scan of inactive text.
-Additional grammar/types needed by compiler sources move earlier as explicit
-dependencies, rather than silently being implemented under a different item.
-
-A first native executable or self-hosting result is an engineering checkpoint,
-not automatic full-language, library, multithreading or public-release acceptance.
-The native IDE follows a dependable compiler/debugging foundation; its exact
-release placement is not fixed here. Existing owner release requirements remain
-in the owner-maintained file; this proposal does not add requirements to it.
-
-## Parallel performance acceptance
-
-Correct concurrent results and useful parallel speedup are separate requirements.
-The existing correctness proof passed; its instrumented timings do not pass this
-performance gate. Pass this gate before declaring the parallel frontend complete
-or beginning substantial semantic/backend growth. It is an exit requirement for
-the existing frontend deliverable, not a new compiler phase or subsystem.
-
-Owner revision,2026-11-01: "The defined 1.5x and 2x improvements are not that
-important. Close is good enough for a start." These numbers remain engineering
-targets, rather than mandatory completion thresholds. Useful, repeatable
-parallel gains may qualify the initial frontend while further optimization
-remains planned. Report actual gains and target shortfalls plainly; this does
-not waive correctness, resource/lifetime behavior, the regression guards or the
-measurement procedure below. No arbitrary lower numerical target is substituted.
-The [acceptance record](../compiler/UBE_Compiler_v3/PERFORMANCE-ACCEPTANCE.md)
-keeps this owner revision separate from the unchanged frozen measurement inputs.
-
-Engineering targets and required guards, measured against the optimized one-worker path:
-
-| Workload | Engineering target or required guard |
-| --- | --- |
-| Representative real source corpus, two workers | Target 1.5 times the one-worker throughput; report actual `T1 / T2` |
-| Representative real source corpus, four workers | Target twice the one-worker throughput; report actual `T1 / T4` |
-| Larger balanced source corpus, two/four workers | Report actual gains against the same 1.5/2.0 engineering targets |
-| Optimized one-worker execution | No more than 5% slower than the frozen pre-optimization one-worker baseline |
-| Small source sets, including one source with budget four | No more than 10% slower than the optimized one-worker path; the budget is a maximum, not a requirement to start unnecessary workers |
-
-Freeze corpus bytes/hashes, expected complete results, build flags, commands,
-hardware and timing boundaries before optimization. The real corpus must include
-every currently supported production MODULE, with unsupported source kinds
-reported explicitly. The larger corpus must contain at least 32 independent,
-representative MODULE inputs; include a separate uneven-size workload to expose
-load imbalance. Do not select only easy synthetic cases or discard slow files.
-Make timed batches long enough for the one-worker median to exceed one second;
-every repetition must perform fresh scan/parse work, without reusing parsed results.
-
-Use matching optimized native builds without observers, forced rendezvous,
-schedule controls or profiler hooks in the timed path. Measure from admission of
-the qualified source set through complete publication and worker drain, including
-thread startup and synchronization. Source intake, process launch and fixture
-setup are outside this CPU-work interval and must be reported separately; record
-end-to-end project timing once that driver exists. Preserve the same entry point,
-language behavior and work at budgets one, two and four.
-
-Use an otherwise idle machine with at least four physical cores available and
-record CPU/core counts, OS, power configuration, tool/source identities and memory.
-Run at least seven trials per budget in interleaved order in each of two complete
-sessions. Report every trial, medians, ranges, CPU time and peak memory. Establish
-a repeatable warm-cache and pre-trial heap state outside the timer. If variation
-prevents a reliable comparison, report inconclusive and repeat the complete
-session; do not cherry-pick favorable trials or change thresholds after failure.
-
-Run the existing instrumented correctness, copy, root, cancellation and failure
-gates separately against the same candidate sources. Retain their predefined
-memory/ownership bounds, zero worker source-payload copies, complete deterministic
-outputs and cleanup. Report allocation, copying and collector/coordination costs
-to explain the result; extra memory or duplicated work is not a substitute for
-speedup. Investigate the measured collector contention with the smallest focused
-sample before changing shared behavior. Reusable mechanisms stay in UBECore;
-compiler policy stays in the compiler. Architectural changes still require the
-owner's explicit approval.
-
-Completion requires useful, repeatable parallel gains across both sessions and
-both main corpora under the owner's revised starting-point criterion,
-the single-worker/small-input guards to pass, and all correctness/resource gates
-to remain qualified. Record evidence in the current workplan before marking this
-requirement complete. A failed hard guard or inconclusive result remains unfinished; changing
-the gate requires an explicit owner decision. Approval of this requirement does
-not itself start an optimization goal or approve the other proposed plan rows.
-
-## Completed bounded project input and parallel frontend
-
-The first concurrency objective is complete. `TryParseSources` establishes the
-compiler-owned work, sharing, private-output, ordering, cancellation and
-publication path; UBECore retains reusable mechanisms. Its concrete limits and
-observed costs are in `CONCURRENCY-CONSUMER.md` and `CONCURRENCY-EVIDENCE.md`.
-
-The owner requested the successor: the smallest normal `.UBE` input with ordered
-native MODULE sources and direct explicit UBECore source references. Its adopted
-contracts define source identity, path/reference policy, bounded failures,
-ownership and CLI diagnostics. Initial intake, simultaneous-context, project CLI
-and failure gates now pass; complete source/performance acceptance is recorded
-in the current frontend evidence linked at the start of this plan.
-Feed one canonical source set to the existing operation; do not introduce
-another driver, executor, model copy or independent budget.
-
-Acceptance must compare complete one-worker/multi-worker results and first
-diagnostics, original spans, empty/invalid/reference cases, cancellation,
-allocation/admission failures, old-output retention and cleanup. Preserve the
-concurrency and earlier parser gates. Investigate measured collector contention
-with focused reproductions and recorded costs; do not infer a speedup or change
-architecture from instrumented timings alone. This row is now complete;
-its adopted contract and executed evidence remain the authority for input code.
-`PROJECT-INPUT-CONTRACT.md` and `FRONTEND-PERFORMANCE-EVIDENCE.md` in the compiler
-record that review state and the frozen baseline/focused diagnostics. Later rows
-remain proposed beyond the subsequently approved First semantic checking row.
-The owner-approved parallel performance gate above is part of this row's exit
-criteria and is accepted under the owner's revised initial-performance policy.
-The bounded checker now uses this qualified path and passes its exact final
-gates as recorded above.
-
-## Bounded semantic implementation and the next reviewed contract
-
-SEMANTIC-CONTRACT.md fixes the supported/deferred boundary and independent
-acceptance obligations. The parser retains the required declaration/parameter/
-attribute detail without a second source parser. Canonical name/type preparation
-freezes before private body work, and the existing controller supplies bounded
-admission, cancellation/drain and deterministic complete publication.
-
-The implementation covers selected Boolean/integer expressions, required literal
-folding, explicit conversions, calls/defaults/ByRef modes, statements and adopted
-opaque native values in native MODULE sources. Original spans and declaration
-identity survive folding. Compile-time known faults diagnose; future execution
-of runtime-dependent operations must preserve the established neutral/Err rules.
-String, arrays/field-only records, native CLASS, full compiler/Core support and
-the other listed deferred families are not legalized by this deliverable.
-
-The owner confirmed contextual/default decimal integer typing, destination
-propagation through arithmetic, sufficiently wide intermediate literal types,
-declaration-before-initialization and compile-time reduction/rejection of known
-literal computations. Those approved definitions remain authoritative; bootstrap
-permissiveness and host/LLVM behavior supply no replacement language rule.
-
-With bounded semantic checking qualified, prepare the
-existing **First checked native executable** row. Specify a small included/
-deferred program set, lowering from the checked result, ABI/native-value and
-runtime-error behavior, LLVM validation, deterministic output, tool invocation
-and atomic artifact publication. Independently author exact exit/results and
-tool/full-disk/cancellation failure cases before implementation. Preserve old
-artifacts on failure and original spans for later debugging. Review those bounded
-contracts before any backend work; this plan does not select a new phase API,
-IR architecture, executor, runtime subsystem or language extension.
-
-## How each item becomes complete
-
-Before coding, record its objective, authoritative rules, exact included/deferred
-behavior, dependencies, owning layer, agreed identifiers, lifetime/copy/failure
-contracts, independent expected cases, measurement bounds and acceptance commands.
-Resolve a semantic or representation decision before depending on it. Temporary
-bootstrap exceptions need a bounded purpose, evidence and a removal condition.
-
-Completion requires the relevant exact native results, rejects, malformed and
-boundary cases, allocation/admission/cancellation behavior, cleanup, deterministic
-worker results and actual cost comparisons. Preserve applicable earlier gates.
-Every crash fix includes the small synthetic regression that reproduced it.
-Compilation, informal inspection, a test count, self-hosting or an agent's report
-does not replace the relevant assertions.
-
-Record source/tool/artifact identities, commands, passed gates, failed attempts,
-measured work, supported limits, unresolved decisions and the next action. Update
-current workplans and public documentation in the same change. A completion marker
-must name its evidence; an implemented but unqualified item remains incomplete.
-
-## Review and handoff
-
-The first concurrency objective has its own completed qualification. Planning
-completion does not mean that future contracts are approved or future gates
-have passed.
-Before adopting the next execution item, the owner should review:
-
-- retaining the qualified compiler-concurrency gate as semantic work grows;
-- the preserved naming conventions and separate UBECore/compiler responsibilities;
-- the first semantic/native scope and the decisions deliberately left open.
-
-The first owner-requested concurrency contract and prerequisite proof are
-qualified, as is the subsequent bounded project/frontend deliverable. The
-owner-approved bounded semantic implementation is complete within its contracted
-scope and evidence. Review the next existing
-native-executable lowering/backend/tool contract before implementation. Keep
-later rows proposed until their own dependencies and owner review are ready. No implementation, push, release or new
-compiler generation is authorized merely by adding this planning document.
+A checklist item is complete only after its stated assertion gate passes.
+Specification review, native feasibility and source-compiler conformance are
+different claims and must be reported separately.

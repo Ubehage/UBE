@@ -1,7 +1,0 @@
-UBE-Project 1
-Name = "ThreadReferences"
-Kind = "Exe"
-Startup = "Main"
-Reference = "../../../../std-lib/UBECore.UBE"
-Source = "ByteOwner.cls"
-Source = "thread-references.bas"

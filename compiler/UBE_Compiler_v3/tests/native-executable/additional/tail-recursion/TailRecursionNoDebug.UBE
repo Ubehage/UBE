@@ -1,7 +1,0 @@
-UBE-Project 1
-Name = "TailRecursion"
-Kind = "Exe"
-Startup = "Main"
-Source = "App.bas"
-Optimization = "2"
-DebugInformation = "None"

@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "RP6ReferencePrivate"
-Kind = "Exe"
-Startup = "Main"
-Source = "reference-private-main.bas"
-Reference = "reference-library/reference-library.UBE"

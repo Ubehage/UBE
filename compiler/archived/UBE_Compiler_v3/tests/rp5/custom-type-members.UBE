@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "RP5CustomTypeMembers"
-Kind = "Exe"
-Startup = "Main"
-Source = "custom-type-members.bas"

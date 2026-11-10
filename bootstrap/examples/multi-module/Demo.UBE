@@ -1,0 +1,7 @@
+UBE-Project 1
+Name = "Demo"
+Kind = "Exe"
+Startup = "Main"
+Source = "src/Program.bas"
+Source = "src/Arithmetic.bas"
+

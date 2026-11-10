@@ -1,7 +1,6 @@
 # UBE Compiler Instructions for Agents
 
 This folder contains the UBE compiler written in UBE.
-This is seperate from the zero-stage C++ compiler.
 
 ## Golden rules for coding
 - **Never duplicate functionality**
@@ -12,32 +11,6 @@ This is seperate from the zero-stage C++ compiler.
   The compiler must be as minimal as practically possible.
   Native datatypes, intrinsics and generel runtime-functionality should be exported when practical and when it doesn't affect runtime performance.
 
-
-## Bootstrapping and build policy
-
-Each new compiler generation must have its own subfolder, named `UBE_Compiler_v1`, `UBE_Compiler_v2`, and so on.
-Increase the version number when creating a new compiler generation, not for routine builds or tests.
-
-The owner explicitly reset the active compiler name to `UBE_Compiler_v3` on
-2026-10-30. Previous v3/v4 implementations and their previews are preserved in
-`archived/`. Follow the fresh v3's instructions and workplan; its source,
-architecture, status and future release identities do not inherit the old
-line's claims. This owner-authorized reset is the naming exception for this
-restart, not permission to renumber or replace other generations.
-
-Each compiler generation must follow these conventions:
-- The project file must have the same name as its containing folder, e.g. UBE_Compiler_v1.UBE.
-- The startup module must always be named Main.bas.
-- Build outputs must be kept separate from source files.
-- After a release preview passes its complete stability gate, copy its final
-  executable to `compiler/release-previews/`, name it with its compiler
-  generation, preview, host, and target, update `SHA256SUMS.txt`, and include
-  both files in the preview's Git commit. Never overwrite an earlier stable
-  preview with a later build.
-
-Previous working compiler generations must be preserved unless explicitly authorized otherwise.
-
-Bootstrap stages and compiler versions are not the same thing. Different bootstrap stages may compile the same UBE compiler source, and their outputs must be verifiable against each other according to the project's bootstrap architecture.
 
 ## Roadmap and progress tracking
 

@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "LibraryStartup"
-Kind = "Library"
-Startup = "Main"
-Source = "fixtures/Main.bas"

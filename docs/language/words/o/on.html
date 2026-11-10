@@ -23,16 +23,17 @@
     <h2>Example</h2>
     <pre><code>Sub Main()
     On Error GoTo Handler
-    Error 5
+    Dim Count As Long
+    Count = CLng(Command$())
     Exit Sub
 Handler:
     Print "Handled"
 End Sub</code></pre>
-    <h3>Expected result</h3><p>Handled</p>
+    <h3>Expected result</h3><p>Invalid runtime numeric text prints <code>Handled</code>; valid text exits without output. These are specified outcomes, not executed compiler test results.</p>
     <h2>Important rules</h2>
-    <p>The words following On determine its role. On Error applies within the current procedure.</p>
+    <p>The words following On determine its role. On Error applies within the current procedure. With invalid runtime command-line numeric text, the conversion fails and enters Handler; valid input exits normally. By default, a failed statement is skipped. On Error GoTo 0 restores that default, and On Error Resume Next explicitly selects it. Neither clears Err. A failure received inside an already running handler skips its statement without re-entering the handler.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../o/off.html" data-doc-path="language/words/o/off.html">← Previous: Off</a><a href="../o/open.html" data-doc-path="language/words/o/open.html">Next: Open →</a></nav>
-    <footer class="article-footer">Article ID: language.word.on · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.word.on · Specified; execution pending · Last reviewed 2026-11-10</footer>
   </main>
 </body>
 </html>

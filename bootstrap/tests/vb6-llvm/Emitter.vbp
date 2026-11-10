@@ -1,0 +1,11 @@
+Type=Exe
+Module=Emitter; Emitter.bas
+Startup="Sub Main"
+Name="BootstrapProbe"
+ExeName32="BootstrapProbe.exe"
+CompilationType=0
+OptimizationType=0
+BoundsCheck=1
+OverflowCheck=1
+ThreadPerObject=0
+MaxNumberOfThreads=1

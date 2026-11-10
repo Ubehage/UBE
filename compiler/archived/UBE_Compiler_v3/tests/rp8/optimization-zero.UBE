@@ -1,7 +1,0 @@
-UBE-Project 1
-Name = "RP8OptimizationZero"
-Kind = "Exe"
-Startup = "Main"
-Optimization = "0"
-DebugInformation = "None"
-Source = "group-app.bas"

@@ -90,9 +90,12 @@ event edge does not clear unrelated aliases to the event source.
 
 Allocation failure first requests collection and retries once after eligible
 termination. If the requested allocation still cannot be satisfied, the
-operation returns its neutral result and records an out-of-memory error when
-execution can safely continue. Partially constructed values are unwound and
-their initialized managed fields released.
+language operation reports FAIL and records an out-of-memory error when
+execution can safely continue. No usable value is returned to the containing
+statement; an unfinished assignment does not commit. Partially constructed
+values are discarded and their initialized managed fields released. Explicitly
+documented record-only bootstrap Try primitives retain their Boolean status
+contracts; that status is not a language failure-result value.
 
 If tracing workspace cannot be allocated, an incomplete mark pass must not
 finalize or sweep objects. It clears partial marks, releases collection state

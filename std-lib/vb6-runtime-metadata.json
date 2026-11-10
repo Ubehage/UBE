@@ -1,0 +1,2459 @@
+﻿{
+    "file":  "msvbvm60.dll",
+    "version":  "6.00.9848",
+    "sha256":  "898288BD3B21D0E7D5F406DF2E0B69A5BBFA4F241BAF29A2CDF8A3CF4D4619F2",
+    "types":  [
+                  {
+                      "type":  "VbVarType",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbMsgBoxStyle",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbMsgBoxResult",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbFileAttribute",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbStrConv",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbDayOfWeek",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbFirstWeekOfYear",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbIMEStatus",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbAppWinStyle",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbCompareMethod",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbCalendar",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbDateTimeFormat",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbTriState",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "VbCallType",
+                      "kind":  "TKIND_ENUM",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "Constants",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "Strings",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "Asc",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Chr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Chr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_LCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_LCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Mid",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Start",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Mid",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Start",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_MidB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Start",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_MidB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Start",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "InStr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Start",
+                                                             "String1",
+                                                             "String2",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "InStrB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Start",
+                                                             "String1",
+                                                             "String2",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Left",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Left",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_LeftB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_LeftB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_LTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_LTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_RightB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_RightB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Right",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Right",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Length"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_RTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_RTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Space",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Space",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_StrConv",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Conversion",
+                                                             "LocaleID"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_String",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "Character"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_String",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "Character"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Trim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Trim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_UCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_UCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "StrComp",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String1",
+                                                             "String2",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Format",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "Format",
+                                                             "FirstDayOfWeek",
+                                                             "FirstWeekOfYear"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Format",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "Format",
+                                                             "FirstDayOfWeek",
+                                                             "FirstWeekOfYear"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Len",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "LenB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "AscB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_ChrB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_ChrB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "AscW",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_ChrW",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_ChrW",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "CharCode"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FormatDateTime",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "NamedFormat"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FormatNumber",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "NumDigitsAfterDecimal",
+                                                             "IncludeLeadingDigit",
+                                                             "UseParensForNegativeNumbers",
+                                                             "GroupDigits"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FormatPercent",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "NumDigitsAfterDecimal",
+                                                             "IncludeLeadingDigit",
+                                                             "UseParensForNegativeNumbers",
+                                                             "GroupDigits"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FormatCurrency",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "NumDigitsAfterDecimal",
+                                                             "IncludeLeadingDigit",
+                                                             "UseParensForNegativeNumbers",
+                                                             "GroupDigits"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "WeekdayName",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Weekday",
+                                                             "Abbreviate",
+                                                             "FirstDayOfWeek"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MonthName",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Month",
+                                                             "Abbreviate"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Replace",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "Find",
+                                                             "Replace",
+                                                             "Start",
+                                                             "Count",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "StrReverse",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Join",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "SourceArray",
+                                                             "Delimiter"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Filter",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "SourceArray",
+                                                             "Match",
+                                                             "Include",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "InStrRev",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "StringCheck",
+                                                             "StringMatch",
+                                                             "Start",
+                                                             "Compare"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Split",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "Delimiter",
+                                                             "Limit",
+                                                             "Compare"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Conversion",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "_B_str_Hex",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Hex",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Oct",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Oct",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MacID",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+                                                             "Constant"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Str",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Str",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Val",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CStr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CByte",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CBool",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CCur",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CDate",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CVDate",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CInt",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CLng",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CSng",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CDbl",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CVar",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CVErr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Error",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ErrorNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Error",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ErrorNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Fix",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Int",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CDec",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "pvar"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "FileSystem",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "ChDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Path"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "ChDrive",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Drive"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "EOF",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FileAttr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber",
+                                                             "ReturnType"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FileCopy",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Source",
+                                                             "Destination"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FileDateTime",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FileLen",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetAttr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Kill",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Loc",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "LOF",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MkDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Path"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Reset",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "RmDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Path"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Seek",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "SetAttr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName",
+                                                             "Attributes"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_CurDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Drive"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_CurDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Drive"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FreeFile",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "RangeNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Dir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName",
+                                                             "Attributes"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "DateTime",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "_B_var_Date",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Date",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Date",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Date",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DateSerial",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Year",
+                                                             "Month",
+                                                             "Day"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DateValue",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Date"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Day",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Date"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Hour",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Time"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Minute",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Time"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Month",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Date"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Now",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Second",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Time"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Time",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Time",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Time",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Time",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Timer",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "TimeSerial",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Hour",
+                                                             "Minute",
+                                                             "Second"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "TimeValue",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Time"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Weekday",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Date",
+                                                             "FirstDayOfWeek"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Year",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Date"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DateAdd",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Interval",
+                                                             "Number",
+                                                             "Date"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DateDiff",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Interval",
+                                                             "Date1",
+                                                             "Date2",
+                                                             "FirstDayOfWeek",
+                                                             "FirstWeekOfYear"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DatePart",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Interval",
+                                                             "Date",
+                                                             "FirstDayOfWeek",
+                                                             "FirstWeekOfYear"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Calendar",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Calendar",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Information",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "Erl",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Err",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IMEStatus",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsArray",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "VarName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsDate",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsEmpty",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsError",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsMissing",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ArgName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsNull",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsNumeric",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IsObject",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "TypeName",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "VarName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "VarType",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "VarName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "QBColor",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Color"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "RGB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Red",
+                                                             "Green",
+                                                             "Blue"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Interaction",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "AppActivate",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Title",
+                                                             "Wait"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Beep",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CreateObject",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Class",
+                                                             "ServerName"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DoEvents",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetObject",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName",
+                                                             "Class"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "InputBox",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Prompt",
+                                                             "Title",
+                                                             "Default",
+                                                             "XPos",
+                                                             "YPos",
+                                                             "HelpFile",
+                                                             "Context"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MacScript",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+                                                             "Script"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MsgBox",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Prompt",
+                                                             "Buttons",
+                                                             "Title",
+                                                             "HelpFile",
+                                                             "Context"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "SendKeys",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "String",
+                                                             "Wait"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Shell",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "PathName",
+                                                             "WindowStyle"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Partition",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "Start",
+                                                             "Stop",
+                                                             "Interval"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Choose",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Index",
+                                                             "Choice"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Environ",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Environ",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Switch",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "VarExpr"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Command",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Command",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IIf",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Expression",
+                                                             "TruePart",
+                                                             "FalsePart"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetSetting",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "AppName",
+                                                             "Section",
+                                                             "Key",
+                                                             "Default"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "SaveSetting",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "AppName",
+                                                             "Section",
+                                                             "Key",
+                                                             "Setting"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DeleteSetting",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "AppName",
+                                                             "Section",
+                                                             "Key"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetAllSettings",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "AppName",
+                                                             "Section"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CallByName",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Object",
+                                                             "ProcName",
+                                                             "CallType",
+                                                             "Args",
+                                                             "lcid"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Math",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "Abs",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Atn",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Cos",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Exp",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Log",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Randomize",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Rnd",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Sin",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Sqr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Tan",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Sgn",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Round",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "NumDigitsAfterDecimal"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Financial",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "SLN",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Cost",
+                                                             "Salvage",
+                                                             "Life"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "SYD",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Cost",
+                                                             "Salvage",
+                                                             "Life",
+                                                             "Period"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "DDB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Cost",
+                                                             "Salvage",
+                                                             "Life",
+                                                             "Period",
+                                                             "Factor"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IPmt",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "Per",
+                                                             "NPer",
+                                                             "PV",
+                                                             "FV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "PPmt",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "Per",
+                                                             "NPer",
+                                                             "PV",
+                                                             "FV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Pmt",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "NPer",
+                                                             "PV",
+                                                             "FV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "PV",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "NPer",
+                                                             "Pmt",
+                                                             "FV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "FV",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "NPer",
+                                                             "Pmt",
+                                                             "PV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "NPer",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "Pmt",
+                                                             "PV",
+                                                             "FV",
+                                                             "Due"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Rate",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "NPer",
+                                                             "Pmt",
+                                                             "PV",
+                                                             "FV",
+                                                             "Due",
+                                                             "Guess"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "IRR",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ValueArray",
+                                                             "Guess"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MIRR",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ValueArray",
+                                                             "FinanceRate",
+                                                             "ReinvestRate"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "NPV",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Rate",
+                                                             "ValueArray"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "_HiddenModule",
+                      "kind":  "TKIND_MODULE",
+                      "members":  [
+                                      {
+                                          "name":  "Array",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "ArgList"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_InputB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_InputB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_str_Input",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_B_var_Input",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "FileNumber"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Width",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "FileNumber",
+                                                             "Width"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "VarPtr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+                                                             "Ptr"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "StrPtr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+                                                             "Ptr"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "ObjPtr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  64,
+                                          "parameters":  [
+                                                             "Ptr"
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "_HiddenInterface",
+                      "kind":  "TKIND_INTERFACE",
+                      "members":  [
+                                      {
+                                          "name":  "LCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Left",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "LTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Right",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "RTrim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Space",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Trim",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "String",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "UCase",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Str",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Chr",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Date",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Time",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Hex",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Oct",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "LeftB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "RightB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Mid",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "MidB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "StrConv",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Error",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "CurDir",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Format",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Environ",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Command",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "ChrB",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "ChrW",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "_ErrObject",
+                      "kind":  "TKIND_DISPATCH",
+                      "members":  [
+                                      {
+                                          "name":  "QueryInterface",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "riid",
+                                                             "ppvObj"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "AddRef",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Release",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetTypeInfoCount",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "pctinfo"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetTypeInfo",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "itinfo",
+                                                             "lcid",
+                                                             "pptinfo"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetIDsOfNames",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "riid",
+                                                             "rgszNames",
+                                                             "cNames",
+                                                             "lcid",
+                                                             "rgdispid"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Invoke",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "dispidMember",
+                                                             "riid",
+                                                             "lcid",
+                                                             "wFlags",
+                                                             "pdispparams",
+                                                             "pvarResult",
+                                                             "pexcepinfo",
+                                                             "puArgErr"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Number",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Number",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Source",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Source",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Description",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Description",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "HelpFile",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "HelpFile",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "HelpContext",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "HelpContext",
+                                          "kind":  "INVOKE_PROPERTYPUT",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Raise",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Number",
+                                                             "Source",
+                                                             "Description",
+                                                             "HelpFile",
+                                                             "HelpContext"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Clear",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "LastDllError",
+                                          "kind":  "INVOKE_PROPERTYGET",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "ErrObject",
+                      "kind":  "TKIND_COCLASS",
+                      "members":  [
+
+                                  ]
+                  },
+                  {
+                      "type":  "_Collection",
+                      "kind":  "TKIND_DISPATCH",
+                      "members":  [
+                                      {
+                                          "name":  "QueryInterface",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "riid",
+                                                             "ppvObj"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "AddRef",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Release",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetTypeInfoCount",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "pctinfo"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetTypeInfo",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "itinfo",
+                                                             "lcid",
+                                                             "pptinfo"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "GetIDsOfNames",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "riid",
+                                                             "rgszNames",
+                                                             "cNames",
+                                                             "lcid",
+                                                             "rgdispid"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Invoke",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  1,
+                                          "parameters":  [
+                                                             "dispidMember",
+                                                             "riid",
+                                                             "lcid",
+                                                             "wFlags",
+                                                             "pdispparams",
+                                                             "pvarResult",
+                                                             "pexcepinfo",
+                                                             "puArgErr"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Item",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Index"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Add",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Item",
+                                                             "Key",
+                                                             "Before",
+                                                             "After"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Count",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "Remove",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+                                                             "Index"
+                                                         ]
+                                      },
+                                      {
+                                          "name":  "_NewEnum",
+                                          "kind":  "INVOKE_FUNC",
+                                          "flags":  0,
+                                          "parameters":  [
+
+                                                         ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "type":  "Collection",
+                      "kind":  "TKIND_COCLASS",
+                      "members":  [
+
+                                  ]
+                  }
+              ]
+}

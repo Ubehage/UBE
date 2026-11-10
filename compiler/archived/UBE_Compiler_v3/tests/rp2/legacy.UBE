@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "RP2Legacy"
-Kind = "Exe"
-Startup = "Main"
-Source = "legacy.bas"

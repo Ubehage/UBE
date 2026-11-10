@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "DuplicateNames"
-Kind = "Exe"
-Startup = "Main"
-Source = "Broken.bas"

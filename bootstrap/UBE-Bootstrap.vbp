@@ -1,0 +1,15 @@
+Type=Exe
+Module=BootstrapMain; src\BootstrapMain.bas
+Module=HostFiles; src\HostFiles.bas
+Module=ProjectLoader; src\ProjectLoader.bas
+Module=SourceLexer; src\SourceLexer.bas
+Module=SourceParser; src\SourceParser.bas
+Startup="Sub Main"
+Name="UBEBootstrap"
+ExeName32="UBE-Bootstrap.exe"
+CompilationType=0
+OptimizationType=0
+BoundsCheck=1
+OverflowCheck=1
+ThreadPerObject=0
+MaxNumberOfThreads=1

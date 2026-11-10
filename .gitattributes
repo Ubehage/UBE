@@ -8,3 +8,7 @@ std-lib/data/unicode/** -text
 std-lib/src/portable/Unicode.bas -text
 compiler/UBE_Compiler_v3/ScannerWords.bas -text
 compiler/UBE_Compiler_v3/tests/parser/cli/diagnostic-oom/before-*.json -text
+
+# VB6's source/project importer requires Windows line endings.
+bootstrap/UBE-Bootstrap.vbp text eol=crlf
+bootstrap/src/*.bas text eol=crlf

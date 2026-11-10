@@ -20,6 +20,14 @@ controlled internal failure. The generated metadata defines the stable numeric
 codes and the function that copies bounded diagnostic text for the calling
 thread.
 
+The internal language FAIL outcome and this external numeric status are
+different interfaces. A wrapper must map a fresh outward failure to the ABI
+status; it must not derive failure from a pre-existing nonzero Err.Number.
+Successful source execution can leave an earlier Err record intact. Exact
+failure delivery through callbacks and initialization boundaries remains tracked
+in `../project-docs/Error-Handling.md`; the ABI must not invent those rules or
+expose an internal FAIL representation to foreign callers.
+
 ## Scalars and text
 
 ABI declarations use exact-width integer and IEEE types, never host C `long`:

@@ -1,12 +1,15 @@
 # UBE 1.0 conversion table
 
-**Status:** normative UBE 1.0 contract for Compiler v3  
+**Status:** normative UBE 1.0 contract
 **Applies to:** implicit assignment, argument, return, and constant conversion
 
 This table closes the conversion relationships approved in
 `v3-language-definition.md`. “Checked” means a known-invalid constant is a
-compile-time error, while a runtime-dependent failure yields the destination's
-neutral value and records the current thread's `Err`.
+compile-time error, while a runtime-dependent failure records the current
+thread's Err and returns FAIL. The containing statement is abandoned under the
+default mode, or control transfers to its enabled handler. An unfinished
+assignment does not overwrite its destination. See
+[`error-handling.md`](error-handling.md), adopted on 2026-11-10.
 
 Unsuffixed decimal integer literals first use the owner-confirmed destination
 context/default Long-or-LongLong typing rule in `language-spec.md` section 4.

@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "RP5Calls"
-Kind = "Exe"
-Startup = "Main"
-Source = "calls.bas"

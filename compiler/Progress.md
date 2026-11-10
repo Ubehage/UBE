@@ -1,73 +1,143 @@
 # Compiler development handoff
 
-## Current work
+## Active work: scalar source-to-native implementation
 
-First semantic checking is complete for the approved scalar/native MODULE
-subset. The production check command, private body results and shared worker
-controller pass their maintained native/process/resource/retained gates on
-accepted cohort `88d1906a667645fa87f885c3a117e52f`. Exact proofs and limits are in
-[semantic evidence](UBE_Compiler_v3/SEMANTIC-EVIDENCE.md).
+The owner authorized the restart sequence in
+`../project-docs/Development-Plan.md`. The planned scalar source boundary is
+`../lang-doc/bootstrap-profile.md`; exact gates are in [ACCEPTANCE.md](ACCEPTANCE.md).
+The error contract is reconciled in the normative documents and affected public
+articles. `rtk proxy powershell -NoProfile -File docs/assets/tools/validate-docs.ps1`
+passed for 274 HTML files; browser verification and source-example execution
+remain unverified. Remaining boundary choices are tracked
+in `../project-docs/Error-Handling.md` rather than inferred during coding.
 
-The full compiler/Core source, deferred language families and executable output
-remain outside this result. First checked native executable is now being
-implemented under its reviewed lowering/backend/ABI/runtime-error and tool
-contracts. The latest completed bounded goal qualifies image base-relocation
-validation and required pointer associations after TLS storage association.
-See the active compiler's
-[progress](UBE_Compiler_v3/Progress.md) for exact checkpoints and remaining
-native acceptance work. Preserve established names, original spans,
-library/compiler responsibilities and qualified ownership/concurrency.
+The repository-owned VB6 bootstrap now loads `.UBE` projects and retains
+multiple source modules in manifest order in a caller-owned ProjectContext.
+The owner explicitly requires this from the outset. No separate single-file
+compiler precedes it.
 
-Older records below describe their named checkpoints; their unavailable-checking
-messages and then-next actions are historical.
+The bounded lexer/parser now retains syntax trees over those source buffers.
+Next implement name resolution and scalar type checking: package/module lookup
+and visibility, duplicate declarations, Main validation, signatures and ByRef
+requirements. Specify the official Err declaration/binding before lowering.
+Then generate native code for the parsed SourceOracle.bas acceptance cases;
+no test-name special cases or hard-coded expected program output.
 
-## Earlier foundation and parser checkpoints
+Adaptive context inference, assembly lowering and compound-header failure
+continuations are outside this first implementation. The runtime inventory in
+`../std-lib/INVENTORY.md` remains a planning input, not a support claim.
 
-The previous v3/v4 source, tests, instructions and plans are under `archived/`.
-Their previews and old compiler-wide handoffs are archived too. The archive
-location is `compiler/archived/`; no separate boot directory remains.
+## Lexer/parser gate
 
-Fresh v3 now has its first source-ingestion consumer and production manifest.
-It consumes actual UBECore source references and preserves exact byte snapshots
-with strict UTF-8/newline validation and separate scalar positions.
-The shared foundation contract is in
-`../std-lib/FOUNDATION.md`. The owner-requested source-built v2 tool passed
-501 grouped acceptance assertions at that checkpoint, including its LLVM fixed point, native byte/scalar
-programs and focused failure regressions; see
-`UBE_Compiler_v2/FOUNDATION-VERIFICATION.md`. Use `bootstrap/build-v2.ps1`, not
-the historical full archived-compiler build. The adopted opaque native scalar
-mechanism is proved in `../std-lib/tests/native-type/NATIVE-EVIDENCE.md`.
-The owner approved managed storage and permits extending v2 as necessary for
-bootstrap. Managed copies/roots/results and the ordinary UBE ByteBuffer/decoder
-now pass native behavior, failure, cleanup, cost and concurrent-instance checks.
-Commands, identities, scanner/Unicode/failure/cost results for that checkpoint are
-in `UBE_Compiler_v3/SCANNER-EVIDENCE.md`. The scanner and envelope reader pass
-102 original hand-authored vectors, 12 focused regressions and 174 word roles
-through both source-built stages, including real root/allocator failures,
-private-worker cleanup and measured copy budgets. Unicode data and ordinary
-lookup/cursor bodies pass exhaustive independent tests. The executable now parses
-the bounded native MODULE grammar and defers other envelopes; successful syntax
-still returns semantic checking unavailable with nonzero status. Code generation
-remains later work. The first grammar consumer's definition was completed with
-116 hand-authored cases and 16 negative controls pass 11969 new consistency
-assertions. A separate identity audit preserves all 501 native checks without
-rerunning or republishing them. `UBE_Compiler_v3/PARSER-EVIDENCE.md` records the
-scope and exact results. The subsequent probes now pass 3828 assertions through
-both accepted stages and select linked-child storage with explicit stacks.
-`UBE_Compiler_v3/PARSER-PROBE-EVIDENCE.md` records the measured tradeoffs,
-recoverable-memory bootstrap prerequisite and fresh 501-check qualification.
-The production grammar consumer is now implemented and independently qualified:
-4049 grouped native checks through both source-built stages, all 188 cases,
-10412 real-root capacities, 102 measured cost rows, persistent allocator faults,
-cleanup and private workers pass. The strict CLI gate passes 82 cases and
-54 diagnostic controls; the rebuilt local executable passes 41 exact process
-oracles. Both raw LLVM pairs are identical and the refreshed bootstrap passes
-all 501 checks. That checkpoint is in `UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`.
-That parser checkpoint preceded the subsequent owner-requested concurrency
-objective, now completed above. Later deliverables in the development plan
-remain proposed; current qualification is in `CONCURRENCY-EVIDENCE.md`.
+On 2026-11-10, this command built with VB6 6.00.9782 outside the sandbox and
+passed all 37 source-parsing cases:
 
-Historical handoff and test logs remain in
-`archived/compiler-history/Progress.md`. Current structural verification is
-recorded with the archive and library workplans; it does not establish runtime
-correctness or bootstrap fitness.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1`
+
+Evidence directory:
+`C:\Users\Ubehage\AppData\Local\Temp\ube source parsing b3e2053c-36d1-42da-8be2-e7571af6f13e`.
+
+The same executable passed all 54 existing loading cases with:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe 'C:\Users\Ubehage\AppData\Local\Temp\ube source parsing b3e2053c-36d1-42da-8be2-e7571af6f13e\build\UBE-Bootstrap.exe'
+```
+
+Loading evidence directory:
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading 695107e3-81eb-42f6-a388-cb08c0537975`.
+
+The syntax gate asserts tree ownership/reachability, operator precedence and
+associativity, positional arguments, parameter modes, If branch structure,
+exact source spans, comments/continuations, bracket escaping, multi-module
+order and qualified-call syntax. The actual failure-flow source oracle parses
+with all eight public checks represented. It is not executed.
+
+Negative cases assert diagnostic categories/locations, no partial success on a
+second-module error, and bounded token length/count, aggregate tokens, nodes
+and expression nesting. An independent valid invocation succeeds after invalid
+ones; this does not qualify reuse within one process or concurrent compilation.
+
+`--parse` validates admitted syntax; `--dump-ast` additionally emits inspection
+records. Limits, source ownership and UTF-16 span conventions are documented
+in `../bootstrap/DESIGN.md`. One diagnostic ends a failed request; editor
+multi-error recovery is unimplemented. Name resolution, target type semantics,
+entry-point validation and execution remain subsequent work.
+
+## Project-loading gate
+
+On 2026-11-10, this command passed outside the restricted sandbox with
+VB6 6.00.9782:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1`
+
+The build succeeded and all 54 cases passed: exact ordered output for multiple
+modules and the checked-in sample; repeated loading; Unicode/BOM input and
+Unicode paths; required fields; duplicate keys, paths and identities; malformed
+text/headers; path and junction escapes; input bounds; unsupported features;
+and exact CLI exit codes. Selected syntax/header errors assert filename/line.
+Artifacts and logs were retained at
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading f88b5979-2db4-4aa6-b985-d626e3b334d1`.
+
+The sandbox blocks VB6 registry access; the outside-sandbox run made no registry
+changes. An initial compile error was resolved by preserving CRLF in VB6 source
+and project files, now specified by `.gitattributes`.
+
+`--check` validates manifest metadata and source envelopes only. Procedure syntax
+is handled by the separate parse commands; Main resolution, cross-module call
+binding and LLVM emission remain unimplemented.
+It emits no target artifact. Full Unicode identifiers, references/resources and
+non-MODULE source kinds are explicitly outside the current admission boundary.
+See `../bootstrap/README.md` for input bounds. The gate does not qualify reuse
+of a context within one process or actual concurrent compilation.
+
+## Native failure-flow gate
+
+On 2026-11-10 this command passed with Clang 23.1.3:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/failure-flow/check.ps1`
+
+O0 and O2 each produced a PE x64 image and exited with exactly 0 after eight
+behavior assertions: successful zero with stale Err, raise exit, default
+assignment preservation/skipped operand, caller handler, active-handler
+failure, explicit cleanup ordering, preserved ByRef effect and repeated equal
+error numbers. O2 negative controls were rejected with exact masks 158 and 4.
+
+These are hand-authored native test calls, not UBE compiler output. Full Err
+metadata, TLS, actual OS resource release, source parsing/lowering and public
+ABI are not qualified. SourceOracle.bas and source-oracles.json define the
+matching future source gate and are explicitly unexecuted.
+
+## Completed bootstrap feasibility experiment
+
+Owner direction on 2026-11-10: restart the implementation and use VB6 for the
+bootstrap if possible. The final compiler remains written in UBE, producing
+native 64-bit programs through LLVM.
+
+The compiler directory currently contains documentation only. The previous
+bootstrap and standard-library implementation files are removed in the working
+tree. Do not restore them wholesale or inherit their verification claims.
+
+Acceptance gate used:
+
+1. Locate an owner-provided VB6 installation and record its version.
+2. Compile and run a minimal repository-owned VB6 project without interactive
+   error dialogs; exercise a deliberate failure with an asserted result.
+3. Locate and pin the LLVM tools used for the experiment.
+4. Have the VB6 executable emit a minimal LLVM module, compile/link it for
+   Windows x64, assert the PE machine type and the expected process exit code.
+5. Record exact commands and results before declaring the bootstrap viable.
+
+VB6's 32-bit host does not require a 32-bit generated target. Emit textual LLVM
+IR and invoke the backend out of process; do not attempt to load a 64-bit LLVM
+library into VB6. Target integers must not inherit VB6 host overflow behavior.
+
+On 2026-11-10 the following command passed outside the restricted sandbox:
+
+`rtk proxy powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap/tests/vb6-llvm/check.ps1`
+
+Tools: VB6 6.00.9782 and Clang 23.1.3. Assertions passed for IR emission,
+invalid-path exit 3, x64 PE machine 0x8664 and generated-program exit 42.
+The sandboxed invocation failed on registry access; the outside-sandbox build
+succeeded without a registry change. This proves the fixed IR bridge only.
+It does not parse UBE source or establish self-hosting. Tool versions are
+recorded, not yet packaged or enforced as release prerequisites.

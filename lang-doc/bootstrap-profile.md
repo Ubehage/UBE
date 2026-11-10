@@ -1,182 +1,109 @@
-# UBE Bootstrap Profile
+# UBE compiler bootstrap source profile
 
-**Status:** complete v2-to-v3 RP5 bootstrap profile  
-**Language definition:** 0.3  
-**Initial target:** x86-64 Windows GNU ABI
+**Status:** scalar syntax implemented and tested; semantic analysis and native
+emission remain planned. This file does not grant exceptions to language semantics.
 
-## Current foundation additions - 2026-10-30
+Project loading is implemented separately from source compilation. On
+2026-11-10, `bootstrap/tests/project-loading/check.ps1` built the VB6 loader and
+passed 54 cases for ordered multi-module `.UBE` input, native source envelopes,
+UTF-8, path containment and controlled rejection. It does not parse procedure
+bodies. Current limits and supported manifest keys are in `../bootstrap/README.md`.
 
-The current source-built v2 is qualified separately from the historical RP5
-coverage below. It implements nominal opaque `Type Name As StorageType` values
-for Byte, Integer and Long, with one-component aggregate ABI, synthesized zero/
-copy/calls/results, equality/inequality and explicit Value.Pack/Value.Unpack
-intrinsic attributes. Payload fields, implicit representation conversion,
-ordering, invalid bindings and unsupported representations diagnose.
-`std-lib/tools/check-native-type.ps1` checks independent native/layout/Err/IR
-and rejection oracles through both source-built v2 stages. Bare test modules
-remain the documented bootstrap source exception; project/package/foreign ABI,
-general namespaces/module privacy, managed representations and full record equality are not
-qualified by this addition. Stage zero does not acquire this syntax; v2's own
-source stays in the existing stage-zero subset.
-Binding authority is enforced from the existing source-module provenance:
-only the native type's defining module can attach Pack/Unpack implementations.
-V2 uses its flat declaration universe and local procedure attribute targets;
-this does not claim full qualified-namespace lookup or private procedure access.
+The VB6 lexer/parser now retains syntax trees for the scalar forms below.
+`bootstrap/tests/source-parsing/check.ps1` passed 37 cases for tree structure, source spans,
+the actual failure-flow source oracle, malformed/unsupported input and parsing
+limits. This is syntax support only: entry-point resolution, duplicate symbol
+checks, argument/type validation, error behavior and native emission remain
+subsequent passes. The oracle is parsed, not executed.
 
-The owner subsequently approved managed storage and extending v2 as needed for
-bootstrap. Ordinary Byte arrays and finite array-containing records now pass
-independent assignment/ByVal/result, exact layout, nested-root, borrowed-element,
-scope cleanup, allocation retry/failure and stale-Err tests through both stages.
-The recorded source gate passes 276 assertions; this includes the retained
-rootless decoder's eight assertions and zero measured allocations. Indices and
-counts are signed Long; arrays remain one-dimensional. Inline record cycles,
-malformed binding declarations and array-valued Main diagnose before LLVM.
+The parser also admits ordinary typed scalar constants/initializers, Long `&`
+declaration suffixes, unary signs, integer radix spellings, ASCII bracketed
+names, numeric labels, ElseIf and redundant Option Explicit/On. Unsupported
+types, operators, declarations and control forms fail explicitly. It reports
+the first error and does not provide IDE multi-error recovery. Parser limits
+and its development dump format are defined in `../bootstrap/DESIGN.md`.
 
-Explicit attributes additionally bind Array.Length, Array.TryResize,
-Memory.Collect, Array.TryCopy and Memory.CopyBytes. Exact signatures and
-failure/ownership rules are in
-[`../std-lib/MANAGED-STORAGE-EVIDENCE.md`](../std-lib/MANAGED-STORAGE-EVIDENCE.md).
-This uses the existing intrinsic-attribute syntax, not new grammar. Value.Pack/
-Value.Unpack remain scalar-only. Builtin String, objects, managed opaque native
-representations, foreign ABI and the full Library source envelope are not
-qualified by this ordinary Byte/record proof. Failure concerns one operation;
-no implicit transaction or procedure-abort rule is introduced.
+The initial scalar admission set exists to prove the accepted error contract
+before expanding implementation. The later dependency set identifies what the
+UBE-written compiler will need; it is not a claim that self-hosting is already
+possible or that its minimum dependencies have all been measured.
 
-The current build command is `bootstrap/build-v2.ps1`; its exact identities and
-evidence are in `../compiler/UBE_Compiler_v2/FOUNDATION-VERIFICATION.md` and
-`../std-lib/tests/native-type/`. The historical table below retains its original
-scope and must not be read as verification of the reset v3.
+## Initial scalar admission set
 
-The UBE Bootstrap Profile is the deliberately bounded subset of UBE used to
-write the first compiler in UBE. It is not a separate language: every profile
-program is an ordinary UBE program, and profile restrictions disappear as the
-self-hosting compiler gains full-language support.
-
-This document records two things independently:
-
-- what the current C++ stage-zero compiler can compile all the way to a native
-  executable;
-- what the preserved v2 and verified RP5 compilers use to reproduce v3.
-
-Agents must update these tables when support changes. A feature is “native”
-only after a generated executable has been run in an automated test.
-
-## Source-input bootstrap extension
-
-The first fresh-v3 consumer additionally requires bounded direct source Library
-references, native MODULE envelope/identity and Startup validation, recoverable
-raw-byte reading, Unicode command arguments and explicit error recording.
-The exact roles are File.TryOpen, File.TryRead, File.TryClose,
-Process.TryArgument and Error.Set; all use the existing validated intrinsic
-attribute syntax. Contracts:
-`../std-lib/FILE-BYTES-CONTRACT.md` and
-`../compiler/UBE_Compiler_v2/tests/source-reference/CONTRACT.md`.
-The active consumer contract is
-`../compiler/UBE_Compiler_v3/SOURCE-INPUT-CONTRACT.md`.
-This is not general package lookup, standalone shared-library output, source
-language checking or a new String implementation. Qualification results are
-recorded separately from the historical profile below.
-
-The current combined source gate passes 470 checks. Exact source/tool/artifact
-identities, native entry-admission behavior, source-input results and measured
-limits are in `../compiler/UBE_Compiler_v3/SOURCE-INPUT-EVIDENCE.md`.
-
-## Current native subset
-
-| Area | Implemented behavior |
+| Area | Admitted scope to implement first |
 |---|---|
-| Source | Strict UTF-8, Unicode 18.0 letters and simple case folding, LF/CRLF, comments, and continuations |
-| Entry point | One parameterless `Sub Main()` or `Function Main() As Long` |
-| Procedures | Module-level `Sub` and `Function`, calls with parentheses, `ByVal`, explicit or default `ByRef`, and `Long` function results |
-| Locals | Procedure-scoped `Dim` declarations with explicit supported types and optional initializers; one-dimensional dynamic `Long()` and `String()` arrays |
-| Compiler records | Named `Type` records with `Long` and `String` fields, direct member reads/writes, zero initialization, and exact-type `ByRef` parameters |
-| Types | Native lowering currently centers on `Boolean`, `Integer`, `Long`, and `LongLong`; limited `Double` and `String` values can be printed |
-| Expressions | Literals, names, unary operators, arithmetic, integer comparisons, and eager integer/Boolean logical operators |
-| Statements | Assignment, `Print`, `Exit Sub`, `Exit Function`, block `If/Else/End If`, and `While/Wend` |
-| Output | Deterministic typed IR, verified LLVM IR, source-line debug metadata, and linked x86-64 Windows GNU executables through LLVM/Clang 23.x |
-| Runtime | Integer, floating-point, string, and newline console-output adapters |
+| Container | UTF-8 `.UBE` project manifest with multiple ordered `.bas` modules, each with `UBE SOURCE 1 MODULE` and Attribute UBE_Name; project loading is required from the first implementation |
+| Entry | One package-wide module-level `Function Main() As Long` or `Sub Main()` for an Exe project |
+| Types/storage | Boolean and Long; explicitly typed locals, parameters and function results; neutral initialization; scalar module variables for assertion traces |
+| Procedures | Module Subs and Functions; ByVal and exact writable-storage ByRef; parameterless and positional calls; Exit Sub/Function |
+| Expressions | Literals, names, calls, comparisons, eager Boolean And and checked Long addition needed by the error fixtures; evaluation once in source order |
+| Statements | Scalar declarations/assignments, procedure calls, single-line and block If/Else, procedure-local labels and GoTo |
+| Errors | Err.Raise with a Long code, Err.Number read, Err.Clear; default continuation; On Error GoTo label, On Error Resume Next and On Error GoTo 0; failure while a handler is active |
+| Output oracle | Main's process result plus harness observations; production Print is not required merely to report test success |
 
-Unsupported constructs must produce a controlled lexer, parser, semantic, or
-lowering diagnostic. They must never silently acquire different semantics.
-`ByRef` parameters use the language default when no passing modifier is
-written. The current profile requires a directly addressable value of the
-exact parameter type; variables, members, and indexed array elements retain
-their address identity.
+This table selects surface features, not an alternate grammar. Match the
+normative EBNF and strict declaration rules for every admitted source form.
+Err operations must resolve to the official error-support contract rather than
+give arbitrary user declarations magic behavior by name. The concrete
+declaration/binding representation must be documented before production code
+is introduced; the test-only native prototype does not decide that interface.
 
-## Verified profile coverage
+The pending SourceOracle.bas is a module of callable checks, not a standalone
+executable. A test-only native harness will supply runtime arguments and call
+its compiled procedures; this does not expose ordinary Public procedures as
+foreign exports. Separate standalone Main fixtures qualify executable startup.
+Failure within an If condition or other compound control header is outside the
+initial gate until its exact continuation target is settled; conditions in the
+initial oracle are nonfailing scalar comparisons.
 
-The following facilities form the bounded profile used to build Compiler v3
-RP5. Items deliberately left pending are broader language features, not RP5
-bootstrap requirements:
+The first runtime failure cases pass variable input so the compiler is not
+asked to silently execute a provably invalid constant operation. Separately
+assert required constant-failure diagnostics. An Err.Raise in a reusable
+procedure is legal; analysis must distinguish a declaration from a provably
+invalid executed call. Detailed interprocedural analysis beyond the admitted
+profile is not a prerequisite for starting the parser.
 
-- [x] Native executable generation and both forms of `Main`.
-- [x] Typed module-level procedures, explicit `ByVal` parameters, and calls.
-- [x] Local variables, assignments, block conditionals, and loops.
-- [x] Complete checked integer arithmetic and conversions used by offsets,
-  lengths, line numbers, and code points. Native `Long` addition, subtraction,
-  multiplication, integer division, remainder, negation, and `For` increments
-  now detect overflow and invalid division through controlled runtime failures;
-  all widths and explicit conversions used by the profile follow controlled
-  failure edges.
-- [x] `ByRef` parameters for efficient builders and mutable compiler state.
-- [x] Dynamic arrays with indexing, bounds, and resizing. Native one-dimensional
-  `Long()`, `String()`, and compiler-defined record arrays support indexed
-  reads/writes, `LBound`, `UBound`, `ReDim`, and `ReDim Preserve`; dynamic
-  arrays can be passed explicitly `ByRef`; local dynamic-array storage is
-  released automatically on normal and failure exits. Additional ranks are
-  outside the v2 Bootstrap Profile.
-- [x] User-defined types needed for tokens, syntax nodes, diagnostics, and
-  compilation state. Native named `Type` records support the fields, member
-  access, arrays, nesting, initialization, and exact-type `ByRef` behavior used
-  by the compiler.
-- [~] String length, byte indexing/slicing, search, concatenation, ordinal
-  comparison, byte construction, `Long` formatting, and linear joining of a
-  bounded `String()` chunk array are available through the documented
-  bootstrap intrinsic layer; full Unicode-aware library operations and a
-  reusable standard-library builder remain.
-- [x] Pinned Unicode 18.0 letter-category lookup is available to UBE compiler
-  code through the checked-in bootstrap runtime boundary.
-- [x] Pinned Unicode 18.0 simple case folding is available by code point to UBE
-  compiler code through the checked-in bootstrap runtime boundary.
-- [x] File reading and writing, command-line argument access, and bounded
-  shell-free compiler-tool invocation for the initial Windows bootstrap host.
-  The private ABI contract is recorded in
-  [`bootstrap-intrinsics.md`](bootstrap-intrinsics.md).
-- [x] `For` loops and sufficient structured early-exit behavior. Native loops
-  support positive and negative `Step`, matching `Next` validation, `Exit For`,
-  and `Exit While`; a zero step follows a controlled runtime failure path.
-- [x] A clear profile-compatible dispatch pattern using structured `If`.
-  `Select Case` remains outside the bounded profile.
-- [x] Heap allocation and deterministic cleanup for dynamic compiler data used
-  by the profile, including automatic local dynamic-array release on all exits.
-- [x] Multiple source files and the project input model. V2 safely loads
-  ordered `.bas` entries from `.UBE`, rejects escapes and normalized
-  duplicates, resolves supported cross-module declarations, and reports the
-  originating source path/line/column. `.UBG` orchestration and `.UBR`
-  resources are reserved for v3 as defined in
-  [`project-files.md`](project-files.md).
-- [x] Stable diagnostic emission with file, line, and column information is
-  active for the v2 bootstrap contract; broader severity/note presentation is
-  outside the bounded profile.
-- [x] A UBE API emits LLVM IR files and the compiler-owned `--build-native`
-  path invokes LLVM/Clang through separate bounded arguments with controlled
-  cleanup on success and failure.
+## Input and failure constraints
 
-## Verification gates
+- Set and document byte/token/nesting/diagnostic limits before implementing
+  the source reader. Check limits before allocating or descending recursively.
+- Reject malformed UTF-8, embedded invalid source characters, truncated
+  tokens, mismatched terminators and duplicate declarations with locations.
+- Unsupported constructs receive an explicit diagnostic; never compile them
+  as no-ops or silently adopt VB6 runtime semantics.
+- All compiler host I/O and child-process failures have fresh status and
+  actionable diagnostics. Do not use stale VB6 Err to classify success.
+- Any failed build leaves an earlier valid output untouched and does not
+  advertise a new executable. Exact output-publication mechanism is an
+  implementation task with failure tests.
+- This profile does not allow bare/headerless source as an undocumented
+  shortcut. Imported VB6 syntax is separate subsequent compatibility work.
 
-Before the UBE compiler source becomes authoritative, all of these gates must
-pass from a clean checkout:
+## Dependencies needed before self-hosting
 
-1. Stage zero builds with the documented GCC and LLVM versions.
-2. Every profile feature has positive, negative, and native execution tests.
-3. Unsupported source fails with a diagnostic rather than invalid LLVM IR or a
-   compiler crash.
-4. Stage zero compiles the compiler source into a stage-one executable. **Passes.**
-5. Stage one compiles the published `Sub Main` and `Function Main` showcase
-   programs. **Passes.**
-6. Stage one compiles its own source to produce stage two. **Passes.**
-7. Stage-two and stage-three LLVM is byte-identical under the documented
-   comparison policy. **Passes.**
+Add and prove these only as compiler-source needs demand them:
 
-The Public Developer Preview may occur after gates 1 through 5 are stable. A
-claim of self-hosting requires all seven.
+- Byte, Integer and LongLong storage and checked conversions/arithmetic;
+- Unicode text and counted byte I/O, with explicit encoding and source spans;
+- dynamic arrays and finite value records with independent copy semantics;
+- strings and precise managed-storage lifetimes if used by the compiler;
+- loop forms, additional operators and ordinary UBECore procedure calls;
+- further cross-module resolution features beyond the initial scalar package;
+- deterministic diagnostics, file ownership and backend invocation.
+
+Use reusable UBECore algorithms rather than duplicate implementations in the
+compiler. The bootstrap may call host facilities, but its generated programs
+must follow UBE's target contracts. The final dependency-minimum is established
+from actual UBE compiler source and its build, not presumed by this list.
+
+## Explicitly outside the initial implementation
+
+Classes/events, collection and GC of arbitrary object graphs, native threads,
+foreign exports/callbacks, UI/designer formats, Adaptive result inference,
+assembly/bytecode lowering and full library compatibility are not admitted by
+the scalar profile. Resume retry/control-construct resume targets and complete
+Err descriptive fields follow their exact contracts when settled. Reject them
+explicitly until implemented; their approved full-language semantics remain.
+
+See `../compiler/ACCEPTANCE.md` for the gate. Update this file with named tests
+before changing any item from planned to implemented.

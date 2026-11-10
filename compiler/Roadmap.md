@@ -1,70 +1,53 @@
-# Compiler development roadmap
+# UBE compiler roadmap
 
-The active line is the fresh [`UBE Compiler v3`](UBE_Compiler_v3/README.md),
-as designated by the owner on 2026-10-30. Its prerequisites and acceptance
-rules are in [`UBE_Compiler_v3/Roadmap.md`](UBE_Compiler_v3/Roadmap.md).
+The owner authorized a restart on 2026-11-10. This plan preserves the approved
+UBE language and minimal compiler/library boundary. It does not carry forward
+completion claims from removed implementations.
 
-- [x] Preserve previous v3/v4 implementations, previews and compiler handoffs
-  under `archived/`, with exact original-byte snapshots and relocation records.
-- [x] Record the owner's approved library-first datatype/bootstrap direction.
-- [x] Define the first foundation contract and primitive/type-mechanism ledger.
-- [x] Produce a usable source-built v2 for the bounded byte/scalar foundation
-  subset, with fixed-point and independent native/rejection/crash evidence.
-  See `UBE_Compiler_v2/FOUNDATION-VERIFICATION.md` (130 acceptance assertions).
-- [x] Prove the bounded bootstrap subset and library-defined native datatype
-  mechanism before broad compiler implementation.
-  The earlier source-input gate passed 470 assertions including managed storage
-  and the first library byte/text facility. The then-current 501-check qualification
-  adds scanner/Unicode proofs; see `UBE_Compiler_v3/SCANNER-EVIDENCE.md`.
-- [x] Build the first source-ingestion consumer with independently tested
-  UBECore facilities, direct source references and controlled native failures.
-- [x] Define scanner/source-envelope acceptance over exact source snapshots.
-  102 independent vectors/174 word roles pass 2286 consistency assertions;
-  this is a definition gate, not native scanner qualification.
-- [x] Implement that defined scanner/source-envelope consumer in UBE and pass
-  its independent native, failure, resource and measured-cost gates.
-  That checkpoint's current-source gate passed 501 grouped checks; exact scanner/Unicode
-  evidence and supported limits are in `UBE_Compiler_v3/SCANNER-EVIDENCE.md`.
-- [x] Define the first bounded grammar consumer before choosing parser storage
-  or strategy. 116 independent cases and 16 negative controls pass the definition
-  gate; the native 501-check baseline remains unchanged. See
-  `UBE_Compiler_v3/PARSER-EVIDENCE.md`.
-- [x] Compare native parser storage/traversal candidates before implementation.
-  3828 assertions pass through both accepted stages; linked-child nodes and
-  explicit stacks are selected. The necessary recoverable-memory prerequisite
-  passes the fresh complete 501-check source gate. See
-  `UBE_Compiler_v3/PARSER-PROBE-EVIDENCE.md` for that prerequisite evidence.
-- [x] Implement and independently qualify the bounded production grammar consumer.
-  Both source-built stages pass 4049 grouped native checks, all 188 cases and
-  10412 real-root capacities, persistent faults, cleanup, workers and measured
-  bounds. The refreshed 501-check bootstrap and strict CLI/artifact gates pass.
-  Exact evidence and scope are in `UBE_Compiler_v3/PARSER-NATIVE-EVIDENCE.md`.
+## Bootstrap and self-hosting
 
-- [x] Complete the owner-requested bounded compiler-concurrency contract and
-  actual UBE-driven proof, preserving immutable owners, private results, one
-  budget, canonical failures, cancellation/drain and complete publication.
-  Compiler `TryParseSources` owns orchestration; UBECore Threads supplies generic
-  mechanisms. [CONCURRENCY-EVIDENCE.md](UBE_Compiler_v3/CONCURRENCY-EVIDENCE.md)
-  records that checkpoint's gates and limits, including collector contention.
+- [x] Prove the owner-selected VB6 bootstrap path using the gate in
+  [Progress.md](Progress.md).
+- [~] Define compiler/UBECore ownership and inventory VB6 runtime names before
+  selecting the bootstrap subset. See [LANGUAGE-SURFACE.md](LANGUAGE-SURFACE.md)
+  and [library inventory](../std-lib/INVENTORY.md).
+- [~] Specify the minimum source subset needed by the UBE-written compiler.
+  Enumerate syntax, types, storage, errors, library dependencies and target
+  facilities, plus positive and negative acceptance cases. The initial planned
+  scalar admission set is in `../lang-doc/bootstrap-profile.md`; expansion to
+  actual self-hosting dependencies remains evidence-driven.
+- [x] Qualify the native failure-flow prototype: the command in Progress.md
+  passed eight assertions at O0/O2 and rejected both negative controls.
+- [ ] Compile matching UBE source through the real pipeline.
+  [ACCEPTANCE.md](ACCEPTANCE.md) separates native feasibility from compiler
+  conformance.
+- [x] Start the VB6 bootstrap with `.UBE` project loading and multiple ordered
+  modules. Qualify bounded loading and manifest/source-header diagnostics before
+  feeding the same retained sources to the parser. The 54-case gate in
+  Progress.md passed.
+- [x] Implement the bounded lexer/parser with retained syntax trees, source
+  spans and malformed/unsupported-input diagnostics. The 37-case syntax gate
+  and all 54 loading regressions passed on the same VB6 build.
+- [ ] Implement name resolution and scalar type checking over the retained
+  trees, including entry validation, module visibility and official Err binding.
+- [ ] Implement the bootstrap subset with bounded input handling, controlled
+  failures, source locations and deterministic output.
+  Syntax is implemented; semantic checks and native lowering remain pending.
+- [ ] Compile the UBE-written compiler and rebuild it with its own output.
+  Compare deterministic generated artifacts and run the same conformance
+  corpus with both generations before claiming self-hosting.
 
-- [x] Qualify bounded normal `.UBE`/direct-UBECore project input and the initial
-  parallel frontend under the owner's revised performance policy. Historical
-  measurements and limitations remain in the frontend evidence.
-- [x] Qualify First semantic checking and the existing check path for the
-  contracted scalar/native MODULE subset. Final cohort 88d passes the maintained
-  native/process/resource/retained gates; see SEMANTIC-EVIDENCE.md.
-- [x] Prepare and review the existing First checked native executable row's
-  bounded lowering, backend, ABI/runtime-error and tool-handoff contracts after
-  semantic checking. The adopted decisions and review evidence are in
-  `UBE_Compiler_v3/NATIVE-CONTRACT-REVIEW.md` and its linked contracts.
-- [~] Implement and qualify First checked native executable under those contracts.
-  Component proofs do not complete the deliverable. The current checkpoint,
-  exact evidence and remaining work are in `UBE_Compiler_v3/Progress.md`.
+## Complete language and product support
 
-The [development plan](../project-docs/Development-Plan.md) remains the dependency
-order. Preserve naming, layer separation, original spans, immutable owners and
-the qualified worker budget. Later rows need their own review and evidence.
+- [ ] Implement the frozen grammar and semantic contracts, with ordinary
+  algorithms in UBE libraries and only irreducible operations as intrinsics.
+- [ ] Prove managed memory, checked arithmetic, conversions, native threads,
+  object/event lifetimes and foreign boundaries with focused acceptance tests.
+- [ ] Deliver source-level debug information, compiler services and
+  thread-safe parallel compilation for the native IDE.
+- [ ] Qualify optimization, diagnostics, malformed-input recovery and target
+  portability independently; LLVM target availability alone is not evidence.
+- [ ] Meet release requirements, sample requirements and offline documentation
+  coverage, with implemented and planned behavior clearly distinguished.
 
-The earlier roadmap is retained under `archived/compiler-history/Roadmap.md`.
-It is historical scope and evidence, not the fresh compiler's execution plan.
-No old task, phase interface, layout or completion claim transfers implicitly.
+The immediate task and exact evidence belong in [Progress.md](Progress.md).

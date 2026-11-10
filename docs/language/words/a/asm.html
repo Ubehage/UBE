@@ -19,17 +19,27 @@
     <div class="metadata"><span class="badge status">Specified</span><span class="badge">Inline assembly statement</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
     <p class="lede">Places one target-specific assembly payload in a procedure.</p>
     <h2>Syntax</h2>
-    <pre><code>Asm "target instruction text"</code></pre>
+    <pre><code>Asm "target instruction text"
+
+Asm
+    target instruction text
+    target instruction text
+End Asm</code></pre>
     <h2>Example</h2>
     <pre><code>Sub Main()
-    Asm "nop"
+    Asm
+        nop
+        nop
+    End Asm
 End Sub</code></pre>
     <h3>Expected result</h3>
-    <p>The target assembler receives the payload nop.</p>
+    <p>For a target accepting this instruction, the assembler receives two nop lines. This illustrates specified syntax; compiler support is not yet implemented.</p>
     <h2>Important rules</h2>
     <p>Assembly text is target-specific and not portable. Unsupported payloads are compile-time errors.</p>
+    <p>Both forms require an explicitly enabled unsafe context. Block delimiters occupy separate lines and may have indentation and trailing UBE comments. End Asm is case-insensitive. A missing closing delimiter is a compile-time error.</p>
+    <p>The block body is raw assembly text. Its comments, labels, quotes and line endings are not interpreted as UBE statements. Use the target assembler's comment syntax inside the block. UBE conditional directives may surround a whole block; text inside it is not processed as UBE directives. Assembly blocks do not nest.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/as.html" data-doc-path="language/words/a/as.html">← Previous: As</a><a href="../a/atomicboolean.html" data-doc-path="language/words/a/atomicboolean.html">Next: AtomicBoolean →</a></nav>
-    <footer class="article-footer">Article ID: language.word.asm · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.word.asm · Specified; implementation pending · Last reviewed 2026-11-10</footer>
   </main>
 </body>
 </html>

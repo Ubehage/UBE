@@ -1,15 +1,13 @@
 /.agents/
 /.continue/
 /media/*
-/bootstrap/out/
-/bootstrap-vb6/
 /GitHub.*
 /docs/*.md
 *.exe
 /Agent-ideas.md
 /Owner-ideas.md
 /Release-Requirements.md
+/VB6.md
 
 !/media/logo.png
 !/media/icon.png
-!/compiler/archived/release-previews/*.exe

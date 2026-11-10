@@ -6,6 +6,11 @@ This contract supplements the source forms and lifecycle rules in
 `v3-language-definition.md`. Thread support is linked into programs that use it;
 there is no external scheduler or VM.
 
+Language-facing failures use `error-handling.md`: a fresh FAIL outcome and
+thread-local Err, default statement skipping or an enabled caller handler,
+and no usable failed result. Normal timeout/cancellation results remain usable
+zero values. The stored Err record never determines whether a call failed.
+
 ## Ordinary shared access
 
 All normally visible program state remains accessible from every UBE thread.
@@ -55,29 +60,32 @@ Function CreateSemaphore(ByVal InitialCount As LongLong, _
 `ThreadEvent.Wait(timeout)` follows the common 1/0 wait convention. Auto-reset
 events release at most one waiter per signal and consume the signaled state;
 manual-reset events release all current/future waiters until `Reset`. `Set` and
-`Reset` are idempotent and return `Long` 1 on success, 0 plus `Err` on an invalid
-or unloaded object.
+`Reset` are idempotent and return `Long` 1 on success; an invalid or unloaded
+object reports FAIL plus `Err`.
 
 `Semaphore.Wait(timeout)` consumes one permit. `Release(Optional Count = 1)`
 adds permits and returns 1; nonpositive release, overflow beyond maximum, or an
-invalid object returns 0 plus `Err`. Waiter selection is fair FIFO subject to
+invalid object reports FAIL plus `Err`. Waiter selection is fair FIFO subject to
 cancellation and host scheduling.
 
 `MessageQueue.Enqueue(ByVal Value As Variant)` copies a value into the FIFO;
 object payloads retain their shared reference. `Dequeue(ByRef Value As Variant,
 timeout)` returns 1 and writes `Value` only on success. Timeout/cancellation
 returns 0 and leaves the destination unchanged. Queue unload wakes waiters with
-0 plus `Err`.
+FAIL plus `Err`, also leaving the destination unchanged.
 
 ## Cancellation and errors
 
 `ThreadRequestStop` is a sticky cooperative flag. It wakes all approved UBE
 waits for that thread. Cancellation itself does not set or clear `Err`; the
 worker detects it with `ThreadStopRequested()` and returns normally. A genuine
-wait failure sets that thread's `Err`; timeout does not.
+wait failure reports FAIL and sets that thread's `Err`; timeout does neither.
 
 `On Error` state and active handlers are per thread and per procedure under the
-core specification. A handler runs on the thread where the error occurred.
+core specification. Ordinary same-thread failed calls are handled on their
+caller's thread; worker failures cannot enter a creator's handler on another
+thread. Detailed failure delivery for UI dispatch, events and raw callbacks
+remains a separate boundary decision and must not be inferred from sticky Err.
 Cancellation never jumps into a handler. Returning after cancellation releases
 locals and monitors on the ordinary compiler-generated cleanup edges.
 
@@ -112,14 +120,17 @@ cycles are not required to be detected.
 ## Limits and cleanup
 
 Thread creation is bounded by available address space, host facilities, and a
-documented configurable program limit. Failure returns ID 0 plus `Err` and
+documented configurable program limit. Failure reports FAIL plus `Err` and
 leaves no partial thread. Each thread has guarded stack growth or an equivalent
-checked maximum; exhaustion records a controlled error and unwinds rather than
-crossing a guard page uncontrolled.
+checked maximum. A call that can safely be refused for stack exhaustion
+records Err 28 and returns FAIL without entering the callee. If safe reporting
+is impossible, the controlled fatal path applies; execution must not cross a
+guard page uncontrolled. Neither case introduces automatic application-resource
+cleanup or native exception unwinding.
 
 Identifiers increase monotonically as nonnegative `LongLong` values and are
 not reused during the process. If the positive ID space is exhausted, further
-creation fails permanently with 0 plus `Err`. Completed threads release native
+creation fails permanently with FAIL plus `Err`. Completed threads release native
 handles, stacks, roots, wait registrations, and transient errors while keeping
 only bounded completion metadata needed by the public API.
 
@@ -130,7 +141,9 @@ event-source counts reach zero. Shutdown then rejects `CallNew`, new callbacks,
 and new exported calls; drains already admitted linked-support work; runs module
 termination in reverse order; releases roots; performs final collection; and
 returns the process code. Module termination cannot start new threads or event
-sources. Attempts return neutral failure plus `Err` and cleanup continues.
+sources. Attempts report FAIL plus `Err`. The shutdown coordinator must still
+attempt remaining safe cleanup; detailed termination-hook failure reporting is
+tracked in the error-handling review and is not inferred from a stale Err.
 
 Forced host termination, power loss, or library removal that bypasses the
 generated orderly shutdown entry cannot guarantee user cleanup.

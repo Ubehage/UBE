@@ -28,7 +28,7 @@ End Sub</code></pre>
     <h3>Expected result</h3><p>True</p>
     <h2>Important rules</h2>
     <p>Null is a Variant value. It is not the same as Nothing or an empty string.</p>
-    <h2>UBE 1.0 rules</h2><p><code>Null</code> means explicitly missing or unknown data in a <code>Variant</code>. It propagates through Variant arithmetic, concatenation, and comparison. Conversion to a fixed type records <code>Err</code> and produces the fixed type neutral value. Use <code>IsNull</code> to test it.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/nothing.html" data-doc-path="language/words/n/nothing.html">← Previous: Nothing</a><a href="../o/object.html" data-doc-path="language/words/o/object.html">Next: Object →</a></nav>
+    <h2>UBE 1.0 rules</h2><p><code>Null</code> means explicitly missing or unknown data in a <code>Variant</code>. It propagates through Variant arithmetic, concatenation, and comparison. Conversion to a fixed type records <code>Err</code> and reports FAIL without a usable result. It abandons the containing statement by default or transfers to its enabled handler. Use <code>IsNull</code> to test it.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/nothing.html" data-doc-path="language/words/n/nothing.html">← Previous: Nothing</a><a href="../o/object.html" data-doc-path="language/words/o/object.html">Next: Object →</a></nav>
     <footer class="article-footer">Article ID: language.word.null · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
   </main>
 </body>

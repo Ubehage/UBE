@@ -9,7 +9,8 @@
 
   Literal letters are matched without regard to case. HSPACE, NEWLINE, EOF,
   LETTER, LINE_CHAR, COMMENT_TEXT, STRING_TEXT, DATE_TEXT, REAL_TEXT and
-  BRACKET_IDENTIFIER_TEXT are scanner tokens defined in ../language-spec.md.
+  BRACKET_IDENTIFIER_TEXT and ASM_PAYLOAD_LINE are scanner tokens defined in
+  ../language-spec.md.
   Horizontal whitespace separates tokens and is otherwise insignificant.
   NEWLINE is significant.
 *)
@@ -372,8 +373,15 @@ dynamic-statement   = "Erase", spacing1, lvalue,
                       expression, [ spacing, ",", spacing, expression ], ")",
                       spacing, "=", spacing, expression ;
 
-(* UBE extensions. Payload strings are target-specific and lexically opaque. *)
-inline-assembly-statement = "Asm", spacing1, string-literal ;
+(* Assembly block payload lines are opaque, include their physical newline,
+   and exclude the standalone End Asm delimiter. See the lexical contract.
+   Block delimiters occupy their own physical lines; outer statement-line
+   consumes the closing delimiter's comment/newline. *)
+inline-assembly-statement = "Asm", spacing1, string-literal
+                          | assembly-block ;
+assembly-block      = "Asm", { HSPACE }, [ comment ], NEWLINE,
+                      { ASM_PAYLOAD_LINE }, { HSPACE },
+                      "End", HSPACE, { HSPACE }, "Asm" ;
 bytecode-statement = "Bytecode", spacing1, string-literal ;
 
 (* Expressions, highest-level to tightest binding *)

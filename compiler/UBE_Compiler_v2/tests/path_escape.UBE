@@ -1,5 +1,0 @@
-UBE-Project 1
-Name = "Escape"
-Kind = "Exe"
-Startup = "Main"
-Source = "../Main.bas"

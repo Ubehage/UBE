@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "DuplicateNormalized"
-Kind = "Exe"
-Startup = "Main"
-Source = "multi_main.bas"
-Source = ".\multi_main.bas"

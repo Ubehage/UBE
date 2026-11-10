@@ -1,4 +1,7 @@
-(* UBE 1.0 conditional-compilation directives. Complete logical lines only. *)
+(* UBE 1.0 conditional-compilation directives. Complete logical lines only.
+   Assembly block payload is opaque, including in inactive branches: apparent
+   directives in that payload do not participate in outer directive nesting.
+   See language-spec.md sections 2 and 10 for block-boundary recognition. *)
 conditional-directive = const-directive | if-directive | elseif-directive |
                         else-directive | end-if-directive ;
 const-directive       = spacing, "#Const", spacing1, identifier, spacing,

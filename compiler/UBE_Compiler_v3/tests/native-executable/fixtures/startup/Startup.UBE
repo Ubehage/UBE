@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "StartupApp"
-Kind = "Exe"
-Startup = "Main"
-Source = "App.bas"
-Reference = "UBECore.UBE"

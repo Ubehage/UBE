@@ -1,6 +1,0 @@
-UBE-Project 1
-Name = "MultiError"
-Kind = "Exe"
-Startup = "Main"
-Source = "multi_error_main.bas"
-Source = "modules/multi_error_support.bas"

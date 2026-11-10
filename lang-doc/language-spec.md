@@ -11,6 +11,9 @@ this core contract.
 
 - [`conversion-table.md`](conversion-table.md) defines implicit conversion and
   failure behavior;
+- [`error-handling.md`](error-handling.md) defines the owner-approved FAIL,
+  statement-continuation and cleanup rules adopted on 2026-11-10; it supersedes
+  earlier neutral-result continuation wording in semantic documents;
 - [`managed-memory.md`](managed-memory.md) defines managed values, collection,
   finalization, and low-memory behavior;
 - [`threading.md`](threading.md) defines shared access, synchronization,
@@ -97,6 +100,7 @@ The scanner supplies these terminal tokens to the grammar:
 | `REAL_TEXT` | Decimal digits containing a decimal point and/or exponent. |
 | `BRACKET_IDENTIFIER_TEXT` | Nonempty bracket content, with `]]` escape. |
 | `KEYWORD` | Any reserved-word token when consumed as a member name after `.` or `!`. |
+| `ASM_PAYLOAD_LINE` | One complete physical line, including its newline, inside an assembly block, except its standalone closing delimiter. Blank lines are included. The payload is not tokenized as UBE. |
 
 An apostrophe begins a comment outside a string/date literal. `Rem` begins a
 comment only where a statement may start and when followed by horizontal
@@ -128,6 +132,15 @@ The year range is `0001` through `9999`. Hours use the 24-hour clock. A
 fraction contains one through nine decimal digits. Leap seconds and time-zone
 suffixes are not accepted. Locale-dependent forms such as `#10/13/2026#`
 require an explicitly selected VB6 compatibility mode.
+
+Assembly-block boundaries are recognized before UBE comment stripping,
+continuation joining or conditional-directive processing. Payload lines are
+opaque to those transformations; their `#`, colon, quote, apostrophe and
+underscore characters retain their target-assembly meaning. Outer conditional
+compilation can select or discard a whole assembly block, but apparent UBE
+directives within its payload do not alter conditional nesting. Block-boundary
+recognition also applies in inactive branches so payload text cannot be
+mistaken for outer directives.
 
 Conditional compilation runs after physical-line continuation and comment
 recognition but before the core EBNF is parsed. It supports case-insensitive
@@ -233,7 +246,7 @@ array. `Option Base` affects only omitted lower bounds; explicit bounds always
 win. Array assignment requires identical element type and rank and creates an
 independent value copy with the source bounds. `ReDim Preserve` retains every
 element whose complete index tuple remains in the new bounds. Failed bound,
-index, or allocation operations follow the neutral-result and `Err` rules and
+index, or allocation operations report FAIL and `Err` under section 9 and
 must leave an existing array unchanged. Implementations shall diagnose
 overflow instead of depending on host or LLVM undefined behavior.
 
@@ -648,7 +661,7 @@ external symbols. Other retained metadata gains no primitive meaning.
 A native type may be neutral-initialized/copied/compared without declaring
 either conversion operation. Infallible pack/unpack preserve Err. Checked
 primitive conversions at their parameter/result boundaries keep the existing
-constant-diagnostic and runtime neutral-result/Err rules. A library's explicit
+constant-diagnostic and runtime FAIL/Err rules. A library's explicit
 Try operation may return a fresh Boolean status without consulting stale Err;
 its documented ordinary result is distinct from language conversion failure.
 Fallible managed-storage hooks are a separate approved addition below; they do
@@ -683,7 +696,10 @@ this retains its existing prefix. TryCopy creates an independent value copy.
 Both return fresh Boolean status, prepare the replacement before publication
 and preserve the old destination on failure. Ordinary allocation failure
 requests collection and one retry, then returns False with Err 7. Success
-preserves incoming Err; status is not inferred from Err.
+preserves incoming Err; status is not inferred from Err. These explicitly
+status-returning bootstrap primitives are record-only interfaces: False is a
+usable Boolean result, not a language FAIL. Their callers must inspect it and
+complete owned-resource cleanup before raising a language error when required.
 
 CopyBytes uses zero-based offsets from each array's first stored payload byte,
 independently of its language lower bound. It validates the complete spans
@@ -693,7 +709,9 @@ neutral empty arrays. Invalid argument/count/element storage returns False with
 Err 5; invalid starts/spans return False with Err 9; failure preserves the
 destination. Successful copying preserves Err. Memory.Collect requests full
 synchronous collection and returns the cleanup-work status described by the
-managed-memory contract.
+managed-memory contract. CopyBytes likewise uses its explicitly documented
+record-only Boolean status; neither its name nor a nonzero Err implicitly
+changes that status into a language-level control transfer.
 
 These are bounded bootstrap bindings: v2 uses one-dimensional arrays and
 signed Long index/count arguments. They do not redefine the complete language's
@@ -871,7 +889,8 @@ grouping, evaluation/error rules and original diagnostic/debug locations; it
 does not silently widen explicit suffixes or reassociate runtime expressions.
 Provable overflow, division by zero and impossible destination conversions are
 compile-time errors in these ordinary expressions too. Runtime-dependent
-failures retain the neutral-result and thread-local Err rules.
+failures report FAIL and thread-local Err under section 9; no failed result is
+substituted into the remaining expression.
 
 ### 8.1 Compatibility built-ins and value conversion
 
@@ -888,16 +907,55 @@ This behavior is an explicit part of each built-in's signature and is not a
 general implicit-conversion rule. It does not weaken declaration typing,
 assignment checks, user-procedure calls, or other signature selection.
 
-When an object is supplied to a compatibility built-in that permits objects,
-linked program support passes the object's opaque handle as the value payload rather than
-rejecting the call. An object handle is a runtime-managed identity token, not a
-dereferenceable pointer or exposed memory address. The individual built-in
-defines how it uses or converts that handle. For example,
-`Mid$(PictureBox, 3, 1)` passes `PictureBox`'s handle to `Mid$` under its
-broad-input contract; it is not rejected merely because the argument is an
-object. `Nothing` is represented by the null handle. Passing an object to an
-API without a broad-input or object-accepting contract remains a compile-time
-type error.
+Owner-confirmed text-input rule (2026-11-10): a pointer value is formatted as
+its invariant numeric text, never dereferenced. A pointer value of 12345
+therefore supplies the characters "12345", not characters read from address
+12345. Pointer-sized integer formatting retains its signed or unsigned value.
+
+Objects and other non-text inputs accepted through a handle use the invariant
+numeric text of their unique opaque handle. Linked program support supplies
+the identity token; the string function does not inspect object memory, call
+a default property, or substitute an object description. An object's handle
+denotes its identity rather than its current storage address. Aliases to the
+same live object consequently supply the same handle text.
+
+For example, if PictureBox's handle is 12345, `Mid$(PictureBox, 3, 1)` operates
+on "12345" and returns "3". It is not rejected merely because its input is an
+object. `Nothing` uses the null handle, whose numeric text is "0". Passing an
+object to an API without a broad-input or object-accepting contract remains a
+compile-time type error.
+
+Arrays are not accepted as the text input of these broad-input string
+functions. A statically known array argument is a compile-time error, not an
+implicit string conversion or a request to format an array handle. This does
+not prohibit array parameters explicitly required by other APIs such as Join.
+A runtime-dependent Variant is passed normally. The receiving string function
+examines its contained type; an array payload is invalid and the function
+raises an error, exits and returns FAIL under the error-handling contract.
+
+Enum arguments are accepted and converted to the invariant numeric text of
+their selected underlying value, following the existing Enum conversion rule;
+the declared member name is not substituted for that value.
+
+Other custom datatypes, including field-only records and opaque native value
+types, cannot be passed as the text input of these functions. A statically
+known custom-datatype argument is a compile-time error, even when all its
+fields are Strings. No automatic field concatenation, structural conversion
+or custom-value handle is provided. The caller may explicitly pass an
+individual field whose type is accepted. For example, if MyDataType contains
+Text1 As String and Text2 As String, Left$(Data, 3) is invalid for Data As
+MyDataType, while Left$(Data.Text1, 3) is valid. A runtime-dependent Variant
+containing a forbidden custom datatype is rejected by the receiving function
+through Err.Raise and FAIL, just like an array payload.
+
+An internal helper may centralize this input classification. The suggested
+mechanism is Variant tags and compiler/runtime type metadata; inspection of
+arbitrary memory to guess a type is not an established contract. The
+owner-approved address-text fallback formats only an explicitly supplied
+pointer/address value as invariant numeric text. It never obtains a value's
+internal storage address or dereferences the supplied address. An unknown
+payload does not become an address merely because its type is unknown, and
+known array/custom-value rejection cannot be bypassed through this fallback.
 
 The standard-library specification must define canonical scalar-to-string and
 handle behavior for every broadly typed built-in so results do not depend on
@@ -905,14 +963,20 @@ locale, address layout, or undocumented host conversions.
 
 ## 9. Runtime errors and explicit trapping
 
-UBE failures while a program runs never display an automatic message box or other modal
-user interface. A recoverable failing operation returns the neutral value for
-its result type (`0`, `False`, `""`, or `Nothing`, as applicable) and records
-the failure in the current thread's `Err` state. Because a neutral value may
-also be a successful result, it is not by itself an error indicator; code that
-needs to distinguish a new failure from an old one clears `Err` before the
-operation and checks `Err.Number` afterward, uses a fresh success/failure result
-when provided, or uses an active error handler.
+UBE failures while a program runs never display an automatic message box or
+other modal user interface. Recoverable language failure records the current
+thread's Err and reports a fresh internal FAIL outcome, not a usable neutral
+value. Default behavior is On Error Resume Next: abandon the failed statement
+and continue with the next statement. An enabled label handler receives control
+instead. No unfinished assignment commits and no remaining expression operand
+executes after failure. Completed side effects are not rolled back.
+
+Err.Raise immediately exits the raising procedure and returns FAIL to its
+caller, which handles the failed call under its own error mode. Required
+cleanup of user-owned resources must occur before Err.Raise; code after it
+does not execute. Compiler-owned lifetimes still end safely. The full approved
+contract and the distinction from record-only APIs are in
+[`error-handling.md`](error-handling.md).
 
 Successful operations preserve all previously recorded error information.
 `Err` holds the last error until `Err.Clear` or a valid `Resume` statement
@@ -929,8 +993,8 @@ an uncontrolled crash.
 
 When another procedure call cannot safely be entered because there is not
 enough stack space, and the runtime can safely report the failure, the call
-records Err 28 (out of stack space). The callee does not run; a function call
-returns its result type's neutral value. Argument evaluation and any active
+records Err 28 (out of stack space). The callee does not run; the call returns
+FAIL without a usable result. Argument evaluation and any active
 error handling follow the ordinary language rules. If the runtime cannot
 safely report and recover from the condition, the separately documented
 controlled-failure path applies.
@@ -938,18 +1002,21 @@ controlled-failure path applies.
 UBE retains explicit VB-style trapping:
 
 - `On Error GoTo label` activates a procedure-local handler.
-- `On Error Resume Next` records the error, substitutes the neutral result
-  where one is required, and continues with the statement following the one
-  that failed.
-- `On Error GoTo 0` disables the active handler for the procedure.
+- `On Error Resume Next` selects default failed-statement skipping, retaining
+  the recorded error without substituting a result into the failed expression.
+- `On Error GoTo 0` disables the label handler and restores default continuation.
+- A failed call received while a label handler is already executing does not
+  re-enter that handler. It skips the failed statement and continues within
+  the running handler, without an automatic dialog or automatic propagation
+  out of the procedure. The new error is still recorded in Err.
 - `Resume`, `Resume Next`, and `Resume label` continue from an active handler
   using their familiar control-flow meanings and clear the recorded `Err`
   information as execution resumes. This differs from `On Error Resume Next`,
   which retains the newly recorded error while continuing.
 
 Handlers are lexical procedure state and do not require native exceptions or
-stack unwinding. The compiler lowers each potentially failing operation to an
-ordinary result plus an internal error status and branches according to the
+stack unwinding. The compiler lowers each potentially failing operation to a
+result valid only on success plus an internal error status and branches according to the
 active `On Error` mode. This keeps requested trapping explicit and permits a
 low-overhead implementation.
 
@@ -983,14 +1050,45 @@ resources only when the program ends.
 
 ## 10. UBE low-level extensions
 
-Two core extension statements reserve a stable syntactic envelope:
+The assembly extension supports both a quoted single-line payload and an
+unquoted block payload. Bytecode retains its quoted single-line form:
 
 ```vb
 Asm "target-specific assembly payload"
+
+Asm
+    nop
+    nop
+End Asm
+
 Bytecode "backend-specific bytecode payload"
 ```
 
-The string is lexically ordinary, including doubled-quote escaping. Their
+The single-line string is lexically ordinary, including doubled-quote escaping.
+In block form, Asm and End Asm each occupy their own physical line, optionally
+indented and optionally followed by a UBE comment. They cannot share a line
+with another statement or a label, or use a line continuation. End Asm matches
+case-insensitively with horizontal whitespace between its words. The first
+such standalone delimiter ends the block; its trailing comment is not payload.
+Quoted text or assembly comments containing those words do not end the block.
+The exact standalone delimiter line is reserved and cannot also be payload.
+
+Every intervening physical line is passed as assembly text, preserving source
+locations, indentation and line boundaries. UBE does not strip apostrophe
+comments, interpret colon labels or join underscore continuations within the
+payload; comment syntax there belongs to the target assembler. Blocks do not
+nest as UBE constructs. Empty blocks are permitted by the source envelope;
+target-specific validation still applies. EOF before End Asm produces an
+unterminated-block diagnostic at the opening Asm, never a crash or a fallback
+to parsing the payload as UBE.
+
+Both forms are procedure statements and require an explicitly enabled unsafe
+context. Block syntax does not itself establish a particular assembler dialect,
+register binding, clobber declaration or UBE-variable interpolation mechanism.
+The nop example illustrates the envelope for a target accepting that instruction;
+it is not a claim of implemented assembly support.
+
+Their
 payload languages, constraints, interpolation rules, calling convention, and
 LLVM lowering are separate specifications. A compiler must reject an unknown
 target or payload format; it must never reinterpret malformed payload as UBE.
@@ -1099,8 +1197,9 @@ loads a fresh default identity for a new lifetime.
 ## 13. Threads, events, and program lifetime
 
 `CallNew Qualified.Sub(arguments)` starts a directly visible, statically
-resolved `Sub` and returns a nonnegative `LongLong` program thread identifier.
-Zero reports creation failure and records `Err`. Identifiers are not native
+resolved `Sub` and returns a positive `LongLong` program thread identifier on
+success. Creation failure reports FAIL and records `Err`; it does not supply a
+usable zero identifier to the surrounding expression. Identifiers are not native
 handles, are not reused during a process, and may be ignored. A Function is not
 a legal target. Arguments are evaluated once from left to right and captured
 `ByVal` before the worker begins; value data is copied and object identities are
@@ -1149,8 +1248,10 @@ The complete implicit relationship matrix is normative in
 [`conversion-table.md`](conversion-table.md). A permitted known conversion is
 performed during compilation where possible. A provably invalid or
 out-of-range constant is a compile-time error. A permitted runtime-dependent
-conversion failure produces the destination's neutral value and records the
-current thread's `Err`. Successful operations do not clear an earlier error.
+conversion failure reports FAIL and records the current thread's `Err`.
+The failed statement is skipped or its enabled handler receives control;
+an unfinished assignment does not overwrite its destination. Successful
+operations do not clear an earlier error.
 
 Fractional-to-integer conversion rounds to nearest with ties to even. Default
 numeric, Boolean, and date text is invariant. `True` has numeric value -1 and
@@ -1159,8 +1260,8 @@ numeric, Boolean, and date text is invariant. `True` has numeric value -1 and
 explicit library operations.
 
 Integer, `Currency`, and `Decimal` arithmetic is checked. Known overflow or
-division by zero is a compile-time error; runtime-dependent failure produces
-neutral zero plus `Err`. `Single` and `Double` follow IEEE-754, including
+division by zero is a compile-time error; runtime-dependent failure reports
+FAIL plus `Err`, with no usable arithmetic result. `Single` and `Double` follow IEEE-754, including
 infinities and NaN, without recording an error merely for producing those
 values.
 
@@ -1206,7 +1307,7 @@ defined for UBE. `Option Compare Database` is unsupported and diagnosed.
 
 A `Variant` begins as `Empty` and preserves the exact type assigned to it.
 `Null` propagates through Variant arithmetic and comparison. Conversion of
-`Null` to a fixed type fails with a neutral result plus `Err`; `IsNull()` is the
+`Null` to a fixed type reports FAIL plus `Err`; `IsNull()` is the
 reliable test. `Is` and `IsNot` apply only to object-compatible references.
 
 ## 15. Libraries, exports, and portability

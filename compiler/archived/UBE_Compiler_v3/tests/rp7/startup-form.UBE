@@ -1,7 +1,0 @@
-UBE-Project 1
-Name = "RP7StartupForm"
-Kind = "Exe"
-Startup = "Main"
-StartupForm = "LifecycleForm"
-Source = "LifecycleForm.frm"
-Source = "startup-form-main.bas"
