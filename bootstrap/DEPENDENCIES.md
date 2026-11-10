@@ -71,14 +71,22 @@ Implement owner/borrow tracking before admitting replacement; freeing an old
 payload while a prepared alias is live is unsafe. Minor remaining behavior
 defaults to VB6 only where it does not conflict with explicit UBE contracts.
 
-The current dynamic-storage increment supplies growth for scalar/finite-record
-buffers. Porting practical retained trees still needs broader aggregate ownership.
-Counted I/O is qualified in FILE-IO.md, with ordinary UBECore progress loops and
-explicit owner tokens. SOURCE-SCANNING.md identifies the next concrete needs:
-Do traversal, subtraction, eager Or/Not, and strict UTF-8 validation with retained
-byte spans. These support a bounded UBE-written scanner without introducing
-managed String storage. Managed text, broader tree ownership and parser needs
-remain evidence-driven dependencies; this is not self-hosting.
+Dynamic storage supplies growth for scalar/finite-record buffers. Counted I/O
+is qualified in FILE-IO.md, with ordinary UBECore progress loops and explicit
+owner tokens. SOURCE-SCANNING.md records Do traversal, subtraction, eager Or/Not
+and strict UTF-8 validation with retained byte spans. The source-storage gate
+now qualifies 1 MiB whole inputs and arrays, 65,536-byte transfer chunks and
+unchanged allocation quotas.
+
+MODULE-PARSING.md records the next implemented dependency: ordinary UBE code
+classifies token spans and retains module ASTs in flat finite-record arrays.
+Source, tokens and nodes stay caller-owned; each module can be retained
+independently. Actual SourceScanner, SourceParser, SyntaxTokens and library
+sources pass syntax/tree acceptance. No managed String, Select Case, function-
+result reads or recursive record layout was required for this parser. Parsing
+recursive Type references does not make their layouts executable. UBE-written
+binding/lowering, broader managed ownership and complete grammar remain
+evidence-driven dependencies; this is not self-hosting.
 
 The final compiler's multithreading requirement applies to all of that work.
 State remains owned by compilation requests and work items, with immutable
@@ -87,6 +95,7 @@ implementation prerequisite, not evidence of final-compiler concurrency.
 
 Acceptance belongs in `tests/integer-types/check.ps1`,
 `tests/aggregate-storage/check.ps1`, `tests/counted-buffers/check.ps1` and
-`tests/dynamic-storage/check.ps1`;
+`tests/dynamic-storage/check.ps1`, `tests/source-storage/check.ps1` and
+`tests/module-parsing/check.ps1`;
 exact executed results and next work belong in
 `../compiler/Progress.md`.

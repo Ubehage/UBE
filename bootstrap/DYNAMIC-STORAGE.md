@@ -19,9 +19,9 @@ element values. Nominal record identity and element type/rank must match.
 Symbol metadata retains declaration bounds; node bounds are usable for static
 index diagnostics only while proven stable. A conservative project effect fact
 invalidates current-bound facts when resize/copy roles or whole-array replacement
-are present. Runtime indexing always checks the descriptor. This may reject
-additional array accesses in If headers under the existing unresolved compound-
-header failure boundary; no stale initial bounds are used to omit a check.
+are present. Runtime indexing always checks the descriptor; no stale initial
+bounds are used to omit a check. A failed If or Do condition skips the entire
+construct under default continuation, as defined in SOURCE-SCANNING.md.
 
 TryResize and TryCopy have the exact existing attributed intrinsic signatures.
 They return usable Boolean status, not language FAIL. Invalid negative resize
@@ -72,11 +72,15 @@ only after successful linking and x64 validation. Target details follow
 [VirtualAlloc](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc)
 and [VirtualFree](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree).
 
-Admission limits are 4,096 elements per array, 128 cells per finite-record
+Admission limits are 1,048,576 elements per array, 128 cells per finite-record
 element, 64 MiB of live charged allocation storage rounded to 4,096-byte pages,
 and 4,096 live blocks, including blocks retained solely by borrows. Existing
 source, symbol, context and frame limits still apply; prepared borrow slots
-count toward the bounded frame. Exact acceptance evidence belongs in Progress.md.
+count toward the bounded frame. Element-count admission does not promise that
+every element type fits the allocation quota: payload, block header and page
+rounding must all fit before allocation. The 16-check source-storage gate
+qualifies the enlarged bound and quota rejection at O0/O2. Exact evidence
+belongs in Progress.md and tests/source-storage/README.md.
 
 ## Explicit later work
 

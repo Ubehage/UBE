@@ -4,7 +4,7 @@ Option Explicit
 ' Declaration identities and checked scalar facts are owned by one bound project.
 Public Const MaximumBoundSymbols As Long = 16384
 Public Const MaximumBindingDepth As Long = 128
-Public Const MaximumArrayElements As Long = 4096
+Public Const MaximumArrayElements As Long = 1048576
 Public Const MaximumRecordCells As Long = 128
 Private Const MaximumRecordDepth As Long = 64
 Private Const SymbolBucketCount As Long = 65521

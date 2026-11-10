@@ -96,9 +96,12 @@ Exact limits, executed counts and artifact paths belong to the gate README and
 `../compiler/Progress.md`. No complete UBE compiler, self-hosting, managed text,
 or concurrent compilation is established by this dependency gate.
 
-The current array boundary limits scanner input to 4,096 bytes and token output
-to 4,096 records, including synthetic terminals. Larger real compiler modules
-still need a justified storage extension. Count and Diagnostic must use output
+The current source-storage extension admits 1,048,576 source bytes and 65,536
+tokens, including synthetic terminals. Individual token spellings remain bounded
+to 4,096 UTF-16 units and decoded identifiers to 128 units. The current scanner
+gate passed 86 groups; the separate source-storage gate passed 16 checks at
+O0/O2 through the 1 MiB boundary. The [module parser](MODULE-PARSING.md) now
+consumes these tokens and retains actual compiler-module trees. Count and Diagnostic must use output
 storage independent of Tokens; ordinary ByRef aliases otherwise retain their
 explicit mutation semantics. Successful scans preserve Err; ordinary lexical
 rejection is a False status plus a diagnostic, not language FAIL. Allocation

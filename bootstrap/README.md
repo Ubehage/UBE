@@ -245,7 +245,8 @@ The current file-I/O increment has a separate native acceptance gate. Its attrib
 primitives open counted UTF-8 paths, create new files exclusively, read/write
 byte spans, flush and close explicit file tokens. Ordinary UBECore helpers own
 the progress loops and publish whole-input results only after successful close.
-They currently admit at most 4,096 bytes per whole-input result.
+They admit at most 1,048,576 bytes per whole-input result and transfer at most
+65,536 bytes per OS request. Paths retain their separate 4,096-byte bound.
 
 ```powershell
 rtk proxy powershell -NoProfile -File bootstrap/tests/file-io/check.ps1
@@ -269,6 +270,22 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/check.ps1
 ```
 
 The [scanning contract](SOURCE-SCANNING.md) and
-[gate README](tests/source-scanning/README.md) describe the 4,096-byte boundary
-and separate syntax, UTF-8 and allocation/depth tests. This component does not
-yet provide a UBE-written parser or self-hosting compiler.
+[gate README](tests/source-scanning/README.md) describe the 1 MiB input and
+65,536-token boundaries and separate syntax, UTF-8 and allocation/depth tests.
+The current scanner gate passed 86 groups.
+
+## UBE-written module parsing
+
+`compiler/src/SourceParser.bas` parses retained scanner tokens into independent
+caller-owned indexed trees. `SyntaxTokens.bas` classifies ASCII keywords and
+decoded identifiers without managed String storage. The parser covers the
+current admitted module grammar, including native envelopes, typed declarations,
+records, procedures, intrinsic metadata, expressions, calls, If and Do forms.
+It retains type references without resolving recursive record layouts.
+
+The [parser contract](MODULE-PARSING.md) defines the API, node fields, diagnostic
+categories and limits. The [module gate](tests/module-parsing/README.md) passed
+19 cases at O0/O2, parsing actual compiler/library modules including the parser's
+own source as data. It checks tree/spans and rejects a changed-input control.
+This is syntax acceptance; UBE-written binding, lowering and self-hosting remain
+separate work. The VB6 command-line compiler remains the build implementation.

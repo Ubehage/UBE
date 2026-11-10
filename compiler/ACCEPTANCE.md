@@ -209,6 +209,35 @@ syntax. Run prior gates on the same final VB6 binary.
 This qualifies a bounded scanner component, not a complete UBE parser,
 self-hosting, managed String representation or concurrent compilation.
 
+## UBE module-parser and source-storage gates
+
+`../bootstrap/tests/module-parsing/check.ps1` must execute the actual UBE
+scanner, token helpers and parser at O0/O2. Assert authored expression grouping,
+call-argument order, nearest Else, Do forms, declarations and intrinsic metadata,
+including exact physical spans. Traverse every retained node of real compiler
+and UBECore modules to check reachability, parent/sibling consistency, acyclic
+links and bounded source spans. Retaining a second module must not replace the
+first. Invalid input must produce a located diagnostic with zero public count
+and root while preserving prior node storage. Changing a source operator must
+invalidate an unchanged structural assertion. Recursive Type declarations are
+syntax cases only; they do not qualify runtime recursive storage.
+
+The separate token-check gate covers reserved/contextual words, punctuation,
+bracket decoding and numeric/module-name boundaries. The parser allocation
+gate must fault growth and publication, observe both allocation attempts,
+preserve every old record field, retry successfully and release all owners.
+Syntax-nesting rejection and native call-depth refusal must complete within
+deadlines without publishing partial output.
+
+`../bootstrap/tests/source-storage/check.ps1` must exercise real byte patterns
+across the old boundary, exact transfer boundary, multiple transfers and 1 MiB
+input. Assert partial progress, invalid transfer rejection, old-output
+preservation and balanced ownership. A block larger than the charged quota must
+be rejected before native allocation or unsigned quota subtraction. Keep native
+frame/record limits and the existing quota unchanged. Run prior gates on the
+same final VB6 executable. Test-only driver support must not hide a production
+link dependency; inspect production-only O0/O2 output separately.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

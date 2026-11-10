@@ -57,7 +57,7 @@ and shared-state rules are in the development plan's concurrency requirement.
   growth, independent copies and owner-approved original-storage aliases now
   pass the 41-group dynamic-storage gate at O0/O2; see DYNAMIC-STORAGE.md in
   bootstrap for the ownership and allocation boundary.
-  Managed text, broader aggregate ownership/loops and explicit library I/O remain.
+  Managed text and broader aggregate ownership remain separate dependencies.
   Counted file input/output now adds explicit owned tokens, exclusive creation,
   bounded OS byte packing and ordinary UBECore read/write progress algorithms;
   its gate and limits are in `../bootstrap/FILE-IO.md` and Progress.md.
@@ -65,9 +65,14 @@ and shared-state rules are in the development plan's concurrency requirement.
   and the first UBE-written scanner with portable UTF-8 validation. Its 82-group
   file/token gate, 42 allocation/depth checks, 37 UTF-8 cases and 13 syntax cases
   pass alongside prior regressions; scope is in SOURCE-SCANNING.md in bootstrap.
-  Next measure syntax-tree construction and source-storage needs, including the
-  current 4,096-byte scanner bound, before extending this same pipeline toward
-  a UBE-written parser and complete compiler.
+  The UBE-written module parser now retains indexed syntax trees and parses
+  actual compiler/library modules, including its own source. Its storage
+  dependency admits 1 MiB sources/arrays and 65,536 tokens/nodes, with bounded
+  transfer buffers and checked allocation quotas. Contracts and limits are in
+  bootstrap/MODULE-PARSING.md; exact native evidence is in Progress.md.
+  Next measure project/module ownership and symbol-storage requirements for
+  UBE-written name resolution and type checking over these trees. Preserve the
+  ordered multi-module pipeline while moving the next semantic slice into UBE.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

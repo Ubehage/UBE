@@ -9,10 +9,10 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/allocation
 rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/syntax-check.ps1 -BootstrapExe <executable>
 ```
 
-On 2026-11-10 the main gate passed 82 groups against the VB6-built executable in
-`ube project loading f9237060-f7de-4aee-a644-89756badbc2b/build`.
-Evidence: `ube source scanning 438c8180-d538-422c-8f15-28e6c0bc3616`.
-The allocation gate passed 42 checks with evidence
+The enlarged main gate passed 86 groups against the VB6-built executable in
+`ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324/build`.
+Evidence: `ube source scanning 43e03795-4ad7-4c6f-8fa3-d7090b5fdf3b`.
+The earlier allocation gate passed 42 checks with evidence
 `ube scanner allocation 0c47b7d3-e816-4da9-b988-cd4b42f49150`.
 The UTF-8 gate ran 37 cases at both optimization levels plus its negative control;
 the syntax gate separately passed 13 groups.
@@ -78,8 +78,15 @@ partial token vector and returns Count zero; an older independent token vector
 remains unchanged. Private helpers propagate unexpected fresh FAIL to the
 public handler, which writes diagnostics directly without another call frame.
 
-This increment is limited to 4096 source bytes and 4096 tokens. It scans the
+The scanner admits at most 1,048,576 source bytes and 65,536 tokens, including
+synthetic newline/EOF entries. Raw token text remains limited to 4096 UTF-16
+units and identifiers to 128 decoded ASCII characters. It scans the
 existing ASCII identifier profile with strict Unicode text inside comments and
-strings. It does not implement a UBE-written parser, Unicode identifier tables,
-conditional preprocessing, assembly payloads, general String storage, or the
-ability to compile the whole compiler with this scanner.
+strings. Unicode identifier tables, conditional preprocessing, assembly
+payloads and general String storage remain outside this scanner's profile.
+The separate module-parsing gate exercises the UBE-written syntax parser.
+
+The enlarged-capacity gate passed 86 groups, including exact 1 MiB source and
+65,536-token acceptance, terminal-token overflow, overlong closed/unclosed
+quoted tokens and unchanged runtime negative controls. Evidence:
+`ube source scanning 43e03795-4ad7-4c6f-8fa3-d7090b5fdf3b`.

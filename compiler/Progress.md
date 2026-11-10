@@ -1,6 +1,75 @@
 # Compiler development handoff
 
-## Current handoff: source-scanning dependency completed
+## Current handoff: UBE module parsing and source storage completed
+
+The UBE-written scanner, token helpers and parser now construct caller-owned
+syntax trees for the admitted bootstrap module profile, including their own
+source. This is parsing, not self-hosted compilation. Binding, semantic layout
+and code generation still use the VB6 bootstrap. Recursive Type references are
+covered as syntax only; their runtime layout remains pending.
+
+Source and array capacity is now 1,048,576 bytes/elements, with 65,536 tokens and
+nodes, syntax depth 48, and bounded 65,536-byte file transfers. The 64 MiB live
+heap, 4,096 live allocations, 256 runtime frames and 4,096-byte path bound remain.
+Candidate trees publish only on success; failures preserve previous node storage
+and reset public count/root. See `../bootstrap/MODULE-PARSING.md`.
+
+Next measure project/module ownership and symbol-storage requirements for
+UBE-written name resolution and type checking. Preserve ordered multi-module
+input and caller-owned state; extend the existing bootstrap only for concrete
+requirements. Managed String storage, general Unicode identifiers, preprocessing,
+assembly payloads, recursive runtime layout and self-hosting remain pending.
+
+Final acceptance binary (VB6 6.00.9782; native tests use Clang 23.1.3):
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324\build\UBE-Bootstrap.exe`.
+Commands use `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<gate>/check.ps1 -BootstrapExe <binary>`, except project-loading
+builds the binary without that argument. Evidence directories below are under
+`C:\Users\Ubehage\AppData\Local\Temp`.
+
+| Gate | Passed | Evidence directory |
+|---|---:|---|
+| Project loading | 54 | `ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324` |
+| Module parsing | 27 cases, 6,394 assertions at each O0/O2 | `ube module parsing f152048d-87a9-4e2b-b79d-baa2ee3b88eb` |
+| Source storage | 16 | `ube source storage 2d484b1d-fb3e-41ca-9eb0-e6c0cb074333` |
+| Source parsing | 37 | `ube source parsing 0272c5bc-4187-4662-8099-5e6abfb55ad2` |
+| Source semantics | 76 | `ube source semantics f1a0f639-e030-437e-aea5-3967096a7494` |
+| Native compilation | 26 | `ube native compilation 10609a69-eeaa-4eec-8a92-80f94f04105c` |
+| Integer types | 46 | `ube integer types b79ba4b0-0c7f-4c52-9ef5-d595f2eca8d7` |
+| Aggregate storage | 35 | `ube aggregate storage a37cee3b-10e2-45a0-96ae-309a3e890720` |
+| Counted buffers | 25 | `ube counted buffers e076dccb-c235-4b25-b369-24673cfc96d4` |
+| Dynamic storage | 41 | `ube dynamic storage 2657f309-ee5c-44d4-8293-9b2d4b0cff99` |
+| File I/O | 56 | `ube file io e38e48f3-b7a3-4e56-9e53-21401f5c5561` |
+| Source scanning | 86 | `ube source scanning 43e03795-4ad7-4c6f-8fa3-d7090b5fdf3b` |
+
+Companion scripts use the same command and binary, replacing `check.ps1`:
+
+| Script | Passed | Evidence directory |
+|---|---:|---|
+| module-parsing/token-check.ps1 | 4 native groups, 929 tokens | `ube syntax tokens b1c6fa71-17d1-4473-abd6-60764bbc9829` |
+| module-parsing/allocation-check.ps1 | 26 | `ube parser allocation 254cc188-7518-4d37-8687-ceeed368d2a9` |
+| source-scanning/allocation-check.ps1 | 42 | `ube scanner allocation 2ec3087c-0826-42ed-a245-808f45b0fab5` |
+| source-scanning/syntax-check.ps1 | 13 | `ube scanning syntax 2e85da1b-be12-4779-bebf-f67c6f059421` |
+| source-scanning/utf8-check.ps1 | 37 assertions at O0/O2 and negative control | `ube utf8 widths 9f3c232b-18e0-4935-9729-f1701bb8ef5f` |
+
+Parser assertions cover tree links/reachability, source spans, independent trees,
+precedence, declarations, calls, control flow, malformed tokens and bounded
+nesting. The changed-source negative control fails the exact expected assertion.
+Allocation tests inject failure at all three growth allocations and publication,
+then verify preserved storage, released temporaries and successful retry. Depth
+tests terminate under deadlines with complete or preserved output. Separate
+production-only O0/O2 assembly checks exclude a hidden stack-probe dependency.
+Source-storage tests cover real large files, transfer boundaries and quota
+rejection; previous storage, alias, error-handler and file gates still pass.
+
+Documentation: `rtk proxy powershell -NoProfile -File
+docs/assets/tools/validate-docs.ps1` passed 274 pages. Local headless Firefox
+rendering checked changed file-limit prose/table readability, intact layout and
+loaded CSS/Copy controls; the Intrinsic link destination resolves. Screenshot:
+`ube parser docs 91da26cf-5b8d-40e6-b9f2-0cdd4426a0be/files.png`.
+Literal clicks, clipboard operation and accessibility were not tested.
+
+## Previous handoff: source-scanning dependency completed
 
 The owner requested completing the next dependency and pushing the result to
 GitHub. Scope is `../bootstrap/SOURCE-SCANNING.md`: Do loops, subtraction,

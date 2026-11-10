@@ -2,7 +2,7 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "FileBytes"
 ' Implements bounded file progress and publication policy in ordinary UBE source.
 
-' Reads at most 4096 bytes, closes before publication, and retains failed-close ownership.
+' Reads at most one MiB through bounded transfers, closes before publication, and retains failed-close ownership.
 Public Function TryReadAllBytes(ByRef PathUtf8() As Byte, ByVal MaximumBytes As Long, ByRef Result() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
     Dim Buffer() As Byte
     Dim Probe(0 To 0) As Byte
@@ -13,15 +13,18 @@ Public Function TryReadAllBytes(ByRef PathUtf8() As Byte, ByVal MaximumBytes As 
     Dim CloseFailure As Long
     Dim PrimaryError As Long
     Dim EffectiveMaximum As Long
+    Dim Request As Long
     EffectiveMaximum = MaximumBytes
-    If EffectiveMaximum > 4096 Then EffectiveMaximum = 4096
+    If EffectiveMaximum > 1048576 Then EffectiveMaximum = 1048576
     Status = FilePrimitives.TryOpen(PathUtf8, EffectiveMaximum, Token, Length, Failure)
     If Status = False Then TryReadAllBytes = False: Exit Function
     Status = BufferPrimitives.TryResizeBytes(Buffer, Length, False)
     If Status = False Then Failure = 8: GoTo Cleanup
 ReadNext:
     If Offset = Length Then GoTo ProbeEnd
-    Status = FilePrimitives.TryRead(Token, Buffer, Offset, Length + -Offset, Progress, Failure)
+    Request = Length - Offset
+    If Request > 65536 Then Request = 65536
+    Status = FilePrimitives.TryRead(Token, Buffer, Offset, Request, Progress, Failure)
     If Status = False Then GoTo Cleanup
     If Progress = 0 Then Failure = 6: Status = FilePrimitives.SetError(57): GoTo Cleanup
     Offset = Offset + Progress
@@ -55,11 +58,14 @@ Public Function TryWriteAllBytes(ByVal Token As Long, ByRef Source() As Byte, By
     Dim Length As Long
     Dim Offset As Long
     Dim Progress As Long
+    Dim Request As Long
     Length = BufferPrimitives.ByteStorageLength(Source)
     Failure = 0
 WriteNext:
     If Offset = Length Then GoTo FlushOutput
-    Status = FilePrimitives.TryWrite(Token, Source, Offset, Length + -Offset, Progress, Failure)
+    Request = Length - Offset
+    If Request > 65536 Then Request = 65536
+    Status = FilePrimitives.TryWrite(Token, Source, Offset, Request, Progress, Failure)
     If Status = False Then TryWriteAllBytes = False: Exit Function
     If Progress = 0 Then Failure = 15: TryWriteAllBytes = FilePrimitives.SetError(57): Exit Function
     Offset = Offset + Progress

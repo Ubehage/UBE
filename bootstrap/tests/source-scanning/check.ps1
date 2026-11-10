@@ -134,29 +134,28 @@ $emitted = [IO.File]::ReadAllText($ir,$utf8)
 # Builds expected records from explicitly authored token chunks, never by lexing the input.
 function New-TokenCase([string]$Name, [object[]]$Parts, [bool]$Bom = $false) {
     if ($Parts.Count -eq 2 -and $Parts[0] -is [int]) { $Parts = @(,$Parts) }
-    $text = ''
-    if ($Bom) { $text = [string][char]0xFEFF }
+    $text = New-Object Text.StringBuilder
+    $byteOffset = 0
+    $unitOffset = 1
+    $line = 1
+    $column = 1
+    if ($Bom) { [void]$text.Append([char]0xFEFF); $byteOffset = 3 }
     $records = New-Object 'System.Collections.Generic.List[object]'
     foreach ($part in $Parts) {
         $kind = [int]$part[0]
         $spelling = [string]$part[1]
-        if ($kind -gt 0) { $records.Add(@($kind,$text.Length,$spelling.Length)) }
-        $text += $spelling
+        $bytes = $utf8.GetByteCount($spelling)
+        if ($kind -gt 0) { $records.Add(@($kind,$byteOffset,$bytes,$line,$column,$unitOffset,$spelling.Length)) }
+        [void]$text.Append($spelling)
+        $byteOffset += $bytes
+        $unitOffset += $spelling.Length
+        $lastNewline = $spelling.LastIndexOf([char]10)
+        if ($lastNewline -ge 0) { $line += ([regex]::Matches($spelling,[string][char]10)).Count; $column = $spelling.Length - $lastNewline } else { $column += $spelling.Length }
     }
-    if ($records.Count -eq 0 -or $records[$records.Count - 1][0] -ne 6) { $records.Add(@(6,$text.Length,0)) }
-    $records.Add(@(7,$text.Length,0))
-    $expected = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($record in $records) {
-        $prefix = $text.Substring(0,[int]$record[1])
-        $physical = $prefix
-        if ($Bom) { $physical = $prefix.Substring(1) }
-        $line = 1 + ([regex]::Matches($physical,"`n")).Count
-        $column = $physical.Length - $physical.LastIndexOf("`n")
-        $expected.Add(@([int]$record[0],$utf8.GetByteCount($prefix),$utf8.GetByteCount($text.Substring([int]$record[1],[int]$record[2])),$line,$column,($physical.Length + 1),[int]$record[2]))
-    }
-    return [pscustomobject]@{ Name=$Name; Bytes=$utf8.GetBytes($text); Tokens=$expected.ToArray(); Diagnostic=@(0,0,0,1,1,1); Status=0 }
+    if ($records.Count -eq 0 -or $records[$records.Count - 1][0] -ne 6) { $records.Add(@(6,$byteOffset,0,$line,$column,$unitOffset,0)) }
+    $records.Add(@(7,$byteOffset,0,$line,$column,$unitOffset,0))
+    return [pscustomobject]@{ Name=$Name; Bytes=$utf8.GetBytes($text.ToString()); Tokens=$records.ToArray(); Diagnostic=@(0,0,0,1,1,1); Status=0 }
 }
-
 # Describes a malformed input with an independently specified first physical diagnostic.
 function New-RejectedCase([string]$Name, [byte[]]$Bytes, [long[]]$Diagnostic) {
     return [pscustomobject]@{ Name=$Name; Bytes=$Bytes; Tokens=@(); Diagnostic=$Diagnostic; Status=1 }
@@ -242,10 +241,10 @@ $cases.Add((New-TokenCase 'comments retain final physical EOF' @(@(1,'x'),@(6,"`
 $cases.Add((New-TokenCase '128 character identifier' @(@(1,('a' * 128)))))
 $cases.Add((New-TokenCase '128 decoded bracket characters' @(@(2,('[' + ('a' * 127) + ']]]')))))
 $cases.Add((New-TokenCase '4096 byte quoted token' @(@(4,('"' + ('a' * 4094) + '"')))))
-$cases.Add((New-TokenCase '4096 byte comment and synthetic EOF' @(@(0,("'" + ('a' * 4095))))))
+$cases.Add((New-TokenCase 'one MiB comment and synthetic EOF' @(@(0,("'" + ('a' * 1048575))))))
 $limitParts = New-Object 'System.Collections.Generic.List[object]'
-for ($index = 0; $index -lt 4094; $index++) { $limitParts.Add(@(5,'+')) }
-$cases.Add((New-TokenCase '4096 token boundary including synthetic terminals' $limitParts.ToArray()))
+for ($index = 0; $index -lt 65534; $index++) { $limitParts.Add(@(5,'+')) }
+$cases.Add((New-TokenCase '65536 token boundary including synthetic terminals' $limitParts.ToArray()))
 $cases.Add((New-TokenCase 'bracketed words do not introduce Rem comments' @(@(2,'[Then]'),@(0,' '),@(1,'Rem'),@(0,' '),@(1,'value'),@(6,"`n"),@(1,'Thing'),@(5,'.'),@(1,'Rem'),@(6,"`n"),@(1,'If'),@(0,' '),@(1,'False'),@(0,' '),@(1,'Then'),@(0,' '),@(1,'x'),@(0,' '),@(1,'Else'),@(0,' Rem comment'))))
 $cases.Add((New-TokenCase 'colon-equals is not a statement separator' @(@(1,'x'),@(5,':='),@(1,'Rem'),@(0,' '),@(1,'value'))))
 $cases.Add((New-TokenCase 'continuation with Unicode comment' @(@(1,'x'),@(0,(' _ ''' + $unicode + "`r`n`t")),@(5,'+'),@(3,'1'))))
@@ -267,7 +266,9 @@ $negative = @(
     @{Name='date and directive boundary deferred'; Text='#2026-11-10#'; Diag=@(3,2,0,1,1,1)},
     @{Name='identifier length exceeded'; Text=('a' * 129); Diag=@(4,4,0,1,1,1)},
     @{Name='bracket decoded length exceeded'; Text=('[' + ('a' * 129) + ']'); Diag=@(4,4,0,1,1,1)},
-    @{Name='EOF token exceeds bounded vector'; Text=('+' * 4095); Diag=@(4,3,4095,4096,1,4096)}
+    @{Name='quoted token character limit'; Text=('"' + ('a' * 4095) + '"'); Diag=@(4,2,0,1,1,1)},
+    @{Name='unclosed token character limit'; Text=('"' + ('a' * 4096)); Diag=@(4,2,0,1,1,1)},
+    @{Name='EOF token exceeds bounded vector'; Text=('+' * 65535); Diag=@(4,3,65535,65536,1,65536)}
 )
 foreach ($case in $negative) { $cases.Add((New-RejectedCase $case.Name $utf8.GetBytes($case.Text) $case.Diag)) }
 $cases.Add((New-RejectedCase 'malformed UTF8 inside ignored comment' ([byte[]]@(39,32,192,175)) @(1,1,2,3,1,3)))

@@ -310,7 +310,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %exhausted = icmp eq i64 %token, 0" & vbCrLf
     Text = Text & "  br i1 %exhausted, label %unreserve, label %allocate" & vbCrLf
     Text = Text & "allocate:" & vbCrLf
-    Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 1537, i64 1)" & vbCrLf
+    Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 8192, i64 1)" & vbCrLf
     Text = Text & "  %no.memory = icmp eq ptr %block, null" & vbCrLf
     Text = Text & "  br i1 %no.memory, label %unreserve, label %pack.start" & vbCrLf
     Text = Text & "unreserve:" & vbCrLf

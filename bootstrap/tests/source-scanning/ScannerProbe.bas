@@ -30,7 +30,7 @@ Public Function LoadAndScan() As Long
     Dim Status As Boolean
     Dim Token As Long
     Dim Failure As Long
-    Status = FileBytes.TryReadAllBytes(InputPath, 4096, SourceBytes, Token, Failure)
+    Status = FileBytes.TryReadAllBytes(InputPath, 1048576, SourceBytes, Token, Failure)
     If Status = False Then
         Status = FilePrimitives.TryClose(Token, Failure)
         LoadAndScan = 2

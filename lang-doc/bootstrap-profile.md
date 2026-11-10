@@ -73,14 +73,24 @@ boundary are in [FILE-IO.md](../bootstrap/FILE-IO.md).
 
 The source-scanning extension admits the loop and operator forms listed below
 and executes `compiler/src/SourceScanner.bas` with ordinary UBECore UTF-8
-validation. `bootstrap/tests/source-scanning/check.ps1` passed 82 groups for
+validation. `bootstrap/tests/source-scanning/check.ps1` passed 86 groups for
 actual file input, retained tokens/positions and controlled malformed-input
 diagnostics. Separate gates passed 42 allocation/depth checks, 37 UTF-8 cases
 at O0/O2 plus a changed-input control, and 13 syntax/binding cases. Its input
-limit is 4,096 bytes, with at most 4,096 tokens. This is the current ASCII
-identifier profile; managed String storage, full Unicode identifiers and a
-UBE-written parser remain deferred. Exact contracts and evidence are in
+limit is 1,048,576 bytes, with at most 65,536 tokens. Individual tokens retain
+the 4,096 UTF-16-unit bound and identifiers the 128-unit bound. This is the
+current ASCII identifier profile; managed String storage and full Unicode
+identifiers remain deferred. Exact contracts and evidence are in
 [SOURCE-SCANNING.md](../bootstrap/SOURCE-SCANNING.md) and compiler/Progress.md.
+
+The UBE-written module parser now retains caller-owned indexed trees for this
+admitted grammar. Its gate passed 19 cases at O0/O2, including actual compiler
+and library modules, exact tree/spans and a changed-input negative control.
+Syntax limits are 65,536 nodes per module and 48 recursive parsing levels;
+these are distinct from the VB6 host parser's limits. Type references, including
+recursive spellings, are retained without claiming recursive layout support.
+See [MODULE-PARSING.md](../bootstrap/MODULE-PARSING.md). UBE-written binding and
+lowering, complete-language parsing and self-hosting remain unimplemented.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,

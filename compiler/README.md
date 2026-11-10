@@ -2,11 +2,13 @@
 
 The VB6 bootstrap in [../bootstrap](../bootstrap/README.md) now compiles the
 admitted scalar language into native Windows x64 programs. This directory
-holds the final UBE-written compiler's contracts, development plan and first
-source component: [SourceScanner.bas](src/SourceScanner.bas). It reads retained
-UTF-8 bytes into tokens with physical source positions. Its bounded native
-acceptance is in [the scanning gate](../bootstrap/tests/source-scanning/README.md).
-A UBE-written parser and self-hosting compiler remain future work.
+holds the final UBE-written compiler's contracts, development plan and its
+scanner, token helpers and [module parser](src/SourceParser.bas). They retain
+UTF-8 source positions and independent syntax trees, including for their own
+source files. The [parser gate](../bootstrap/tests/module-parsing/README.md)
+records the bounded admission and native checks. Name resolution, type checking
+and code generation in UBE remain future work; parsing its source is not
+self-hosting.
 
 The final compiler will be written in UBE and use LLVM to produce native
 64-bit programs. The owner selected VB6 as the bootstrap host if feasible.

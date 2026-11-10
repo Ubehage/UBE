@@ -64,6 +64,7 @@ Private Function ScanQuoted(ByRef Source() As Byte, ByVal Length As Long, ByRef 
         End If
         Decoded = Decoded + 1
         Advance Source, Length, Position
+        If Position.Utf16Offset - Start.Utf16Offset > 4096 Then ScanQuoted = Reject(Diagnostic, 4, 2, Start): Exit Function
     Loop
     If Closed = False Then ScanQuoted = Reject(Diagnostic, 2, 1, Start): Exit Function
     If Kind = IdentifierToken Then
@@ -162,7 +163,7 @@ InvalidStorage:
     Err.Raise Err.Number
 End Function
 
-' Scans at most 4096 bytes and publishes only complete tokens; Count/Diagnostic must not alias Tokens storage.
+' Scans at most 1048576 bytes and 65536 tokens; Count/Diagnostic must not alias Tokens storage.
 ' Independent outputs guarantee Count zero and preservation of the previous token array on failure.
 Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, ByRef Count As Long, ByRef Diagnostic As ScanDiagnostic) As Boolean
     Dim Candidate() As SourceToken
@@ -256,6 +257,7 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
                 Kind = WordToken
                 Do
                     Advance Source, Length, Position
+                    If Position.ByteOffset - Start.ByteOffset > 128 Then TryScan = Reject(Diagnostic, 4, 4, Start): Exit Function
                     Following = ByteAt(Source, Position.ByteOffset, Length)
                 Loop While NameStart(Following) Or Digit(Following)
                 If Position.ByteOffset - Start.ByteOffset > 128 Then TryScan = Reject(Diagnostic, 4, 4, Start): Exit Function
@@ -430,7 +432,7 @@ Private Function ValidateSource(ByRef Source() As Byte, ByVal Length As Long, By
     Initial.Line = 1
     Initial.Column = 1
     Position = Initial
-    If Length > 4096 Then ValidateSource = Reject(Diagnostic, 4, 1, Initial): Exit Function
+    If Length > 1048576 Then ValidateSource = Reject(Diagnostic, 4, 1, Initial): Exit Function
     If ByteAt(Source, 0, Length) = 239 And ByteAt(Source, 1, Length) = 187 And ByteAt(Source, 2, Length) = 191 Then Initial.ByteOffset = 3
     Position = Initial
     Do While Position.ByteOffset < Length
@@ -460,11 +462,11 @@ Private Function AddToken(ByRef Candidate() As SourceToken, ByRef Count As Long,
     Dim Status As Boolean
     Dim Token As SourceToken
     On Error GoTo InvalidStorage
-    If Count >= 4096 Then AddToken = Reject(Diagnostic, 4, 3, Start): Exit Function
+    If Count >= 65536 Then AddToken = Reject(Diagnostic, 4, 3, Start): Exit Function
     If Finish.Utf16Offset - Start.Utf16Offset > 4096 Then AddToken = Reject(Diagnostic, 4, 2, Start): Exit Function
     If Count = Capacity Then
         If Capacity = 0 Then Capacity = 32 Else Capacity = Capacity + Capacity
-        If Capacity > 4096 Then Capacity = 4096
+        If Capacity > 65536 Then Capacity = 65536
         Status = ResizeTokens(Candidate, Capacity, True)
         If Status = False Then AddToken = Reject(Diagnostic, 5, 1, Start): Exit Function
     End If

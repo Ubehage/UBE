@@ -164,7 +164,16 @@ product baseline.
   in bootstrap/SOURCE-SCANNING.md. Passed 82 file/scanning groups, 42 allocation,
   depth and bounds checks, 37 UTF-8 cases at O0/O2 and 13 syntax/binding cases,
   with changed-input controls and prior gates on the same bootstrap binary.
-  The 4,096-byte source boundary and UBE-written parser remain further work.
+  The initial 4,096-byte source boundary is extended by the parser dependency below.
+- [x] Implement the UBE-written module parser and its demonstrated storage
+  prerequisites. Actual scanner, parser and UBECore modules now parse into
+  retained trees with source positions, controlled diagnostics and independent
+  module ownership. Source/array capacity is 1 MiB, with 65,536 tokens/nodes;
+  65,536-byte file transfers use correctly sized scratch storage and allocation
+  quotas reject oversized blocks before subtraction. Native parser, allocation,
+  storage and token-helper gates run at O0/O2 with negative controls. Exact
+  commands and final evidence are in compiler/Progress.md. This is parsing of
+  compiler source, not self-hosting or recursive-type runtime implementation.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

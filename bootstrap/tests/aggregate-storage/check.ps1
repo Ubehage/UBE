@@ -291,7 +291,7 @@ $negative = @(
     @{ Name='different element array ByRef'; Body="Sub Take(ByRef A() As Integer)`nEnd Sub`nSub Run()`nDim B(0 To 1) As Byte`nTake B`nEnd Sub"; Code='E_ARGUMENT' },
     @{ Name='known invalid index'; Body="Sub Run()`nDim A(-1 To 1) As Byte`nA(2) = 1`nEnd Sub"; Code='E_CONSTANT' },
     @{ Name='inverted bounds'; Body='Dim A(1 To -1) As Byte'; Code='E_CONSTANT' },
-    @{ Name='array element count bound'; Body='Dim A(0 To 4096) As Byte'; Code='E_LIMIT' },
+    @{ Name='array element count bound'; Body='Dim A(0 To 1048576) As Byte'; Code='E_LIMIT' },
     @{ Name='multidimensional array deferred'; Body='Dim A(0 To 1, 0 To 1) As Byte'; Code='E_UNSUPPORTED' },
     @{ Name='ReDim deferred'; Body="Sub Run()`nDim A(0 To 1) As Byte`nReDim A(0 To 2)`nEnd Sub"; Code='E_UNSUPPORTED' },
     @{ Name='recursive record deferred'; Body="Type Link`nNextLink As Link`nEnd Type"; Code='E_UNSUPPORTED' },

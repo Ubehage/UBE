@@ -79,7 +79,7 @@ once. Success preserves sticky Err. Fixed storage
 begins neutral before an initializer runs. Declared records and array elements
 containing only scalar values require no tracing collector in this profile.
 
-Admission limits are 4,096 elements per array, 128 flattened cells per record,
+Admission limits are 1,048,576 elements per array, 128 flattened cells per record,
 64 recursive layout visits, and 65,536 total module storage cells per execution
 context. The existing 128-cell frame limit includes four control cells, local
 aggregate payloads/descriptors, ByRef pointers, borrow slots, scalar temporaries
@@ -88,10 +88,11 @@ charged-storage and 4,096-live-block limits, including retained borrows. Excessi
 receive diagnostics rather than creating uncontrolled stack or memory demand.
 The broader language retains its existing array and managed-memory semantics.
 
-The source-buffer fixture retains UTF-8 bytes and source spans as data; it does
-not implement Unicode decoding or a complete lexer. It traverses token/tree
-arrays using existing labels, comparisons and GoTo. New loop forms and failure
-continuations in compound headers are not inferred by this storage extension.
+The original storage fixture retains bytes and spans as data. The subsequent
+[scanner](SOURCE-SCANNING.md) and [module parser](MODULE-PARSING.md) now use these
+arrays for actual retained source and syntax. Their separate gates establish
+decoding and parsing; the original storage gate alone does not. Do traversal
+and failed-condition continuation are defined by the source-scanning extension.
 
 ## Inspection and acceptance
 

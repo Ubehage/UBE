@@ -6,7 +6,7 @@ adapter description without restoring its code or verification claims.
 
 Paths are counted strict UTF-8 Byte arrays, with no embedded zero, normalization
 or case folding. The Windows target uses wide file APIs and admits regular
-disk files. The current array limit restricts paths to 4,096 bytes. This is an
+disk files. Paths have a separate admission limit of 4,096 bytes. This is an
 implementation admission bound, not a replacement for the full language's
 String or path contracts. File contents are uninterpreted bytes.
 
@@ -36,7 +36,7 @@ a separate acceptance obligation from the sequential bootstrap tests.
 TryRead borrows the token and destination for the call. Start is a zero-based
 offset from the first payload byte, independent of array lower bounds. Count
 must be 0..65,536 and fit the complete destination span; current arrays admit
-at most 4,096 bytes. Validate before I/O. Success publishes exactly ReadCount
+at most 1,048,576 elements. Validate before I/O. Success publishes exactly ReadCount
 bytes, 0..Count; a positive short read is progress and zero is EOF. Remaining
 destination bytes stay unchanged. Failure preserves the entire destination and
 returns ReadCount zero. Zero count validates the token and span without an OS
@@ -92,6 +92,13 @@ extra byte for growth and closes before publishing an independent result. A
 failure keeps the caller's previous result. Preserve the primary failure through
 cleanup, while exposing any still-live token for retry. This is not an atomic
 filesystem snapshot: same-length edits during reading remain possible.
+
+FileBytes.TryReadAllBytes clamps MaximumBytes to 1,048,576 bytes. Read and write
+progress loops request at most 65,536 bytes at a time. Per-owner packing storage
+is 65,536 bytes, charged as 69,632 bytes with header/page rounding; it is reused
+across chunks. This transfer bound is independent of the path and whole-input
+bounds. The 16-check source-storage gate qualifies these capacities at O0/O2,
+including short progress and independent native-byte comparisons.
 
 See [FILE-OUTPUT-CONTRACT.md](FILE-OUTPUT-CONTRACT.md) for exclusive creation,
 write and flush, and [bootstrap/FILE-IO.md](../bootstrap/FILE-IO.md) for scope

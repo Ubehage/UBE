@@ -63,7 +63,7 @@ contents are uninterpreted bytes. A failed close keeps the live token so the
 caller can retry. Exclusive creation never truncates an existing file.
 
 `FileBytes.TryReadAllBytes` is ordinary UBE code. It reads up to the smaller of
-MaximumBytes and 4,096, accepts partial progress, detects premature EOF/growth,
+MaximumBytes and 1,048,576, accepts partial progress, detects premature EOF/growth,
 and closes before publishing an independent Result. Failure preserves Result
 and returns any still-live Token to the caller for cleanup. Token must start
 at zero; scalar outputs must not alias. `FileBytes.TryWriteAllBytes` advances
@@ -79,7 +79,7 @@ and measured; no zero-copy claim is made for this bootstrap representation.
 `FilePrimitives` declares counted open, exclusive create, read, write, flush and
 close roles plus record-only `Error.Set`. Callers explicitly own and close tokens;
 a failed close leaves ownership available for retry. `FileBytes.TryReadAllBytes`
-is ordinary UBE policy: it clamps the requested maximum to the current 4096-byte
+is ordinary UBE policy: it clamps the requested maximum to the current 1 MiB
 array capacity, accepts partial progress, rejects premature EOF or growth,
 closes before publishing an independent result, and preserves primary errors
 through cleanup. Its Token output retains any failed-close owner.
@@ -90,3 +90,11 @@ open. Both helpers return usable Boolean status; they do not raise automatically
 The [file-I/O gate](../bootstrap/tests/file-io/README.md) compiles and executes these
 actual modules, including independent native-file readback and controlled target
 failures.
+
+Whole-input and array capacity are separate from the 65,536-byte transfer
+ceiling and 4,096-byte path ceiling. Ordinary FileBytes loops split larger
+buffers into bounded chunks. The [source-storage gate](../bootstrap/tests/source-storage/README.md)
+passed 16 checks at O0/O2, including 1 MiB round trips, short transfers,
+oversized request rejection and allocation-quota preservation. These buffers
+now support the [UBE module parser](../bootstrap/MODULE-PARSING.md); managed
+String and recursive record layout remain separate dependencies.

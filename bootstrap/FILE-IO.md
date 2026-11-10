@@ -45,12 +45,21 @@ this representation. A global Byte-layout change is not implied by this task.
 
 The current implementation uses 64 file-owner slots per execution context,
 with process-wide atomic monotonic token identities. Each owner reserves one
-12,296-byte scratch payload through the existing allocation/retry machinery;
-its block is charged 16,384 bytes including the header and page rounding.
-The first 4,096 bytes serve packed path/transfer data; the remaining space
-holds the wide path and terminator. Transfers allocate no additional payload.
+65,536-byte scratch payload through the existing allocation/retry machinery;
+its block is charged 69,632 bytes including the header and page rounding.
+Opening uses that payload for the bounded UTF-8/wide path conversion; transfers
+reuse it for at most 65,536 packed bytes. Paths remain limited to 4,096 UTF-8
+bytes. Transfers allocate no additional payload.
 The file-I/O gate observes the actual allocations, native calls and executed
 packing/unpacking stores rather than deriving costs solely from file lengths.
+
+Whole-input policy admits at most 1,048,576 bytes. Ordinary FileBytes read/write
+loops split progress into requests of at most 65,536 bytes, including retries
+after short transfers. The separate 16-check source-storage gate passed O0/O2
+round trips through 1 MiB, exact chunk boundaries, short progress, oversized
+request rejection, quota rejection and balanced owners. See
+[its README](tests/source-storage/README.md); the original file gate remains
+the evidence for the unchanged primitive ownership and fault contracts.
 
 Validate exact role signatures and passing modes. Preserve fresh usable
 Boolean status, sticky Err on success, primary failure through cleanup and
