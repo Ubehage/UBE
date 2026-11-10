@@ -261,6 +261,31 @@ resource exhaustion must produce bounded failure; injected native depth refusal
 must not create silent success. Keep existing scanner/parser/storage acceptance
 and inspect production-only assembly for unexpected test-provided dependencies.
 
+## UBE expression and constant-binding gate
+
+The next pass must resolve and type-check executable expressions over retained
+declaration identities. Its native O0/O2 gate must assert selected symbols,
+scope, nominal type/rank, scalar result/conversion types, writable storage,
+ByVal/direct-ByRef/grouped-temporary argument modes and checked constant values.
+Include actual compiler/library bodies and independent multi-module requests;
+an unresolved call in a body must now be rejected rather than ignored.
+
+Exercise qualification, visibility, ambiguity, suffix consistency, function
+results, field/index references, label targets and trusted Err fallback with
+ordinary user shadowing. Check exact integer extremes, contextual and suffixed
+literals, promoted operations, intermediate overflow, final conversions and
+earlier-constant ordering. Fixed bounds require checked constants; known-invalid
+indexes must fail where bounds remain proven. Dynamic replacement or unvalidated
+intrinsic effects may conservatively invalidate bounds proofs, never runtime
+index guards. Primitive authority and storage layout remain separate gates.
+
+Changed source/runtime inputs must invalidate exact unchanged assertions. Fault
+every observed candidate/index/publication allocation, verify old binding fields
+and zero public count, then retry and require zero live allocations at disposal.
+Test malformed input, semantic-depth limits and native entry refusal. Run prior
+declaration/parser/scanner gates and inspect production native output separately
+from test support. No full-program validity claim may bypass pending passes.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

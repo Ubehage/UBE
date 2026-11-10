@@ -11,8 +11,10 @@ written in UBE; generated UBE programs do not depend on the VB6 runtime.
 
 The UBE-written components now retain syntax across ordered source modules and
 resolve declaration identities, types and signatures. The
-[declaration-binding contract](DECLARATION-BINDING.md) separates this completed
-component from expression checking, layout and complete self-hosting.
+[declaration-binding contract](DECLARATION-BINDING.md) and
+[expression-binding contract](EXPRESSION-BINDING.md) describe checked declarations,
+references, calls and constants. Primitive authority, layout and complete
+self-hosting remain distinct responsibilities.
 
 The bridge is textual LLVM IR emitted by a 32-bit VB6 program and
 compiled by a separate LLVM toolchain for the selected 64-bit target. This

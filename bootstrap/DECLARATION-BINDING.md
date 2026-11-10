@@ -3,8 +3,8 @@
 Status: declaration/signature acceptance passes at O0/O2. Exact evidence and
 companion failure-gate results are recorded in compiler/Progress.md.
 
-This is the next dependency under the existing compiler roadmap. The parser
-retains syntax, while this pass will assign declaration identities and resolve
+This component implements the declaration dependency in the compiler roadmap. The parser
+retains syntax, while this pass assigns declaration identities and resolves
 declared types and procedure signatures across ordered modules. The VB6
 bootstrap continues to perform full admitted semantic analysis and lowering.
 
@@ -22,7 +22,8 @@ library binding does not assign an entry role based on spelling alone.
 Resolving a self- or mutually referencing Type identifies an edge in the type
 graph. It does not allocate recursive values or establish a runtime layout.
 Expression binding, constant evaluation, fixed-bound evaluation, primitive
-authority, finite/recursive layout and lowering remain separate work. A
+authority, finite/recursive layout and lowering remain separate responsibilities.
+The expression and constant component is described in EXPRESSION-BINDING.md. A
 successful declaration pass must never be represented as ANALYZE OK for the
 complete program.
 

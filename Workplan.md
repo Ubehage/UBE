@@ -184,6 +184,15 @@ product baseline.
   authority and runtime layout are separate follow-on work. Current progress
   and measured dependencies are in compiler/Progress.md and
   bootstrap/DECLARATION-BINDING.md.
+- [x] Implement UBE expression/reference binding and checked constant evaluation
+  over the retained declaration identities. Preserve qualified lookup, exact
+  scalar conversions, ByRef argument rules, source diagnostics and atomic
+  results. Qualify actual module bodies, integer limits, invalid programs and
+  allocation/depth failure at O0/O2; scope is in bootstrap/EXPRESSION-BINDING.md.
+  The main gate passes 60 cases at both levels, including actual compiler and
+  library bodies. Exact constants and all 15 observed allocation sites have
+  dedicated acceptance. Evidence and the next intrinsic/layout handoff are in
+  compiler/Progress.md; this does not yet qualify UBE-written code generation.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

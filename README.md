@@ -32,7 +32,7 @@ The long-term goal is a complete native development system:
 
 The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
 UBECore can now grow byte buffers and read or write small binary files, with checks for incomplete operations and failed cleanup. The agreed error-handling behavior passes tests with optimization both off and on.
-The compiler components written in UBE now connect declarations and types across multiple source files—including their own source—and report naming and signature errors. Checking expressions and generating programs are the next steps.
+The compiler components written in UBE now check expressions, function calls and constant values across multiple files, including their own source. Invalid values and type mismatches produce clear errors. Generating programs from these checked results is still ahead.
 
 See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 

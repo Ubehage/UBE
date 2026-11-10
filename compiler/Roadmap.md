@@ -75,11 +75,16 @@ and shared-state rules are in the development plan's concurrency requirement.
   executable entry identity. Native acceptance covers real compiler modules,
   nominal recursive references, malformed input, symbol limits and preserved
   results after failure; scope is in bootstrap/DECLARATION-BINDING.md.
-  Next implement expression/reference binding and checked constant evaluation
-  over these declaration identities, measuring any additional source-language
-  dependencies before extending the same bootstrap. Keep primitive authority,
-  aggregate layout and lowering explicit separate responsibilities; declaration
-  success alone does not establish complete program validity.
+  UBE expression/reference binding and exact checked constant evaluation now
+  check actual compiler/library bodies, argument modes, assignments, labels,
+  nominal field/index access and source-located failures. The existing name
+  index is shared; no new host feature was needed. The contract and native
+  gates are in bootstrap/EXPRESSION-BINDING.md and Progress.md.
+  Next implement reviewed intrinsic-role validation and finite aggregate layout
+  in UBE, as distinct checks over these identities and facts, before lowering.
+  Measure any additional source dependencies before extending this bootstrap.
+  Expression success alone does not grant primitive authority, establish a
+  runtime layout or qualify a complete compiler.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

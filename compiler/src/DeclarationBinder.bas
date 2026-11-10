@@ -38,7 +38,7 @@ Public Type BindingDiagnostic
     Column As Long
 End Type
 
-Private Type BindingState
+Public Type BindingState
     Count As Long
     Capacity As Long
     Work As Long
@@ -158,7 +158,7 @@ Failed:
 End Function
 
 ' Searches one selected declaration region without retrying another namespace on a wrong kind.
-Private Function FindSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByVal Scope As Long, ByVal Region As Long, ByVal Token As Long) As Long
+Public Function FindSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByVal Scope As Long, ByVal Region As Long, ByVal Token As Long) As Long
     Dim Index As Long
     On Error GoTo Failed
     If Charge(S) = False Then Exit Function
@@ -401,7 +401,7 @@ Failed:
 End Function
 
 ' Compares an explicit package-name byte value with a decoded type qualifier.
-Private Function PackageMatches(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal TokenCount As Long, ByVal Token As Long, ByRef PackageName() As Byte) As Boolean
+Public Function PackageMatches(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal TokenCount As Long, ByVal Token As Long, ByRef PackageName() As Byte) As Boolean
     Dim Index As Long
     Dim Length As Long
     Dim Character As Long
@@ -627,6 +627,63 @@ Private Function ValidateTrees(ByRef T() As SourceScanner.SourceToken, ByRef N()
         Index = Index + 1
     Loop
     ValidateTrees = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Rebuilds request-owned lookup workspaces from this pass's complete declaration result.
+' Scratch arrays may change on failure; State.Count becomes nonzero only after success.
+' Consumers retain the matching immutable project and symbols while using this index.
+Public Function TryBuildIndex(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As BoundSymbol, ByVal SymbolCount As Long, ByRef Buckets() As Long, ByRef Links() As Long, ByRef NodeSymbols() As Long, ByRef ModuleSymbols() As Long, ByRef State As BindingState) As Boolean
+    Dim Index As Long
+    Dim Node As Long
+    Dim Bucket As Long
+    Dim ModuleIndex As Long
+    On Error GoTo Failed
+    State.Count = 0
+    State.Capacity = 0
+    State.Work = 0
+    If SymbolCount < 1 Or SymbolCount > 16384 Then Exit Function
+    If C.NodeCount < 1 Or C.NodeCount > 65536 Or C.ModuleCount < 1 Or C.ModuleCount > 128 Then Exit Function
+    If ResizeIndex(Buckets, 32749, False) = False Then Exit Function
+    If ResizeIndex(Links, SymbolCount, False) = False Then Exit Function
+    If ResizeIndex(NodeSymbols, C.NodeCount, False) = False Then Exit Function
+    If ResizeIndex(ModuleSymbols, C.ModuleCount, False) = False Then Exit Function
+    Do While Index < SymbolCount
+        If Charge(State) = False Then Exit Function
+        Node = A(Index).DeclarationNode
+        ModuleIndex = A(Index).ModuleIndex
+        If Node < 1 Or Node > C.NodeCount Or ModuleIndex < 0 Or ModuleIndex >= C.ModuleCount Then Exit Function
+        If A(Index).NameToken < 0 Or A(Index).NameToken >= C.TokenCount Then Exit Function
+        If A(Index).ScopeSymbol < 0 Or A(Index).ScopeSymbol > SymbolCount Then Exit Function
+        If A(Index).Kind = ResultSymbol Then
+            If N(Node - 1).Kind <> SourceParser.FunctionNode Then Exit Function
+        Else
+            If N(Node - 1).Kind <> A(Index).Kind Then Exit Function
+        End If
+        If N(Node - 1).NameToken <> A(Index).NameToken Then Exit Function
+        Bucket = NameHash(B, T, C.TokenCount, A(Index).NameToken, A(Index).ScopeSymbol, A(Index).Region)
+        Links(Index) = Buckets(Bucket)
+        Buckets(Bucket) = Index + 1
+        If A(Index).Kind <> ResultSymbol Then
+            If NodeSymbols(Node - 1) <> 0 Then Exit Function
+            NodeSymbols(Node - 1) = Index + 1
+        End If
+        If A(Index).Kind = SourceParser.ModuleNode Then
+            If ModuleSymbols(ModuleIndex) <> 0 Then Exit Function
+            ModuleSymbols(ModuleIndex) = Index + 1
+        End If
+        Index = Index + 1
+    Loop
+    Index = 0
+    Do While Index < C.ModuleCount
+        If ModuleSymbols(Index) = 0 Then Exit Function
+        Index = Index + 1
+    Loop
+    State.Count = SymbolCount
+    State.Capacity = SymbolCount
+    TryBuildIndex = True
     Exit Function
 Failed:
     Err.Raise Err.Number

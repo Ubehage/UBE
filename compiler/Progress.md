@@ -1,6 +1,55 @@
 # Compiler development handoff
 
-## Current handoff: UBE declaration binding completed
+## Current handoff: UBE expression and constant binding completed
+
+ExpressionBinder checks references, calls, assignments, result/argument
+conversions, ByRef storage, labels and conditions over retained multi-module
+syntax. ConstantValues evaluates exact checked integer/Boolean constants,
+including signed 64-bit extrema and intermediate-width overflow. The binder
+reuses DeclarationBinder's name index and SyntaxTokens decoding. Its 15-field
+per-node result publishes atomically; inputs, scratch state and outputs are
+caller-owned. No VB6 host feature or UBECore primitive was added.
+The API, admission limits and diagnostic codes are defined in
+`../bootstrap/EXPRESSION-BINDING.md`.
+
+Semantic depth is bounded at 64 and name-lookup work at 4,000,000. Required
+cross-module constant dependencies remain explicitly unsupported; ordinary
+reads of checked constants in later modules work. Recursive nominal equality
+is a Boolean type fact, not a runtime-layout claim. Intrinsic declarations
+receive no trusted primitive authority here. Their presence, or whole-array
+replacement, conservatively invalidates reference bounds proofs.
+
+Next implement reviewed intrinsic-role validation and finite aggregate layout
+in UBE as distinct checks before lowering. Measure concrete source dependencies
+before extending the existing bootstrap. Complete semantic analysis, native
+generation from these new facts, self-hosting and actual concurrent execution
+remain ahead.
+
+Verification used the unchanged VB6 6.00.9782 host and Clang 23.1.3. Run
+`rtk proxy powershell -NoProfile -File bootstrap/tests/<script> -BootstrapExe <binary>`
+with `C:\Users\Ubehage\AppData\Local\Temp\ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324\build\UBE-Bootstrap.exe`.
+All evidence directories below are under `C:\Users\Ubehage\AppData\Local\Temp`.
+
+| Script | Passed | Evidence directory |
+|---|---:|---|
+| expression-binding/check.ps1 | 60 cases, 22,697 assertions at each O0/O2 | `ube expression binding 47b8d878-83be-4ba2-b731-6c066df3c009` |
+| expression-binding/allocation-check.ps1 | 48 fault/depth checks, two baseline measurements | `ube expression allocation daa221f0-e029-4454-af07-082d01fe9b90` |
+| constant-values/check.ps1 | 97 vectors at each O0/O2 | `ube constant values 191526cb-bf92-4d30-a25f-20b96e0a8559` |
+| declaration-binding/check.ps1 | 31 cases, 19,239 assertions at each O0/O2 | `ube declaration binding 8c481b11-1811-4a69-b8a4-40adb43b526d` |
+| module-parsing/check.ps1 | 27 cases, 6,394 assertions at each O0/O2 | `ube module parsing 1b20d411-4ea0-4fd3-8bb4-7ae824a88dba` |
+| source-scanning/check.ps1 | 86 groups | `ube source scanning 78d71e8a-fae9-4fb6-b5b0-2b528bb483d7` |
+
+The expression gate includes actual compiler/library bodies, invalid programs,
+independent projects, malformed pools and exact changed-input rejection at
+assertion 759. Production-only O0/O2 assembly checks exclude hidden reliance
+on the large test driver's stack helper. Fault injection covers all 15 observed
+allocation sites, preserves all older result fields, retries successfully and
+returns live allocations to zero after disposal. Depth probes cover 0 through
+256 at selected boundaries. The constant and regression gates also pass their
+changed-input negative controls. These tests qualify frontend facts and failure
+handling; they do not execute user programs from the new bound representation.
+
+## Previous handoff: UBE declaration binding completed
 
 ProjectSyntax now retains ordered modules in caller-owned flat source/token/node
 pools; DeclarationBinder collects scoped declaration identities and resolves

@@ -202,8 +202,13 @@ declarations and signatures under `../bootstrap/DECLARATION-BINDING.md`.
 Its native gate accepts actual compiler/library modules and checks scoped
 identity, visibility, nominal type references, parameter modes and executable
 entry selection. Recursive Type references resolve as graph edges only.
-Expression validity, constants, primitive authority and runtime layout still
-come from the VB6 bootstrap; declaration success is not a full analysis result.
+The UBE expression component now checks references, calls, assignments,
+conversions, ByRef modes, labels and exact scalar constants under
+`../bootstrap/EXPRESSION-BINDING.md`. Its native gate qualifies actual compiler
+and library bodies at O0/O2, with precise diagnostics and failure preservation.
+Nominal recursive equality is checked as a type fact, not executed or laid out.
+Source intrinsic authority, finite aggregate layout and lowering still use the
+VB6 bootstrap; expression success is not a complete compiler qualification.
 Exact native and failure-gate evidence is in `../compiler/Progress.md`.
 
 ## Explicitly outside the initial implementation

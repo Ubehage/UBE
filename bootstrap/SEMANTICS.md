@@ -5,6 +5,11 @@ type-checking step. The normative language specification and conversion table
 remain authoritative. Native lowering consumes these bindings under
 [the lowering contract](LOWERING.md), with its own execution gate.
 
+The UBE-written frontend now implements declaration and expression/constant
+facts under [its separate contract](EXPRESSION-BINDING.md). Primitive authority,
+runtime layout and lowering from those new facts are still pending; this
+document's complete host binding format must not be confused with that output.
+
 The bounded [aggregate extension](AGGREGATES.md) adds nominal finite Type
 records and rank-one scalar/record arrays. The [dynamic-storage extension](DYNAMIC-STORAGE.md)
 adds dynamic owners, resizing and general independent

@@ -11,8 +11,12 @@ records the bounded admission and native checks. The UBE-written
 declared types and signatures over ordered [project storage](src/ProjectSyntax.bas).
 Its [acceptance gate](../bootstrap/tests/declaration-binding/README.md) covers
 actual compiler modules, invalid references and independent results.
-Expression checking, constants, layout and code generation remain future work;
-this is not self-hosting.
+The [expression binder](src/ExpressionBinder.bas) now checks references, calls,
+assignments and exact [typed constants](src/ConstantValues.bas), including actual
+compiler/library bodies. Its [native gate](../bootstrap/tests/expression-binding/README.md)
+records both optimization levels and controlled failure cases. Intrinsic-role
+authority, aggregate layout and code generation remain separate work; this is
+not self-hosting.
 
 The final compiler will be written in UBE and use LLVM to produce native
 64-bit programs. The owner selected VB6 as the bootstrap host if feasible.
