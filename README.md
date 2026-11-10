@@ -6,7 +6,7 @@
   <img src="media/logo.png" alt="UBE — Ube's Basic Experiment. Visual Basic, but out of the Kindergarten." width="900">
 </p>
 
-<p align="center"><sub><em>Dreamed up by an idiot. Brought to life by AI.</em></sub></p>
+<p align="center"><sub><em>Dreamed up by an idiot. Brought to life with AI.</em></sub></p>
 
 ## Vision
 UBE keeps the readable syntax and direct workflow that made classic Basic easy
@@ -26,7 +26,15 @@ The long-term goal is a complete native development system:
 - a responsive native IDE with the simplicity of the VB6 environment; and
 - tools for building, testing, packaging, and maintaining UBE programs.
 
-UBE does not use Tauri, Electron, or webview shells for its native tools.
+
+## Project status
+**UBE is in early development and is not ready for production use.**
+
+The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
+UBECore can now grow byte buffers and read or write small binary files, with checks for incomplete operations and failed cleanup. The agreed error-handling behavior passes tests with optimization both off and on.
+The compiler components written in UBE now connect declarations and types across multiple source files—including their own source—and report naming and signature errors. Checking expressions and generating programs are the next steps.
+
+See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
 
 ## Frequently Asked Questions
@@ -69,17 +77,6 @@ UBE does not use Tauri, Electron, or webview shells for its native tools.
   **No.**<br>
   UBE is being developed just because I want to.<br>
 
-
-
-## Project status
-
-**UBE is in early development and is not ready for production use.**
-
-The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
-UBECore can now grow byte buffers and read or write small binary files, with checks for incomplete operations and failed cleanup. The agreed error-handling behavior passes tests with optimization both off and on.
-The compiler components written in UBE now read source files and understand how declarations, expressions, and statements fit together—including their own source. Files up to 1 MiB are supported, with controlled errors and precise source locations.
-
-See the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
 ## How UBE is being built
 UBE is created by Ube, who defines the vision, product direction, and final

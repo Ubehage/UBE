@@ -9,6 +9,11 @@ native Windows x64 executables.
 The bootstrap is a temporary development prerequisite. The final compiler is
 written in UBE; generated UBE programs do not depend on the VB6 runtime.
 
+The UBE-written components now retain syntax across ordered source modules and
+resolve declaration identities, types and signatures. The
+[declaration-binding contract](DECLARATION-BINDING.md) separates this completed
+component from expression checking, layout and complete self-hosting.
+
 The bridge is textual LLVM IR emitted by a 32-bit VB6 program and
 compiled by a separate LLVM toolchain for the selected 64-bit target. This
 separates host bitness from target bitness without an in-process LLVM binding.

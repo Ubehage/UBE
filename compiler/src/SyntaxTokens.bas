@@ -519,6 +519,38 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Reads one decoded, ASCII-folded spelling byte by logical byte position.
+' Tokens must belong to the matching validated source; -1 denotes the end.
+Public Function SpellingByte(ByRef Source() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByVal Index As Long, ByVal Count As Long, ByVal Position As Long) As Long
+    Dim Cursor As Long
+    Dim Finish As Long
+    Dim Closing As Long
+    Dim Character As Long
+    Dim Offset As Long
+    On Error GoTo Failed
+    If Index < 0 Or Index >= Count Or Position < 0 Then SpellingByte = -1: Exit Function
+    If Tokens(Index).Kind <> SourceScanner.WordToken And Tokens(Index).Kind <> SourceScanner.IdentifierToken And Tokens(Index).Kind <> SourceScanner.StringToken And Tokens(Index).Kind <> SourceScanner.NumberToken Then SpellingByte = -1: Exit Function
+    Cursor = Tokens(Index).ByteStart
+    Finish = Cursor + Tokens(Index).ByteLength
+    If Tokens(Index).Kind = SourceScanner.IdentifierToken Then Closing = 93
+    If Tokens(Index).Kind = SourceScanner.StringToken Then Closing = 34
+    If Closing = 0 Then
+        If Position >= Tokens(Index).ByteLength Then SpellingByte = -1: Exit Function
+        Cursor = Cursor + Position
+        SpellingByte = NextCharacter(Source, Cursor, Finish, Closing)
+        Exit Function
+    End If
+    If Closing <> 0 Then Cursor = Cursor + 1: Finish = Finish - 1
+    Do
+        Character = NextCharacter(Source, Cursor, Finish, Closing)
+        If Character = -1 Or Offset = Position Then SpellingByte = Character: Exit Function
+        Offset = Offset + 1
+    Loop
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Compares decoded token spellings without copying bytes or materializing a String.
 Private Function EqualSpelling(ByRef Source() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByVal First As Long, ByVal Second As Long) As Boolean
     Dim LeftPosition As Long

@@ -174,6 +174,16 @@ product baseline.
   storage and token-helper gates run at O0/O2 with negative controls. Exact
   commands and final evidence are in compiler/Progress.md. This is parsing of
   compiler source, not self-hosting or recursive-type runtime implementation.
+- [x] Implement the next UBE declaration-binding dependency: retain ordered
+  project module pools, collect scoped declaration identities, resolve declared
+  scalar/nominal types and signatures, and select executable entry points.
+  Acceptance includes multi-module lookup, diagnostics, failure preservation
+  and native O0/O2 tests. The main gate passes 31 cases and 19,239 assertions
+  at both levels; companion gates qualify allocation and publication failure.
+  Expression checking, constant evaluation, primitive
+  authority and runtime layout are separate follow-on work. Current progress
+  and measured dependencies are in compiler/Progress.md and
+  bootstrap/DECLARATION-BINDING.md.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

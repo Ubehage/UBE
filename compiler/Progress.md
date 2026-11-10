@@ -1,6 +1,84 @@
 # Compiler development handoff
 
-## Current handoff: UBE module parsing and source storage completed
+## Current handoff: UBE declaration binding completed
+
+ProjectSyntax now retains ordered modules in caller-owned flat source/token/node
+pools; DeclarationBinder collects scoped declaration identities and resolves
+declared scalar/nominal types, signatures and executable entry identity.
+Forward, self- and mutually referencing Types resolve as nominal graph edges.
+This establishes declaration facts, not recursive runtime layout or complete
+program validity. No new VB6 host feature or UBECore primitive was required.
+Contracts and APIs are in `../bootstrap/DECLARATION-BINDING.md`.
+
+The earlier parser corpus measured 1,203 host-bound symbols and 18,008 nodes.
+The new component keeps the existing 16,384-symbol boundary, qualified at its
+exact limit. Project pools allow 128 modules, 1 MiB total bytes, 262,144 tokens
+and 65,536 nodes under the existing 64 MiB heap quota. These independent bounds
+do not promise simultaneous maximum allocation. No mutable global compiler
+state was introduced; actual concurrent execution remains a separate gate.
+
+Next implement expression/reference binding and checked constant evaluation
+over the retained declarations. Measure any additional source dependencies
+before extending this same bootstrap. Primitive authority, aggregate layout and
+lowering remain distinct responsibilities. The current pass deliberately
+accepts an unresolved call in a body because body expression validation belongs
+to the next pass; do not represent declaration success as full ANALYZE OK.
+
+The final production sources pass the following native gates using the unchanged
+VB6 6.00.9782 executable and Clang 23.1.3:
+`C:\Users\Ubehage\AppData\Local\Temp\ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324\build\UBE-Bootstrap.exe`.
+Run each with `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<script> -BootstrapExe <binary>`.
+Evidence directories below are under `C:\Users\Ubehage\AppData\Local\Temp`.
+
+| Script | Passed | Evidence directory |
+|---|---:|---|
+| declaration-binding/check.ps1 | 31 cases, 19,239 assertions at each O0/O2 | `ube declaration binding e7baceb5-9831-46c6-b6c3-550199867ce4` |
+| declaration-binding/allocation-check.ps1 | 34 allocation/depth checks | `ube binder allocation fc834448-1d00-4331-b0e9-84647d98ab22` |
+| declaration-binding/append-check.ps1 | 56 allocation/depth/corruption checks | `ube project append c3b617ff-dc8b-45c7-9541-528cc7ffc2f5` |
+| declaration-binding/handler-scope-check.ps1 | O0/O2 success and exact negative control | `ube handler scopes fc10a9cf-046d-4eca-81e4-fdc45c6ff82f` |
+| module-parsing/token-check.ps1 | 4 native runs, 929 tokens, 34 comparisons | `ube syntax tokens 43b0917a-e2fe-4a95-83f8-e0fb1c8690ff` |
+| module-parsing/check.ps1 | 27 cases, 6,394 assertions at each O0/O2 | `ube module parsing 5c2eb740-b7e1-4f83-b1f0-d62a773ef05a` |
+| source-scanning/check.ps1 | 86 groups | `ube source scanning 254f8b82-dec8-4cec-a24b-9369064e3a67` |
+
+The main gate checks real compiler/library declarations, identity/scopes,
+visibility, parameter/field ordering, entry selection, nominal recursive graphs,
+original second-module diagnostic coordinates, repeatability and isolation.
+It accepts exactly 16,384 symbols and rejects 16,386 with the symbol-limit
+diagnostic. Invalid spans/windows/package names and parent/sibling cycles fail
+without replacing older results. Changing Friend to Public fails exact assertion
+814. Production-only assembly at both optimization levels has no dependency on
+the test driver's stack-page helper.
+
+The binding fault gate fails all eight allocation sites (including retries),
+preserves all 16 old symbol fields, resets public count/entry and then retries
+successfully. Native depth refusal is tested through depth 256. The append gate
+fails all nine scanner/parser/arena allocation sites, tests depth refusal and ten
+metadata corruptions, and injects failure after writing new byte/token tails:
+every committed prefix/count remains unchanged. All disposal checks require
+zero remaining live allocations. The four-million lookup-work guard remains
+defensive; its exact threshold is not separately qualified.
+
+The owner's handler-scope observation is now explicit in the normative/error/
+lowering contracts and manual: each invocation, including recursion, owns
+default-initialized handler state. A callee does not inherit or modify the
+caller's handler; returning needs no On Error GoTo 0. Err remains separate.
+The focused native gate proves caller/callee reset isolation, active recursive
+handlers, default recursive entry, return without reset and shared sticky Err;
+changing volatile recursion depth fails exact assertion 23. No runtime change
+was needed.
+
+Documentation static validation:
+`rtk proxy powershell -NoProfile -File docs/assets/tools/validate-docs.ps1`
+passed 274 pages. Local Firefox file renders of the two changed handler pages
+passed the readable-prose/no-overlap/local-CSS/Copy-control checklist.
+Screenshots: `ube handler docs 2aff2cc6-adb0-4966-8ed6-5b697490a55c/errors.png`
+and `on.png`. Literal link clicks, clipboard and accessibility were not tested.
+
+After local completion, the owner requested committing and pushing this increment
+to GitHub main, including the owner's README edits.
+
+## Previous handoff: UBE module parsing and source storage completed
 
 The UBE-written scanner, token helpers and parser now construct caller-owned
 syntax trees for the admitted bootstrap module profile, including their own

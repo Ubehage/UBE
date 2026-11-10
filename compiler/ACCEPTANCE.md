@@ -238,6 +238,29 @@ frame/record limits and the existing quota unchanged. Run prior gates on the
 same final VB6 executable. Test-only driver support must not hide a production
 link dependency; inspect production-only O0/O2 output separately.
 
+## UBE declaration-binding gate
+
+The next UBE semantic component binds declarations and signatures, not complete
+program expressions. `../bootstrap/tests/declaration-binding/check.ps1` must
+run real retained multi-module inputs at O0/O2 and assert exact declaration
+identities, regions, visibility, nominal type edges, parameter order/modes and
+entry selection. Include the compiler's actual source and legal forward/self/
+mutual Type references without claiming recursive storage or computed layout.
+
+Require located rejection for duplicate folded names, ambiguous/inaccessible/
+unknown type names, a selected non-Type declaration and invalid entry signatures.
+Test module order, separate label regions, independent project state, repeat
+binding and changed-input negative controls. Whole-program expression validity,
+constant evaluation, primitive authority and lowering remain distinct gates.
+
+Project-storage checks must prove that failed append preserves every previously
+committed module and publishes no partial new module, even if capacity grows.
+Binding allocation faults must preserve all previous symbol fields, reset public
+count/entry, release temporaries and support retry. Corrupt extents, links and
+resource exhaustion must produce bounded failure; injected native depth refusal
+must not create silent success. Keep existing scanner/parser/storage acceptance
+and inspect production-only assembly for unexpected test-provided dependencies.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

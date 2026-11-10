@@ -35,7 +35,10 @@ Public Function Run(ByRef Source() As Byte, ByRef Expected() As Long, ByVal Expe
     Loop
     Index = 0
     Do While Index < PairCount
-        If Pairs(PairOffset) = 3 Then
+        If Pairs(PairOffset) = 4 Then
+            Value = SyntaxTokens.SpellingByte(Source, Tokens, Pairs(PairOffset + 1), Count, Pairs(PairOffset + 2))
+            If Value <> Pairs(PairOffset + 3) Then Failures = Failures + 1
+        ElseIf Pairs(PairOffset) = 3 Then
             Value = SyntaxTokens.DecodedIdentifierCode(Source, Tokens, Pairs(PairOffset + 1), Count)
             If Value <> Pairs(PairOffset + 3) Then Failures = Failures + 1
         ElseIf Pairs(PairOffset) = 1 Then
@@ -43,7 +46,7 @@ Public Function Run(ByRef Source() As Byte, ByRef Expected() As Long, ByVal Expe
         Else
             Status = SyntaxTokens.StringEqualsIdentifier(Source, Tokens, Pairs(PairOffset + 1), Pairs(PairOffset + 2), Count)
         End If
-        If Pairs(PairOffset) <> 3 Then
+        If Pairs(PairOffset) <> 3 And Pairs(PairOffset) <> 4 Then
             If Status <> (Pairs(PairOffset + 3) <> 0) Then Failures = Failures + 1
         End If
         PairOffset = PairOffset + 4
@@ -57,6 +60,8 @@ Public Function Run(ByRef Source() As Byte, ByRef Expected() As Long, ByVal Expe
     If SyntaxTokens.IsModuleNameToken(Source, Tokens, -1, Count) Then Failures = Failures + 1
     If SyntaxTokens.IsIntegerToken(Source, Tokens, Count, Count) Then Failures = Failures + 1
     If SyntaxTokens.IsDecimalLabelToken(Source, Tokens, -1, Count) Then Failures = Failures + 1
+    If SyntaxTokens.SpellingByte(Source, Tokens, -1, Count, 0) <> -1 Then Failures = Failures + 1
+    If SyntaxTokens.SpellingByte(Source, Tokens, Count, Count, 0) <> -1 Then Failures = Failures + 1
     Run = Failures
     Exit Function
 Failed:

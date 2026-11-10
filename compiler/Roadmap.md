@@ -70,9 +70,16 @@ and shared-state rules are in the development plan's concurrency requirement.
   dependency admits 1 MiB sources/arrays and 65,536 tokens/nodes, with bounded
   transfer buffers and checked allocation quotas. Contracts and limits are in
   bootstrap/MODULE-PARSING.md; exact native evidence is in Progress.md.
-  Next measure project/module ownership and symbol-storage requirements for
-  UBE-written name resolution and type checking over these trees. Preserve the
-  ordered multi-module pipeline while moving the next semantic slice into UBE.
+  UBE-written project storage and declaration binding now retain ordered module
+  pools and resolve scoped symbols, declared types, procedure signatures and
+  executable entry identity. Native acceptance covers real compiler modules,
+  nominal recursive references, malformed input, symbol limits and preserved
+  results after failure; scope is in bootstrap/DECLARATION-BINDING.md.
+  Next implement expression/reference binding and checked constant evaluation
+  over these declaration identities, measuring any additional source-language
+  dependencies before extending the same bootstrap. Keep primitive authority,
+  aggregate layout and lowering explicit separate responsibilities; declaration
+  success alone does not establish complete program validity.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

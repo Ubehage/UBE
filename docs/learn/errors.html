@@ -44,6 +44,7 @@ End Function</code></pre>
     <p>When Err.Raise executes, it records the error, immediately exits this Function, and returns FAIL to the caller. It does not run the raising procedure's own handler instead. No statement after the raise executes on that path, and a previously assigned Function result is not returned as success.</p>
     <p>The procedure must close its own files, release native handles and manually acquired locks, and perform any other required application cleanup before raising. The caller does not do this automatically. Compiler-managed stack, roots, temporaries and structured SyncLock exits still end safely; that does not close user-owned resources.</p>
     <h2>Handle a failed call</h2>
+    <p>Each procedure invocation starts with default statement skipping, including every recursive call. A called procedure neither inherits nor changes its caller's handler. Handler mode, active-handler state and saved Resume state belong to that invocation and end when it returns. A returned FAIL is then handled by the caller's own current mode. Err is separate: returning does not clear the thread's recorded error.</p>
     <pre><code>Sub Main()
     Dim Count As Long
     On Error GoTo Failed

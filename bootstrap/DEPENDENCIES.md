@@ -88,6 +88,13 @@ recursive Type references does not make their layouts executable. UBE-written
 binding/lowering, broader managed ownership and complete grammar remain
 evidence-driven dependencies; this is not self-hosting.
 
+DECLARATION-BINDING.md now records the next completed dependency: flat retained
+project pools and a UBE declaration/signature pass over multiple modules.
+Existing finite records and arrays suffice; no new host primitive or managed
+String representation was required. Symbols retain nominal Type graph edges,
+not recursive runtime layouts. Expression/reference binding and checked
+constant evaluation are the next measured source dependencies.
+
 The final compiler's multithreading requirement applies to all of that work.
 State remains owned by compilation requests and work items, with immutable
 sharing or explicit synchronization. The sequential VB6 host remains an

@@ -195,6 +195,17 @@ compiler. The bootstrap may call host facilities, but its generated programs
 must follow UBE's target contracts. The final dependency-minimum is established
 from actual UBE compiler source and its build, not presumed by this list.
 
+## UBE-written declaration component
+
+The independent UBE component now retains ordered project syntax and binds
+declarations and signatures under `../bootstrap/DECLARATION-BINDING.md`.
+Its native gate accepts actual compiler/library modules and checks scoped
+identity, visibility, nominal type references, parameter modes and executable
+entry selection. Recursive Type references resolve as graph edges only.
+Expression validity, constants, primitive authority and runtime layout still
+come from the VB6 bootstrap; declaration success is not a full analysis result.
+Exact native and failure-gate evidence is in `../compiler/Progress.md`.
+
 ## Explicitly outside the initial implementation
 
 Classes/events, collection and GC of arbitrary object graphs, native threads,

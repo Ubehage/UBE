@@ -1040,8 +1040,16 @@ UBE retains explicit VB-style trapping:
   information as execution resumes. This differs from `On Error Resume Next`,
   which retains the newly recorded error while continuing.
 
-Handlers are lexical procedure state and do not require native exceptions or
-stack unwinding. The compiler lowers each potentially failing operation to a
+Handler mode, target, active state and saved resume location belong to each
+individual procedure invocation. Every invocation, including a recursive call,
+starts in default failed-statement continuation. A callee neither inherits nor
+changes its caller's handler state. On return, its handler state ceases to
+exist; no `On Error GoTo 0` is needed before returning. A returned FAIL is handled
+by the caller's own invocation state. These local handler lifetimes are separate
+from the thread's persistent `Err` record.
+
+Handlers do not require native exceptions or stack unwinding. The compiler
+lowers each potentially failing operation to a
 result valid only on success plus an internal error status and branches according to the
 active `On Error` mode. This keeps requested trapping explicit and permits a
 low-overhead implementation.

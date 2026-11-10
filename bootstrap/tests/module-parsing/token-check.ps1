@@ -236,6 +236,19 @@ Add-Pair 2 'ordinary-name' 'ordinary-name' 0
 Add-Pair 3 'bracket-ube_primitive' '' $codes['ubeprimitive']
 Add-Pair 3 'metadata-near' '' 1
 Add-Pair 3 'string-name' '' 0
+# Authored decoded byte oracles cover bracket/quote escapes, ASCII case folding,
+# UTF-8 bytes (not UTF-16 characters), empty names and logical-position bounds.
+foreach ($item in @(
+    @('escaped-upper',0,97),@('escaped-upper',1,93),@('escaped-upper',2,98),@('escaped-upper',3,-1),
+    @('string-quote',0,97),@('string-quote',1,34),@('string-quote',2,98),@('string-quote',3,-1),
+    @('ordinary-name',0,104),@('ordinary-name',4,111),@('ordinary-name',5,-1),@('ordinary-name',-1,-1),
+    @('module-empty',0,-1),@('module-unicode',0,206),@('module-unicode',1,169),@('module-unicode',2,-1)
+)) {
+    $pairs.Add(4); $pairs.Add([long]$ids[$item[0]]); $pairs.Add([long]$item[1]); $pairs.Add([long]$item[2])
+}
+foreach ($item in @(@('0001',0,48),@('0001',3,49),@('0001',4,-1),@('0001',2147483647,-1),@(':',0,-1))) {
+    $pairs.Add(4); $pairs.Add([long]$spellings.IndexOf($item[0])); $pairs.Add([long]$item[1]); $pairs.Add([long]$item[2])
+}
 $sourceText = ($spellings -join ' ')
 $sourceBytes = $utf8.GetBytes($sourceText)
 $firstKeywordByte = $utf8.GetByteCount('anchor ')

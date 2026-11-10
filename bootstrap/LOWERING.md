@@ -92,6 +92,13 @@ active; otherwise execution continues at the next statement. An active handler
 does not re-enter itself or automatically propagate a received failure.
 Changing the error mode does not clear Err.
 
+Handler target, active flag, failure site and saved resume site are allocated
+in each procedure's native entry frame and initialized for every invocation.
+Recursive calls therefore have independent handler state. A callee cannot
+inherit or overwrite a caller's selected mode, and returning discards the
+callee's frame without requiring On Error GoTo 0. The shared context's visible
+Err number is deliberately separate from these invocation-local control cells.
+
 Procedure-owned storage begins neutral. A failed declaration initializer leaves
 its established storage neutral. Module variables initialize in declaration
 order, with the normal manifest schedule and initialization before access to

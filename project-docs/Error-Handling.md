@@ -60,6 +60,11 @@ The current authorities are `../lang-doc/language-spec.md` section 9,
   do not.
 - On Error GoTo selects a procedure-local handler. On Error Resume Next skips
   the failed statement. Resume statements leave a handler and clear Err.
+  Handler state belongs to each invocation, including recursive calls: each
+  starts with default continuation, never inherits or changes the caller's
+  handler, and discards its own mode/target/active/resume state on return.
+  No On Error GoTo 0 is needed before returning. A returned FAIL is processed
+  using the caller's own handler state; Err remains separate and persistent.
 - Allocation failure collects and retries once. Unrecoverable inability to
   preserve memory safety follows a bounded, noninteractive fatal path.
 - Cancellation and timeout are not errors unless an individual operation
