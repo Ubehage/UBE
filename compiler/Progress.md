@@ -1,6 +1,15 @@
 # Compiler development handoff
 
-## Current handoff: integer dependencies complete; source buffers and trees next
+## Current handoff: bounded source buffers and finite records
+
+The latest dependency increment adds finite scalar-field Type records and fixed
+rank-one arrays, including arrays of records, checked field/index access,
+ByRef borrowing and independent record/same-known-bounds array copies.
+`../bootstrap/AGGREGATES.md` defines the admission boundary. The source fixture
+retains and traverses bytes and token/tree records, with failure and copy
+assertions at O0/O2. Dynamic resizing, managed text, array fields and aggregate
+value-call/result paths remain explicit later dependencies. This work extends
+the existing pipeline and does not implement new loop-header semantics.
 
 The completed incremental bootstrap dependency is Byte, Integer and LongLong
 storage, parameters and results, including checked conversions and authoritative
@@ -10,9 +19,9 @@ existing parser, semantic pass and emitter were extended, retaining all earlier
 error-flow and multi-module gates. The new gate is
 `../bootstrap/tests/integer-types/check.ps1`.
 
-Next measure the array, finite-record, text and loop capabilities needed to
-represent source buffers and retained compiler trees in UBE, then admit those
-dependencies incrementally under the existing development plan. The complete
+Next measure growing source/token buffers and counted input/output, including
+the dynamic storage and text capabilities needed by actual compiler source,
+then admit those dependencies incrementally under the existing development plan. The complete
 UBE-written compiler and its self-hosting subset are not yet established.
 
 Owner clarification, 2026-11-10: the final UBE-written compiler must be
@@ -48,13 +57,65 @@ from fixture names or ordinary user procedure spellings.
 Next follow the existing development-plan item **Extend bootstrap dependencies**:
 measure the UBE-written compiler's required source/storage/library dependencies,
 then extend and test the admitted profile incrementally. Byte/Integer/LongLong
-storage is now implemented; text, arrays/records, loops and explicit library I/O
+storage and bounded arrays/records are now implemented; text, dynamic storage,
+broader loops and explicit library I/O
 remain candidates in the profile, not an all-at-once implementation. Self-hosting and
 full-language support remain incomplete.
 
 Adaptive context inference, assembly lowering and compound-header failure
 continuations are outside this first implementation. The runtime inventory in
 `../std-lib/INVENTORY.md` remains a planning input, not a support claim.
+
+## Bounded source-buffer and record gate
+
+On 2026-11-10, this command built the final bootstrap with VB6 6.00.9782 outside
+the sandbox and passed **38 aggregate-storage assertion groups**:
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps1`
+
+Build, generated IR, native executables and process evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube aggregate storage 464b9387-76b0-4159-b3ff-459aa6113b20`.
+
+Actual UBE source retains ASCII/UTF-8 bytes, token spans and linked tree records,
+traverses them, copies independent values and exercises nested fields, record
+equality, aliases and parameter bounds. Four checks run at O0/O2 with volatile
+input; changing the tree-start input returns the exact negative-control mask 1.
+Invalid reads, destination indexes and ByRef arguments record Err 9 and preserve
+destinations while skipping remaining operands/arguments. Enabled and active
+handlers are exercised. Singleton arrays at both LongLong extremes remain
+usable through ByRef with runtime indexes.
+
+Inspection asserts nominal identities, field ownership/offsets and declaration
+scopes, array shapes and resolved accesses. Bracketed intrinsic-name types remain
+nominal, and escaped type names preserve AST/SYMBOL/BOUND record framing. Negative
+cases reject unsupported aggregate paths and qualify array-element, flattened
+record, recursive-layout-visit, total module storage and copy-snapshot frame
+limits. Failed emission preserves the previous artifact.
+
+The following commands passed on the same unchanged executable:
+
+```powershell
+$verifiedBootstrap = 'C:\Users\Ubehage\AppData\Local\Temp\ube aggregate storage 464b9387-76b0-4159-b3ff-459aa6113b20\build\UBE-Bootstrap.exe'
+rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-compilation/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-semantics/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe $verifiedBootstrap
+rtk proxy powershell -NoProfile -File bootstrap/tests/project-loading/check.ps1 -BootstrapExe $verifiedBootstrap
+```
+
+Evidence directories under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+- `ube integer types 6f4df1d6-f82f-49c2-aef2-8e30726ffcae`: **46 groups**.
+- `ube native compilation 74cd89fe-fbdc-47e7-9a5c-dad218cfdbb8`: **23 groups**.
+- `ube source semantics 6dc1d0bc-ef54-4a82-9dff-a1fd1e26dc9c`: **76 cases**.
+- `ube source parsing 5571ff58-197b-4ed8-8e6d-26e1ddbad1e9`: **37 cases**.
+- `ube project loading d7bb71ef-b6d2-43fc-8044-6440a0fe7b18`: **54 cases**.
+
+Native tools remain Clang 23.1.3 and LLD. The extension uses fixed owned storage,
+not runtime heap allocation: dynamic resizing, managed text, aggregate
+ByVal/results, public layouts, self-hosting and concurrency remain unqualified.
+The next dependency assessment should cover growing source/token buffers and
+counted input/output before choosing the next implementation boundary.
 
 ## Integer storage and conversion gate
 

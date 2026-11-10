@@ -211,6 +211,7 @@ End Function
 
 ' Reads an explicit scalar annotation and checks any adjacent identifier type suffix.
 Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Suffix As String, ByRef TypeName As String, ByRef Diagnostic As String) As Boolean
+    Dim Part As String
     If AtToken(P, S, "as") Then
         If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         S.Position = S.Position + 1
@@ -225,8 +226,26 @@ Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVa
             TypeName = "Integer"
         ElseIf AtToken(P, S, "longlong") Then
             TypeName = "LongLong"
+        ElseIf IsName(P, S) Then
+            If Not ReadName(P, S, TypeName, Diagnostic) Then Exit Function
+            If InStr(TypeName, ".") > 0 Then
+                ReadType = SyntaxError(P, S, Diagnostic, "dots inside a decoded record type identifier are not admitted", "E_UNSUPPORTED")
+                Exit Function
+            End If
+            If TokenKind(P, S, -1) = "identifier" Then TypeName = P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Text
+            Do While AtToken(P, S, ".")
+                S.Position = S.Position + 1
+                If Not ReadName(P, S, Part, Diagnostic, True) Then Exit Function
+                If InStr(Part, ".") > 0 Then
+                    ReadType = SyntaxError(P, S, Diagnostic, "dots inside a decoded record type identifier are not admitted", "E_UNSUPPORTED")
+                    Exit Function
+                End If
+                If TokenKind(P, S, -1) = "identifier" Then Part = P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Text
+                TypeName = TypeName & "." & Part
+            Loop
+            S.Position = S.Position - 1
         Else
-            ReadType = SyntaxError(P, S, Diagnostic, "only Boolean, Byte, Integer, Long and LongLong types are admitted", "E_UNSUPPORTED")
+            ReadType = SyntaxError(P, S, Diagnostic, "only fixed scalar and named record types are admitted", "E_UNSUPPORTED")
             Exit Function
         End If
         S.Position = S.Position + 1
@@ -286,6 +305,42 @@ Private Function ParseName(ByRef P As ParsedProject, ByRef S As ParserState, ByR
     ParseName = Node
 End Function
 
+' Reads one-dimensional array shape independently of its element type and initializer.
+Private Function ParseArrayShape(ByRef P As ParsedProject, ByRef S As ParserState, ByRef Diagnostic As String) As Long
+    Dim Node As Long, First As Long, Lower As Long, Upper As Long, Start As Long
+    Start = S.Position
+    Node = NewNode(P, S, "array-shape", "fixed", Start, Diagnostic)
+    If Node = 0 Then Exit Function
+    S.Position = S.Position + 1
+    If AtToken(P, S, ")") Then
+        P.Nodes(Node).Text = "dynamic"
+    Else
+        First = ParseExpression(P, S, 1, Diagnostic)
+        If First = 0 Then Exit Function
+        If AtToken(P, S, "to") Then
+            S.Position = S.Position + 1
+            Lower = First
+            Upper = ParseExpression(P, S, 1, Diagnostic)
+            If Upper = 0 Then Exit Function
+        Else
+            Upper = First
+            Lower = NewNode(P, S, "number", "0", Start, Diagnostic)
+            If Lower = 0 Then Exit Function
+            ' The omitted lower bound is the admitted default zero, with no source token payload.
+            P.Nodes(Lower).Length = 0
+        End If
+        Call AddChild(P, Node, Lower)
+        Call AddChild(P, Node, Upper)
+        If AtToken(P, S, ",") Then
+            Call SyntaxError(P, S, Diagnostic, "only one-dimensional arrays are admitted", "E_UNSUPPORTED")
+            Exit Function
+        End If
+    End If
+    If Not Expect(P, S, ")", Diagnostic) Then Exit Function
+    Call FinishNode(P, S, Node)
+    ParseArrayShape = Node
+End Function
+
 ' Parses a positional parenthesized argument list into an existing call node.
 Private Function CallArguments(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Node As Long, ByRef Diagnostic As String) As Boolean
     Dim Argument As Long
@@ -301,6 +356,65 @@ Private Function CallArguments(ByRef P As ParsedProject, ByRef S As ParserState,
     End If
     If Not Expect(P, S, ")", Diagnostic) Then Exit Function
     CallArguments = True
+End Function
+
+' Retains calls and indexed/field postfix syntax for later declaration-based disambiguation.
+Private Function ParsePostfix(ByRef P As ParsedProject, ByRef S As ParserState, ByRef Diagnostic As String) As Long
+    Dim Node As Long, Child As Long, Start As Long, Name As String
+    Start = S.Position
+    Node = ParseName(P, S, Diagnostic)
+    If Node = 0 Then Exit Function
+    Do
+        If AtToken(P, S, "(") Then
+            Child = Node
+            Node = NewNode(P, S, "call", "expression", Start, Diagnostic)
+            If Node = 0 Then Exit Function
+            Call AddChild(P, Node, Child)
+            If Not CallArguments(P, S, Node, Diagnostic) Then Exit Function
+        ElseIf AtToken(P, S, ".") Then
+            S.Position = S.Position + 1
+            If Not ReadName(P, S, Name, Diagnostic, True) Then Exit Function
+            Child = Node
+            Node = NewNode(P, S, "member", Name, Start, Diagnostic)
+            If Node = 0 Then Exit Function
+            P.Nodes(Node).TypeName = ScalarSuffix(P, S)
+            Call AddChild(P, Node, Child)
+        Else
+            Exit Do
+        End If
+        Call FinishNode(P, S, Node)
+    Loop
+    ParsePostfix = Node
+End Function
+
+' Looks only for an equals sign directly after a postfix target, preserving grouped call arguments.
+Private Function AssignmentAhead(ByRef P As ParsedProject, ByRef S As ParserState, ByVal ExplicitLet As Boolean) As Boolean
+    Dim Ahead As Long, Depth As Long
+    If Not IsName(P, S) Then Exit Function
+    Ahead = 1
+    Do
+        If AtToken(P, S, "%", Ahead) Or AtToken(P, S, "&", Ahead) Or AtToken(P, S, "^", Ahead) Then Ahead = Ahead + 1
+        If AtToken(P, S, ".", Ahead) Then
+            If TokenKind(P, S, Ahead + 1) <> "name" And TokenKind(P, S, Ahead + 1) <> "identifier" Then Exit Function
+            Ahead = Ahead + 2
+        ElseIf AtToken(P, S, "(", Ahead) Then
+            If Not ExplicitLet Then
+                With P.Modules(S.ModuleIndex).Tokens
+                    If .Items(S.Position + Ahead - 1).Offset + .Items(S.Position + Ahead - 1).Length <> .Items(S.Position + Ahead).Offset Then Exit Function
+                End With
+            End If
+            Depth = 0
+            Do
+                If TokenKind(P, S, Ahead) = "newline" Or TokenKind(P, S, Ahead) = "eof" Then Exit Function
+                If AtToken(P, S, "(", Ahead) Then Depth = Depth + 1
+                If AtToken(P, S, ")", Ahead) Then Depth = Depth - 1
+                Ahead = Ahead + 1
+            Loop While Depth > 0
+        Else
+            AssignmentAhead = AtToken(P, S, "=", Ahead)
+            Exit Function
+        End If
+    Loop
 End Function
 
 ' Builds scalar primary/unary expressions and ordinary function invocation.
@@ -343,15 +457,8 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
         Node = NewNode(P, S, "boolean", Text, Start, Diagnostic)
         If Node = 0 Then Exit Function
     ElseIf IsName(P, S) Then
-        Node = ParseName(P, S, Diagnostic)
+        Node = ParsePostfix(P, S, Diagnostic)
         If Node = 0 Then Exit Function
-        If AtToken(P, S, "(") Then
-            Child = Node
-            Node = NewNode(P, S, "call", "expression", Start, Diagnostic)
-            If Node = 0 Then Exit Function
-            Call AddChild(P, Node, Child)
-            If Not CallArguments(P, S, Node, Diagnostic) Then Exit Function
-        End If
     Else
         If Kind = "newline" Or Kind = "eof" Or AtToken(P, S, ")") Or AtToken(P, S, ",") Or AtToken(P, S, "then") Or AtToken(P, S, "else") Then
             Call SyntaxError(P, S, Diagnostic, "expected scalar expression")
@@ -454,17 +561,28 @@ Private Function ParseVariables(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Kind As String
     Dim TypeName As String
     Dim Suffix As String
+    Dim Shape As Long
     Kind = "variable"
     If Constant Then Kind = "constant"
     Do
         Start = S.Position
         If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
         Suffix = ScalarSuffix(P, S)
+        Shape = 0
+        If AtToken(P, S, "(") Then
+            If Constant Or Len(Suffix) > 0 Then
+                Call SyntaxError(P, S, Diagnostic, "arrays require an As type and cannot be Const")
+                Exit Function
+            End If
+            Shape = ParseArrayShape(P, S, Diagnostic)
+            If Shape = 0 Then Exit Function
+        End If
         If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
         Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
         If Node = 0 Then Exit Function
         P.Nodes(Node).TypeName = TypeName
         P.Nodes(Node).Modifiers = Visibility
+        If Shape <> 0 Then Call AddChild(P, Node, Shape)
         If AtToken(P, S, "=") Then
             S.Position = S.Position + 1
             Value = ParseExpression(P, S, 1, Diagnostic)
@@ -570,7 +688,11 @@ Private Function ParseStatement(ByRef P As ParsedProject, ByRef S As ParserState
         If ExplicitCall Or ExplicitLet Then
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         End If
-        Target = ParseName(P, S, Diagnostic)
+        If Not ExplicitCall And AssignmentAhead(P, S, ExplicitLet) Then
+            Target = ParsePostfix(P, S, Diagnostic)
+        Else
+            Target = ParseName(P, S, Diagnostic)
+        End If
         If Target = 0 Then Exit Function
         If AtToken(P, S, "=") And Not ExplicitCall Then
             S.Position = S.Position + 1
@@ -746,6 +868,7 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
     Dim TypeName As String
     Dim Suffix As String
     Dim Node As Long
+    Dim Shape As Long
     S.Position = S.Position + 1
     If Not AtToken(P, S, ")") Then
         Do
@@ -759,11 +882,25 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
             End If
             If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
             Suffix = ScalarSuffix(P, S)
+            Shape = 0
+            If AtToken(P, S, "(") Then
+                If Len(Suffix) > 0 Then
+                    Call SyntaxError(P, S, Diagnostic, "array parameters require an As type")
+                    Exit Function
+                End If
+                Shape = ParseArrayShape(P, S, Diagnostic)
+                If Shape = 0 Then Exit Function
+                If P.Nodes(Shape).Text <> "dynamic" Then
+                    Call SyntaxError(P, S, Diagnostic, "array parameters declare rank only")
+                    Exit Function
+                End If
+            End If
             If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
             Node = NewNode(P, S, "parameter", Name, Start, Diagnostic)
             If Node = 0 Then Exit Function
             P.Nodes(Node).TypeName = TypeName
             P.Nodes(Node).Modifiers = Mode
+            If Shape <> 0 Then Call AddChild(P, Node, Shape)
             Call FinishNode(P, S, Node)
             Call AddChild(P, Parent, Node)
             If Not AtToken(P, S, ",") Then Exit Do
@@ -812,6 +949,67 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     Call AddChild(P, Parent, Node)
     S.ProcedureKind = ""
     ParseProcedure = True
+End Function
+
+' Retains nominal field-only record declarations without choosing their native layout.
+Private Function ParseRecord(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByVal Visibility As String, ByRef Diagnostic As String) As Boolean
+    Dim Start As Long, Node As Long, Field As Long, Shape As Long, FieldCount As Long
+    Dim Name As String, TypeName As String, Suffix As String
+    Start = S.Position
+    S.Position = S.Position + 1
+    If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+    If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
+    Node = NewNode(P, S, "type", Name, Start, Diagnostic)
+    If Node = 0 Then Exit Function
+    P.Nodes(Node).Modifiers = Visibility
+    If AtToken(P, S, "as") Then
+        ParseRecord = SyntaxError(P, S, Diagnostic, "opaque native representations are outside the record profile", "E_UNSUPPORTED")
+        Exit Function
+    End If
+    If Not EndLine(P, S, Diagnostic) Then Exit Function
+    Do
+        Call SkipLines(P, S)
+        If AtToken(P, S, "end") Then Exit Do
+        If TokenKind(P, S) = "eof" Then
+            ParseRecord = SyntaxError(P, S, Diagnostic, "expected End Type")
+            Exit Function
+        End If
+        Start = S.Position
+        If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
+        Suffix = ScalarSuffix(P, S)
+        Shape = 0
+        If AtToken(P, S, "(") Then
+            If Len(Suffix) > 0 Then
+                ParseRecord = SyntaxError(P, S, Diagnostic, "array fields require an As type")
+                Exit Function
+            End If
+            Shape = ParseArrayShape(P, S, Diagnostic)
+            If Shape = 0 Then Exit Function
+        End If
+        If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
+        Field = NewNode(P, S, "field", Name, Start, Diagnostic)
+        If Field = 0 Then Exit Function
+        P.Nodes(Field).TypeName = TypeName
+        If Shape <> 0 Then Call AddChild(P, Field, Shape)
+        If AtToken(P, S, "=") Then
+            ParseRecord = SyntaxError(P, S, Diagnostic, "record fields cannot have initializers")
+            Exit Function
+        End If
+        Call FinishNode(P, S, Field)
+        Call AddChild(P, Node, Field)
+        FieldCount = FieldCount + 1
+        If Not EndLine(P, S, Diagnostic) Then Exit Function
+    Loop
+    If FieldCount = 0 Then
+        ParseRecord = SyntaxError(P, S, Diagnostic, "record requires at least one field")
+        Exit Function
+    End If
+    S.Position = S.Position + 1
+    If Not Expect(P, S, "type", Diagnostic) Then Exit Function
+    Call FinishNode(P, S, Node)
+    If Not EndLine(P, S, Diagnostic) Then Exit Function
+    Call AddChild(P, Parent, Node)
+    ParseRecord = True
 End Function
 
 ' Consumes the mandatory native envelope and checks its identity against the loader.
@@ -886,6 +1084,8 @@ Private Function ParseModule(ByRef P As ParsedProject, ByRef S As ParserState, B
             End If
             If AtToken(P, S, "sub") Or AtToken(P, S, "function") Then
                 If Not ParseProcedure(P, S, Root, Visibility, Diagnostic) Then Exit Function
+            ElseIf AtToken(P, S, "type") Then
+                If Not ParseRecord(P, S, Root, Visibility, Diagnostic) Then Exit Function
             Else
                 Constant = AtToken(P, S, "const")
                 If Len(Visibility) > 0 And AtToken(P, S, "dim") Then
@@ -972,6 +1172,6 @@ End Function
 Public Function FormatNode(ByRef Parsed As ParsedProject, ByVal Index As Long) As String
     If Index < 1 Or Index > Parsed.NodeCount Then Exit Function
     With Parsed.Nodes(Index)
-        FormatNode = "NODE " & CStr(Index) & "|" & .Kind & "|" & DumpText(.Text) & "|" & CStr(.ModuleIndex) & "|" & CStr(.Line) & "|" & CStr(.Column) & "|" & CStr(.FirstChild) & "|" & CStr(.NextSibling) & "|" & CStr(.Parent) & "|" & .TypeName & "|" & .Modifiers & "|" & CStr(.Offset) & "|" & CStr(.Length)
+        FormatNode = "NODE " & CStr(Index) & "|" & .Kind & "|" & DumpText(.Text) & "|" & CStr(.ModuleIndex) & "|" & CStr(.Line) & "|" & CStr(.Column) & "|" & CStr(.FirstChild) & "|" & CStr(.NextSibling) & "|" & CStr(.Parent) & "|" & DumpText(.TypeName) & "|" & .Modifiers & "|" & CStr(.Offset) & "|" & CStr(.Length)
     End With
 End Function

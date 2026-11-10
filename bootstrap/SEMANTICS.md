@@ -1,9 +1,16 @@
-# Bootstrap scalar semantic contract
+# Bootstrap semantic contract
 
 This is the implemented boundary for the approved name-resolution and scalar
 type-checking step. The normative language specification and conversion table
 remain authoritative. Native lowering consumes these bindings under
 [the lowering contract](LOWERING.md), with its own execution gate.
+
+The bounded [aggregate extension](AGGREGATES.md) adds nominal finite Type
+records and fixed rank-one arrays. Bindings retain type identity, field offsets,
+element strides, rank and known bounds; ByRef array parameters retain unknown
+caller bounds until execution. Known invalid indexing is rejected statically.
+Record equality and independent record/same-known-bounds array copies are
+admitted. Other aggregate paths listed there receive explicit diagnostics.
 
 ## Binding and ownership
 
@@ -149,6 +156,10 @@ after the complete project passes. `--dump-bound` additionally prints ENTRY
 (the selected symbol, or zero for a library), SYMBOL declaration records and
 BOUND node records. The test runner asserts these development records;
 they are not a library serialization format or ABI.
+
+Aggregate metadata extends SYMBOL records from 14 to 24 fields and BOUND
+records from eight to 16 fields, preserving the original prefixes. The exact
+appended field order is in AGGREGATES.md.
 
 Expression constants describe the value before a surrounding conversion.
 Declaration/assignment constants describe the converted destination value.

@@ -2,8 +2,8 @@
 
 The owner selected VB6 as the preferred bootstrap implementation on 2026-11-10,
 subject to a successful build and native-output feasibility test. This folder
-contains the VB6 project loader, lexer, parser, scalar semantic checker and
-LLVM emitter. The pipeline builds admitted multi-module scalar programs into
+contains the VB6 project loader, lexer, parser, semantic checker and
+LLVM emitter. The pipeline builds admitted multi-module programs into
 native Windows x64 executables.
 
 The bootstrap is a temporary development prerequisite. The final compiler is
@@ -168,7 +168,7 @@ at O0 and O2, checks x64 output and deterministic IR, and exercises failed-build
 preservation. Exact evidence is in [compiler progress](../compiler/Progress.md).
 The [lowering contract](LOWERING.md) documents the internal ABI, limits and
 deferred boundaries. Source positions remain in the pipeline and IR comments;
-Line/Full debugger information is not yet emitted. This is a bounded scalar
+Line/Full debugger information is not yet emitted. This is a bounded bootstrap
 compiler, not full VB6 compatibility or a self-hosting compiler.
 
 ## Integer dependencies
@@ -186,3 +186,19 @@ rtk proxy powershell -NoProfile -File bootstrap/tests/integer-types/check.ps1
 This gate tests exact constants, typed conversions, ByRef rules and actual
 native execution at O0/O2. The [dependency assessment](DEPENDENCIES.md) explains
 why these types come next and what is still needed before self-hosting.
+
+## Source buffers and finite records
+
+Fixed rank-one arrays and finite scalar-field Type records now represent source
+bytes and retained token/tree data in UBE. Checked indexing, field access,
+ByRef borrowing and independent copies follow the explicit
+[aggregate admission boundary](AGGREGATES.md). Records may contain other finite
+records. Arrays may contain scalars or those records.
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/aggregate-storage/check.ps1
+```
+
+The gate checks actual source execution at O0/O2, including bounds failures and
+copy/alias behavior. Dynamic arrays, managed text and aggregate ByVal/results
+remain later dependencies. Exact results are in compiler/Progress.md.

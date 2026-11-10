@@ -130,6 +130,13 @@ product baseline.
   across 25 conversion pairs at O0/O2. The same executable passed all 23 native,
   76 semantic, 37 parser and 54 loading regressions. See compiler/Progress.md.
 - [ ] Implement and test that subset, then establish reproducible self-hosting.
+- [x] Implement the bounded source-buffer and finite-record dependency:
+  fixed rank-one arrays, scalar/nested records, checked indexing/fields, ByRef
+  and independent copies within the explicit AGGREGATES.md boundary. The
+  aggregate-storage gate passed 38 groups, including actual source-byte and
+  token/tree-record execution at O0/O2. The same executable passed all 46 integer,
+  23 native, 76 semantic, 37 parser and 54 loading regressions. Exact evidence
+  and remaining dynamic-storage/text/I/O work are in compiler/Progress.md.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

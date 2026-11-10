@@ -134,11 +134,11 @@ function Read-Bound([string]$Manifest) {
             $entry = [int]$line.Substring(6)
         } elseif ($line.StartsWith('SYMBOL ')) {
             $f = @(Decode-Fields $line.Substring(7))
-            Require ($f.Count -eq 14) "Invalid SYMBOL framing: $line"
+            Require ($f.Count -eq 24) "Invalid SYMBOL framing: $line"
             $symbols[[int]$f[0]] = [pscustomobject]@{ Id=[int]$f[0]; Kind=$f[1]; Name=$f[2]; Type=$f[3]; Visibility=$f[4]; Module=[int]$f[5]; Scope=[int]$f[6]; Declaration=[int]$f[7]; Mode=$f[8]; Role=$f[9]; FirstParameter=[int]$f[10]; NextParameter=[int]$f[11]; ParameterCount=[int]$f[12]; Constant=$f[13] }
         } elseif ($line.StartsWith('BOUND ')) {
             $f = @(Decode-Fields $line.Substring(6))
-            Require ($f.Count -eq 8) "Invalid BOUND framing: $line"
+            Require ($f.Count -eq 16) "Invalid BOUND framing: $line"
             $nodes[[int]$f[0]] = [pscustomobject]@{ Id=[int]$f[0]; Symbol=[int]$f[1]; Type=$f[2]; Converted=$f[3]; Mode=$f[4]; Writable=$f[5]; Constant=$f[6]; Scope=[int]$f[7] }
         }
     }

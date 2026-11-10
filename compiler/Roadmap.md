@@ -48,8 +48,12 @@ and shared-state rules are in the development plan's concurrency requirement.
   Byte, Integer and LongLong storage and checked conversions are now complete,
   motivated in `../bootstrap/DEPENDENCIES.md`. The integer dependency gate passed
   46 groups, including 113 boundary cases at O0/O2, and all earlier gates pass.
-  Arrays, records, text, loops and library I/O remain. Measure source-buffer and
-  retained-tree needs before selecting the next incremental extension.
+  Fixed rank-one arrays and finite scalar-field records now provide bounded
+  source buffers and retained token/tree storage; the admission boundary is
+  `../bootstrap/AGGREGATES.md`; the aggregate-storage gate passed 38 groups.
+  Dynamic storage, managed text, broader loops and explicit library I/O remain.
+  Measure the growing source/token buffer and input/output needs next, extending
+  this same pipeline under the existing bootstrap-dependencies item.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.

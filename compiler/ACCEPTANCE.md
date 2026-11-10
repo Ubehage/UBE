@@ -98,6 +98,25 @@ failure-flow, semantic, parser and loader gates must remain passing.
 These tests qualify scalar value semantics, not foreign memory layout, arrays,
 records, threading or self-hosting. Exact evidence belongs in Progress.md.
 
+## Bounded source-buffer and finite-record gate
+
+`../bootstrap/tests/aggregate-storage/check.ps1` must compile actual UBE source
+that retains bytes, token records and tree records across multiple modules and
+traverses them. Assert independent copies, nominal identity, nested fields,
+direct ByRef aliases and caller-supplied array bounds. Exercise signed bounds
+and runtime indexing at O0/O2 using volatile input, including a deliberately
+changed input that the oracle must reject.
+
+Invalid reads, writes and ByRef arguments must record Err 9, preserve existing
+destinations, and skip remaining operands/arguments. Check enabled and active
+handlers against the established FAIL contract. Reject unsupported aggregate
+paths explicitly, qualify new storage/layout limits, and preserve prior output
+after a failed emission. Existing integer, native, semantic, parser and loader
+gates must pass on the same final executable.
+
+This gate covers fixed owned scalar storage under AGGREGATES.md; it does not
+qualify dynamic allocation, managed roots, public layouts or self-hosting.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

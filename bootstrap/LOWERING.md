@@ -1,4 +1,4 @@
-# Scalar native lowering
+# Native lowering
 
 This describes the bootstrap's internal lowering contract. The language
 specification and error contract remain authoritative. Native acceptance is
@@ -35,6 +35,15 @@ contexts; the single-thread executable entry owns one root context. This is
 not qualification of native threads or full thread-local Err metadata.
 Internal context-size and initialization helpers support the test harness;
 ordinary Public procedures are not foreign exports.
+
+The [aggregate extension](AGGREGATES.md) stores finite scalar records and fixed
+arrays in the same owned frames/context. Field offsets and checked indexes
+select storage; rank-only ByRef arrays borrow the caller's descriptor and bounds.
+Index failure records Err 9 before forming an element address. Record and
+same-known-bounds array copies snapshot the complete source before committing.
+Bulk cell accesses are volatile to prevent optimizer-created CRT copy/zero
+dependencies; this private implementation choice does not define concurrency
+or volatile semantics in the source language.
 
 ## Error flow
 
@@ -73,8 +82,9 @@ result; a successful Sub Main produces zero.
 Native call admission has a depth guard in the callee prologue, before its
 source body runs, reporting Err 28 at 256 active source calls. This qualifies a
 controlled recursion limit, not recovery from arbitrary OS stack exhaustion.
-The driver reserves an 8 MiB native stack. Emission admits at most 128 scalar
-frame cells (including four control cells), 64 parameters, 250,000 IR lines and
+The driver reserves an 8 MiB native stack. Emission admits at most 128
+frame cells (including four control cells and aggregate storage/snapshots),
+65,536 module storage cells per context, 64 parameters, 250,000 IR lines and
 16 MiB of IR text. Aggregate frame/dispatcher scans and initializer dependency
 visits each have a ten-million-step budget. These bounds report diagnostics;
 an unavailable backend stack-probe helper produces a controlled build failure.

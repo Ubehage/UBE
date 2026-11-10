@@ -1,6 +1,6 @@
 # UBE compiler bootstrap source profile
 
-**Status:** bounded scalar source-to-native compilation implemented and tested
+**Status:** bounded scalar and aggregate source-to-native compilation implemented and tested
 on Windows x64. This file does not grant exceptions to language semantics.
 
 Project loading is implemented separately from source compilation. On
@@ -31,6 +31,16 @@ LongLong storage and the full admitted scalar conversion matrix. It asserts
 exact typed constants, suffix agreement, Byte promotion, checked narrowing,
 ByRef rules and native behavior at O0/O2. Its evidence is recorded in the
 compiler handoff; arrays, records and foreign layouts are not covered.
+
+`bootstrap/tests/aggregate-storage/check.ps1` covers the subsequent finite-record
+and fixed rank-one array extension. Its exact admission and storage limits are
+in [AGGREGATES.md](../bootstrap/AGGREGATES.md). It retains source bytes and
+token/tree records, checks bounds, borrows fields/elements/arrays ByRef and
+copies independent values. Whole-array copy currently requires identical known
+bounds; general bound-adopting assignment remains explicitly unsupported.
+Managed fields, dynamic arrays, aggregate ByVal/results and foreign layouts
+are not included. This extension uses existing GoTo traversal, without adding
+loop-header failure semantics.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
@@ -117,7 +127,8 @@ Add and prove these only as compiler-source needs demand them:
   implemented by the integer dependency extension; its gate is
   `bootstrap/tests/integer-types/check.ps1`. This does not imply arrays or records;
 - Unicode text and counted byte I/O, with explicit encoding and source spans;
-- dynamic arrays and finite value records with independent copy semantics;
+- dynamic arrays and broader aggregate storage; finite scalar-field records and
+  fixed rank-one arrays with bounded independent copies are now implemented;
 - strings and precise managed-storage lifetimes if used by the compiler;
 - loop forms, additional operators and ordinary UBECore procedure calls;
 - further cross-module resolution features beyond the initial scalar package;

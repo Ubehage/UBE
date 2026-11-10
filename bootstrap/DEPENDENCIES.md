@@ -16,7 +16,7 @@ for the next extension, not proof that the complete dependency set is known.
 | SourceSemantics checks signed-64-bit literals and intermediate values using host Decimal arithmetic | LongLong storage, arguments and results in target UBE code; target semantics must not inherit the VB6 host's 32-bit Long limit |
 | Native declarations and binary formats use fixed-width fields | Explicit range-preserving conversions among supported integer types; complete records and foreign layouts remain later dependencies |
 
-The immediate extension is Boolean plus Byte, Integer, Long and LongLong scalar
+The completed integer extension is Boolean plus Byte, Integer, Long and LongLong scalar
 storage, parameters, results, constants and checked conversions. It uses the
 existing expression operators, module pipeline and error protocol. Integer
 identifier/literal suffixes `%`, `&` and `^` retain their declared meaning;
@@ -35,9 +35,26 @@ source type's range. This does not qualify public memory layouts, arrays,
 records or foreign calls. Executable Main and trusted Err signatures retain
 their existing admission rules.
 
+## Source buffers and retained records
+
+The bounded storage increment is described in AGGREGATES.md. HostFiles' byte
+buffers motivate Byte arrays; SourceToken and SyntaxNode motivate records
+containing numeric kind/offset/length and parent/child/sibling indices, stored
+in arrays. This proves their storage and traversal before managed text and
+dynamic growth are introduced. Existing comparisons and GoTo suffice to test
+the data structures without inventing unresolved loop-header failure rules.
+
+The bounded implementation selects finite scalar records and fixed-bound
+rank-one arrays, checked field/index access, ByRef borrowing and independent
+copies with known matching array bounds. Source bytes and spans replace no
+language String contract; the fixture stores bytes as data. General dynamic
+buffers, bounds-replacing array copies and record-owned arrays remain required
+later for a practical compiler and are explicitly deferred.
+
 ## Remaining evidence to gather
 
-Porting source buffers and retained trees still needs arrays and records;
+Porting practical source buffers and retained trees still needs dynamic growth
+and broader aggregate ownership beyond the admitted fixed arrays/finite records;
 ordinary scanning needs loop forms and further operators; reading source and
 writing output need explicit library I/O. Text representation, ownership,
 allocation failures and corresponding UBECore interfaces must be admitted and
@@ -49,6 +66,6 @@ State remains owned by compilation requests and work items, with immutable
 sharing or explicit synchronization. The sequential VB6 host remains an
 implementation prerequisite, not evidence of final-compiler concurrency.
 
-Acceptance for this integer extension belongs in
-`tests/integer-types/check.ps1`; exact executed results and next work belong in
+Acceptance belongs in `tests/integer-types/check.ps1` and
+`tests/aggregate-storage/check.ps1`; exact executed results and next work belong in
 `../compiler/Progress.md`.

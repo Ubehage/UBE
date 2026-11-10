@@ -35,6 +35,15 @@ error-support contract in a separate caller-owned BoundProject. A parsed call
 alone is not proof that its target exists or has a compatible
 signature. Likewise, parsing a project does not prove a valid `Main` exists.
 
+The aggregate extension retains `type` declarations with `field` children and
+an `array-shape` child before any variable initializer. Fixed shapes retain
+lower/upper expressions; omitted lower bounds synthesize zero with a zero-length
+source span anchored to the opening parenthesis. Rank-only parameter shapes
+have no bound expressions. Postfix parentheses remain call syntax until binding
+selects procedure invocation or array indexing; member nodes retain their
+receiver. Nominal identity and storage layout are semantic metadata, described
+in [AGGREGATES.md](AGGREGATES.md).
+
 ## Failure boundaries
 
 The current command reports the first lexical or syntax error and fails the

@@ -144,11 +144,11 @@ function Read-Bindings([string]$Manifest) {
     foreach ($line in $result.Stdout.Replace("`r`n","`n").Split("`n")) {
         if ($line.StartsWith('SYMBOL ')) {
             $f = $line.Substring(7).Split('|')
-            Require ($f.Count -eq 14) 'Unexpected symbol framing'
+            Require ($f.Count -eq 24) 'Unexpected symbol framing'
             $symbols[[int]$f[0]] = [pscustomobject]@{ Id=[int]$f[0]; Kind=$f[1]; Name=$f[2]; Type=$f[3]; Module=[int]$f[5]; Declaration=[int]$f[7]; Mode=$f[8]; FirstParameter=[int]$f[10]; Constant=$f[13] }
         } elseif ($line.StartsWith('BOUND ')) {
             $f = $line.Substring(6).Split('|')
-            Require ($f.Count -eq 8) 'Unexpected binding framing'
+            Require ($f.Count -eq 16) 'Unexpected binding framing'
             $nodes[[int]$f[0]] = [pscustomobject]@{ Id=[int]$f[0]; Symbol=[int]$f[1]; Type=$f[2]; Converted=$f[3]; Mode=$f[4]; Writable=$f[5]; Constant=$f[6] }
         }
     }

@@ -7,6 +7,7 @@ Public Const MaximumIRLines As Long = 250000
 Public Const MaximumNativeSlots As Long = 128
 Public Const MaximumNativeParameters As Long = 64
 Public Const MaximumNativeCallDepth As Long = 256
+Public Const MaximumModuleStorageCells As Long = 65536
 
 Private Type EmissionState
     Lines() As String
@@ -177,11 +178,23 @@ End Function
 ' Determines which conditions are outside the unsettled compound-header failure boundary.
 Private Function ConditionMayFail(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal Node As Long) As Boolean
     Dim Child As Long
+    Dim Receiver As Long
+    Dim IndexNode As Long
     If Bound.Nodes(Node).ConstantKnown Then Exit Function
+    If Bound.Nodes(Node).AccessKind = "index" Then
+        Receiver = Parsed.Nodes(Node).FirstChild
+        IndexNode = Parsed.Nodes(Receiver).NextSibling
+        If Not Bound.Nodes(Receiver).HasBounds Or Not Bound.Nodes(IndexNode).ConstantKnown Then
+            ConditionMayFail = True
+            Exit Function
+        End If
+    End If
     Select Case Parsed.Nodes(Node).Kind
     Case "call"
-        ConditionMayFail = True
-        Exit Function
+        If Bound.Nodes(Node).AccessKind <> "index" Then
+            ConditionMayFail = True
+            Exit Function
+        End If
     Case "binary"
         If Parsed.Nodes(Node).Text = "+" Then
             ConditionMayFail = True
@@ -230,7 +243,7 @@ Private Function InitializerDependencies(ByRef Project As ProjectContext, ByRef 
         Node = Parsed.Nodes(Parsed.Modules(Origin).RootNode).FirstChild
         Do While Node <> 0
             If Parsed.Nodes(Node).Kind = "variable" Then
-                Child = Parsed.Nodes(Node).FirstChild
+                Child = DeclarationValueNode(Parsed, Node)
                 If Child <> 0 Then
                     Count = Count + 1
                     Stack(Count) = Child
@@ -307,6 +320,16 @@ Private Function InitializerDependencies(ByRef Project As ProjectContext, ByRef 
     InitializerDependencies = True
 End Function
 
+' Reserves bounded frame cells before addition, including aggregate snapshots and control storage.
+Private Function AddFrameCells(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Slots() As Long, ByVal Scope As Long, ByVal Count As Long, ByVal Node As Long, ByRef Diagnostic As String) As Boolean
+    If Count < 0 Or Count > MaximumNativeSlots - 4 - Slots(Scope) Then
+        AddFrameCells = EmissionError(Project, Parsed, Node, Diagnostic, "E_LIMIT", "native storage/temporary frame limit exceeded")
+        Exit Function
+    End If
+    Slots(Scope) = Slots(Scope) + Count
+    AddFrameCells = True
+End Function
+
 ' Verifies bounded frames and deferred boundaries before writing any output.
 Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByRef Diagnostic As String) As Boolean
     Dim Slots() As Long
@@ -315,6 +338,8 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     Dim Node As Long
     Dim Kind As String
     Dim Name As String
+    Dim Cells As Long
+    Dim Child As Long
     ReDim Slots(1 To Bound.SymbolCount)
     ReDim State.FieldIndex(1 To Bound.SymbolCount)
     For Symbol = 1 To Bound.SymbolCount
@@ -335,10 +360,18 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
             ElseIf Kind = "variable" Or Kind = "parameter" Or Kind = "result" Then
                 Scope = Bound.Symbols(Symbol).ScopeSymbol
                 If Bound.Symbols(Scope).Kind = "module" Then
+                    Cells = Bound.Symbols(Symbol).StorageCells
+                    If Cells < 1 Or Cells > MaximumModuleStorageCells - State.FieldCount Then
+                        CheckEmissionProfile = EmissionError(Project, Parsed, Node, Diagnostic, "E_LIMIT", "native module storage context limit exceeded")
+                        Exit Function
+                    End If
                     State.FieldIndex(Symbol) = State.FieldCount
-                    State.FieldCount = State.FieldCount + 1
+                    State.FieldCount = State.FieldCount + Cells
                 Else
-                    Slots(Scope) = Slots(Scope) + 1
+                    Cells = Bound.Symbols(Symbol).StorageCells
+                    If Kind = "parameter" And Bound.Symbols(Symbol).PassingMode = "ByRef" Then Cells = 1
+                    If Cells < 1 Then Cells = 1
+                    If Not AddFrameCells(Project, Parsed, Slots, Scope, Cells, Node, Diagnostic) Then Exit Function
                 End If
             End If
         End If
@@ -346,7 +379,29 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     For Node = 1 To Parsed.NodeCount
         State.ErrorNode = Node
         Scope = Bound.Nodes(Node).ScopeSymbol
-        If Bound.Nodes(Node).ArgumentMode = "temp" Then Slots(Scope) = Slots(Scope) + 1
+        If Bound.Nodes(Node).ArgumentMode = "temp" Then
+            If Not AddFrameCells(Project, Parsed, Slots, Scope, 1, Node, Diagnostic) Then Exit Function
+        End If
+        If Parsed.Nodes(Node).Kind = "assignment" Or Parsed.Nodes(Node).Kind = "variable" Then
+            Cells = Bound.Nodes(Node).StorageCells
+            If Parsed.Nodes(Node).Kind = "assignment" Then
+                Child = Parsed.Nodes(Node).FirstChild
+                Cells = Bound.Nodes(Child).StorageCells
+                If Bound.Nodes(Child).ArrayRank = 0 And Bound.Nodes(Child).TypeSymbol = 0 Then Cells = 0
+            Else
+                Symbol = Bound.Nodes(Node).SymbolIndex
+                Cells = Bound.Symbols(Symbol).StorageCells
+                If Bound.Symbols(Symbol).ArrayRank = 0 And Bound.Symbols(Symbol).TypeSymbol = 0 Then Cells = 0
+                Child = DeclarationValueNode(Parsed, Node)
+                If Child = 0 Then Cells = 0
+            End If
+            If Not AddFrameCells(Project, Parsed, Slots, Scope, Cells, Node, Diagnostic) Then Exit Function
+        ElseIf Parsed.Nodes(Node).Kind = "binary" Then
+            Child = Parsed.Nodes(Node).FirstChild
+            If Bound.Nodes(Child).TypeSymbol <> 0 Then
+                If Not AddFrameCells(Project, Parsed, Slots, Scope, 2 * Bound.Nodes(Child).StorageCells, Node, Diagnostic) Then Exit Function
+            End If
+        End If
         If Parsed.Nodes(Node).Kind = "if" Then
             If ConditionMayFail(Parsed, Bound, Parsed.Nodes(Node).FirstChild) Then
                 CheckEmissionProfile = EmissionError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "potential failure in an If condition awaits its compound-header continuation contract")
@@ -365,7 +420,7 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     Next Node
     For Symbol = 1 To Bound.SymbolCount
         If Slots(Symbol) + 4 > MaximumNativeSlots Then
-            CheckEmissionProfile = EmissionError(Project, Parsed, Bound.Symbols(Symbol).DeclarationNode, Diagnostic, "E_LIMIT", "native scalar storage/temporary frame limit exceeded")
+                CheckEmissionProfile = EmissionError(Project, Parsed, Bound.Symbols(Symbol).DeclarationNode, Diagnostic, "E_LIMIT", "native storage/temporary frame limit exceeded")
             Exit Function
         End If
     Next Symbol
@@ -393,6 +448,117 @@ Private Function StorageAddress(ByRef Bound As BoundProject, ByRef State As Emis
         Address = "%slot." & CStr(Symbol)
     End If
     StorageAddress = Address
+End Function
+
+' Evaluates a scalar/record/array storage path once, checking indexes before any element pointer exists.
+Private Function EmitAddress(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long) As String
+    Dim Receiver As Long, IndexNode As Long, Symbol As Long
+    Dim Base As String, Result As String, IndexValue As String
+    Dim Lower As String, Upper As String, UpperPointer As String
+    Dim Below As String, Above As String, Invalid As String, Relative As String, Offset As String, Payload As String
+    If Parsed.Nodes(Node).Kind = "group" Then
+        EmitAddress = EmitAddress(Parsed, Bound, State, Parsed.Nodes(Node).FirstChild)
+        Exit Function
+    End If
+    If Bound.Nodes(Node).AccessKind = "field" Then
+        Receiver = Parsed.Nodes(Node).FirstChild
+        Base = EmitAddress(Parsed, Bound, State, Receiver)
+        Symbol = Bound.Nodes(Node).SymbolIndex
+        Result = ValueName(State)
+        Call AddLine(State, "  " & Result & " = getelementptr i64, ptr " & Base & ", i64 " & CStr(Bound.Symbols(Symbol).FieldOffset))
+    ElseIf Bound.Nodes(Node).AccessKind = "index" Then
+        Receiver = Parsed.Nodes(Node).FirstChild
+        IndexNode = Parsed.Nodes(Receiver).NextSibling
+        Base = EmitAddress(Parsed, Bound, State, Receiver)
+        IndexValue = EmitExpression(Parsed, Bound, State, IndexNode)
+        IndexValue = ConvertNative(State, IndexValue, Bound.Nodes(IndexNode).TypeName, "LongLong")
+        Lower = ValueName(State): UpperPointer = ValueName(State): Upper = ValueName(State)
+        Below = ValueName(State): Above = ValueName(State): Invalid = ValueName(State)
+        Call AddLine(State, "  " & Lower & " = load i64, ptr " & Base)
+        Call AddLine(State, "  " & UpperPointer & " = getelementptr i64, ptr " & Base & ", i64 1")
+        Call AddLine(State, "  " & Upper & " = load i64, ptr " & UpperPointer)
+        Call AddLine(State, "  " & Below & " = icmp slt i64 " & IndexValue & ", " & Lower)
+        Call AddLine(State, "  " & Above & " = icmp sgt i64 " & IndexValue & ", " & Upper)
+        Call AddLine(State, "  " & Invalid & " = or i1 " & Below & ", " & Above)
+        Call GuardError(State, Invalid, 9)
+        Relative = ValueName(State): Offset = ValueName(State): Payload = ValueName(State): Result = ValueName(State)
+        Call AddLine(State, "  " & Relative & " = sub i64 " & IndexValue & ", " & Lower)
+        Call AddLine(State, "  " & Offset & " = mul i64 " & Relative & ", " & CStr(Bound.Nodes(Receiver).ElementCells))
+        Call AddLine(State, "  " & Payload & " = add i64 " & Offset & ", 2")
+        Call AddLine(State, "  " & Result & " = getelementptr i64, ptr " & Base & ", i64 " & Payload)
+    Else
+        Result = StorageAddress(Bound, State, Bound.Nodes(Node).SymbolIndex)
+    End If
+    EmitAddress = Result
+End Function
+
+' Reads a complete value before mutation; volatile bulk cells prevent unavailable libc copy synthesis.
+Private Sub SnapshotCells(ByRef State As EmissionState, ByVal Address As String, ByVal Count As Long, ByRef Values() As String)
+    Dim Index As Long, Pointer As String
+    ReDim Values(0 To Count - 1)
+    For Index = 0 To Count - 1
+        Pointer = ValueName(State): Values(Index) = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 " & CStr(Index))
+        Call AddLine(State, "  " & Values(Index) & " = load volatile i64, ptr " & Pointer)
+    Next Index
+End Sub
+
+' Commits a completed independent aggregate snapshot, including known unchanged array bounds.
+Private Sub StoreCells(ByRef State As EmissionState, ByVal Address As String, ByRef Values() As String)
+    Dim Index As Long, Pointer As String
+    For Index = 0 To UBound(Values)
+        Pointer = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 " & CStr(Index))
+        Call AddLine(State, "  store volatile i64 " & Values(Index) & ", ptr " & Pointer)
+    Next Index
+End Sub
+
+' Establishes neutral scalar cells and the immutable admitted fixed-array shape.
+Private Sub NeutralStorage(ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Symbol As Long, ByVal Address As String, Optional ByVal HeaderOnly As Boolean = False)
+    Dim Index As Long, Count As Long, Pointer As String, Value As String, Store As String
+    Count = Bound.Symbols(Symbol).StorageCells
+    If HeaderOnly Then Count = 2
+    Store = "  store i64 "
+    ' Bulk volatile neutralization prevents an optimizer-created dependency on CRT memset.
+    If Count > 1 Then Store = "  store volatile i64 "
+    For Index = 0 To Count - 1
+        Value = "0"
+        If Bound.Symbols(Symbol).ArrayRank = 1 Then
+            If Index = 0 Then Value = CStr(Bound.Symbols(Symbol).LowerBound)
+            If Index = 1 Then Value = CStr(Bound.Symbols(Symbol).UpperBound)
+        End If
+        Pointer = ValueName(State)
+        Call AddLine(State, "  " & Pointer & " = getelementptr i64, ptr " & Address & ", i64 " & CStr(Index))
+        Call AddLine(State, Store & Value & ", ptr " & Pointer)
+    Next Index
+End Sub
+
+' Compares every typed scalar record field, taking the left value before evaluating the right.
+Private Function EmitRecordComparison(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long) As String
+    Dim LeftNode As Long, RightNode As Long, Index As Long, Count As Long
+    Dim LeftValues() As String, RightValues() As String
+    Dim Address As String, Equal As String, Test As String, Combined As String, Result As String
+    LeftNode = Parsed.Nodes(Node).FirstChild: RightNode = Parsed.Nodes(LeftNode).NextSibling
+    Count = Bound.Nodes(LeftNode).StorageCells
+    Address = EmitAddress(Parsed, Bound, State, LeftNode)
+    Call SnapshotCells(State, Address, Count, LeftValues)
+    Address = EmitAddress(Parsed, Bound, State, RightNode)
+    Call SnapshotCells(State, Address, Count, RightValues)
+    Equal = "true"
+    For Index = 0 To Count - 1
+        Test = ValueName(State): Combined = ValueName(State)
+        Call AddLine(State, "  " & Test & " = icmp eq i64 " & LeftValues(Index) & ", " & RightValues(Index))
+        Call AddLine(State, "  " & Combined & " = and i1 " & Equal & ", " & Test)
+        Equal = Combined
+    Next Index
+    If Parsed.Nodes(Node).Text = "<>" Then
+        Test = ValueName(State)
+        Call AddLine(State, "  " & Test & " = xor i1 " & Equal & ", true")
+        Equal = Test
+    End If
+    Result = ValueName(State)
+    Call AddLine(State, "  " & Result & " = select i1 " & Equal & ", i64 -1, i64 0")
+    EmitRecordComparison = Result
 End Function
 
 ' Emits one eager arithmetic operation with checked overflow in the selected integer width.
@@ -449,7 +615,7 @@ Private Function EmitCall(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Role = Bound.Symbols(Symbol).BindingId
     Do While Argument <> 0
         If Bound.Nodes(Argument).ArgumentMode = "alias" Then
-            Address = StorageAddress(Bound, State, Bound.Nodes(Argument).SymbolIndex)
+            Address = EmitAddress(Parsed, Bound, State, Argument)
             Arguments = Arguments & ", ptr " & Address
         Else
             Value = EmitExpression(Parsed, Bound, State, Argument)
@@ -501,6 +667,13 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         EmitExpression = CStr(Bound.Nodes(Node).ConstantValue)
         Exit Function
     End If
+    If Bound.Nodes(Node).AccessKind = "index" Or Bound.Nodes(Node).AccessKind = "field" Then
+        Address = EmitAddress(Parsed, Bound, State, Node)
+        Result = ValueName(State)
+        Call AddLine(State, "  " & Result & " = load i64, ptr " & Address)
+        EmitExpression = Result
+        Exit Function
+    End If
     Kind = Parsed.Nodes(Node).Kind
     Select Case Kind
     Case "name", "member"
@@ -526,6 +699,10 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         Result = EmitCall(Parsed, Bound, State, Node, Terminated)
     Case "binary"
         Child = Parsed.Nodes(Node).FirstChild
+        If Bound.Nodes(Child).TypeSymbol <> 0 Then
+            EmitExpression = EmitRecordComparison(Parsed, Bound, State, Node)
+            Exit Function
+        End If
         RightNode = Parsed.Nodes(Child).NextSibling
         LeftValue = EmitExpression(Parsed, Bound, State, Child)
         LeftValue = ConvertNative(State, LeftValue, Bound.Nodes(Child).TypeName, Bound.Nodes(Child).ConvertedType)
@@ -567,6 +744,10 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Dim Address As String
     Dim Test As String
     Dim Terminated As Boolean
+    Dim Values() As String
+    Dim SourceAddress As String
+    Dim Cells As Long
+    Dim Aggregate As Boolean
     State.CurrentNode = Node
     State.ErrorNode = Node
     State.CurrentNext = Continuation
@@ -578,19 +759,33 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
     Case "variable", "assignment"
         If Kind = "variable" Then
             Symbol = Bound.Nodes(Node).SymbolIndex
-            ValueNode = Parsed.Nodes(Node).FirstChild
+            ValueNode = DeclarationValueNode(Parsed, Node)
             Address = StorageAddress(Bound, State, Symbol)
-            Call AddLine(State, "  store i64 0, ptr " & Address)
+            Call NeutralStorage(Bound, State, Symbol, Address)
+            Aggregate = Bound.Symbols(Symbol).ArrayRank <> 0 Or Bound.Symbols(Symbol).TypeSymbol <> 0
+            Cells = Bound.Symbols(Symbol).StorageCells
         Else
             Child = Parsed.Nodes(Node).FirstChild
             ValueNode = Parsed.Nodes(Child).NextSibling
             Symbol = Bound.Nodes(Child).SymbolIndex
-            Address = StorageAddress(Bound, State, Symbol)
+            Address = EmitAddress(Parsed, Bound, State, Child)
+            Aggregate = Bound.Nodes(Child).ArrayRank <> 0 Or Bound.Nodes(Child).TypeSymbol <> 0
+            Cells = Bound.Nodes(Child).StorageCells
         End If
         If ValueNode <> 0 Then
-            Value = EmitExpression(Parsed, Bound, State, ValueNode)
-            Value = ConvertNative(State, Value, Bound.Nodes(ValueNode).TypeName, Bound.Symbols(Symbol).TypeName)
-            Call AddLine(State, "  store i64 " & Value & ", ptr " & Address)
+            If Aggregate Then
+                SourceAddress = EmitAddress(Parsed, Bound, State, ValueNode)
+                Call SnapshotCells(State, SourceAddress, Cells, Values)
+                Call StoreCells(State, Address, Values)
+            Else
+                Value = EmitExpression(Parsed, Bound, State, ValueNode)
+                If Kind = "variable" Then
+                    Value = ConvertNative(State, Value, Bound.Nodes(ValueNode).TypeName, Bound.Symbols(Symbol).TypeName)
+                Else
+                    Value = ConvertNative(State, Value, Bound.Nodes(ValueNode).TypeName, Bound.Nodes(Child).TypeName)
+                End If
+                Call AddLine(State, "  store i64 " & Value & ", ptr " & Address)
+            End If
         End If
     Case "call"
         Value = EmitCall(Parsed, Bound, State, Node, Terminated)
@@ -683,6 +878,7 @@ End Sub
 Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState)
     Dim Index As Long
     Dim Kind As String
+    Dim Address As String
     State.ResultSymbol = 0
     Call AddLine(State, "  %handler.target = alloca i32, align 4")
     Call AddLine(State, "  %handler.active = alloca i1, align 1")
@@ -699,12 +895,15 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
             If Kind = "result" Then State.ResultSymbol = Index
             If Kind = "variable" Or Kind = "result" Or (Kind = "parameter" And Bound.Symbols(Index).PassingMode = "ByVal") Then
                 If State.FieldIndex(Index) < 0 Then
-                    Call AddLine(State, "  %slot." & CStr(Index) & " = alloca i64, align 8")
+                    Call AddLine(State, "  %slot." & CStr(Index) & " = alloca [" & CStr(Bound.Symbols(Index).StorageCells) & " x i64], align 8")
                     If Kind = "parameter" Then
                         Call AddLine(State, "  store i64 %arg." & CStr(Index) & ", ptr %slot." & CStr(Index))
                     Else
-                        Call AddLine(State, "  store i64 0, ptr %slot." & CStr(Index))
+                        Call NeutralStorage(Bound, State, Index, "%slot." & CStr(Index))
                     End If
+                ElseIf Bound.Symbols(Index).ArrayRank = 1 Then
+                    Address = StorageAddress(Bound, State, Index)
+                    Call NeutralStorage(Bound, State, Index, Address, True)
                 End If
             End If
         End If
