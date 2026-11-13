@@ -41,3 +41,9 @@ rejection must return exit 1 with the
 expected category/location and no PARSE OK. A failed AST dump must publish no
 partial NODE records. One fail-fast diagnostic is sufficient; a later valid
 process must succeed. This does not qualify editor-style multi-error recovery.
+
+The 2026-11-13 node-capacity regression passed39 cases with the host at
+`C:\Users\Ubehage\AppData\Local\Temp\ube source parsing 03d40ecc-0bae-45e3-b426-228d589ea920\build\UBE-Bootstrap.exe`.
+The gate retains90,013 nodes, accepts exactly131,072 including the host's project
+root, refuses131,073, and recovers. Run with `check.ps1 -BootstrapExe <host>`.
+Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube source parsing cc880f3a-2c12-482a-9a23-6b6e2ecf8f0a`.

@@ -51,28 +51,36 @@ foreach ($line in ($body -split '\r?\n')) {
     if (-not $statement.Success) { throw "Unknown memory runtime statement: $line" }
     $null = $output.Append((Read-Expression $statement.Groups[1].Value)).Append([char]13).Append([char]10)
 }
-$entry = Read-Body $files 'NativeFileIR' 'Function'
-$parts = New-Object 'System.Collections.Generic.List[string]'
-foreach ($line in ($entry -split '\r?\n')) {
-    if ($line.Trim().Length -eq 0) { continue }
-    $statement = [regex]::Match($line, '^\s*NativeFileIR = NativeFileIR & ([A-Za-z][A-Za-z0-9]*)\(\)\s*$')
-    if (-not $statement.Success) { throw "Unknown file runtime composition: $line" }
-    $parts.Add($statement.Groups[1].Value)
-}
-if (($parts -join ',') -ne 'FileTargetsAndRegistryIR,FileAcquisitionIR,FileTransferAndReleaseIR') { throw 'Unreviewed file runtime composition' }
-foreach ($name in $parts) {
-    $body = Read-Body $files $name 'Function'
-    if ([regex]::Matches($body, '(?m)^\s*Dim Text As String\s*$').Count -ne 1 -or
-        [regex]::Matches($body, ('(?m)^\s*' + $name + ' = Text\s*$')).Count -ne 1 -or
-        $body.TrimEnd() -notmatch ([regex]::Escape($name) + ' = Text$')) {
-        throw "Unreviewed file runtime accumulator/return: $name"
+$process = [IO.File]::ReadAllText((Join-Path $root 'bootstrap/src/NativeProcessRuntime.bas'), $encoding)
+$packages = @(
+    @{Source=$files; Entry='NativeFileIR'; Parts='FileTargetsAndRegistryIR,FileAcquisitionIR,FileTransferAndReleaseIR,SystemOperationsIR,PathOperationsIR,FileMetadataIR,SystemIntrospectionIR,NamespaceOperationsIR'},
+    @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease'}
+)
+foreach ($package in $packages) {
+    $entry = Read-Body $package.Source $package.Entry 'Function'
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($line in ($entry -split '\r?\n')) {
+        if ($line.Trim().Length -eq 0) { continue }
+        $pattern = '^\s*' + $package.Entry + ' = ' + $package.Entry + ' & ([A-Za-z][A-Za-z0-9]*)\(\)\s*$'
+        $statement = [regex]::Match($line, $pattern)
+        if (-not $statement.Success) { throw "Unknown runtime composition: $line" }
+        $parts.Add($statement.Groups[1].Value)
     }
-    foreach ($line in ($body -split '\r?\n')) {
-        if ($line.Trim().Length -eq 0 -or $line.TrimStart().StartsWith("'")) { continue }
-        if ($line.Trim() -eq 'Dim Text As String' -or $line.Trim() -eq "$name = Text") { continue }
-        $statement = [regex]::Match($line, '^\s*Text = Text & (.*)\s*$')
-        if (-not $statement.Success) { throw "Unknown file runtime statement: $line" }
-        $null = $output.Append((Read-Expression $statement.Groups[1].Value))
+    if (($parts -join ',') -ne $package.Parts) { throw 'Unreviewed runtime composition' }
+    foreach ($name in $parts) {
+        $body = Read-Body $package.Source $name 'Function'
+        if ([regex]::Matches($body, '(?m)^\s*Dim Text As String\s*$').Count -ne 1 -or
+            [regex]::Matches($body, ('(?m)^\s*' + $name + ' = Text\s*$')).Count -ne 1 -or
+            $body.TrimEnd() -notmatch ([regex]::Escape($name) + ' = Text$')) {
+            throw "Unreviewed runtime accumulator/return: $name"
+        }
+        foreach ($line in ($body -split '\r?\n')) {
+            if ($line.Trim().Length -eq 0 -or $line.TrimStart().StartsWith("'")) { continue }
+            if ($line.Trim() -eq 'Dim Text As String' -or $line.Trim() -eq "$name = Text") { continue }
+            $statement = [regex]::Match($line, '^\s*Text = Text & (.*)\s*$')
+            if (-not $statement.Success) { throw "Unknown runtime statement: $line" }
+            $null = $output.Append((Read-Expression $statement.Groups[1].Value))
+        }
     }
 }
 $asset = Join-Path $root 'compiler/llvm/windows-runtime.ll'

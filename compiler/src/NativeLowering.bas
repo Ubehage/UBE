@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 32505
-Private Const RuntimeByteSum As Long = 2593386
+Private Const RuntimeLength As Long = 95098
+Private Const RuntimeByteSum As Long = 7669073
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function

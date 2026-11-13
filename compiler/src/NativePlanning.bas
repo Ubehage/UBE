@@ -372,7 +372,7 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Summary.ContextCells = 0
     Summary.EntrySymbol = 0
     Diagnostic.Code = 0
-    If SymbolCount < 1 Or SymbolCount > 16384 Or C.NodeCount < 1 Or C.NodeCount > 65536 Or C.ModuleCount < 1 Or C.ModuleCount > 128 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
+    If SymbolCount < 1 Or SymbolCount > 16384 Or C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
     If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeNumbers(Pins, C.NodeCount, False) Then GoTo StorageFailure
     If Not PlanSymbols(B, T, N, M, C, A, SymbolCount, L, Plans, ContextCells, Diagnostic) Then Exit Function

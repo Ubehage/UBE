@@ -15,6 +15,16 @@ Private SymbolCount As Long
 Private EntrySymbol As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 
+' Reads the committed project node prefix after successful or refused appends.
+Public Function CountNodes() As Long
+    CountNodes = Counts.NodeCount
+End Function
+
+' Distinguishes cumulative capacity refusal from scanner, parser or allocation errors.
+Public Function AppendLimitDiagnostic() As Long
+    If ProjectError.Stage <> 3 Or ProjectError.Code <> 4 Then AppendLimitDiagnostic = 1
+End Function
+
 ' Measures retained symbol storage even after a failed binding resets its count.
 Private Intrinsic Function SymbolLength(ByRef Values() As DeclarationBinder.BoundSymbol) As Long
 Attribute SymbolLength.UBE_Primitive = "Array.Length"

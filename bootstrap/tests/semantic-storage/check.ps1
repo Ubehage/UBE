@@ -275,7 +275,26 @@ $roles=@(
     @('File.TryWrite','ByVal Token As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef WrittenCount As Long, ByRef Failure As Long','Boolean'),
     @('File.TryClose','ByRef Token As Long, ByRef Failure As Long','Boolean'),
     @('File.TryFlush','ByVal Token As Long, ByRef Failure As Long','Boolean'),
-    @('Error.Set','ByVal Number As Long','Boolean')
+    @('Error.Set','ByVal Number As Long','Boolean'),
+    @('System.TryReadCommandLine','ByRef Destination() As Byte, ByRef Count As Long, ByRef Failure As Long','Boolean'),
+    @('System.TryWriteStandard','ByVal Stream As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef Written As Long, ByRef Failure As Long','Boolean'),
+    @('File.TryFinalPath','ByVal Token As Long, ByRef Destination() As Byte, ByRef Count As Long, ByRef Failure As Long','Boolean'),
+    @('Path.TryFullPath','ByRef PathUtf8() As Byte, ByRef Destination() As Byte, ByRef Count As Long, ByRef Failure As Long','Boolean'),
+    @('Path.TryCompareOrdinal','ByRef First() As Byte, ByRef Second() As Byte, ByRef Ordering As Long, ByRef Failure As Long','Boolean'),
+    @('Process.TryStart','ByRef Application() As Byte, ByRef CommandLine() As Byte, ByRef Directory() As Byte, ByVal LogToken As Long, ByRef Token As Long, ByRef Failure As Long','Boolean'),
+    @('Process.TryWait','ByVal Token As Long, ByVal Milliseconds As Long, ByRef State As Long, ByRef ExitCode As Long, ByRef Failure As Long','Boolean'),
+    @('Process.TryTerminate','ByVal Token As Long, ByRef Failure As Long','Boolean'),
+    @('Process.TryClose','ByRef Token As Long, ByRef Failure As Long','Boolean'),
+    @('File.TryOpenDirectory','ByRef PathUtf8() As Byte, ByRef Token As Long, ByRef Failure As Long','Boolean'),
+    @('File.TryIdentity','ByVal Token As Long, ByRef IdentityBytes() As Byte, ByRef Failure As Long','Boolean'),
+    @('File.TryLength','ByVal Token As Long, ByRef Length As Long, ByRef Failure As Long','Boolean'),
+    @('System.TryExecutablePath','ByRef Destination() As Byte, ByRef Count As Long, ByRef Failure As Long','Boolean'),
+    @('System.TryMonotonicMilliseconds','ByRef Value As LongLong, ByRef Failure As Long','Boolean'),
+    @('Directory.TryCreate','ByRef PathUtf8() As Byte, ByRef Failure As Long','Boolean'),
+    @('Directory.TryRemove','ByRef PathUtf8() As Byte, ByRef Failure As Long','Boolean'),
+    @('File.TryDelete','ByRef PathUtf8() As Byte, ByRef Failure As Long','Boolean'),
+    @('File.TryReplace','ByRef SourceUtf8() As Byte, ByRef DestinationUtf8() As Byte, ByRef Failure As Long','Boolean'),
+    @('Path.TryKind','ByRef PathUtf8() As Byte, ByRef Kind As Long, ByRef Failure As Long','Boolean')
 )
 $roleBody=''
 for($index=0;$index -lt $roles.Count;$index++) { $roleBody+=Primitive-Source ('P'+($index+1)) $roles[$index][1] $roles[$index][2] $roles[$index][0] }
@@ -286,7 +305,7 @@ Write-Text $rolePath $roleText
 Start-Project
 Append-Source $rolePath
 $value=Call-Probe 'Bind' @(0,0)
-Check-Value $value 0 'all eleven exact role signatures accepted'
+Check-Value $value 0 'all thirty exact role signatures accepted'
 $roleNodes=@()
 for($index=0;$index -lt $roles.Count;$index++) {
     $name='P'+($index+1)
@@ -316,6 +335,14 @@ $roleNegatives.Add(@('whitespace role not normalized',(Primitive-Source 'Wrong' 
 $roleNegatives.Add(@('array by value',(Primitive-Source 'Wrong' 'ByVal Values() As Byte' 'Long' 'Array.Length'),3,5,0))
 $roleNegatives.Add(@('file output by value',(Primitive-Source 'Wrong' 'ByVal Token As Long, ByRef Failure As Long' 'Boolean' 'File.TryClose'),3,5,0))
 $roleNegatives.Add(@('file byte element mismatch',(Primitive-Source 'Wrong' ($roles[4][1].Replace('As Byte','As Integer')) 'Boolean' 'File.TryOpen'),3,5,0))
+$roleNegatives.Add(@('system output by value',(Primitive-Source 'Wrong' ($roles[11][1].Replace('ByRef Count','ByVal Count')) 'Boolean' 'System.TryReadCommandLine'),3,5,0))
+$roleNegatives.Add(@('system byte element mismatch',(Primitive-Source 'Wrong' ($roles[12][1].Replace('As Byte','As Integer')) 'Boolean' 'System.TryWriteStandard'),3,5,0))
+$roleNegatives.Add(@('final path token by reference',(Primitive-Source 'Wrong' ($roles[13][1].Replace('ByVal Token','ByRef Token')) 'Boolean' 'File.TryFinalPath'),3,5,0))
+$roleNegatives.Add(@('full path output by value',(Primitive-Source 'Wrong' ($roles[14][1].Replace('ByRef Count','ByVal Count')) 'Boolean' 'Path.TryFullPath'),3,5,0))
+$roleNegatives.Add(@('ordinal path byte element mismatch',(Primitive-Source 'Wrong' ($roles[15][1].Replace('As Byte','As Integer')) 'Boolean' 'Path.TryCompareOrdinal'),3,5,0))
+$roleNegatives.Add(@('monotonic output must be LongLong',(Primitive-Source 'Wrong' ($roles[24][1].Replace('As LongLong','As Long')) 'Boolean' 'System.TryMonotonicMilliseconds'),3,5,0))
+$roleNegatives.Add(@('monotonic output must be ByRef',(Primitive-Source 'Wrong' ($roles[24][1].Replace('ByRef Value','ByVal Value')) 'Boolean' 'System.TryMonotonicMilliseconds'),3,5,0))
+$roleNegatives.Add(@('identity requires Byte array',(Primitive-Source 'Wrong' ($roles[21][1].Replace('As Byte','As Integer')) 'Boolean' 'File.TryIdentity'),3,5,0))
 $roleNegatives.Add(@('scalar instead of array',(Primitive-Source 'Wrong' 'ByRef Values As Byte' 'Long' 'Array.Length'),3,5,0))
 $roleNegatives.Add(@('extra parameter',(Primitive-Source 'Wrong' 'ByVal Number As Long, ByVal Extra As Long' 'Boolean' 'Error.Set'),3,5,0))
 $roleNegatives.Add(@('Intrinsic Main entry',(Primitive-Source 'Main' $roles[0][1] 'Long' 'Array.Length'),3,6,-1))

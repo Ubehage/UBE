@@ -2,7 +2,7 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "LLVMWriter"
 ' Streams bounded ASCII IR into a caller-owned private staging token, never a published destination.
 Public Const MaximumBytes As Long = 16777216
-Public Const MaximumLines As Long = 250000
+Public Const MaximumLines As Long = 500000
 Public Const BufferSize As Long = 65536
 
 Public Type WriterState

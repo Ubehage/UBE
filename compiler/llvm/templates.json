@@ -25,7 +25,7 @@
   },
   {
     "name": "ContextType",
-    "text": "%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }"
+    "text": "%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource] }"
   },
   {
     "name": "ProcedureStart",
@@ -49,11 +49,11 @@
   },
   {
     "name": "ContextFileType",
-    "text": "%ube.file = type { i64, ptr, ptr, i64, i64 }"
+    "text": "%ube.resource = type { i64, ptr, ptr, i64, i64 }"
   },
   {
     "name": "ContextPrefix",
-    "text": "%ube.file = type { i64, ptr, ptr, i64, i64 }\r\n%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }\r\n\r\ndeclare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)\r\n\r\ndefine i64 @ube.context.size() {\r\nentry:\r\n  ret i64 {2}\r\n}\r\ndefine void @ube.context.init(ptr %ctx) {\r\nentry:\r\n  br label %zero\r\nzero:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %zero ]\r\n  %slot = getelementptr i64, ptr %ctx, i64 %index\r\n  store volatile i64 0, ptr %slot, align 8\r\n  %next = add i64 %index, 1\r\n  %more = icmp ult i64 %next, {3}\r\n  br i1 %more, label %zero, label %done\r\ndone:\r\n  ret void\r\n}\r\ndefine i1 @ube.context.dispose(ptr %ctx) {\r\nentry:\r\n  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1\r\n  %depth = load i64, ptr %depth.ptr\r\n  %depth.active = icmp ne i64 %depth, 0\r\n  %files.empty = call i1 @ube.file.empty(ptr %ctx)\r\n  %files.live = xor i1 %files.empty, true\r\n  %active = or i1 %depth.active, %files.live\r\n  br i1 %active, label %busy, label %release\r\nbusy:\r\n  ret i1 false\r\nrelease:\r\n"
+    "text": "%ube.resource = type { i64, ptr, ptr, i64, i64 }\r\n%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource] }\r\n\r\ndeclare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)\r\n\r\ndefine i64 @ube.context.size() {\r\nentry:\r\n  ret i64 {2}\r\n}\r\ndefine void @ube.context.init(ptr %ctx) {\r\nentry:\r\n  br label %zero\r\nzero:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %zero ]\r\n  %slot = getelementptr i64, ptr %ctx, i64 %index\r\n  store volatile i64 0, ptr %slot, align 8\r\n  %next = add i64 %index, 1\r\n  %more = icmp ult i64 %next, {3}\r\n  br i1 %more, label %zero, label %done\r\ndone:\r\n  ret void\r\n}\r\ndefine i1 @ube.context.dispose(ptr %ctx) {\r\nentry:\r\n  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1\r\n  %depth = load i64, ptr %depth.ptr\r\n  %depth.active = icmp ne i64 %depth, 0\r\n  %files.empty = call i1 @ube.resource.empty(ptr %ctx)\r\n  %files.live = xor i1 %files.empty, true\r\n  %active = or i1 %depth.active, %files.live\r\n  br i1 %active, label %busy, label %release\r\nbusy:\r\n  ret i1 false\r\nrelease:\r\n"
   },
   {
     "name": "ContextArrayRelease",
@@ -454,5 +454,81 @@
   {
     "name": "TargetHeader",
     "text": "target triple = \"x86_64-pc-windows-msvc\""
+  },
+  {
+    "name": "IntrinsicSystemCommandLine",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.system.commandline(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicSystemWrite",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {\r\nentry:\r\n  %accepted = call i1 @ube.system.write(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileFinalPath",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {\r\nentry:\r\n  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr null, i64 %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3, i1 true)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicPathFullPath",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {\r\nentry:\r\n  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr %arg.0, i64 0, ptr %arg.1, ptr %arg.2, ptr %arg.3, i1 false)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicPathCompareOrdinal",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {\r\nentry:\r\n  %accepted = call i1 @ube.path.compare(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicProcessStart",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {\r\nentry:\r\n  %accepted = call i1 @ube.process.start(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicProcessWait",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4) {\r\nentry:\r\n  %accepted = call i1 @ube.process.wait(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicProcessTerminate",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.process.terminate(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicProcessClose",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.process.close(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileOpenDirectory",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.directory.open(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileIdentity",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.file.identity(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileLength",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.file.length(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicSystemExecutablePath",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.system.executable(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicSystemMonotonicMilliseconds",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.system.clock(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicDirectoryCreate",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.directory.create(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicDirectoryRemove",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.directory.remove(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileDelete",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.file.delete(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileReplace",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.file.replace(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicPathKind",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.path.kind(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
   }
 ]

@@ -42,6 +42,14 @@ and binder tree-integrity checks.
 
 Companion scripts use the same `-BootstrapExe` argument:
 
+The 2026-11-13 cumulative-node regression passed32 cases and20,685 assertions
+at O0/O2, including90,012 nodes across three real modules, exactly131,072 nodes,
+binding at that capacity, refusal of one extra module node, unchanged committed
+count, and rebinding after refusal. The existing changed-visibility control
+failed at exact assertion814. Command: `check.ps1 -BootstrapExe <host>` using
+`C:\Users\Ubehage\AppData\Local\Temp\ube source parsing 03d40ecc-0bae-45e3-b426-228d589ea920\build\UBE-Bootstrap.exe`.
+Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube declaration binding e29d5412-dd43-4540-a9ea-8e0b93e74161`.
+
 - `allocation-check.ps1`: 34 O0/O2 checks cover all eight binder allocation
   sites (both attempts), all 16 prior symbol fields, successful retry, sticky
   Err, depth refusal through 256 and zero live allocations after disposal.

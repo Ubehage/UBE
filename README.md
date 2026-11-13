@@ -30,11 +30,13 @@ The long-term goal is a complete native development system:
 ## Project status
 **UBE is in early development and is not ready for production use.**
 
-The VB6 bootstrap now turns small, multi-module UBE projects into native 64-bit Windows programs.
-UBECore can now grow byte buffers and read or write small binary files, with checks for incomplete operations and failed cleanup. The agreed error-handling behavior passes tests with optimization both off and on.
-The compiler written in UBE now generates native programs too, with tested support for multiple files, records, arrays and the agreed error handling. It can generate native code for its own source; rebuilding itself is next.
+**The compiler now builds itself.** The VB6 bootstrap builds the UBE-written compiler, which has completed two successive self-builds as a native 64-bit Windows executable.
 
-See the [development plan](project-docs/Development-Plan.md) for upcoming work.
+Both self-built compilers generate byte-identical LLVM. Their native executables match after normalizing only the PE timestamp. The bootstrap and both self-built compilers pass the same tests for supported language features, errors and recovery, with optimization both off and on. Failed builds preserve earlier output files.
+
+The current language subset includes multiple modules, records, arrays, checked arithmetic, error handling and explicit file operations. Concurrent compilation is next; the full language, source-level debugging and IDE remain under development.
+
+See the [self-hosting results](compiler/Progress.md) for commands and test evidence, and the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
 
 ## Frequently Asked Questions
@@ -99,8 +101,9 @@ ownership and design authority remain with Ube.
 ## Development builds
 
 See the [build documentation](bootstrap/README.md) for prerequisites and
-instructions for compiling admitted programs and running the bootstrap tests. The compiler
-is not yet available as a working release.
+instructions for compiling admitted programs and running the bootstrap tests.
+The [self-hosting guide](bootstrap/SELF-HOSTING.md) describes the compiler build
+and acceptance gates. The compiler is not yet available as a packaged release.
 
 ## Repository guide
 

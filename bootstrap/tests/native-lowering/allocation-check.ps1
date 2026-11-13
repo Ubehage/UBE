@@ -228,7 +228,7 @@ End Function
 $inputs=(Byte-Global 'test.source' $utf8.GetBytes($source))+(Byte-Global 'test.catalog' ([IO.File]::ReadAllBytes((Join-Path $root 'compiler/llvm/templates.bin'))))+(Byte-Global 'test.runtime' ([IO.File]::ReadAllBytes((Join-Path $root 'compiler/llvm/windows-runtime.ll'))))
 $observedIR=Join-Path $artifacts 'observed.ll'
 Write-Text $observedIR ($observed+$observer+$inputs)
-$types=([regex]::Matches($emitted,'(?m)^%ube\.(?:file|context) = type .*')|ForEach-Object {$_.Value}) -join "`r`n"
+$types=([regex]::Matches($emitted,'(?m)^%ube\.(?:resource|context) = type .*')|ForEach-Object {$_.Value}) -join "`r`n"
 $externals=@'
 @test.calls = external global i64
 @test.fail.at = external global i64

@@ -645,7 +645,7 @@ Public Function TryBuildIndex(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     State.Capacity = 0
     State.Work = 0
     If SymbolCount < 1 Or SymbolCount > 16384 Then Exit Function
-    If C.NodeCount < 1 Or C.NodeCount > 65536 Or C.ModuleCount < 1 Or C.ModuleCount > 128 Then Exit Function
+    If C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Then Exit Function
     If ResizeIndex(Buckets, 32749, False) = False Then Exit Function
     If ResizeIndex(Links, SymbolCount, False) = False Then Exit Function
     If ResizeIndex(NodeSymbols, C.NodeCount, False) = False Then Exit Function

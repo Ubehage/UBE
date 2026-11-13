@@ -5,7 +5,7 @@ The host builds actual UBE PrimitiveRoles and AggregateLayout with their syntax,
 declaration, expression and UBECore dependencies. Runtime files provide the test
 projects. Both O0 and O2 use the same emitted library.
 
-The role gate asserts all eleven exact signatures and canonical role IDs, wrong
+The role gate asserts all sixteen exact signatures and canonical role IDs, wrong
 results and selected parameter modes/types/arity, missing/duplicate attributes,
 wrong targets, unknown/untrimmed roles, ordinary familiar names with no authority,
 case-insensitive metadata, nominal TryCopy identity, executable versus library
@@ -63,3 +63,9 @@ blocks. Native depth probes cover 0, 192, 224, 240, 248, 252, 254, 255 and 256.
 Both passes use the same host binary as the main gate. The primitive fault
 fixture executes PrimitiveRoles and its prerequisites; AggregateLayout is also
 compiled into that test library but is not invoked by that fixture.
+
+The 30-role authority extension passed 77 cases and 24,535 assertions at each
+optimization level, including incorrect timer width/mode and identity payload
+type. Exact role spelling is dispatched through namespace helpers so production
+O0/O2 objects remain free of stack probes. A changed runtime role is rejected at
+assertion 432. Evidence: eea1a42b-a0f1-41b0-8b4f-63c45801c3ea.

@@ -86,7 +86,7 @@ identifiers remain deferred. Exact contracts and evidence are in
 The UBE-written module parser now retains caller-owned indexed trees for this
 admitted grammar. Its gate passed 19 cases at O0/O2, including actual compiler
 and library modules, exact tree/spans and a changed-input negative control.
-Syntax limits are 65,536 nodes per module and 48 recursive parsing levels;
+Syntax limits are 65,536 nodes per module, 131,072 nodes per project, and 48 recursive parsing levels;
 these are distinct from the VB6 host parser's limits. Type references, including
 recursive spellings, are retained without claiming recursive layout support.
 See [MODULE-PARSING.md](../bootstrap/MODULE-PARSING.md). UBE-written binding and

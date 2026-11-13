@@ -186,7 +186,7 @@ foreach($level in @('O0','O2')) {
     $filePath=Join-Path $artifacts ('roundtrip-'+$level+'.bin')
     $pathBytes=$utf8.GetBytes($filePath)
     $pathCells=($pathBytes | ForEach-Object {'i64 '+$_}) -join ', '
-    $prefix="%ube.file = type { i64, ptr, ptr, i64, i64 }`r`n%ube.context = type { i64, i64, [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.file] }`r`n"
+    $prefix="%ube.resource = type { i64, ptr, ptr, i64, i64 }`r`n%ube.context = type { i64, i64, [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.resource] }`r`n"
     $globals="@ctx = private global %ube.context zeroinitializer, align 8`r`n@a = private global [4 x i64] zeroinitializer`r`n@b = private global [4 x i64] zeroinitializer`r`n@r = private global [4 x i64] zeroinitializer`r`n@s = private global [4 x i64] zeroinitializer`r`n@seed = private global i64 65`r`n@path.data = private global ["+$pathBytes.Length+" x i64] ["+$pathCells+"]`r`n@path = private global { i64, i64, ptr, ptr } { i64 0, i64 "+($pathBytes.Length-1)+", ptr @path.data, ptr null }`r`n"
     $body="define i32 @main() {`r`nentry:`r`n  %token = alloca i64`r`n  %failure = alloca i64`r`n  %progress = alloca i64`r`n  %length = alloca i64`r`n  store i64 0, ptr %token`r`n"
     $script:assertion=0

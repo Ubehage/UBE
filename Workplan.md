@@ -125,7 +125,7 @@ product baseline.
   The address-text fallback is approved only for an
   explicitly supplied pointer/address value; it never uses internal storage
   addresses, dereferences memory or bypasses known invalid types.
-- [ ] Define the minimum bootstrap source subset needed to build the
+- [x] Define the minimum bootstrap source subset needed to build the
   UBE-written compiler, with explicit rejection of unsupported constructs.
 - [x] Extend the scalar bootstrap with Byte, Integer and LongLong storage,
   arguments/results and checked conversions. The concrete dependency evidence
@@ -134,7 +134,12 @@ product baseline.
   The integer gate passed 46 groups, including 113 runtime boundary cases
   across 25 conversion pairs at O0/O2. The same executable passed all 23 native,
   76 semantic, 37 parser and 54 loading regressions. See compiler/Progress.md.
-- [ ] Implement and test that subset, then establish reproducible self-hosting.
+- [x] Implement and test that subset, then establish reproducible self-hosting.
+  The actual UBE compiler rebuilt itself through two successive outputs.
+  LLVM matches byte-for-byte; native artifacts differ only in the documented
+  PE timestamp. The common positive, negative and recovery corpus passed through
+  the bootstrap and both outputs. Scope: bootstrap/SELF-HOSTING.md; exact
+  commands and evidence: compiler/Progress.md. Concurrency remains separate.
 - [x] Implement the bounded source-buffer and finite-record dependency:
   fixed rank-one arrays, scalar/nested records, checked indexing/fields, ByRef
   and independent copies within the explicit AGGREGATES.md boundary. The

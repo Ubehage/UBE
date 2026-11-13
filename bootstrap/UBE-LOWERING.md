@@ -87,7 +87,7 @@ range helper handles partial progress without flushing after every fragment;
 writer completion flushes once. ByteText formats exact signed decimal values,
 including LongLong minimum, without a new String type or arithmetic operator.
 
-LLVMWriter keeps the existing 16,777,216-byte and 250,000-line limits, counting
+LLVMWriter admits at most 16,777,216 bytes and 500,000 lines, counting
 CRLF bytes and line-feed terminators. It checks a complete fragment before
 consuming it and latches any failure. Its fragment input and scratch output
 buffer must be separate caller-owned arrays. The writer never owns or closes

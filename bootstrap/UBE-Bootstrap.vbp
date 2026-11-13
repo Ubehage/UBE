@@ -7,6 +7,7 @@ Module=SourceParser; src\SourceParser.bas
 Module=SourceSemantics; src\SourceSemantics.bas
 Module=SourceEmitter; src\SourceEmitter.bas
 Module=NativeFileRuntime; src\NativeFileRuntime.bas
+Module=NativeProcessRuntime; src\NativeProcessRuntime.bas
 Module=NativeBackend; src\NativeBackend.bas
 Startup="Sub Main"
 Name="UBEBootstrap"

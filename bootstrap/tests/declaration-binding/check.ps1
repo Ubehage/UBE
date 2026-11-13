@@ -192,7 +192,7 @@ function Start-Project([string]$Name='BindingFixture') {
 }
 
 # Reads one actual source path through the UBE file/scanner/parser/project pipeline.
-function Append-Source([string]$Path) {
+function Append-Source([string]$Path, [int]$Expected = 0) {
     $bytes = $utf8.GetBytes($Path)
     $value = Call-Probe 'ConfigurePath' @($bytes.Length)
     Check-Value $value 0 'path allocation'
@@ -201,7 +201,7 @@ function Append-Source([string]$Path) {
         Check-Value $value 0 'path byte'
     }
     $value = Call-Probe 'AppendFile'
-    Check-Value $value 0 "append source $Path"
+    Check-Value $value $Expected "append source $Path"
 }
 
 # Finds a symbol by its declared source name position, never by incidental symbol order.
@@ -536,6 +536,26 @@ foreach ($name in @('CountSymbols','EntryIdentity')) { $value = Call-Probe $name
 $value = Call-Probe 'RetainedCount'
 Check-Value $value $boundaryCapacity 'limit failure preserves previous backing storage'
 Symbol-Equals 16384 4 $boundaryLastKind 'limit failure preserves last previously valid symbol'
+$script:passed++
+# Real parsed modules cross the old project limit, reach the exact new bound, and refuse one extra node.
+Start-Project 'NodeBoundary'
+for ($index=0; $index -lt 5; $index++) {
+    $repeats=6000; $extra=''
+    if($index -eq 4){$repeats=2210; $extra="Dim Y As Long`r`nDim Z As Long`r`n"}
+    $body="Sub Work()`r`nDim X As Long`r`n"+$extra+("X = 1 + 2`r`n"*$repeats)+"End Sub`r`n"
+    $path=Join-Path $artifacts ("node-boundary-$index.bas")
+    Write-Text $path (Module-Source ('NodeBoundary'+$index) $body)
+    Append-Source $path
+    if($index -eq 2){$value=Call-Probe 'CountNodes'; Check-Value $value 90012 'project exceeds former65536 node limit'}
+}
+$value=Call-Probe 'CountNodes'; Check-Value $value 131072 'exact project node capacity retained'
+$value=Call-Probe 'Bind' @(0); Check-Value $value 0 'declaration validator accepts extended project nodes'
+$path=Join-Path $artifacts 'node-excess.bas'
+Write-Text $path (Module-Source 'OneMoreNode' '')
+Append-Source $path 2
+$value=Call-Probe 'AppendLimitDiagnostic'; Check-Value $value 0 'one excess node rejected by project capacity'
+$value=Call-Probe 'CountNodes'; Check-Value $value 131072 'refusal preserves committed project node prefix'
+$value=Call-Probe 'Bind' @(0); Check-Value $value 0 'retained project still binds after refused append'
 $script:passed++
 $lines.Add('  %disposed = call i1 @ube.context.dispose(ptr %ctx)')
 $lines.Add('  %disposed.wide = zext i1 %disposed to i64')

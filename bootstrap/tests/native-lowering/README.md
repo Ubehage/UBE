@@ -32,7 +32,7 @@ itself runs at O0 and O2, and generated source-location comments are required.
 
 Finally, the actual compiler and portable library source bodies are themselves
 lowered by UBE, then compiled into native objects at O0 and O2. Undefined symbols
-must be only the ten explicit Windows memory/file API imports. This rejects hidden
+must be only the 41 explicit reviewed Windows memory/file/system/path/process/namespace API imports. This rejects hidden
 `__chkstk`, `memcpy`, `memmove`, `memset`, or other unavailable helpers. Object
 compilation verifies complete LLVM/code generation for those bodies; it does not
 claim the resulting compiler object was used to bootstrap a further executable.
@@ -110,3 +110,11 @@ contain accepted prefixes and are never treated as completed output. The gate
 does not claim atomic publication or preservation of a public destination;
 that remains the driver/backend's responsibility. All child processes have
 bounded deadlines, and generated files and process diagnostics are retained.
+
+Additional executable fixtures bind and emit the metadata, namespace and process
+roles through UBE. Metadata compares hardlink identity, file lengths, exact
+executable spelling and changed file input. Namespace operations exercise
+exclusive creation, explicit absence and replacement preservation. Actual native
+children exercise process start, wait, exit status, termination, close and
+foreign-owner/alias refusal at O0/O2. These fixtures supplement the injected
+target fault gates; they do not replace them.

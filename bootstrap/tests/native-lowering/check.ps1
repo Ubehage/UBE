@@ -304,6 +304,143 @@ foreach($level in @('O0','O2')) {
     Write-Output "PASS: executable entry, dependency initialization, initializer FAIL continuation and recursion guard $level"
 }
 
+# Executes the new exact system roles through UBE binding and emitted wrappers.
+$systemSources=@('BufferPrimitives','FilePrimitives','SystemPrimitives','StandardStreams') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+$systemProbe=Join-Path $root 'bootstrap/tests/system-primitives/Probe.bas'
+$changedSystem=Join-Path $artifacts 'changed-system-probe.bas'
+$systemText=[IO.File]::ReadAllText($systemProbe,$utf8)
+Require ($systemText.Contains('Small(5) = 77')) 'Missing system negative-control input'
+Write-Text $changedSystem ($systemText.Replace('Small(5) = 77','Small(5) = 78'))
+foreach($level in @('O0','O2')) {
+    $system=Emit-Project 'system-primitives' (@($systemSources)+@($systemProbe)) $level $true
+    $exe=Join-Path $artifacts ('system-primitives-'+$level+'.exe')
+    Build-Harness $system.Path $exe $level
+    $arguments=@('with spaces','quote"and\','',([string][char]0x00e6+[char]0x03a9))
+    $run=Invoke-BoundedProcess $exe $arguments
+    Require ($run.ExitCode -eq 0) "UBE system source assertions failed $level : $($run.ExitCode) $($run.Evidence)"
+    $suffix=($arguments | ForEach-Object {Quote-Argument $_}) -join ' '
+    Require ($run.Stdout -ceq ('"'+$exe+'" '+$suffix+' ') -and $run.Stderr -ceq '!') "UBE system commandline/stream bytes differ $level : $($run.Evidence)"
+    $negative=Emit-Project 'system-negative' (@($systemSources)+@($changedSystem)) $level $true
+    $negativeExe=Join-Path $artifacts ('system-negative-'+$level+'.exe')
+    Build-Harness $negative.Path $negativeExe $level
+    $rejected=Invoke-BoundedProcess $negativeExe @()
+    Require ($rejected.ExitCode -eq 3 -and $rejected.Stdout.Length -eq 0 -and $rejected.Stderr.Length -eq 0) "UBE system changed-source control failed $level : $($rejected.Evidence)"
+    Write-Output "PASS: UBE system role authority, wrappers, UTF-8 streams, preservation and changed-source control $level"
+}
+
+# Qualifies the path roles through actual UBE declaration binding and emitted calls.
+$pathSources=@('BufferPrimitives','FilePrimitives','SystemPrimitives','StandardStreams','PathPrimitives') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+$pathProbe=Join-Path $root 'bootstrap/tests/path-primitives/Probe.bas'
+$pathInput=Join-Path $workingDirectory ('case-'+[char]0x00e6+'.bin')
+[IO.File]::WriteAllBytes($pathInput,[byte[]]@(42))
+foreach($level in @('O0','O2')) {
+    $paths=Emit-Project 'path-primitives' (@($pathSources)+@($pathProbe)) $level $true
+    $exe=Join-Path $artifacts ('path-primitives-'+$level+'.exe')
+    Build-Harness $paths.Path $exe $level
+    $run=Invoke-BoundedProcess $exe @()
+    Require ($run.ExitCode -eq 0 -and $run.Stdout -ceq $pathInput -and $run.Stderr.Length -eq 0) "UBE path role/owner assertions failed $level : $($run.ExitCode) $($run.Evidence)"
+    [IO.File]::WriteAllBytes($pathInput,[byte[]]@(43))
+    try {
+        $negative=Invoke-BoundedProcess $exe @()
+        Require ($negative.ExitCode -eq 32 -and $negative.Stdout.Length -eq 0 -and $negative.Stderr.Length -eq 0) "UBE path changed-file control failed $level : $($negative.Evidence)"
+    } finally { [IO.File]::WriteAllBytes($pathInput,[byte[]]@(42)) }
+    Write-Output "PASS: UBE path role authority, wrappers, UTF-8 full/physical spelling, same owner and changed-file control $level"
+}
+
+# Executes owner metadata and namespace publication through UBE-generated wrappers.
+$metadataSources=@('BufferPrimitives','FilePrimitives','SystemPrimitives','StandardStreams') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+$metadataInput=Join-Path $workingDirectory 'a.bin'
+$metadataLink=Join-Path $workingDirectory 'b.bin'
+$metadataOutput=Join-Path $workingDirectory 'c.bin'
+[IO.File]::WriteAllBytes($metadataInput,[byte[]]@(42))
+$null=New-Item -ItemType HardLink -Path $metadataLink -Target $metadataInput
+$namespaceSources=@('BufferPrimitives','FilePrimitives','PathPrimitives','DirectoryPrimitives') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+foreach($level in @('O0','O2')) {
+    if(Test-Path -LiteralPath $metadataOutput){Remove-Item -LiteralPath $metadataOutput}
+    $metadata=Emit-Project 'resource-metadata' (@($metadataSources)+@(Join-Path $root 'bootstrap/tests/resource-metadata/Probe.bas')) $level $true
+    $exe=Join-Path $artifacts ('resource-metadata-'+$level+'.exe');Build-Harness $metadata.Path $exe $level
+    $run=Invoke-BoundedProcess $exe @()
+    Require ($run.ExitCode -eq 0 -and $run.Stdout -ceq $exe -and $run.Stderr.Length -eq 0) "UBE metadata assertions failed $level : $($run.ExitCode) $($run.Evidence)"
+    Require ([Convert]::ToBase64String([IO.File]::ReadAllBytes($metadataOutput)) -ceq 'Kg==') 'UBE metadata write bytes differ'
+    [IO.File]::WriteAllBytes($metadataInput,[byte[]]@(43))
+    try {$negative=Invoke-BoundedProcess $exe @();Require ($negative.ExitCode -eq 22) 'UBE metadata changed-file control failed'} finally {[IO.File]::WriteAllBytes($metadataInput,[byte[]]@(42))}
+    $namespace=Emit-Project 'namespace-operations' (@($namespaceSources)+@(Join-Path $root 'bootstrap/tests/namespace-operations/Probe.bas')) $level $true
+    $exe=Join-Path $artifacts ('namespace-operations-'+$level+'.exe');Build-Harness $namespace.Path $exe $level
+    $run=Invoke-BoundedProcess $exe @()
+    Require ($run.ExitCode -eq 0 -and $run.Stdout.Length -eq 0 -and $run.Stderr.Length -eq 0) "UBE namespace assertions failed $level : $($run.ExitCode) $($run.Evidence)"
+    Write-Output "PASS: UBE metadata and namespace role authority, ownership, publication, exact bytes and changed input $level"
+}
+
+# Real child processes exercise every UBE-emitted process wrapper.
+$childIR=Join-Path $artifacts 'process-child.ll'
+$childExe=Join-Path $artifacts 'process-child.exe'
+Write-Text $childIR 'define i32 @main() { ret i32 42 }'
+Build-Harness $childIR $childExe 'O0'
+$spinIR=Join-Path $artifacts 'process-spin.ll'
+$spinExe=Join-Path $artifacts 'process-spin.exe'
+Write-Text $spinIR "declare dllimport ptr @CreateFileW(ptr, i32, i32, ptr, i32, i32, ptr)
+declare dllimport void @Sleep(i32)
+ define i32 @main() {
+ entry: br label %loop
+ loop: call void @Sleep(i32 1000)
+ br label %loop
+ }"
+Build-Harness $spinIR $spinExe 'O0'
+$processSources=@('BufferPrimitives','FilePrimitives','ProcessPrimitives') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+foreach($level in @('O0','O2')) {
+    $logPath=Join-Path $workingDirectory ('process-'+$level+'.log')
+    $body="UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"ProcessEntry`"`r`n"
+    $inputs=@(@('Application',$childExe),@('Command','"'+$childExe+'"'),@('Directory',$workingDirectory),@('LogPath',$logPath),@('SpinApplication',$spinExe),@('SpinCommand','"'+$spinExe+'"'))
+    foreach($item in $inputs){
+        $name=$item[0];$bytes=$utf8.GetBytes($item[1])
+        $body+="Private $name() As Byte`r`n"
+        # Bound generated path setters: long temporary paths otherwise create O0 spill frames over 4 KiB.
+        $chunks=[int][Math]::Ceiling($bytes.Length/32.0)
+        for($chunk=0;$chunk -lt $chunks;$chunk++){
+            $body+="' Fills one bounded span of the exact independent path bytes.`r`nPrivate Function Fill$name$chunk() As Boolean`r`n"
+            $end=[Math]::Min($bytes.Length,($chunk+1)*32)
+            for($i=$chunk*32;$i -lt $end;$i++){$body+="$name($i) = $($bytes[$i])`r`n"}
+            $body+="Fill$name$chunk = True`r`nEnd Function`r`n"
+        }
+        $body+="' Allocates the complete input then fills its checked spans.`r`nPrivate Function Init$name() As Boolean`r`nIf Not BufferPrimitives.TryResizeBytes($name, $($bytes.Length), False) Then Exit Function`r`n"
+        for($chunk=0;$chunk -lt $chunks;$chunk++){$body+="If Not Fill$name$chunk() Then Exit Function`r`n"}
+        $body+="Init$name = True`r`nEnd Function`r`n"
+    }
+    $body+=@'
+Public Function Main() As Long
+    Dim Result As Long
+    On Error GoTo Failed
+    If Not InitApplication() Or Not InitCommand() Or Not InitDirectory() Or Not InitLogPath() Or Not InitSpinApplication() Or Not InitSpinCommand() Then Main = 1: Exit Function
+    Result = ProcessProbe.PrepareLog(LogPath)
+    If Result <> 0 Then Main = 2: Exit Function
+    Result = ProcessProbe.StartAttempt(Application, Command, Directory)
+    If Result <> 0 Then Main = 3: GoTo Cleanup
+    If ProcessProbe.CheckAliases() <> 0 Or ProcessProbe.CheckKinds() <> 0 Then Main = 4: GoTo Cleanup
+    If ProcessProbe.WaitComplete() <> 0 Then Main = 5: GoTo Cleanup
+    If ProcessProbe.Field(2) <> 42 Then Main = 6: GoTo Cleanup
+    If ProcessProbe.CloseOnce() <> 0 Then Main = 7: GoTo Cleanup
+    If ProcessProbe.StartAttempt(SpinApplication, SpinCommand, Directory) <> 0 Then Main = 8: GoTo Cleanup
+    If ProcessProbe.WaitOnce(0) <> 0 Or ProcessProbe.Field(1) <> 0 Then Main = 9: GoTo Cleanup
+    If ProcessProbe.StopOnce() <> 0 Then Main = 10: GoTo Cleanup
+    If ProcessProbe.WaitComplete() <> 0 Then Main = 11: GoTo Cleanup
+    If ProcessProbe.CloseOnce() <> 0 Then Main = 12: GoTo Cleanup
+    If ProcessProbe.CloseLog() <> 0 Then Main = 13
+    Exit Function
+Failed:
+    Main = 90 + Err.Number
+Cleanup:
+    Result = ProcessProbe.CleanupChild()
+    Result = ProcessProbe.CloseLog()
+End Function
+'@
+    $entryPath=Join-Path $artifacts ('ProcessEntry-'+$level+'.bas');Write-Text $entryPath $body
+    $process=Emit-Project 'process-owners' (@($processSources)+@(Join-Path $root 'bootstrap/tests/process-primitives/Probe.bas')+@($entryPath)) $level $true
+    $exe=Join-Path $artifacts ('process-owners-'+$level+'.exe');Build-Harness $process.Path $exe $level
+    $run=Invoke-BoundedProcess $exe @()
+    Require ($run.ExitCode -eq 0 -and (Get-Item -LiteralPath $logPath).Length -eq 0) "UBE process owner assertions failed $level : $($run.ExitCode) $($run.Evidence)"
+    Write-Output "PASS: UBE process start/wait/terminate/close, exit status, aliases and foreign owner refusal $level"
+}
+
 # The compiler and portable-library procedure bodies themselves must be lowered by UBE and accepted by LLVM.
 $actual=Emit-Project 'compiler-sources' (@($core)+@($compiler)) 'O0'
 foreach($level in @('O0','O2')) {
@@ -313,7 +450,7 @@ foreach($level in @('O0','O2')) {
     Require ((Get-Item -LiteralPath $object).Length -gt 0) 'LLVM emitted no compiler object'
     $undefined=Invoke-BoundedProcess (Join-Path ([IO.Path]::GetDirectoryName($Clang)) 'llvm-nm.exe') @('--undefined-only',$object)
     Require ($undefined.ExitCode -eq 0 -and $undefined.Stdout -notmatch '__chkstk|memcpy|memmove|memset') "Generated compiler has unavailable helper dependency $level : $($undefined.Evidence)"
-    $allowed=@('__imp_CloseHandle','__imp_CreateFileW','__imp_FlushFileBuffers','__imp_GetFileSizeEx','__imp_GetFileType','__imp_MultiByteToWideChar','__imp_ReadFile','__imp_VirtualAlloc','__imp_VirtualFree','__imp_WriteFile')
+    $allowed=@('__imp_CloseHandle','__imp_CreateFileW','__imp_FlushFileBuffers','__imp_GetFileSizeEx','__imp_GetFileType','__imp_MultiByteToWideChar','__imp_ReadFile','__imp_VirtualAlloc','__imp_VirtualFree','__imp_WriteFile','__imp_GetCommandLineW','__imp_GetStdHandle','__imp_WideCharToMultiByte','__imp_GetFullPathNameW','__imp_GetFinalPathNameByHandleW','__imp_CompareStringOrdinal','__imp_GetFileInformationByHandle','__imp_GetModuleFileNameW','__imp_GetTickCount64','__imp_GetCurrentProcess','__imp_DuplicateHandle','__imp_CreateProcessW','__imp_InitializeProcThreadAttributeList','__imp_UpdateProcThreadAttribute','__imp_DeleteProcThreadAttributeList','__imp_CreateJobObjectW','__imp_SetInformationJobObject','__imp_AssignProcessToJobObject','__imp_ResumeThread','__imp_WaitForSingleObject','__imp_GetExitCodeProcess','__imp_QueryInformationJobObject','__imp_TerminateJobObject','__imp_TerminateProcess','__imp_Sleep','__imp_GetLastError','__imp_CreateDirectoryW','__imp_RemoveDirectoryW','__imp_DeleteFileW','__imp_MoveFileExW','__imp_GetFileAttributesW')
     foreach($line in ($undefined.Stdout -split '\r?\n')){if($line.Trim().Length -gt 0){Require ($line -match '^\s*U\s+(\S+)\s*$') 'Unrecognized undefined-symbol evidence';Require ($Matches[1] -in $allowed) "Unexpected generated compiler dependency $($Matches[1])"}}
     Write-Output "PASS: actual compiler/library bodies lowered by UBE and LLVM compiled $level"
 }

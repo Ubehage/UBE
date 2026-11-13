@@ -115,9 +115,28 @@ Public Const ReturnFailedValue As Long = 111
 Public Const ModuleEnsureDefinition As Long = 112
 Public Const SourceLocation As Long = 113
 Public Const TargetHeader As Long = 114
-Public Const TemplateCount As Long = 114
-Public Const CatalogLength As Long = 15641
-Public Const CatalogByteSum As Long = 1247404
+Public Const IntrinsicSystemCommandLine As Long = 115
+Public Const IntrinsicSystemWrite As Long = 116
+Public Const IntrinsicFileFinalPath As Long = 117
+Public Const IntrinsicPathFullPath As Long = 118
+Public Const IntrinsicPathCompareOrdinal As Long = 119
+Public Const IntrinsicProcessStart As Long = 120
+Public Const IntrinsicProcessWait As Long = 121
+Public Const IntrinsicProcessTerminate As Long = 122
+Public Const IntrinsicProcessClose As Long = 123
+Public Const IntrinsicFileOpenDirectory As Long = 124
+Public Const IntrinsicFileIdentity As Long = 125
+Public Const IntrinsicFileLength As Long = 126
+Public Const IntrinsicSystemExecutablePath As Long = 127
+Public Const IntrinsicSystemMonotonicMilliseconds As Long = 128
+Public Const IntrinsicDirectoryCreate As Long = 129
+Public Const IntrinsicDirectoryRemove As Long = 130
+Public Const IntrinsicFileDelete As Long = 131
+Public Const IntrinsicFileReplace As Long = 132
+Public Const IntrinsicPathKind As Long = 133
+Public Const TemplateCount As Long = 133
+Public Const CatalogLength As Long = 22016
+Public Const CatalogByteSum As Long = 1727128
 
 ' Returns one exact span without changing caller outputs for an unknown identity.
 Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Long) As Boolean
@@ -127,112 +146,131 @@ Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Lo
     If Id = 4 Then Start = 60: Count = 24: TrySpan = True: Exit Function
     If Id = 5 Then Start = 84: Count = 29: TrySpan = True: Exit Function
     If Id = 6 Then Start = 113: Count = 28: TrySpan = True: Exit Function
-    If Id = 7 Then Start = 141: Count = 91: TrySpan = True: Exit Function
-    If Id = 8 Then Start = 232: Count = 41: TrySpan = True: Exit Function
-    If Id = 9 Then Start = 273: Count = 14: TrySpan = True: Exit Function
-    If Id = 10 Then Start = 287: Count = 14: TrySpan = True: Exit Function
-    If Id = 11 Then Start = 301: Count = 3: TrySpan = True: Exit Function
-    If Id = 12 Then Start = 304: Count = 1: TrySpan = True: Exit Function
-    If Id = 13 Then Start = 305: Count = 44: TrySpan = True: Exit Function
-    If Id = 14 Then Start = 349: Count = 1330: TrySpan = True: Exit Function
-    If Id = 15 Then Start = 1679: Count = 122: TrySpan = True: Exit Function
-    If Id = 16 Then Start = 1801: Count = 260: TrySpan = True: Exit Function
-    If Id = 17 Then Start = 2061: Count = 58: TrySpan = True: Exit Function
-    If Id = 18 Then Start = 2119: Count = 20: TrySpan = True: Exit Function
-    If Id = 19 Then Start = 2139: Count = 896: TrySpan = True: Exit Function
-    If Id = 20 Then Start = 3035: Count = 25: TrySpan = True: Exit Function
-    If Id = 21 Then Start = 3060: Count = 28: TrySpan = True: Exit Function
-    If Id = 22 Then Start = 3088: Count = 43: TrySpan = True: Exit Function
-    If Id = 23 Then Start = 3131: Count = 51: TrySpan = True: Exit Function
-    If Id = 24 Then Start = 3182: Count = 30: TrySpan = True: Exit Function
-    If Id = 25 Then Start = 3212: Count = 40: TrySpan = True: Exit Function
-    If Id = 26 Then Start = 3252: Count = 33: TrySpan = True: Exit Function
-    If Id = 27 Then Start = 3285: Count = 32: TrySpan = True: Exit Function
-    If Id = 28 Then Start = 3317: Count = 32: TrySpan = True: Exit Function
-    If Id = 29 Then Start = 3349: Count = 34: TrySpan = True: Exit Function
-    If Id = 30 Then Start = 3383: Count = 28: TrySpan = True: Exit Function
-    If Id = 31 Then Start = 3411: Count = 44: TrySpan = True: Exit Function
-    If Id = 32 Then Start = 3455: Count = 44: TrySpan = True: Exit Function
-    If Id = 33 Then Start = 3499: Count = 77: TrySpan = True: Exit Function
-    If Id = 34 Then Start = 3576: Count = 77: TrySpan = True: Exit Function
-    If Id = 35 Then Start = 3653: Count = 77: TrySpan = True: Exit Function
-    If Id = 36 Then Start = 3730: Count = 77: TrySpan = True: Exit Function
-    If Id = 37 Then Start = 3807: Count = 77: TrySpan = True: Exit Function
-    If Id = 38 Then Start = 3884: Count = 77: TrySpan = True: Exit Function
-    If Id = 39 Then Start = 3961: Count = 380: TrySpan = True: Exit Function
-    If Id = 40 Then Start = 4341: Count = 393: TrySpan = True: Exit Function
-    If Id = 41 Then Start = 4734: Count = 408: TrySpan = True: Exit Function
-    If Id = 42 Then Start = 5142: Count = 407: TrySpan = True: Exit Function
-    If Id = 43 Then Start = 5549: Count = 299: TrySpan = True: Exit Function
-    If Id = 44 Then Start = 5848: Count = 299: TrySpan = True: Exit Function
-    If Id = 45 Then Start = 6147: Count = 289: TrySpan = True: Exit Function
-    If Id = 46 Then Start = 6436: Count = 435: TrySpan = True: Exit Function
-    If Id = 47 Then Start = 6871: Count = 3792: TrySpan = True: Exit Function
-    If Id = 48 Then Start = 10663: Count = 337: TrySpan = True: Exit Function
-    If Id = 49 Then Start = 11000: Count = 311: TrySpan = True: Exit Function
-    If Id = 50 Then Start = 11311: Count = 69: TrySpan = True: Exit Function
-    If Id = 51 Then Start = 11380: Count = 48: TrySpan = True: Exit Function
-    If Id = 52 Then Start = 11428: Count = 49: TrySpan = True: Exit Function
-    If Id = 53 Then Start = 11477: Count = 49: TrySpan = True: Exit Function
-    If Id = 54 Then Start = 11526: Count = 47: TrySpan = True: Exit Function
-    If Id = 55 Then Start = 11573: Count = 49: TrySpan = True: Exit Function
-    If Id = 56 Then Start = 11622: Count = 29: TrySpan = True: Exit Function
-    If Id = 57 Then Start = 11651: Count = 28: TrySpan = True: Exit Function
-    If Id = 58 Then Start = 11679: Count = 27: TrySpan = True: Exit Function
-    If Id = 59 Then Start = 11706: Count = 40: TrySpan = True: Exit Function
-    If Id = 60 Then Start = 11746: Count = 31: TrySpan = True: Exit Function
-    If Id = 61 Then Start = 11777: Count = 104: TrySpan = True: Exit Function
-    If Id = 62 Then Start = 11881: Count = 47: TrySpan = True: Exit Function
-    If Id = 63 Then Start = 11928: Count = 39: TrySpan = True: Exit Function
-    If Id = 64 Then Start = 11967: Count = 35: TrySpan = True: Exit Function
-    If Id = 65 Then Start = 12002: Count = 35: TrySpan = True: Exit Function
-    If Id = 66 Then Start = 12037: Count = 28: TrySpan = True: Exit Function
-    If Id = 67 Then Start = 12065: Count = 30: TrySpan = True: Exit Function
-    If Id = 68 Then Start = 12095: Count = 28: TrySpan = True: Exit Function
-    If Id = 69 Then Start = 12123: Count = 38: TrySpan = True: Exit Function
-    If Id = 70 Then Start = 12161: Count = 37: TrySpan = True: Exit Function
-    If Id = 71 Then Start = 12198: Count = 26: TrySpan = True: Exit Function
-    If Id = 72 Then Start = 12224: Count = 35: TrySpan = True: Exit Function
-    If Id = 73 Then Start = 12259: Count = 50: TrySpan = True: Exit Function
-    If Id = 74 Then Start = 12309: Count = 34: TrySpan = True: Exit Function
-    If Id = 75 Then Start = 12343: Count = 36: TrySpan = True: Exit Function
-    If Id = 76 Then Start = 12379: Count = 30: TrySpan = True: Exit Function
-    If Id = 77 Then Start = 12409: Count = 77: TrySpan = True: Exit Function
-    If Id = 78 Then Start = 12486: Count = 34: TrySpan = True: Exit Function
-    If Id = 79 Then Start = 12520: Count = 35: TrySpan = True: Exit Function
-    If Id = 80 Then Start = 12555: Count = 35: TrySpan = True: Exit Function
-    If Id = 81 Then Start = 12590: Count = 29: TrySpan = True: Exit Function
-    If Id = 82 Then Start = 12619: Count = 28: TrySpan = True: Exit Function
-    If Id = 83 Then Start = 12647: Count = 30: TrySpan = True: Exit Function
-    If Id = 84 Then Start = 12677: Count = 29: TrySpan = True: Exit Function
-    If Id = 85 Then Start = 12706: Count = 27: TrySpan = True: Exit Function
-    If Id = 86 Then Start = 12733: Count = 23: TrySpan = True: Exit Function
-    If Id = 87 Then Start = 12756: Count = 28: TrySpan = True: Exit Function
-    If Id = 88 Then Start = 12784: Count = 49: TrySpan = True: Exit Function
-    If Id = 89 Then Start = 12833: Count = 11: TrySpan = True: Exit Function
-    If Id = 90 Then Start = 12844: Count = 11: TrySpan = True: Exit Function
-    If Id = 91 Then Start = 12855: Count = 1: TrySpan = True: Exit Function
-    If Id = 92 Then Start = 12856: Count = 43: TrySpan = True: Exit Function
-    If Id = 93 Then Start = 12899: Count = 134: TrySpan = True: Exit Function
-    If Id = 94 Then Start = 13033: Count = 135: TrySpan = True: Exit Function
-    If Id = 95 Then Start = 13168: Count = 304: TrySpan = True: Exit Function
-    If Id = 96 Then Start = 13472: Count = 41: TrySpan = True: Exit Function
-    If Id = 97 Then Start = 13513: Count = 35: TrySpan = True: Exit Function
-    If Id = 98 Then Start = 13548: Count = 33: TrySpan = True: Exit Function
-    If Id = 99 Then Start = 13581: Count = 64: TrySpan = True: Exit Function
-    If Id = 100 Then Start = 13645: Count = 347: TrySpan = True: Exit Function
-    If Id = 101 Then Start = 13992: Count = 17: TrySpan = True: Exit Function
-    If Id = 102 Then Start = 14009: Count = 555: TrySpan = True: Exit Function
-    If Id = 103 Then Start = 14564: Count = 24: TrySpan = True: Exit Function
-    If Id = 104 Then Start = 14588: Count = 3: TrySpan = True: Exit Function
-    If Id = 105 Then Start = 14591: Count = 64: TrySpan = True: Exit Function
-    If Id = 106 Then Start = 14655: Count = 12: TrySpan = True: Exit Function
-    If Id = 107 Then Start = 14667: Count = 139: TrySpan = True: Exit Function
-    If Id = 108 Then Start = 14806: Count = 147: TrySpan = True: Exit Function
-    If Id = 109 Then Start = 14953: Count = 33: TrySpan = True: Exit Function
-    If Id = 110 Then Start = 14986: Count = 91: TrySpan = True: Exit Function
-    If Id = 111 Then Start = 15077: Count = 37: TrySpan = True: Exit Function
-    If Id = 112 Then Start = 15114: Count = 443: TrySpan = True: Exit Function
-    If Id = 113 Then Start = 15557: Count = 44: TrySpan = True: Exit Function
-    If Id = 114 Then Start = 15601: Count = 40: TrySpan = True: Exit Function
+    If Id = 7 Then Start = 141: Count = 95: TrySpan = True: Exit Function
+    If Id = 8 Then Start = 236: Count = 41: TrySpan = True: Exit Function
+    If Id = 9 Then Start = 277: Count = 14: TrySpan = True: Exit Function
+    If Id = 10 Then Start = 291: Count = 14: TrySpan = True: Exit Function
+    If Id = 11 Then Start = 305: Count = 3: TrySpan = True: Exit Function
+    If Id = 12 Then Start = 308: Count = 1: TrySpan = True: Exit Function
+    If Id = 13 Then Start = 309: Count = 48: TrySpan = True: Exit Function
+    If Id = 14 Then Start = 357: Count = 1342: TrySpan = True: Exit Function
+    If Id = 15 Then Start = 1699: Count = 122: TrySpan = True: Exit Function
+    If Id = 16 Then Start = 1821: Count = 260: TrySpan = True: Exit Function
+    If Id = 17 Then Start = 2081: Count = 58: TrySpan = True: Exit Function
+    If Id = 18 Then Start = 2139: Count = 20: TrySpan = True: Exit Function
+    If Id = 19 Then Start = 2159: Count = 896: TrySpan = True: Exit Function
+    If Id = 20 Then Start = 3055: Count = 25: TrySpan = True: Exit Function
+    If Id = 21 Then Start = 3080: Count = 28: TrySpan = True: Exit Function
+    If Id = 22 Then Start = 3108: Count = 43: TrySpan = True: Exit Function
+    If Id = 23 Then Start = 3151: Count = 51: TrySpan = True: Exit Function
+    If Id = 24 Then Start = 3202: Count = 30: TrySpan = True: Exit Function
+    If Id = 25 Then Start = 3232: Count = 40: TrySpan = True: Exit Function
+    If Id = 26 Then Start = 3272: Count = 33: TrySpan = True: Exit Function
+    If Id = 27 Then Start = 3305: Count = 32: TrySpan = True: Exit Function
+    If Id = 28 Then Start = 3337: Count = 32: TrySpan = True: Exit Function
+    If Id = 29 Then Start = 3369: Count = 34: TrySpan = True: Exit Function
+    If Id = 30 Then Start = 3403: Count = 28: TrySpan = True: Exit Function
+    If Id = 31 Then Start = 3431: Count = 44: TrySpan = True: Exit Function
+    If Id = 32 Then Start = 3475: Count = 44: TrySpan = True: Exit Function
+    If Id = 33 Then Start = 3519: Count = 77: TrySpan = True: Exit Function
+    If Id = 34 Then Start = 3596: Count = 77: TrySpan = True: Exit Function
+    If Id = 35 Then Start = 3673: Count = 77: TrySpan = True: Exit Function
+    If Id = 36 Then Start = 3750: Count = 77: TrySpan = True: Exit Function
+    If Id = 37 Then Start = 3827: Count = 77: TrySpan = True: Exit Function
+    If Id = 38 Then Start = 3904: Count = 77: TrySpan = True: Exit Function
+    If Id = 39 Then Start = 3981: Count = 380: TrySpan = True: Exit Function
+    If Id = 40 Then Start = 4361: Count = 393: TrySpan = True: Exit Function
+    If Id = 41 Then Start = 4754: Count = 408: TrySpan = True: Exit Function
+    If Id = 42 Then Start = 5162: Count = 407: TrySpan = True: Exit Function
+    If Id = 43 Then Start = 5569: Count = 299: TrySpan = True: Exit Function
+    If Id = 44 Then Start = 5868: Count = 299: TrySpan = True: Exit Function
+    If Id = 45 Then Start = 6167: Count = 289: TrySpan = True: Exit Function
+    If Id = 46 Then Start = 6456: Count = 435: TrySpan = True: Exit Function
+    If Id = 47 Then Start = 6891: Count = 3792: TrySpan = True: Exit Function
+    If Id = 48 Then Start = 10683: Count = 337: TrySpan = True: Exit Function
+    If Id = 49 Then Start = 11020: Count = 311: TrySpan = True: Exit Function
+    If Id = 50 Then Start = 11331: Count = 69: TrySpan = True: Exit Function
+    If Id = 51 Then Start = 11400: Count = 48: TrySpan = True: Exit Function
+    If Id = 52 Then Start = 11448: Count = 49: TrySpan = True: Exit Function
+    If Id = 53 Then Start = 11497: Count = 49: TrySpan = True: Exit Function
+    If Id = 54 Then Start = 11546: Count = 47: TrySpan = True: Exit Function
+    If Id = 55 Then Start = 11593: Count = 49: TrySpan = True: Exit Function
+    If Id = 56 Then Start = 11642: Count = 29: TrySpan = True: Exit Function
+    If Id = 57 Then Start = 11671: Count = 28: TrySpan = True: Exit Function
+    If Id = 58 Then Start = 11699: Count = 27: TrySpan = True: Exit Function
+    If Id = 59 Then Start = 11726: Count = 40: TrySpan = True: Exit Function
+    If Id = 60 Then Start = 11766: Count = 31: TrySpan = True: Exit Function
+    If Id = 61 Then Start = 11797: Count = 104: TrySpan = True: Exit Function
+    If Id = 62 Then Start = 11901: Count = 47: TrySpan = True: Exit Function
+    If Id = 63 Then Start = 11948: Count = 39: TrySpan = True: Exit Function
+    If Id = 64 Then Start = 11987: Count = 35: TrySpan = True: Exit Function
+    If Id = 65 Then Start = 12022: Count = 35: TrySpan = True: Exit Function
+    If Id = 66 Then Start = 12057: Count = 28: TrySpan = True: Exit Function
+    If Id = 67 Then Start = 12085: Count = 30: TrySpan = True: Exit Function
+    If Id = 68 Then Start = 12115: Count = 28: TrySpan = True: Exit Function
+    If Id = 69 Then Start = 12143: Count = 38: TrySpan = True: Exit Function
+    If Id = 70 Then Start = 12181: Count = 37: TrySpan = True: Exit Function
+    If Id = 71 Then Start = 12218: Count = 26: TrySpan = True: Exit Function
+    If Id = 72 Then Start = 12244: Count = 35: TrySpan = True: Exit Function
+    If Id = 73 Then Start = 12279: Count = 50: TrySpan = True: Exit Function
+    If Id = 74 Then Start = 12329: Count = 34: TrySpan = True: Exit Function
+    If Id = 75 Then Start = 12363: Count = 36: TrySpan = True: Exit Function
+    If Id = 76 Then Start = 12399: Count = 30: TrySpan = True: Exit Function
+    If Id = 77 Then Start = 12429: Count = 77: TrySpan = True: Exit Function
+    If Id = 78 Then Start = 12506: Count = 34: TrySpan = True: Exit Function
+    If Id = 79 Then Start = 12540: Count = 35: TrySpan = True: Exit Function
+    If Id = 80 Then Start = 12575: Count = 35: TrySpan = True: Exit Function
+    If Id = 81 Then Start = 12610: Count = 29: TrySpan = True: Exit Function
+    If Id = 82 Then Start = 12639: Count = 28: TrySpan = True: Exit Function
+    If Id = 83 Then Start = 12667: Count = 30: TrySpan = True: Exit Function
+    If Id = 84 Then Start = 12697: Count = 29: TrySpan = True: Exit Function
+    If Id = 85 Then Start = 12726: Count = 27: TrySpan = True: Exit Function
+    If Id = 86 Then Start = 12753: Count = 23: TrySpan = True: Exit Function
+    If Id = 87 Then Start = 12776: Count = 28: TrySpan = True: Exit Function
+    If Id = 88 Then Start = 12804: Count = 49: TrySpan = True: Exit Function
+    If Id = 89 Then Start = 12853: Count = 11: TrySpan = True: Exit Function
+    If Id = 90 Then Start = 12864: Count = 11: TrySpan = True: Exit Function
+    If Id = 91 Then Start = 12875: Count = 1: TrySpan = True: Exit Function
+    If Id = 92 Then Start = 12876: Count = 43: TrySpan = True: Exit Function
+    If Id = 93 Then Start = 12919: Count = 134: TrySpan = True: Exit Function
+    If Id = 94 Then Start = 13053: Count = 135: TrySpan = True: Exit Function
+    If Id = 95 Then Start = 13188: Count = 304: TrySpan = True: Exit Function
+    If Id = 96 Then Start = 13492: Count = 41: TrySpan = True: Exit Function
+    If Id = 97 Then Start = 13533: Count = 35: TrySpan = True: Exit Function
+    If Id = 98 Then Start = 13568: Count = 33: TrySpan = True: Exit Function
+    If Id = 99 Then Start = 13601: Count = 64: TrySpan = True: Exit Function
+    If Id = 100 Then Start = 13665: Count = 347: TrySpan = True: Exit Function
+    If Id = 101 Then Start = 14012: Count = 17: TrySpan = True: Exit Function
+    If Id = 102 Then Start = 14029: Count = 555: TrySpan = True: Exit Function
+    If Id = 103 Then Start = 14584: Count = 24: TrySpan = True: Exit Function
+    If Id = 104 Then Start = 14608: Count = 3: TrySpan = True: Exit Function
+    If Id = 105 Then Start = 14611: Count = 64: TrySpan = True: Exit Function
+    If Id = 106 Then Start = 14675: Count = 12: TrySpan = True: Exit Function
+    If Id = 107 Then Start = 14687: Count = 139: TrySpan = True: Exit Function
+    If Id = 108 Then Start = 14826: Count = 147: TrySpan = True: Exit Function
+    If Id = 109 Then Start = 14973: Count = 33: TrySpan = True: Exit Function
+    If Id = 110 Then Start = 15006: Count = 91: TrySpan = True: Exit Function
+    If Id = 111 Then Start = 15097: Count = 37: TrySpan = True: Exit Function
+    If Id = 112 Then Start = 15134: Count = 443: TrySpan = True: Exit Function
+    If Id = 113 Then Start = 15577: Count = 44: TrySpan = True: Exit Function
+    If Id = 114 Then Start = 15621: Count = 40: TrySpan = True: Exit Function
+    If Id = 115 Then Start = 15661: Count = 331: TrySpan = True: Exit Function
+    If Id = 116 Then Start = 15992: Count = 397: TrySpan = True: Exit Function
+    If Id = 117 Then Start = 16389: Count = 368: TrySpan = True: Exit Function
+    If Id = 118 Then Start = 16757: Count = 366: TrySpan = True: Exit Function
+    If Id = 119 Then Start = 17123: Count = 349: TrySpan = True: Exit Function
+    If Id = 120 Then Start = 17472: Count = 398: TrySpan = True: Exit Function
+    If Id = 121 Then Start = 17870: Count = 373: TrySpan = True: Exit Function
+    If Id = 122 Then Start = 18243: Count = 306: TrySpan = True: Exit Function
+    If Id = 123 Then Start = 18549: Count = 302: TrySpan = True: Exit Function
+    If Id = 124 Then Start = 18851: Count = 327: TrySpan = True: Exit Function
+    If Id = 125 Then Start = 19178: Count = 326: TrySpan = True: Exit Function
+    If Id = 126 Then Start = 19504: Count = 324: TrySpan = True: Exit Function
+    If Id = 127 Then Start = 19828: Count = 330: TrySpan = True: Exit Function
+    If Id = 128 Then Start = 20158: Count = 301: TrySpan = True: Exit Function
+    If Id = 129 Then Start = 20459: Count = 305: TrySpan = True: Exit Function
+    If Id = 130 Then Start = 20764: Count = 305: TrySpan = True: Exit Function
+    If Id = 131 Then Start = 21069: Count = 300: TrySpan = True: Exit Function
+    If Id = 132 Then Start = 21369: Count = 325: TrySpan = True: Exit Function
+    If Id = 133 Then Start = 21694: Count = 322: TrySpan = True: Exit Function
 End Function

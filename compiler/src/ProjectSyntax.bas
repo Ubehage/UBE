@@ -1,5 +1,6 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ProjectSyntax"
+Public Const MaximumProjectNodes As Long = 131072
 ' Retains module syntax in caller-owned flat arenas with committed logical prefixes.
 Public Type ParsedModule
     ByteBase As Long
@@ -77,7 +78,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim I As Long
     Dim Finish As Long
     On Error GoTo Failed
-    If M.ByteCount <= 0 Or M.TokenCount < 2 Or M.NodeCount < 1 Then Exit Function
+    If M.ByteCount <= 0 Or M.TokenCount < 2 Or M.NodeCount < 1 Or M.NodeCount > 65536 Then Exit Function
     If M.RootNode <> M.NodeBase + 1 Then Exit Function
     If M.NameToken < M.TokenBase Or M.NameToken >= M.TokenBase + M.TokenCount Then Exit Function
     If N(M.NodeBase).Kind <> SourceParser.ModuleNode Then Exit Function
@@ -136,7 +137,7 @@ Public Function IsValidProject(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     If C.ModuleCount < 0 Or C.ModuleCount > 128 Then Exit Function
     If C.ByteCount < 0 Or C.ByteCount > 1048576 Then Exit Function
     If C.TokenCount < 0 Or C.TokenCount > 262144 Then Exit Function
-    If C.NodeCount < 0 Or C.NodeCount > 65536 Then Exit Function
+    If C.NodeCount < 0 Or C.NodeCount > MaximumProjectNodes Then Exit Function
     Size = BufferPrimitives.ByteStorageLength(B)
     If C.ByteCount > Size Then Exit Function
     If Size > 0 Then Probe = B(0): Probe = B(Size - 1)
@@ -273,7 +274,7 @@ Public Function TryAppendModule(ByRef Source() As Byte, ByRef Bytes() As Byte, B
     If Counts.ModuleCount >= 128 Then Exit Function
     If Added.ByteCount > 1048576 - Counts.ByteCount Then Exit Function
     If Added.TokenCount > 262144 - Counts.TokenCount Then Exit Function
-    If Added.NodeCount > 65536 - Counts.NodeCount Then Exit Function
+    If Added.NodeCount > MaximumProjectNodes - Counts.NodeCount Then Exit Function
     Diagnostic.Code = 5
     If Not Reserve(Bytes, Tokens, Nodes, Modules, Counts, Added) Then Exit Function
     Added.ByteBase = Counts.ByteCount

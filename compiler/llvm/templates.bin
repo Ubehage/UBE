@@ -1,5 +1,5 @@
-  br label %b{0}  br i1 %v{0}, label %b{1}, label %b{2}b{0}:  %v{0} = add i64 0, {1}  %v{0} = load i64, ptr %v{1}  store i64 %v{0}, ptr %v{1}%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.{0}, ptr %arg.{0}) {}%ube.file = type { i64, ptr, ptr, i64, i64 }%ube.file = type { i64, ptr, ptr, i64, i64 }
-%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }
+  br label %b{0}  br i1 %v{0}, label %b{1}, label %b{2}b{0}:  %v{0} = add i64 0, {1}  %v{0} = load i64, ptr %v{1}  store i64 %v{0}, ptr %v{1}%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource] }define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.{0}, ptr %arg.{0}) {}%ube.resource = type { i64, ptr, ptr, i64, i64 }%ube.resource = type { i64, ptr, ptr, i64, i64 }
+%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource] }
 
 declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)
 declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)
@@ -30,7 +30,7 @@ entry:
   %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1
   %depth = load i64, ptr %depth.ptr
   %depth.active = icmp ne i64 %depth, 0
-  %files.empty = call i1 @ube.file.empty(ptr %ctx)
+  %files.empty = call i1 @ube.resource.empty(ptr %ctx)
   %files.live = xor i1 %files.empty, true
   %active = or i1 %depth.active, %files.live
   br i1 %active, label %busy, label %release
@@ -275,4 +275,136 @@ initialize:
   br label %done
 done:
   ret i1 true
-}; module {0}, node {1}, line {2}, column {3}target triple = "x86_64-pc-windows-msvc"
+}; module {0}, node {1}, line {2}, column {3}target triple = "x86_64-pc-windows-msvc"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.system.commandline(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {
+entry:
+  %accepted = call i1 @ube.system.write(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {
+entry:
+  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr null, i64 %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3, i1 true)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {
+entry:
+  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr %arg.0, i64 0, ptr %arg.1, ptr %arg.2, ptr %arg.3, i1 false)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3) {
+entry:
+  %accepted = call i1 @ube.path.compare(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, ptr %arg.3)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {
+entry:
+  %accepted = call i1 @ube.process.start(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4) {
+entry:
+  %accepted = call i1 @ube.process.wait(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.process.terminate(ptr %ctx, i64 %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.process.close(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.directory.open(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.file.identity(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.file.length(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.system.executable(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.system.clock(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.directory.create(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.directory.remove(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.file.delete(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.file.replace(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.path.kind(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}

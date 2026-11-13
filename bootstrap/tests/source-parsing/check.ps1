@@ -447,7 +447,21 @@ $manifest = New-Fixture 'token length bound' @("Sub Main()`nErr.Raise `"" + ('x'
 Assert-Rejected 'token length bounded' $manifest 'E_LIMIT' 'Example.bas:'
 $largeBody = "Sub Main()`nDim X As Long`n" + ("X = 1 + 2`n" * 6000) + 'End Sub'
 $manifest = New-Fixture 'project node count bound' @($largeBody,$largeBody,$largeBody) @('NodesA','NodesB','NodesC')
-Assert-Rejected 'project AST node count bounded' $manifest 'E_LIMIT' ''
+$expanded = Invoke-BoundedProcess $BootstrapExe @('--dump-ast', $manifest)
+Require ($expanded.ExitCode -eq 0 -and ([regex]::Matches($expanded.Stdout, '(?m)^NODE ')).Count -eq 90013) 'Project above former65536 node ceiling was not retained'
+$script:passed++
+Write-Output 'PASS: 90013 project nodes accepted across three modules'
+# Each assignment has five nodes; each module/sub/block/variable envelope has four.
+# Four6000-assignment modules plus2210 assignments and one extra variable reach131072 including the project root.
+$lastBody = "Sub Main()`nDim X As Long`nDim Y As Long`n" + ("X = 1 + 2`n" * 2210) + 'End Sub'
+$manifest = New-Fixture 'exact project node bound' @($largeBody,$largeBody,$largeBody,$largeBody,$lastBody) @('NodesA','NodesB','NodesC','NodesD','NodesE')
+$exact = Invoke-BoundedProcess $BootstrapExe @('--dump-ast', $manifest)
+Require ($exact.ExitCode -eq 0 -and ([regex]::Matches($exact.Stdout, '(?m)^NODE ')).Count -eq 131072) 'Exact131072 project node capacity failed'
+$script:passed++
+Write-Output 'PASS: exactly131072 project nodes retained'
+$lastBody = $lastBody.Replace('Dim Y As Long', "Dim Y As Long`nDim Z As Long")
+$manifest = New-Fixture 'excess project node bound' @($largeBody,$largeBody,$largeBody,$largeBody,$lastBody) @('NodesA','NodesB','NodesC','NodesD','NodesE')
+Assert-Rejected 'project AST node131073 refused' $manifest 'E_LIMIT' 'NodesE.bas:'
 
 $blankBody = ("`n" * 50000) + "Sub EmptyBody()`nEnd Sub"
 $manifest = New-Fixture 'near aggregate token bound' @($blankBody,$blankBody,$blankBody,$blankBody,$blankBody) @('TokensA','TokensB','TokensC','TokensD','TokensE')

@@ -3,7 +3,7 @@ Option Explicit
 
 ' Native lowering retains explicit context ownership and fresh call outcomes.
 Public Const MaximumIRCharacters As Long = 16777216
-Public Const MaximumIRLines As Long = 250000
+Public Const MaximumIRLines As Long = 500000
 Public Const MaximumNativeSlots As Long = 128
 Public Const MaximumNativeParameters As Long = 64
 Public Const MaximumNativeCallDepth As Long = 256
@@ -1465,6 +1465,44 @@ Private Sub EmitFileIntrinsic(ByRef Bound As BoundProject, ByRef State As Emissi
     Call AddLine(State, "define { i1, i64 } @ube.proc." & CStr(Symbol) & "(" & Signature & ") {")
     Call AddLine(State, "entry:")
     Select Case Role
+    Case "system.tryreadcommandline"
+        Call AddLine(State, "  %accepted = call i1 @ube.system.commandline(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "system.trywritestandard"
+        Call AddLine(State, "  %accepted = call i1 @ube.system.write(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", i64 " & Arguments(2) & ", i64 " & Arguments(3) & ", ptr " & Arguments(4) & ", ptr " & Arguments(5) & ")")
+    Case "file.tryfinalpath"
+        Call AddLine(State, "  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr null, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ", i1 true)")
+    Case "path.tryfullpath"
+        Call AddLine(State, "  %accepted = call i1 @ube.path.resolve(ptr %ctx, ptr " & Arguments(0) & ", i64 0, ptr " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ", i1 false)")
+    Case "path.trycompareordinal"
+        Call AddLine(State, "  %accepted = call i1 @ube.path.compare(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ")")
+    Case "process.trystart"
+        Call AddLine(State, "  %accepted = call i1 @ube.process.start(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ", i64 " & Arguments(3) & ", ptr " & Arguments(4) & ", ptr " & Arguments(5) & ")")
+    Case "process.trywait"
+        Call AddLine(State, "  %accepted = call i1 @ube.process.wait(ptr %ctx, i64 " & Arguments(0) & ", i64 " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ", ptr " & Arguments(4) & ")")
+    Case "process.tryterminate"
+        Call AddLine(State, "  %accepted = call i1 @ube.process.terminate(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "process.tryclose"
+        Call AddLine(State, "  %accepted = call i1 @ube.process.close(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "file.tryopendirectory"
+        Call AddLine(State, "  %accepted = call i1 @ube.directory.open(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "file.tryidentity"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.identity(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "file.trylength"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.length(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "system.tryexecutablepath"
+        Call AddLine(State, "  %accepted = call i1 @ube.system.executable(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "system.trymonotonicmilliseconds"
+        Call AddLine(State, "  %accepted = call i1 @ube.system.clock(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "directory.trycreate"
+        Call AddLine(State, "  %accepted = call i1 @ube.directory.create(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "directory.tryremove"
+        Call AddLine(State, "  %accepted = call i1 @ube.directory.remove(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "file.trydelete"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.delete(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "file.tryreplace"
+        Call AddLine(State, "  %accepted = call i1 @ube.file.replace(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "path.trykind"
+        Call AddLine(State, "  %accepted = call i1 @ube.path.kind(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
     Case "file.tryopen"
         Call AddLine(State, "  %accepted = call i1 @ube.file.open(ptr %ctx, ptr " & Arguments(0) & ", i64 " & Arguments(1) & ", ptr " & Arguments(2) & ", ptr " & Arguments(3) & ", ptr " & Arguments(4) & ", i1 false)")
     Case "file.trycreatenew"
@@ -1728,8 +1766,8 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProje
     Dim Words As Long
     Dim Index As Long
     Words = 325 + Parsed.ModuleCount + State.FieldCount
-    Call AddLine(State, "%ube.file = type { i64, ptr, ptr, i64, i64 }")
-    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64], ptr, i64, i64, [64 x %ube.file] }")
+    Call AddLine(State, "%ube.resource = type { i64, ptr, ptr, i64, i64 }")
+    Call AddLine(State, "%ube.context = type { i64, i64, [" & CStr(Parsed.ModuleCount) & " x i64], [" & CStr(State.FieldCount) & " x i64], ptr, i64, i64, [64 x %ube.resource] }")
     Call AddLine(State, "")
     Call AddLine(State, "declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)")
@@ -1760,7 +1798,7 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProje
     Call AddLine(State, "  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1")
     Call AddLine(State, "  %depth = load i64, ptr %depth.ptr")
     Call AddLine(State, "  %depth.active = icmp ne i64 %depth, 0")
-    Call AddLine(State, "  %files.empty = call i1 @ube.file.empty(ptr %ctx)")
+    Call AddLine(State, "  %files.empty = call i1 @ube.resource.empty(ptr %ctx)")
     Call AddLine(State, "  %files.live = xor i1 %files.empty, true")
     Call AddLine(State, "  %active = or i1 %depth.active, %files.live")
     Call AddLine(State, "  br i1 %active, label %busy, label %release")
@@ -1838,7 +1876,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     Call AddLine(State, "")
     Call EmitContext(Parsed, Bound, State)
     Call EmitMemoryRuntime(State)
-    FileLines = Split(NativeFileIR(), vbCrLf)
+    FileLines = Split(NativeFileIR() & NativeProcessIR(), vbCrLf)
     For Index = 0 To UBound(FileLines)
         Call AddLine(State, FileLines(Index))
     Next Index
@@ -1852,7 +1890,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
             If Kind = "sub" Or Kind = "function" Then
                 If Bound.Symbols(Index).BindingId = "array.length" Or Bound.Symbols(Index).BindingId = "memory.copybytes" Or Bound.Symbols(Index).BindingId = "array.tryresize" Or Bound.Symbols(Index).BindingId = "array.trycopy" Then
                     Call EmitArrayIntrinsic(Bound, State, Index)
-                ElseIf Left$(Bound.Symbols(Index).BindingId, 5) = "file." Or Bound.Symbols(Index).BindingId = "error.set" Then
+                ElseIf Left$(Bound.Symbols(Index).BindingId, 5) = "file." Or Left$(Bound.Symbols(Index).BindingId, 5) = "path." Or Left$(Bound.Symbols(Index).BindingId, 10) = "directory." Or Left$(Bound.Symbols(Index).BindingId, 8) = "process." Or Left$(Bound.Symbols(Index).BindingId, 7) = "system." Or Bound.Symbols(Index).BindingId = "error.set" Then
                     Call EmitFileIntrinsic(Bound, State, Index)
                 Else
                     Call EmitProcedure(Parsed, Bound, State, Index)

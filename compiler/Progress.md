@@ -1,5 +1,221 @@
 # Compiler development handoff
 
+## Completed: runnable compiler and reproducible self-hosting
+
+The approved "Build compiler in UBE" item passed its sequential self-hosting
+gate on 2026-11-13. The VB6 bootstrap built the actual 44-module compiler;
+that executable rebuilt the compiler, whose output rebuilt it again. Successive
+UBE compilers emit identical LLVM and native artifacts agree after normalizing
+only the documented PE timestamp. The same positive, negative and recovery
+corpus passed through the bootstrap and both successive UBE outputs.
+Scope and acceptance are in ../bootstrap/SELF-HOSTING.md. Concurrent compilation
+is the next roadmap item; these results do not qualify concurrency or full
+source-level debugging.
+
+The initial source packaging prerequisite passes:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/package-check.ps1`
+passed 245 assertions for exact source copies, deterministic order/hashes,
+contained paths, explicit additional sources, refusal to replace an existing
+destination and refusal through a junction ancestor with the target sentinel
+unchanged. Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube self-host sources 39be4e99-e2bd-427c-80c0-b3b4261ed1b8`.
+bootstrap/tools/self-host-sources.ps1 stages the current 44 modules into a
+contained project because sibling Source paths and project references are not
+admitted by the bootstrap. The generated manifest is written last.
+
+WindowsArguments now supplies counted argument quoting and raw argument parsing
+as ordinary Windows-library UBE. The command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/windows-arguments/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube emission scopes 6d5a8c9e-4fb3-4bfd-9f36-88882244ddca\build\UBE-Bootstrap.exe"`
+passes at O0/O2: 15 exact quoting vectors and Windows OS roundtrips, ten append
+refusals, 4,524 raw-parser comparisons per level against CommandLineToArgvW,
+source/destination aliasing, malformed input and all observed allocation sites
+with failed retries and recovery. Changed-input controls return exact 99/100;
+disposal leaves zero observed live blocks. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube windows arguments cf89c26b-8198-40be-9c0c-7a93c9bcc33f`.
+The gate diagnosed a reserved local identifier and missing Err assignment on
+invalid UTF-8; both are corrected. API bounds and tested cases are in its README.
+
+ProjectManifest supplies the bounded ordinary UBE manifest parser with retained
+source spans and atomic metadata publication. The command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/project-manifest/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube emission scopes 6d5a8c9e-4fb3-4bfd-9f36-88882244ddca\build\UBE-Bootstrap.exe"`
+passed 52 manifest vectors, seven decoded-value vectors and all three parser
+allocation sites with failed retries/recovery at O0/O2, plus an exact
+changed-input control. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube manifest 4c5480d7-bbc6-4064-8e48-8d56a0d79983`.
+This parser does not establish physical path containment or file identity.
+
+CommandOptions now admits the emit/build command forms through WindowsArguments.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/command-options/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube system primitives 74f4f9c9-eb02-4e20-a63e-871e3d04c435\build\UBE-Bootstrap.exe"`
+passed 28 command/diagnostic vectors at O0/O2 and all 19 observed allocation
+sites with failed retries, preserved request fields, recovery and zero live
+blocks. Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube command options 754ae4d5-0126-43b2-b9ca-4ad2faee0d1e`.
+
+The command-line/standard-stream dependency is qualified in both emitters.
+SystemPrimitives exposes two validated roles; StandardStreams owns ordinary
+bounded write progress. Both portable modules are registered in UBECore. The
+updated bootstrap is:
+`C:\Users\Ubehage\AppData\Local\Temp\ube system primitives 74f4f9c9-eb02-4e20-a63e-871e3d04c435\build\UBE-Bootstrap.exe`.
+The system gate README records exact source and 36 fault/progress/ownership
+assertions. Semantic authority passes 54 cases / 17,487 assertions per O0/O2;
+all 116 formatter templates and generator controls pass. Runtime parity is
+40,143 bytes with byte sum 3,203,460. Exact evidence directories under Temp:
+
+| Gate | Evidence |
+| --- | --- |
+| system source | `ube system primitives c31b8269-3968-446c-bd6b-1bd9f7e704c5` |
+| system fault/progress | `ube system primitives 496bb53c-1e66-4bd2-8af5-78756be305b3` |
+| semantic-storage | `ube semantic storage cf81f8ae-e4c1-4fea-9ec3-e5a0104f06ac` |
+| llvm-format | `ube llvm format b6588b2e-eda8-4694-bc62-9dbec5fcf412` |
+| native-lowering/check.ps1 | `ube native lowering 94490b06-3821-4403-bc17-d9fbeb6e8ff5` |
+| native-lowering/allocation-check.ps1 | `ube lowering failures 07d2c590-d1e1-476b-bd06-3b95a84ab8e1` |
+
+The last two commands used `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<script> -BootstrapExe <updated-bootstrap>`. Whole-program
+lowering passes O0/O2 including UBE-generated system wrappers, exact changed
+source rejection and actual compiler/library bodies. The companion again passes
+all 160 fault cases and two baselines with 64 observed allocation sites. These
+snapshots precede the subsequent FileBytes read-helper extraction and pending
+path roles; their later source revisions need their own regression evidence.
+
+The three path roles (same-owner File.TryFinalPath, Path.TryFullPath and
+Path.TryCompareOrdinal) are qualified. The current bootstrap is
+`C:\Users\Ubehage\AppData\Local\Temp\ube path primitives 0d868d63-27a3-45a4-9e74-2f8aa888b7cd\build\UBE-Bootstrap.exe`.
+The path gate README records 58 fault/boundary/owner cases, the 16-role semantic
+gate passes 60 cases / 19,315 assertions per level, and all 119 formatter entries
+pass. Runtime parity is 50,703 bytes, byte sum 4,055,834. Whole-program
+`native-lowering/check.ps1` passed again with this binary, including UBE-emitted
+path wrappers and exact changed-file rejection at O0/O2; evidence:
+`ube native lowering 8c31c68e-3daa-459c-959f-02b591a02464`. This snapshot includes
+the shared FileBytes read-helper extraction.
+
+Further focused gates use `rtk proxy powershell -NoProfile -File
+bootstrap/tests/<gate>/check.ps1 -BootstrapExe <path-enabled-bootstrap>`:
+
+| Gate | Passed | Evidence directory under Temp |
+| --- | --- | --- |
+| windows-paths | 78 vectors per O0/O2, every measured helper allocation/retry, recovery and changed-path control | `ube windows paths e38aa247-c44c-4342-a91a-1d74cede02e0` |
+| windows-images | 24 image/bounds/read/close/allocation cases per O0/O2 and changed-file control | `ube windows images bf420a5e-1d3a-479b-ad64-33448308a8c5` |
+
+WindowsPaths keeps ordinary path policy in the Windows library and compares
+complete directory prefixes through OS Unicode ordinal rules. WindowsImages
+checks the existing backend's bounded AMD64 executable framing; this is neither
+complete PE validation nor evidence that an arbitrary program runs correctly.
+
+ProjectLoader now retains ordered canonical source paths and parses modules
+only after containment has been checked against the same open file owner. The
+`project-loading-ube/check.ps1` gate passed 15 cases and all 155 observed
+allocation sites with failed retries/recovery per O0/O2. It checks real compiler
+modules, ordered source bytes, junction escape without external source reads,
+duplicates, diagnostic locations, incoming-owner preservation and failed-close
+ownership. Changed source fails the exact unchanged assertion. Evidence:
+`ube project source 12de2101-ed85-47a6-81ba-efc315f640c7`. Failed new requests
+invalidate Counts and Info.SourceCount; arrays remain caller-owned scratch, not
+an atomically published old project. A nonzero incoming owner is refused before
+invalidating earlier request fields. Its README specifies this contract.
+
+FileBytes.TryReadOpenBytes shares the existing read/probe loop while leaving
+the owner open; TryReadAllBytes still closes before final publication. The open
+reader gate passed nine cases plus both allocation sites/retries and recovery;
+evidence `ube open file a47377a8-6df4-4d27-ab78-5f1dddea2af3`. The existing file-I/O
+gate passed 56 groups with the system-enabled host; evidence
+`ube file io 34d64f2b-84cb-4b2b-b2d2-997c894b8ba9`.
+
+Native-tool argument construction, explicit process ownership and guarded
+publication now have focused acceptance gates. The process extension
+reuses the existing bounded owner layout with tagged resource kinds; file
+operations must reject process owners. Process starts use a private explicit
+inherited-handle list, suspended startup and job containment. Completion means
+root exit plus no active descendants, not merely a successful termination call.
+The final runtime has 95,098 bytes, 133 formatter templates and 41 reviewed
+Kernel32 imports. Focused semantic-storage acceptance passes 77 cases and
+24,535 assertions per optimization level; metadata/namespace failure acceptance
+passes 88 cases. The source driver owns cleanup and protects compiler assets
+and tools as well as project inputs. A cleanup failure after successful atomic
+publication emits a warning; it does not relabel an already committed output
+as a failed build.
+
+The complete source requires 74,893 syntax nodes (74,894 including the VB6
+project root), with a largest module of 7,748 nodes. A focused cumulative
+project-capacity extension to 131,072 passed exact-limit and refusal acceptance;
+the per-module limit remains 65,536. The next full build passed that boundary
+and reported a controlled native-IR output limit failure. Its evidence is
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler first native build`.
+Complete IR measured 9,810,828 bytes and 269,156 lines. Only the line bound was
+raised to 500,000; the 16 MiB byte bound remains unchanged. The LLVM writer gate
+passed all 14 O0/O2 scenarios and its changed-payload control, including exact
+and over-limit line and byte cases. Evidence: `ube llvm writing e261ff6b-d0f4-42c6-a1cd-dc387eeb1d17`.
+
+The full bootstrap build and its first actual UBE self-build succeeded using
+`bootstrap/tools/build-compiler.ps1`. Outputs are respectively
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler bounded native build\UBE.exe`
+and `C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build one\UBE.exe`.
+The second successive self-build also succeeded at
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build two\UBE.exe`.
+The rebuild comparison gate passed: both packages match current repository
+source and asset bytes; both compilers emit identical 11,349,661-byte LLVM,
+SHA256 `4B50601911EDD1CEEE88C5E6E89966F822C66F8C50209F569A3CEE511CE84ACF`.
+Native executables differ at offset 128 only, within the four-byte PE COFF
+TimeDateStamp field at offsets 128..131. Zeroing only that field produces
+byte-identical images, SHA256
+`A86BCD238FEBA41C7F6249CFAF9084C9C7C1E11F45976B6E5978E3762FABFBD1`.
+No executable code or other metadata was normalized. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild 88b30588-00d5-4f3c-b649-ffdd273efda0\report.txt`.
+
+Exact build and comparison commands (default O2):
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube llvm writing e261ff6b-d0f4-42c6-a1cd-dc387eeb1d17\build\UBE-Bootstrap.exe" -Destination "C:\Users\Ubehage\AppData\Local\Temp\ube compiler bounded native build"
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler bounded native build\UBE.exe" -Destination "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build one"
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build one\UBE.exe" -Destination "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build two"
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler bounded native build\UBE.exe" -FirstGenerationDirectory "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build one" -SecondGenerationDirectory "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build two"
+```
+
+The comparison invocation explicitly reuses the two builds witnessed above;
+its report does not infer predecessor provenance from file equality. Without
+the reuse parameters, the same script performs both builds itself.
+Actual-compiler conformance passed. The common corpus exercises six families:
+returns, ordered modules, initializer/source error flow, dynamic arrays,
+file ownership/bytes, and records/aliases/checked failures. Both O0/O2 native
+results must return 42; changing the return fixture must change IR and return
+43. Further checks cover exact success markers, located malformed-source
+diagnostics, missing inputs/assets, input/hardlink preservation, missing,
+nonzero, absent-output and real 30-second timeout backends, no leaked private
+stages, and successful real-backend recovery. Records copy independently;
+element aliases retain original storage through resize; overflow and bounds
+failures preserve the assignment destination and recover through handlers.
+
+Final evidence directories under `C:\Users\Ubehage\AppData\Local\Temp`:
+
+| Invocation | Assertions | Evidence |
+| --- | ---: | --- |
+| Full CLI, bootstrap and first self-build | 620 | `ube compiler conformance 484727fb-c58e-491f-8172-43d78c40671d` |
+| Full CLI, second self-build | 326 | `ube compiler conformance 981dcafe-f764-4346-b0b4-5b9dd4b83ea2` |
+| Added values family, bootstrap and first self-build | 75 | `ube compiler conformance f3076943-78a8-44af-8f9b-74597a8ed53e` |
+| Added values family, second self-build | 39 | `ube compiler conformance f6844a13-b541-424e-844c-7b81c1b06291` |
+
+These 1,060 assertions include harness checks. The values family was added
+after the full CLI runs and qualified separately without repeating their
+timeout waits; it is now part of the default full corpus. Exact commands:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build one\UBE.exe" -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube llvm writing e261ff6b-d0f4-42c6-a1cd-dc387eeb1d17\build\UBE-Bootstrap.exe"
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler self build two\UBE.exe" -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube llvm writing e261ff6b-d0f4-42c6-a1cd-dc387eeb1d17\build\UBE-Bootstrap.exe" -CompilerOnly
+```
+
+Repeat each command with `-ValuesOnly` for the two recorded focused runs.
+The tested executable SHA256 values are
+`314A2F14BCE8ADB9EE67F6590C684D76AF2ADAD1EB0C1398D78C52DC7429F134`
+and `1F2FB318A24677DA4E504003EC7311C26481CEB4DFACBFF74F001087C6023F3D`.
+
+The final broad native-lowering gate passed all O0/O2 behavior, real compiler
+and library lowering, LLVM object compilation and reviewed import checks:
+`ube native lowering e8fe024b-d7cd-4f7f-b166-db031b23cfa2`. Generated process
+fixture path setters were split into bounded helpers after their large literal
+setters exceeded the existing O0 stack-frame policy; all supplied bytes and
+process assertions remain unchanged. The companion allocation gate passed
+160 fault cases and two 64-allocation baselines at O0/O2:
+`ube lowering failures 4b45d766-298f-47da-a4d7-550ec1bb448a`. Its type extraction
+now uses the shared resource-owner name introduced by the runtime integration.
+
 ## Completed: UBE-written native lowering
 
 NativeLowering now privately revalidates the ordered project and emits the full
@@ -68,7 +284,7 @@ The first native-compilation regression attempt could not execute its copied
 LLVM helper under the sandbox. The unchanged gate passed outside the sandbox,
 including the expected missing-Clang and failed-publication cases.
 
-## Next handoff: a runnable self-hosting compiler
+## Previous handoff: a runnable self-hosting compiler (completed above)
 
 Connect the existing UBE frontend and native lowering through the project/command
 driver and guarded native backend required by the next roadmap item. Preserve

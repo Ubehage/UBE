@@ -353,6 +353,14 @@ Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Op
         If FileImports Then
             Definition = Definition & "CreateFileW" & vbCrLf & "ReadFile" & vbCrLf & "WriteFile" & vbCrLf & "CloseHandle" & vbCrLf
             Definition = Definition & "GetFileSizeEx" & vbCrLf & "GetFileType" & vbCrLf & "FlushFileBuffers" & vbCrLf & "MultiByteToWideChar" & vbCrLf
+            Definition = Definition & "GetCommandLineW" & vbCrLf & "GetStdHandle" & vbCrLf & "WideCharToMultiByte" & vbCrLf
+            Definition = Definition & "GetFullPathNameW" & vbCrLf & "GetFinalPathNameByHandleW" & vbCrLf & "CompareStringOrdinal" & vbCrLf
+            Definition = Definition & "GetFileInformationByHandle" & vbCrLf & "GetModuleFileNameW" & vbCrLf & "GetTickCount64" & vbCrLf
+            Definition = Definition & "GetCurrentProcess" & vbCrLf & "DuplicateHandle" & vbCrLf & "CreateProcessW" & vbCrLf & "InitializeProcThreadAttributeList" & vbCrLf
+            Definition = Definition & "UpdateProcThreadAttribute" & vbCrLf & "DeleteProcThreadAttributeList" & vbCrLf & "CreateJobObjectW" & vbCrLf & "SetInformationJobObject" & vbCrLf
+            Definition = Definition & "AssignProcessToJobObject" & vbCrLf & "ResumeThread" & vbCrLf & "WaitForSingleObject" & vbCrLf & "GetExitCodeProcess" & vbCrLf
+            Definition = Definition & "QueryInformationJobObject" & vbCrLf & "TerminateJobObject" & vbCrLf & "TerminateProcess" & vbCrLf & "Sleep" & vbCrLf
+            Definition = Definition & "GetLastError" & vbCrLf & "CreateDirectoryW" & vbCrLf & "RemoveDirectoryW" & vbCrLf & "DeleteFileW" & vbCrLf & "MoveFileExW" & vbCrLf & "GetFileAttributesW" & vbCrLf
         End If
         If Not WriteIR(Stage & "\kernel32-memory.def", Definition, Diagnostic) Then Exit Function
         Library = Stage & "\kernel32-memory.lib"

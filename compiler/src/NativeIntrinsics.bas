@@ -29,6 +29,25 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal 
             If Role = PrimitiveRoles.FileTryClose Then Template = LLVMTemplates.IntrinsicFileClose
             If Role = PrimitiveRoles.FileTryFlush Then Template = LLVMTemplates.IntrinsicFileFlush
             If Role = PrimitiveRoles.ErrorSet Then Template = LLVMTemplates.IntrinsicErrorSet
+            If Role = PrimitiveRoles.SystemReadCommandLine Then Template = LLVMTemplates.IntrinsicSystemCommandLine
+            If Role = PrimitiveRoles.SystemWriteStandard Then Template = LLVMTemplates.IntrinsicSystemWrite
+            If Role = PrimitiveRoles.FileFinalPath Then Template = LLVMTemplates.IntrinsicFileFinalPath
+            If Role = PrimitiveRoles.PathFullPath Then Template = LLVMTemplates.IntrinsicPathFullPath
+            If Role = PrimitiveRoles.PathCompareOrdinal Then Template = LLVMTemplates.IntrinsicPathCompareOrdinal
+            If Role = PrimitiveRoles.ProcessStart Then Template = LLVMTemplates.IntrinsicProcessStart
+            If Role = PrimitiveRoles.ProcessWait Then Template = LLVMTemplates.IntrinsicProcessWait
+            If Role = PrimitiveRoles.ProcessTerminate Then Template = LLVMTemplates.IntrinsicProcessTerminate
+            If Role = PrimitiveRoles.ProcessClose Then Template = LLVMTemplates.IntrinsicProcessClose
+            If Role = PrimitiveRoles.FileOpenDirectory Then Template = LLVMTemplates.IntrinsicFileOpenDirectory
+            If Role = PrimitiveRoles.FileIdentity Then Template = LLVMTemplates.IntrinsicFileIdentity
+            If Role = PrimitiveRoles.FileLength Then Template = LLVMTemplates.IntrinsicFileLength
+            If Role = PrimitiveRoles.SystemExecutablePath Then Template = LLVMTemplates.IntrinsicSystemExecutablePath
+            If Role = PrimitiveRoles.SystemMonotonicMilliseconds Then Template = LLVMTemplates.IntrinsicSystemMonotonicMilliseconds
+            If Role = PrimitiveRoles.DirectoryCreate Then Template = LLVMTemplates.IntrinsicDirectoryCreate
+            If Role = PrimitiveRoles.DirectoryRemove Then Template = LLVMTemplates.IntrinsicDirectoryRemove
+            If Role = PrimitiveRoles.FileDelete Then Template = LLVMTemplates.IntrinsicFileDelete
+            If Role = PrimitiveRoles.FileReplace Then Template = LLVMTemplates.IntrinsicFileReplace
+            If Role = PrimitiveRoles.PathKind Then Template = LLVMTemplates.IntrinsicPathKind
             If Template <> 0 Then
                 If Role = PrimitiveRoles.ArrayTryResize Or Role = PrimitiveRoles.ArrayTryCopy Then
                     Parameter = Symbols(Index).FirstParameter

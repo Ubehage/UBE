@@ -62,15 +62,15 @@ Public Function Run(ByVal Mode As Long, ByVal Seed As Long) As Long
             Index = Index + 1
         Loop
         Index = 0
-        Do While Index < 3
+        Do While Index < 7
             If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 65536) = False Then Result = 30: GoTo Cleanup
             Index = Index + 1
         Loop
-        If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 53392) = False Then Result = 31: GoTo Cleanup
+        If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 41248) = False Then Result = 31: GoTo Cleanup
         If LLVMWriter.TryFinish(State, Buffer, Token) = False Then Result = 32: GoTo Cleanup
-        If State.LineCount <> 250000 Or State.TotalBytes <> 250000 Then Result = 33: GoTo Cleanup
+        If State.LineCount <> 500000 Or State.TotalBytes <> 500000 Then Result = 33: GoTo Cleanup
         If LLVMWriter.TryEndLine(State, Buffer, Token) Then Result = 34: GoTo Cleanup
-        If State.Failure <> 2 Or State.LineCount <> 250000 Or State.TotalBytes <> 250000 Then Result = 35: GoTo Cleanup
+        If State.Failure <> 2 Or State.LineCount <> 500000 Or State.TotalBytes <> 500000 Then Result = 35: GoTo Cleanup
     ElseIf Mode = 3 Then
         Text(2) = 128
         If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 3) Then Result = 40: GoTo Cleanup

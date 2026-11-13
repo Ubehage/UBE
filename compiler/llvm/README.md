@@ -38,9 +38,9 @@ not the semantics of all complete programs assembled from those fragments.
 
 ## Windows runtime source
 
-`windows-runtime.ll` contains the fixed memory/array and counted-file support
-definitions used by the Windows x64 target. It is 32,505 bytes of UTF-8 without
-a BOM, with CRLF line endings (byte sum 2,593,386). The UBE emitter reads these actual bytes; it
+`windows-runtime.ll` contains the fixed memory/array, counted-file, system-I/O, path, process and namespace support
+definitions used by the Windows x64 target. It is 95,098 bytes of UTF-8 without
+a BOM, with CRLF line endings (byte sum 7,669,073). The UBE emitter reads these actual bytes; it
 must not extract support or procedure bodies from a previously emitted program.
 
 Verify source parity before using this asset in acceptance gates:
@@ -51,8 +51,9 @@ rtk proxy powershell -NoProfile -File bootstrap/tools/runtime-text.ps1
 
 After reviewing an intentional bootstrap runtime change, regenerate with the
 same command plus `-Write`, then rerun the check. The tool reads only
-`EmitMemoryRuntime` in `bootstrap/src/SourceEmitter.bas` and the three functions
-called by `NativeFileIR` in `bootstrap/src/NativeFileRuntime.bas`. It recognizes
+`EmitMemoryRuntime` in `bootstrap/src/SourceEmitter.bas` and the eight functions
+called by `NativeFileIR` in `bootstrap/src/NativeFileRuntime.bas` and five
+functions called by `NativeProcessIR` in `bootstrap/src/NativeProcessRuntime.bas`. It recognizes
 their literal concatenation statements, doubled-quote escaping, `vbCrLf` and
 the explicitly reviewed `CStr(MaximumArrayElements)` constant (1,048,576).
 That constant must still match its unique public source declaration. Unknown
@@ -67,20 +68,20 @@ between these two source representations during the UBE port.
 Emit these types before the asset, with actual module and storage counts:
 
 ```llvm
-%ube.file = type { i64, ptr, ptr, i64, i64 }
-%ube.context = type { i64, i64, [M x i64], [F x i64], ptr, i64, i64, [64 x %ube.file] }
+%ube.resource = type { i64, ptr, ptr, i64, i64 }
+%ube.context = type { i64, i64, [M x i64], [F x i64], ptr, i64, i64, [64 x %ube.resource] }
 ```
 
 Context fields are Err number (0), call depth (1), module states (2), module
 storage cells (3), leaf-block list (4), charged bytes (5), live blocks (6), and
-file registry (7). File fields are token, native handle, scratch-block pointer,
-access mode and busy flag. The asset itself defines `%ube.block` as next pointer,
+resource registry (7). Resource fields are token, native handle, scratch-block pointer,
+resource kind and busy flag. The asset itself defines `%ube.block` as next pointer,
 reference count and charged bytes. Array descriptors remain four i64-sized
 cells: lower bound, upper bound, payload pointer, owning-block pointer.
 These are private lowering layouts, not public source or foreign layouts.
 
 No replacement markers are needed: the complete asset is appended verbatim
-after the context types. It contains the process-wide atomic file token counter,
+after the context types. It contains the process-wide atomic resource token counter,
 Windows import declarations, target wrappers, memory collection/allocation,
 array replacement and file registry/transfer support. All runtime support calls
 are resolved within the asset or by its declared Windows imports.
@@ -96,3 +97,8 @@ test flags and contains no generated user procedures.
 The source parity command passed after generation. This verifies textual parity,
 not native execution or qualification of a new emitter; the native lowering
 acceptance gates must establish that separately.
+
+The current runtime is 95,098 bytes with byte sum 7,669,073; the 133-template
+catalog is 22,016 bytes with byte sum 1,727,128. Run runtime-text.ps1,
+llvm-templates.ps1 and native-imports.ps1 without -Write to verify source parity.
+The import definition contains exactly 41 reviewed Kernel32 imports.

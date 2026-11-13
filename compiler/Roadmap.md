@@ -16,11 +16,11 @@ and shared-state rules are in the development plan's concurrency requirement.
 - [~] Define compiler/UBECore ownership and inventory VB6 runtime names before
   selecting the bootstrap subset. See [LANGUAGE-SURFACE.md](LANGUAGE-SURFACE.md)
   and [library inventory](../std-lib/INVENTORY.md).
-- [~] Specify the minimum source subset needed by the UBE-written compiler.
+- [x] Specify the minimum source subset needed by the UBE-written compiler.
   Enumerate syntax, types, storage, errors, library dependencies and target
   facilities, plus positive and negative acceptance cases. The initial planned
-  scalar admission set is in `../lang-doc/bootstrap-profile.md`; expansion to
-  actual self-hosting dependencies remains evidence-driven.
+  admission set and measured self-hosting dependencies are documented in
+  `../lang-doc/bootstrap-profile.md` and `../bootstrap/SELF-HOSTING.md`.
 - [x] Qualify the native failure-flow prototype: the command in Progress.md
   passed eight assertions at O0/O2 and rejected both negative controls.
 - [x] Compile matching UBE source through the real pipeline.
@@ -37,14 +37,13 @@ and shared-state rules are in the development plan's concurrency requirement.
 - [x] Implement name resolution and scalar type checking over the retained
   trees, including entry validation, module visibility and official Err binding.
   The bounded semantic gate passed 76 cases, plus all parser/loading regressions.
-- [ ] Implement the bootstrap subset with bounded input handling, controlled
+- [x] Implement the bootstrap subset with bounded input handling, controlled
   failures, source locations and deterministic output.
   The initial bounded scalar profile now compiles to native Windows x64, with
   checked error flow and output-preserving backend invocation. The same build
   passed 23 native, 76 semantic, 37 parser and 54 loading groups/cases.
-  Expansion to the source/storage/library dependencies needed for self-hosting
-  remains the next approved development-plan item; measure those dependencies
-  before selecting each extension.
+  The measured source/storage/library extensions below now support the actual
+  compiler self-build and common conformance gate recorded in Progress.md.
   Byte, Integer and LongLong storage and checked conversions are now complete,
   motivated in `../bootstrap/DEPENDENCIES.md`. The integer dependency gate passed
   46 groups, including 113 boundary cases at O0/O2, and all earlier gates pass.
@@ -91,12 +90,12 @@ and shared-state rules are in the development plan's concurrency requirement.
   bootstrap/UBE-LOWERING.md and the evidence in Progress.md. The same VB6 host
   gained per-scope emission indexes after a measured work-budget regression;
   no language subset or resource bound was weakened.
-- [ ] Compile the UBE-written compiler and rebuild it with its own output.
-  Connect its existing frontend/lowering passes through the project/command
-  driver and guarded native backend needed for a runnable compiler. Measure
-  missing source/library dependencies before extending the same bootstrap.
-  Compare deterministic generated artifacts and run the same conformance
-  corpus with both generations before claiming self-hosting.
+- [x] Compile the UBE-written compiler and rebuild it with its own output.
+  The ordinary UBE command/project driver and guarded backend now produce two
+  successive self-builds. Their LLVM is byte-identical; native images differ
+  only in the documented PE timestamp. Common positive, negative and recovery
+  conformance passed through the bootstrap and both UBE outputs. Concrete
+  scope and acceptance: ../bootstrap/SELF-HOSTING.md; exact evidence: Progress.md.
 - [ ] Implement and qualify concurrent compilation in the UBE-written compiler:
   execute independent project work in parallel, isolate simultaneous requests,
   and pass the concurrency gate in ACCEPTANCE.md. Preserve the same semantics

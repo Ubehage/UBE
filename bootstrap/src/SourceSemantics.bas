@@ -711,10 +711,26 @@ End Function
 Private Function HostPrimitiveSignature(ByVal Role As String) As String
     Select Case Role
     Case "file.tryopen": HostPrimitiveSignature = "AVRRR"
-    Case "file.trycreatenew": HostPrimitiveSignature = "ARR"
-    Case "file.tryread", "file.trywrite": HostPrimitiveSignature = "VAVVRR"
+    Case "file.trycreatenew", "system.tryreadcommandline": HostPrimitiveSignature = "ARR"
+    Case "file.tryread", "file.trywrite", "system.trywritestandard": HostPrimitiveSignature = "VAVVRR"
     Case "file.tryclose": HostPrimitiveSignature = "RR"
     Case "file.tryflush": HostPrimitiveSignature = "VR"
+    Case "file.tryfinalpath": HostPrimitiveSignature = "VARR"
+    Case "path.tryfullpath", "path.trycompareordinal": HostPrimitiveSignature = "AARR"
+    Case "process.trystart": HostPrimitiveSignature = "AAAVRR"
+    Case "process.trywait": HostPrimitiveSignature = "VVRRR"
+    Case "process.tryterminate": HostPrimitiveSignature = "VR"
+    Case "process.tryclose": HostPrimitiveSignature = "RR"
+    Case "file.tryopendirectory": HostPrimitiveSignature = "ARR"
+    Case "file.tryidentity": HostPrimitiveSignature = "VAR"
+    Case "file.trylength": HostPrimitiveSignature = "VRR"
+    Case "system.tryexecutablepath": HostPrimitiveSignature = "ARR"
+    Case "system.trymonotonicmilliseconds": HostPrimitiveSignature = "QR"
+    Case "directory.trycreate": HostPrimitiveSignature = "AR"
+    Case "directory.tryremove": HostPrimitiveSignature = "AR"
+    Case "file.trydelete": HostPrimitiveSignature = "AR"
+    Case "file.tryreplace": HostPrimitiveSignature = "AAR"
+    Case "path.trykind": HostPrimitiveSignature = "ARR"
     Case "error.set": HostPrimitiveSignature = "V"
     End Select
 End Function
@@ -729,6 +745,10 @@ Private Function HostPrimitiveParameter(ByRef Parsed As ParsedProject, ByRef Bou
     Child = Parsed.Nodes(Bound.Symbols(Parameter).DeclarationNode).FirstChild
     If Child <> 0 Then
         If Parsed.Nodes(Child).Kind = "array-shape" Then Exit Function
+    End If
+    If Expected = "Q" Then
+        HostPrimitiveParameter = Bound.Symbols(Parameter).TypeName = "LongLong" And Bound.Symbols(Parameter).PassingMode = "ByRef"
+        Exit Function
     End If
     If Bound.Symbols(Parameter).TypeName <> "Long" Then Exit Function
     If Expected = "V" Then
