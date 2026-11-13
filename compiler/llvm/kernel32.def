@@ -7,6 +7,7 @@ CreateDirectoryW
 CreateFileW
 CreateJobObjectW
 CreateProcessW
+CreateThread
 DeleteFileW
 DeleteProcThreadAttributeList
 DuplicateHandle

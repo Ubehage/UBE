@@ -48,6 +48,12 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal 
             If Role = PrimitiveRoles.FileDelete Then Template = LLVMTemplates.IntrinsicFileDelete
             If Role = PrimitiveRoles.FileReplace Then Template = LLVMTemplates.IntrinsicFileReplace
             If Role = PrimitiveRoles.PathKind Then Template = LLVMTemplates.IntrinsicPathKind
+            If Role = PrimitiveRoles.ThreadCurrentId Then Template = LLVMTemplates.IntrinsicThreadCurrentId
+            If Role = PrimitiveRoles.ThreadIsAlive Then Template = LLVMTemplates.IntrinsicThreadIsAlive
+            If Role = PrimitiveRoles.ThreadWait Then Template = LLVMTemplates.IntrinsicThreadWait
+            If Role = PrimitiveRoles.ThreadRequestStop Then Template = LLVMTemplates.IntrinsicThreadRequestStop
+            If Role = PrimitiveRoles.ThreadStopRequested Then Template = LLVMTemplates.IntrinsicThreadStopRequested
+            If Role = PrimitiveRoles.ThreadYield Then Template = LLVMTemplates.IntrinsicThreadYield
             If Template <> 0 Then
                 If Role = PrimitiveRoles.ArrayTryResize Or Role = PrimitiveRoles.ArrayTryCopy Then
                     Parameter = Symbols(Index).FirstParameter

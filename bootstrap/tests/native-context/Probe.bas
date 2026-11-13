@@ -4,6 +4,11 @@ Attribute UBE_Name = "ContextProbe"
 Private OutputPath() As Byte
 Private CatalogPath() As Byte
 
+' Keeps synthetic planning records off the bounded native invocation frame.
+Private Intrinsic Function ResizePlans(ByRef Values() As NativePlanning.NativeSymbolPlan, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
+Attribute ResizePlans.UBE_Primitive = "Array.TryResize"
+End Function
+
 ' Receives separate output and catalog paths for each independent emission.
 Public Function ConfigurePath(ByVal Kind As Long, ByVal Count As Long) As Boolean
     If Kind = 0 Then ConfigurePath = BufferPrimitives.TryResizeBytes(OutputPath, Count, False)
@@ -19,7 +24,7 @@ End Sub
 ' Emits two modules, two owned arrays, one scalar and one non-context array.
 Public Function Emit(ByVal Entry As Boolean) As Long
     Dim Symbols(0 To 3) As DeclarationBinder.BoundSymbol
-    Dim Plans(0 To 3) As NativePlanning.NativeSymbolPlan
+    Dim Plans() As NativePlanning.NativeSymbolPlan
     Dim Summary As NativePlanning.NativePlanSummary
     Dim State As LLVMWriter.WriterState
     Dim Buffer() As Byte
@@ -28,6 +33,7 @@ Public Function Emit(ByVal Entry As Boolean) As Long
     Dim Failure As Long
     Dim Result As Long
     On Error GoTo Failed
+    If Not ResizePlans(Plans, 4, False) Then Emit = 10: Exit Function
     If FileBytes.TryReadAllBytes(CatalogPath, 1048576, Catalog, Token, Failure) = False Then Emit = 1: Exit Function
     If LLVMFormat.TryValidateCatalog(Catalog) = False Then Emit = 2: Exit Function
     Symbols(0).ArrayRank = 1

@@ -115,6 +115,8 @@ $files=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | Fo
 $files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeIntrinsics') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
+$catalog=Join-Path $artifacts 'templates.bin'
+Copy-Item -LiteralPath (Join-Path $root 'compiler/llvm/templates.bin') -Destination $catalog
 $library=Join-Path $artifacts 'emitter.ll'
 $null=Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $bound=Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$manifest)
@@ -127,7 +129,6 @@ foreach($line in ($bound.Stdout -split '\r?\n')) {
 }
 $emitted=[IO.File]::ReadAllText($library,$utf8)
 $runtime=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/windows-runtime.ll'),$utf8)
-$catalog=Join-Path $root 'compiler/llvm/templates.bin'
 $roles=@(
  @('Array.Length','ByRef A() As Byte','Long'),
  @('Memory.CopyBytes','ByRef A() As Byte, ByVal S As Long, ByRef B() As Byte, ByVal D As Long, ByVal N As Long','Boolean'),
@@ -141,14 +142,20 @@ $roles=@(
  @('File.TryFlush','ByVal T As Long, ByRef F As Long','Boolean'),
  @('Error.Set','ByVal N As Long','Boolean'),
  @('Array.TryResize','ByRef A() As Pair, ByVal N As Long, ByVal P As Boolean','Boolean'),
- @('Array.TryCopy','ByRef A() As Pair, ByRef B() As Pair','Boolean'))
+ @('Array.TryCopy','ByRef A() As Pair, ByRef B() As Pair','Boolean'),
+ @('Thread.CurrentId','','LongLong'),
+ @('Thread.IsAlive','ByVal Id As LongLong','Boolean'),
+ @('Thread.Wait','ByVal Id As LongLong, ByVal Timeout As LongLong','Long'),
+ @('Thread.RequestStop','ByVal Id As LongLong','Long'),
+ @('Thread.StopRequested','','Boolean'),
+ @('Thread.Yield','','Boolean'))
 $source="UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Roles`"`r`nPublic Type Pair`r`n A As Long`r`n B As Long`r`nEnd Type`r`n"
 for($i=0;$i -lt $roles.Count;$i++) {$source+='Public Intrinsic Function R'+($i+1)+'('+$roles[$i][1]+') As '+$roles[$i][2]+"`r`n"+'Attribute R'+($i+1)+'.UBE_Primitive = "'+$roles[$i][0]+"`"`r`nEnd Function`r`n"}
 $source+="Public Function TryRead() As Long`r`nTryRead = 99`r`nEnd Function`r`n"
 $sourcePath=Join-Path $artifacts 'roles.bas';Write-Text $sourcePath $source
 
 # Runs the actual UBE parser, semantic passes and wrapper emitter on file bytes.
-function Emit-Fragment([string]$Path,[string]$Level) {
+function Emit-Fragment([string]$Path,[string]$Level,[int]$Expected=0) {
     $lines=@('@test.ctx = private global %ube.context zeroinitializer, align 8','define i32 @main() {','entry:','  call void @ube.context.init(ptr @test.ctx)','  %init = call i1 @ube.project.init(ptr @test.ctx)')
     $paths=@($Path,$catalog,$sourcePath)
     for($p=0;$p -lt 3;$p++) {
@@ -161,7 +168,8 @@ function Emit-Fragment([string]$Path,[string]$Level) {
     Write-Text $ir ($emitted+($lines -join "`r`n")+"`r`n")
     Build-Harness $ir $exe $Level
     $run=Invoke-BoundedProcess $exe @() 60000
-    Require ($run.ExitCode -eq 0) "Wrapper emission failed $($run.ExitCode): $($run.Evidence)"
+    Require ($run.ExitCode -eq $Expected) "Wrapper emission failed $($run.ExitCode), wanted $Expected`: $($run.Evidence)"
+    if($Expected -ne 0){Require (-not (Test-Path -LiteralPath $Path)) 'Rejected wrapper corpus published output';return ''}
     return [IO.File]::ReadAllText($Path,$utf8)
 }
 
@@ -181,14 +189,14 @@ foreach($level in @('O0','O2')) {
     $fragment=Emit-Fragment (Join-Path $artifacts ('wrappers-'+$level+'.ll')) $level
     if($level -eq 'O0') {$first=$fragment} else {Require ($first -ceq $fragment) 'Optimization changed wrapper emission'}
     $ids=@([regex]::Matches($fragment,'define \{ i1, i64 \} @ube.proc.([0-9]+)') | ForEach-Object {$_.Groups[1].Value})
-    Require ($ids.Count -eq 13) 'Expected thirteen attributed wrappers, no ordinary-name wrapper'
-    $proc=@{};for($i=1;$i -le 13;$i++) {$proc[$i]='@ube.proc.'+$ids[$i-1]}
+    Require ($ids.Count -eq 19) 'Expected nineteen attributed wrappers, no ordinary-name wrapper'
+    $proc=@{};for($i=1;$i -le 19;$i++) {$proc[$i]='@ube.proc.'+$ids[$i-1]}
     $filePath=Join-Path $artifacts ('roundtrip-'+$level+'.bin')
     $pathBytes=$utf8.GetBytes($filePath)
     $pathCells=($pathBytes | ForEach-Object {'i64 '+$_}) -join ', '
-    $prefix="%ube.resource = type { i64, ptr, ptr, i64, i64 }`r`n%ube.context = type { i64, i64, [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.resource] }`r`n"
+    $prefix="%ube.resource = type { i64, ptr, ptr, i64, i64 }`r`n%ube.thread = type { i64, i64, ptr, ptr }`r`n%ube.program = type { [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [0 x ptr], ptr, i64, i64, [65 x [8 x i64]] }`r`n%ube.context = type { i64, i64, ptr, ptr, %ube.program }`r`n"
     $globals="@ctx = private global %ube.context zeroinitializer, align 8`r`n@a = private global [4 x i64] zeroinitializer`r`n@b = private global [4 x i64] zeroinitializer`r`n@r = private global [4 x i64] zeroinitializer`r`n@s = private global [4 x i64] zeroinitializer`r`n@seed = private global i64 65`r`n@path.data = private global ["+$pathBytes.Length+" x i64] ["+$pathCells+"]`r`n@path = private global { i64, i64, ptr, ptr } { i64 0, i64 "+($pathBytes.Length-1)+", ptr @path.data, ptr null }`r`n"
-    $body="define i32 @main() {`r`nentry:`r`n  %token = alloca i64`r`n  %failure = alloca i64`r`n  %progress = alloca i64`r`n  %length = alloca i64`r`n  store i64 0, ptr %token`r`n"
+    $body="define i32 @main() {`r`nentry:`r`n  %program = getelementptr %ube.context, ptr @ctx, i32 0, i32 4`r`n  call void @ube.thread.init(ptr @ctx, ptr %program, ptr null)`r`n  %token = alloca i64`r`n  %failure = alloca i64`r`n  %progress = alloca i64`r`n  %length = alloca i64`r`n  store i64 0, ptr %token`r`n"
     $script:assertion=0
     $body+='  %set = call { i1, i64 } '+$proc[11]+"(ptr @ctx, i64 57)`r`n"+(Check-Result '%set' '0')
     $body+='  %resize = call { i1, i64 } '+$proc[3]+"(ptr @ctx, ptr @a, i64 5, i64 0)`r`n"+(Check-Result '%resize' '-1')
@@ -222,15 +230,25 @@ foreach($level in @('O0','O2')) {
     $body+='  %read.close = call { i1, i64 } '+$proc[9]+"(ptr @ctx, ptr %token, ptr %failure)`r`n"+(Check-Result '%read.close' '-1')
     $body+="  %file.size = load i64, ptr %length`r`n  %file.progress = load i64, ptr %progress`r`n  %closed.token = load i64, ptr %token`r`n  %fresh.failure = load i64, ptr %failure`r`n  %size.ok = icmp eq i64 %file.size, 5`r`n  %progress.ok = icmp eq i64 %file.progress, 5`r`n  %closed.ok = icmp eq i64 %closed.token, 0`r`n  %failure.ok = icmp eq i64 %fresh.failure, 0`r`n  %file.one = and i1 %size.ok, %progress.ok`r`n  %file.two = and i1 %closed.ok, %failure.ok`r`n  %file.all = and i1 %file.one, %file.two`r`n"+(Check-Condition '%file.all' 108)
     $body+="  %bdptr = getelementptr i64, ptr @b, i64 2`r`n  %bd = load ptr, ptr %bdptr`r`n  %first.byte = load i64, ptr %bd`r`n  %content = icmp eq i64 %first.byte, 65`r`n"+(Check-Condition '%content' 104)
-    foreach($array in @('a','b','r','s')) {$body+='  call void @ube.array.clear(ptr @'+$array+")`r`n"}
-    $body+="  %collected = call i1 @ube.memory.collect(ptr @ctx)`r`n  %headptr = getelementptr %ube.context, ptr @ctx, i32 0, i32 4`r`n  %head = load ptr, ptr %headptr`r`n  %empty = icmp eq ptr %head, null`r`n"+(Check-Condition '%empty' 105)+"  ret i32 0`r`n}`r`n"
+    $body+='  %thread.current = call { i1, i64 } '+$proc[14]+"(ptr @ctx)`r`n  %thread.id = extractvalue { i1, i64 } %thread.current,1`r`n  %thread.positive = icmp sgt i64 %thread.id,0`r`n"+(Check-Condition '%thread.positive' 109)
+    $body+='  %thread.alive = call { i1, i64 } '+$proc[15]+"(ptr @ctx,i64 %thread.id)`r`n"+(Check-Result '%thread.alive' '-1')
+    $body+='  %thread.unknown = call { i1, i64 } '+$proc[16]+"(ptr @ctx,i64 0,i64 0)`r`n  %thread.unknown.fresh = extractvalue { i1, i64 } %thread.unknown,0`r`n  %thread.unknown.failed = xor i1 %thread.unknown.fresh,true`r`n  %thread.unknown.error = load i64,ptr @ctx`r`n  %thread.unknown.code = icmp eq i64 %thread.unknown.error,5`r`n  %thread.unknown.ok = and i1 %thread.unknown.failed,%thread.unknown.code`r`n"+(Check-Condition '%thread.unknown.ok' 110)
+    $body+="  %capture = call ptr @ube.memory.new(ptr @ctx,i64 1,i64 1)`r`n  %started = call {i1,i64} @ube.thread.start(ptr @ctx,ptr @test.fail.zero,ptr %capture)`r`n  %child.id = extractvalue {i1,i64} %started,1`r`n"
+    $body+='  %thread.child = call { i1, i64 } '+$proc[16]+"(ptr @ctx,i64 %child.id,i64 5000)`r`n  %child.fresh = extractvalue {i1,i64} %thread.child,0`r`n  %child.failed = xor i1 %child.fresh,true`r`n  %child.error = load i64,ptr @ctx`r`n  %child.zero = icmp eq i64 %child.error,0`r`n  %child.good = and i1 %child.failed,%child.zero`r`n"+(Check-Condition '%child.good' 111)
+    $body+='  %stop.before = call { i1, i64 } '+$proc[18]+"(ptr @ctx)`r`n"+(Check-Result '%stop.before' '0')
+    $body+='  %stop.set = call { i1, i64 } '+$proc[17]+"(ptr @ctx,i64 %thread.id)`r`n"+(Check-Result '%stop.set' '1')
+    $body+='  %stop.after = call { i1, i64 } '+$proc[18]+"(ptr @ctx)`r`n"+(Check-Result '%stop.after' '-1')
+    $body+='  %yield = call { i1, i64 } '+$proc[19]+"(ptr @ctx)`r`n"+(Check-Result '%yield' '-1')
+    $body+="  call void @ube.thread.root.complete(ptr @ctx,i1 true)`r`n  %drained = call i1 @ube.thread.drain(ptr @ctx)`r`n  %threads.disposed = call i1 @ube.thread.program.dispose(ptr @ctx)`r`n  %threads.clean = and i1 %drained,%threads.disposed`r`n"+(Check-Condition '%threads.clean' 112)
+    foreach($array in @('a','b','r','s')) {$body+='  call void @ube.array.clear(ptr @ctx, ptr @'+$array+")`r`n"}
+    $body+="  %collected = call i1 @ube.memory.collect(ptr @ctx)`r`n  %headptr = call ptr @ube.memory.head(ptr @ctx)`r`n  %head = load ptr, ptr %headptr`r`n  %empty = icmp eq ptr %head, null`r`n"+(Check-Condition '%empty' 105)+"  ret i32 0`r`n}`r`n"
     $ir=Join-Path $artifacts ('execute-'+$level+'.ll');$exe=Join-Path $artifacts ('execute-'+$level+'.exe')
-    $text=$prefix+$runtime+$fragment+$globals+$body
+    $text=$prefix+$runtime+$fragment+$globals+$body+"`r`ndefine i1 @test.fail.zero(ptr %ctx,ptr %payload) {`r`nentry:`r`n store i64 0,ptr %ctx`r`n ret i1 false`r`n}`r`n"
     Write-Text $ir $text;Build-Harness $ir $exe $level
     $run=Invoke-BoundedProcess $exe @()
     Require ($run.ExitCode -eq 0) "Wrapper $level assertion $($run.ExitCode): $($run.Evidence)"
     Require ([Convert]::ToBase64String([IO.File]::ReadAllBytes($filePath)) -ceq [Convert]::ToBase64String([byte[]]@(65,66,67,68,68))) 'Independent file bytes differ'
-    Write-Output "PASS: all eleven roles, record stride, authority and file bytes $level"
+    Write-Output "PASS: nineteen wrappers, six thread roles including fresh Err0 failure, record stride, authority and file bytes $level"
 }
 $controlPath=Join-Path $artifacts 'negative.ll';$controlExe=Join-Path $artifacts 'negative.exe'
 # The prior roundtrip file is moved aside so exclusive creation remains a normal successful step.
@@ -240,3 +258,26 @@ Build-Harness $controlPath $controlExe 'O2'
 $control=Invoke-BoundedProcess $controlExe @()
 Require ($control.ExitCode -eq 104) "Changed-input control returned $($control.ExitCode), expected104"
 Write-Output 'PASS: changed runtime payload rejected at exact content assertion104'
+
+# Both declaration binders reject substitutions before a wrapper can be published.
+$invalid=@(
+ @('id-width','R15(ByVal Id As LongLong)','R15(ByVal Id As Long)'),
+ @('id-mode','R17(ByVal Id As LongLong)','R17(ByRef Id As LongLong)'),
+ @('wait-width','ByVal Timeout As LongLong','ByVal Timeout As Long'),
+ @('current-result','R14() As LongLong','R14() As Long'),
+ @('stop-arity','R18() As Boolean','R18(ByVal Extra As Long) As Boolean'),
+ @('yield-result','R19() As Boolean','R19() As Long'))
+foreach($case in $invalid){
+ $changed=$source.Replace($case[1],$case[2]);Require ($changed -cne $source) 'Negative role mutation was not applied'
+ Write-Text $sourcePath $changed
+ $badManifest=Copy-Fixtures ('invalid-'+$case[0]) @($sourcePath) '0' 'Library'
+ $badOutput=Join-Path $artifacts ('invalid-'+$case[0]+'.host.ll')
+ $bad=Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$badManifest,$badOutput)
+ Require ($bad.ExitCode -ne 0 -and $bad.Stderr -match 'E_TYPE' -and -not (Test-Path -LiteralPath $badOutput)) "Host accepted invalid thread role $($case[0])"
+ $null=Emit-Fragment (Join-Path $artifacts ('invalid-'+$case[0]+'.native.ll')) 'O2' 4
+ Write-Output "PASS host and actual UBE primitive rejection: $($case[0])"
+}
+Write-Text $sourcePath $source
+$publicManifest=Copy-Fixtures 'thread-primitives' @((Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas')) '0' 'Library'
+$null=Invoke-Compiler @('--emit-llvm',$publicManifest,(Join-Path $artifacts 'thread-primitives.ll')) 'EMIT OK'
+Write-Output 'PASS public ThreadPrimitives declarations and ordinary Yield Sub binding'

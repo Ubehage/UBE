@@ -73,7 +73,8 @@ $corpus=@(
  @{Name='SourceError';Sources=@((Join-Path $fixture 'Fault.bas'),(Join-Path $fixture 'ErrorMain.bas'))},
  @{Name='Arrays';Sources=@($buffer,(Join-Path $fixture 'Arrays.bas'))},
  @{Name='File';Sources=@($buffer,$file,(Join-Path $fixture 'File.bas'))},
- @{Name='Values';Sources=@($buffer,(Join-Path $fixture 'Values.bas'))}
+ @{Name='Values';Sources=@($buffer,(Join-Path $fixture 'Values.bas'))},
+ @{Name='CallNew';Expected=0;Sources=@((Join-Path $root 'runtime/tests/callnew/Workers.bas'),(Join-Path $root 'runtime/tests/callnew/CaptureProbe.bas'),(Join-Path $root 'runtime/tests/callnew/Capacity.bas'),(Join-Path $root 'runtime/tests/callnew/Acceptance.bas'),(Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'))}
 )
 if($ValuesOnly){$corpus=@($corpus|Where-Object{$_.Name -eq 'Values'});Write-Output 'Focused values corpus only; reuse separately recorded full CLI and negative results.'}
 Write-Output "Conformance evidence: $artifacts"
@@ -87,7 +88,8 @@ foreach($compiler in $compilers){
   $again=Run $compiler.Path @('--emit-llvm',$project.Manifest,$ir);Success $again $compiler $project 'EMIT OK'
   Require ((Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash -ceq $hash) "$($compiler.Name) nondeterministic repeated IR: $($case.Name) O$level"
   $build=Run $compiler.Path @('--build',$project.Manifest,$native,'--clang',$Clang);Success $build $compiler $project 'BUILD OK'
-  $run=Run $native @() $project.Directory;Require ($run.ExitCode -eq 42 -and $run.Stdout -ceq '' -and $run.Stderr -ceq '') "$($compiler.Name) corpus execution failed: $($case.Name) O$level; $($run.Evidence)"
+  $expected=42;if($case.ContainsKey('Expected')){$expected=$case.Expected}
+  $run=Run $native @() $project.Directory;Require ($run.ExitCode -eq $expected -and $run.Stdout -ceq '' -and $run.Stderr -ceq '') "$($compiler.Name) corpus execution failed: $($case.Name) O$level; $($run.Evidence)"
   if($case.Name -eq 'File'){Require ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $project.Directory 'roundtrip.bin'))) -ceq 'ACqA/w==') 'Independent file-byte oracle mismatch'}
   if($case.Name -eq 'Return' -and $level -eq '0'){
    $source=$project.Sources[0];Write-Text $source ([IO.File]::ReadAllText($source,$utf8).Replace('Main = 42','Main = 43'))
@@ -95,6 +97,23 @@ foreach($compiler in $compilers){
    Require ((Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash -cne $hash) 'Changed-source negative control did not change IR'
    $changed=Run $compiler.Path @('--build',$project.Manifest,$native,'--clang',$Clang);Success $changed $compiler $project 'BUILD OK'
    $changed=Run $native @() $project.Directory;Require ($changed.ExitCode -eq 43) 'Changed-source executable negative control did not return43'
+  }
+  if($case.Name -eq 'CallNew'){
+   $source=$project.Sources[0];$original=[IO.File]::ReadAllText($source,$utf8)
+   $changedSource=$original.Replace('Observed <> 41','Observed <> 42')
+   Require ($changedSource -cne $original) 'Missing common source-worker ownership negative control'
+   Write-Text $source $changedSource
+   $changed=Run $compiler.Path @('--emit-llvm',$project.Manifest,$ir);Success $changed $compiler $project 'EMIT OK'
+   Require ((Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash -cne $hash) 'Source-worker ownership mutation did not change IR'
+   $changed=Run $compiler.Path @('--build',$project.Manifest,$native,'--clang',$Clang);Success $changed $compiler $project 'BUILD OK'
+   $changed=Run $native @() $project.Directory
+   Require ($changed.ExitCode -eq 1 -and $changed.Stdout -ceq '' -and $changed.Stderr -ceq '') 'Source-worker changed observation did not return its exact assertion failure'
+   Write-Text $source $original
+   $recovered=Run $compiler.Path @('--emit-llvm',$project.Manifest,$ir);Success $recovered $compiler $project 'EMIT OK'
+   Require ((Get-FileHash -LiteralPath $ir -Algorithm SHA256).Hash -ceq $hash) 'Restored source-worker fixture did not recover its exact baseline IR'
+   $recovered=Run $compiler.Path @('--build',$project.Manifest,$native,'--clang',$Clang);Success $recovered $compiler $project 'BUILD OK'
+   $recovered=Run $native @() $project.Directory
+   Require ($recovered.ExitCode -eq 0 -and $recovered.Stdout -ceq '' -and $recovered.Stderr -ceq '') 'Source-worker fixture failed recovery after the negative control'
   }
   Write-Output "PASS $($compiler.Name) $($case.Name) O$level deterministic IR and native result"
  }}

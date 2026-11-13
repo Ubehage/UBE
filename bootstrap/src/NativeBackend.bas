@@ -361,6 +361,7 @@ Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Op
             Definition = Definition & "AssignProcessToJobObject" & vbCrLf & "ResumeThread" & vbCrLf & "WaitForSingleObject" & vbCrLf & "GetExitCodeProcess" & vbCrLf
             Definition = Definition & "QueryInformationJobObject" & vbCrLf & "TerminateJobObject" & vbCrLf & "TerminateProcess" & vbCrLf & "Sleep" & vbCrLf
             Definition = Definition & "GetLastError" & vbCrLf & "CreateDirectoryW" & vbCrLf & "RemoveDirectoryW" & vbCrLf & "DeleteFileW" & vbCrLf & "MoveFileExW" & vbCrLf & "GetFileAttributesW" & vbCrLf
+            Definition = Definition & "CreateThread" & vbCrLf
         End If
         If Not WriteIR(Stage & "\kernel32-memory.def", Definition, Diagnostic) Then Exit Function
         Library = Stage & "\kernel32-memory.lib"

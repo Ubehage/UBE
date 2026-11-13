@@ -2,12 +2,13 @@
 param(
     [string]$VB6 = 'C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE',
     [string]$BootstrapExe = '',
-    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe'
+    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
+    [ValidateSet('Expression','Escape')][string]$Analysis = 'Expression'
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $utf8 = New-Object Text.UTF8Encoding($false, $true)
-$artifacts = Join-Path ([IO.Path]::GetTempPath()) ('ube expression allocation ' + [guid]::NewGuid())
+$artifacts = Join-Path ([IO.Path]::GetTempPath()) ('ube '+$Analysis.ToLowerInvariant()+' allocation ' + [guid]::NewGuid())
 $workingDirectory = Join-Path $artifacts 'unrelated working directory'
 $null = New-Item -ItemType Directory -Path $workingDirectory -Force
 $script:processNumber = 0
@@ -147,7 +148,9 @@ function Read-Procedures([string]$Manifest) {
 # Emits the actual declaration binder, parser, scanner, token helpers and a sentinel observer fixture.
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$manifest = Copy-Fixtures 'expression allocation library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $compilerDirectory 'ProjectSyntax.bas'),(Join-Path $compilerDirectory 'DeclarationBinder.bas'),(Join-Path $compilerDirectory 'ConstantValues.bas'),(Join-Path $compilerDirectory 'ExpressionBinder.bas'),(Join-Path $PSScriptRoot 'ExpressionAllocationProbe.bas')) '0' 'Library'
+$analysisFiles=@((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $compilerDirectory 'ProjectSyntax.bas'),(Join-Path $compilerDirectory 'DeclarationBinder.bas'),(Join-Path $compilerDirectory 'ConstantValues.bas'),(Join-Path $compilerDirectory 'ExpressionBinder.bas'))
+if($Analysis -eq 'Escape'){$analysisFiles+=(Join-Path $compilerDirectory 'NativeEscapes.bas');$analysisFiles+=(Join-Path $PSScriptRoot '../native-escapes/AllocationProbe.bas')}else{$analysisFiles+=(Join-Path $PSScriptRoot 'ExpressionAllocationProbe.bas')}
+$manifest = Copy-Fixtures 'analysis allocation library' $analysisFiles '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'parser.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'
@@ -161,6 +164,7 @@ foreach ($name in @('allocate','release')) {
 $sourceText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Example`"`nPublic Function Main() As Long`n"
 foreach ($index in 1..300) { $sourceText += "Dim Value$index As Long`n" }
 $sourceText += "Value1 = Value2 + 1`nMain = Value1`nEnd Function`n"
+if($Analysis -eq 'Escape'){$sourceText += "Sub Relay(ByRef Value As Long)`nCallNew Worker(Value)`nEnd Sub`nSub Worker(ByRef Value As Long)`nEnd Sub`n"}
 $sourceBytes = $utf8.GetBytes($sourceText)
 $sourceCells = ($sourceBytes | ForEach-Object { 'i64 ' + $_ }) -join ', '
 $sourceGlobals = '@test.source.data = global [' + $sourceBytes.Length + ' x i64] [' + $sourceCells + "], align 8`r`n" +
@@ -275,6 +279,7 @@ entry:
   %setup.zero = icmp eq i64 %setup.value, 0
   %a = and i1 %setup.ok, %setup.zero
   %ready = and i1 %a, %init
+  %prepared.owners = load i64, ptr @test.live
   store i64 0, ptr @test.calls
   store i64 STAGE, ptr @test.fail.at
   %rejected = call { i1, i64 } @ube.proc.REJECT(ptr %ctx)
@@ -287,7 +292,7 @@ entry:
   %failed = load i64, ptr @test.failed
   %both.failed = icmp eq i64 %failed, 2
   %retained = load i64, ptr @test.live
-  %only.owners = icmp eq i64 %retained, 6
+  %only.owners = icmp eq i64 %retained, %prepared.owners
   store i64 0, ptr @test.calls
   store i64 0, ptr @test.fail.at
   %retry = call { i1, i64 } @ube.proc.RETRY(ptr %ctx, i64 7)

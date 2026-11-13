@@ -1,5 +1,417 @@
 # Compiler development handoff
 
+## Completed qualification: concurrent compilation — 2026-11-13
+
+The final Windows x64 one/two-worker implementation passes the concurrency
+gate, successive self-build comparison and common conformance. The next existing roadmap
+area is complete language and product support; no additional language feature
+or architecture is selected by this handoff.
+
+### Final acceptance evidence
+
+All artifact directories below are under `C:\Users\Ubehage\AppData\Local\Temp`.
+The final bootstrap is `ube native context 5b726a73-2fe7-48a4-865b-887e684959b6\build\UBE-Bootstrap.exe`.
+Production runtime parity is 152116 bytes; 170 templates occupy 23487 bytes
+(checksum 1843860); objects use only the 42 reviewed Kernel32 imports.
+
+| Requirement | Passing evidence |
+| --- | --- |
+| Overlapping independent project work and simultaneous requests; exact single/two-worker IR and diagnostics | `ube concurrent compilation 30afd7ad-b7cf-4153-a352-0b8b29e31988`; both independent source baselines, repeated varied schedules, request isolation |
+| Dependency/publication ordering, cancellation, worker failure and recovery | Same full gate; cancellation after real emission, simultaneous successful request, fresh FAIL with Err zero, copy-helper fault, retained-close retry, quotas, whole-artifact competing publication, native backend failure/timeout followed by recovery |
+| Useful parallelism measured separately | `ube concurrent compilation 39e257c4-0c53-40d9-885a-7938c4adb51d`; idle uninstrumented trials 1/2/2/1 workers: 3939/3581/3517/3915 ms; means 3927/3549 ms, 9.63% reduction, nonoverlapping observed ranges, four identical outputs |
+| Current UBE lowering and runtime dependencies | `ube native lowering 9532c629-4090-47d5-b971-a58723286aa4`; actual O0/O2 language execution, capture faults, compiler objects/imports and 54 dynamic-storage groups; focused reset/resource and runtime gates recorded below and in runtime test READMEs |
+| Successive self-builds from current repository sources | `ube compiler rebuild 18c217dd-d417-4e79-b96a-198202d3613a`; both generations built by this run, source/asset bytes match repository, exact LLVM and timestamp-normalized native comparisons |
+| Same positive, negative and recovery corpus | `ube compiler conformance 1a6736b3-f0fe-4d98-b9ad-fea398b150e6`: bootstrap plus generation 2, 860 assertions; `ube compiler conformance 5551e6e4-582c-4ab1-a356-0e64ebae1360`: generation 1, 446 assertions |
+
+The measurement uses the checked frozen 51-module/722143-byte package on an
+AMD Ryzen 9 3950X (32 logical processors). It includes source-to-LLVM request
+work, excluding driver construction and the native backend. Output SHA256:
+`8D4021512E2C1F4F4DAE9D0B560DA3358D1D8B158E5F484C52AACF5D69B81115`.
+Exact measurement/correctness commands and raw-evidence locations are in
+`../bootstrap/tests/concurrent-compilation/README.md`.
+
+Final self-build and conformance commands (from the repository root):
+
+```powershell
+$seed = 'C:\Users\Ubehage\AppData\Local\Temp\ube native context 5b726a73-2fe7-48a4-865b-887e684959b6\build\UBE-Bootstrap.exe'
+$initial = 'C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler bootstrap final'
+$rebuilt = 'C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild 18c217dd-d417-4e79-b96a-198202d3613a'
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe $seed -Destination $initial -TimeoutMilliseconds 360000
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "$initial\UBE.exe"
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "$rebuilt\generation-2\UBE.exe" -BootstrapExe $seed
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "$rebuilt\generation-1\UBE.exe" -BootstrapExe $seed -CompilerOnly
+```
+
+Every command exited zero. Host build: 13515 ms; successive self-builds:
+15185 and 15977 ms. These are observed whole compiler-process times, not an
+idle performance comparison. Both self-built compilers emitted exact LLVM
+SHA256 `429C45BB4C65652DACFA3BE178E840061E82E83C86D52CB24ECA135610866DBE`.
+Native images differed only in the four-byte COFF timestamp at offset 128;
+normalizing that field alone yielded exact bytes. Conformance executed all
+seven families at O0/O2, deterministic/changed-input checks, malformed/identity
+guards and missing/nonzero/no-output/timeout backend preservation and recovery.
+
+Independent final reviews covered request-private facts, immutable publication,
+per-thread error/call state, heap/reference ownership, descriptor lock ordering,
+resource claims, worker completion/handle ownership and backend boundaries.
+Clang 23.1.3 rejects `--target=x86_64-pc-windows-msvc -fsanitize=thread -### -x c -c NUL`;
+no race-detector execution is claimed. Reviewed synchronization plus bounded
+real-thread tests do not establish absence of every possible race. Compound
+shared updates, foreign callbacks, arbitrary concurrent context destruction,
+the full coordination library and additional targets remain outside this gate.
+
+## Historical concurrent-compilation checkpoints
+
+The following records preserve intermediate findings and failed experiments.
+Their pending-status statements describe those earlier checkpoints; the final
+acceptance table above supersedes them.
+
+Current integrated runtime identity: 152116 bytes, template catalog 170 entries /
+23487 bytes / checksum 1843860. The fresh bootstrap is
+`C:\Users\Ubehage\AppData\Local\Temp\ube native context 5b726a73-2fe7-48a4-865b-887e684959b6\build\UBE-Bootstrap.exe`.
+Using `bootstrap/tests/native-lowering/check.ps1 -BootstrapExe <that executable>`,
+the complete gate passed with exit 0 in
+`ube native lowering 9532c629-4090-47d5-b971-a58723286aa4`: actual UBE O0/O2
+language/system/path/process observations, capture-failure recovery, compiler
+objects restricted to reviewed imports, and all 54 dynamic-storage groups.
+Its worker-fault and dynamic-storage evidence are
+`ube worker faults 777bebee-5f99-4ad5-9255-2176e9834f05` and
+`ube dynamic storage 43525408-1323-468f-a94a-288471296401`.
+The same command with `-ArrayDeclarationOnly` passed O0/O2 values, cleanup and
+zero-allocation assertions in `ube array declaration 3be0c844-270d-4f8c-b25c-2b6a206153dd`
+(driver `ube native lowering c1064a8d-75e7-4603-af25-812eea178479`). With
+`-ResourceConcurrencyOnly`, all four eight-worker schedules passed at O0/O2 in
+`ube resource concurrency eb01d4ca-4290-418a-a6d8-bfedacb0d113`
+(driver `ube native lowering b8b3c429-3d39-4c00-9b1a-2da94777ab5a`).
+The full integrated compiler concurrency correctness gate also passed in
+`ube concurrent compilation 30afd7ad-b7cf-4153-a352-0b8b29e31988`.
+All evidence directories above are under the user's temporary directory.
+Final idle measurements, refreshed successive self-build/common conformance,
+completion documentation and GitHub publication remain pending.
+
+The complete corrected concurrency correctness gate now passes (exit 0), with
+evidence in `ube concurrent compilation 41f66ece-9d0b-4398-81c0-dc927ebab23d`.
+It includes the previously missing active-emitter cancellation, simultaneous
+worker failure and successful request, independent second-source artifact
+baseline, complete structured diagnostics, cleanup retry, footer quotas,
+concurrent native backends and timeout followed by same-process recovery.
+The command and tested limits are in
+`../bootstrap/tests/concurrent-compilation/README.md`.
+
+Performance remains an unmet acceptance requirement. The idle post-collector
+run reused the checked original 51-module/722143-byte source ledger. Trials
+with 1, 2, 2, 1 workers took 4022, 4735, 5059 and 4005 ms; means are 4013.5 ms
+and 4897 ms, so two workers remain 22.01% slower. All four IR hashes match
+`4574D383A868F2466636E2AE44EE815DBDBBB13C534ED2C91ACB87342FE4E91C`.
+Evidence: `ube concurrent compilation ff13c308-eb90-4949-a5b6-73be79b53f00`.
+A test-only relaxed-poll storage-lock experiment then rejected that candidate:
+16 exact-output trials averaged 3941.62/4750.49 ms for original one/two-worker
+drivers and 4135.92/4995.67 ms for the candidate. Evidence is
+`ube storage lock experiment 61e10156-2514-40ba-82e7-5d46f920f69b`; commands and
+limits are in `../runtime/tests/storage-profile/README.md`. That experiment did
+not change production locking. A subsequent test-only descriptor-stripe experiment kept
+heap-to-stripe lock ordering and passed focused same-descriptor contention
+checks plus all 16 exact-output trials. Means were 3990.03/4776.79 ms for
+original one/two-worker drivers and 4057.98/3955.08 ms for striped drivers.
+Evidence: `ube storage lock experiment acae37a1-1ca1-4395-b946-51c372fa7a00`.
+This removes much of the parallel penalty, but the 0.88% advantage over the
+original single-worker baseline is too small to establish useful speedup.
+Striping remains experimental. Per-procedure profiling reproduced the frozen
+output exactly and identified 64,154,642 snapshots in 624,036 calls to
+`ByteText.TryAppendInteger`; full counts are in
+`ube snapshot procedures acbc72c4-005c-4996-afa0-1501f19cb6f9`.
+The measured narrow optimization now carries the current negative decimal power
+in one scalar and reads each private Powers entry once per digit position.
+It preserves the algorithm, bounds and atomic output publication. The existing
+byte-text, LLVM-format and LLVM-writing gates passed at O0/O2 with their negative
+controls. Frozen-workload trials took 3928, 4666, 4455 and 3880 ms (1,2,2,1),
+means 3904/4560.5 ms: two workers remained 16.82% slower. Evidence:
+`ube concurrent compilation c3c831ff-cfdf-44d0-97d7-ec1959bfc100`.
+Combining the cached formatter with test-only descriptor stripes also failed to
+establish useful speedup: original one-worker mean 3823.29 ms versus striped
+two-worker mean 3984.40 ms, 4.21% slower, across 16 exact-output trials in
+`ube storage lock experiment 4e20985f-737c-42f4-9e90-9ba371c0f659`.
+A candidate now passes the private
+`NativeCompilation.EmitRange` catalog as ByVal, using the already qualified
+array snapshot/capture semantics to give each worker an independent rendering
+buffer while keeping authoritative program facts ByRef. The full correctness
+gate passed again in `ube concurrent compilation 95205396-5aaf-4636-b717-0b1298181b0b`,
+including O0/O2 synthetic failure of the second catalog-copy
+helper after the first real worker enters. This asserts caller/capture cleanup,
+preserved output and independent recovery; it does not inject native allocation
+retries, which remain covered by the separate allocator gates. Comparative
+timing is in progress before adoption.
+The current 50-module source package, including this candidate, the ByteText
+cache and the array-reset fix, passed actual UBE `--emit-llvm` through retained
+generation-2 into `%TEMP%\ube private catalog planning\compiler.ll` (exit 0,
+EMIT OK). Clang compiled that IR at O0/O2; `llvm-nm --undefined-only` for both
+objects reported exactly the 42 imports in `compiler/llvm/kernel32.def`, with
+no other helper dependency. Existing planning/frame bounds were not increased.
+
+The private-catalog plus descriptor-stripe combination subsequently passed all
+16 interleaved exact-output trials. Original one-worker mean was 3821.21 ms
+(3798.00–3848.68); striped two-worker mean was 3499.33 ms (3438.13–3555.84),
+8.42% faster with nonoverlapping observed ranges. Striped one-worker mean was
+3909.82 ms. Root independently read the raw CSV in
+`ube storage lock experiment d0c867f0-c730-4381-907a-bde46136113a`.
+This justifies integration, not final acceptance: production descriptor locks
+are now being placed in each program's own padded 64-stripe table, preserving
+heap-before-stripe ordering and existing array/block layouts. The root context
+grows by 520 cells, including a leading cache-line gap. Final regression and
+uninstrumented timing must qualify this integrated runtime, which differs from
+the experiment's process-global test table.
+Root README/completion status and GitHub publication remain pending the full
+objective.
+
+The descriptor-lock audit also found an uncovered correctness issue:
+`NativeStorage.NeutralStorage` clears a dynamic descriptor with the synchronized
+runtime helper, then emits raw empty-descriptor initialization even when
+`ReleaseExisting=True`. A repeated declaration of a captured dynamic local can
+therefore overwrite a worker's intervening resize after the clear has unlocked.
+The host boxed-array path already clears without the extra raw stores. The
+focused regression reproduced failure with the old actual UBE compiler at
+O0/O2: lost installed values, failed disposal and a retained allocation (exit 7).
+The one-line correction returns success after ClearArray for an existing
+unbounded descriptor; unpublished initialization remains unchanged. Actual UBE
+lowering of the corrected source passed O0/O2, checking values 42/99, explicit
+release, drain, empty registry, successful disposal and zero allocations.
+The regression, exact commands and old/fixed evidence are recorded in
+`../runtime/tests/array-declaration/README.md`. Full final compiler rebuild and
+regression evidence must be refreshed after the remaining performance work.
+
+The performance investigation now has a focused runtime profile. Reading
+`runtime/tests/storage-profile/read.ps1 -Counts "C:\Users\Ubehage\AppData\Local\Temp\ube storage profile one\counts.bin"`
+reported 1,038,729,983 collection requests and scans, 41,364,845,732 inspected
+blocks, and 20,550 freed blocks. Of those scans, 1,038,712,049 reclaimed nothing;
+the maximum scan visited 55 blocks. The single-worker run recorded no failed
+storage-lock CAS operations. These diagnostic counters justify avoiding scans
+when no block has lost its final reference; they do not establish a parallel
+speedup. Instrumented elapsed times are not performance acceptance evidence.
+An independent `Get-FileHash` comparison of the profile's `output-2.ll` with
+the four baseline rows in `measurements.csv` confirmed the same SHA256:
+`E04E6F1E1E189089040F4AD22798C56ADF4400C8F6EEED9927D6C1272682EBF2`.
+The baseline evidence directory is
+`C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compilation 38e1d451-c37a-4bfb-94d5-f36e273423a9`.
+
+The two-worker profile completed with exit 0 and the same output hash. Reading
+`runtime/tests/storage-profile/read.ps1 -Counts "C:\Users\Ubehage\AppData\Local\Temp\ube storage profile two\counts.bin"`
+confirmed 1,039,292,363 scans, 46,502,386,317 inspected blocks, 20,608 frees,
+and 1,039,274,388 scans without reclamation. Collection lock acquisition had
+24,080,905,232 failed CAS attempts and 227,624,655 contended acquisitions;
+snapshot acquisition had 6,394,679,941 failed CAS attempts and 55,511,125
+contended acquisitions. These instrumented counts support the focused change
+to avoid collection scans until a final reference is released. Its source has
+been reviewed and its focused/runtime regression gates passed; exact commands
+and evidence are in `../runtime/tests/pending-retirement/README.md` and the
+lowering results below. The subsequent uninstrumented measurements are recorded
+above and still show a two-worker slowdown.
+
+The acceptance review identified test coverage that was subsequently added: cancellation
+after request emitters have demonstrably started, an injected worker failure
+alongside a concurrently successful request, an independent second-request
+artifact baseline, and comparison of RequestDiagnostic.Operation. Those cases
+passed in the complete correctness run recorded above.
+
+The current source closure passed
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/package-check.ps1`:
+275 source-packaging assertions, including refusal of a junction ancestor with
+the redirected target and sentinel unchanged. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube self-host sources 81fe7066-ac21-46d8-acf2-4b849178ee20`.
+This checks the updated package; executable self-hosting still requires the
+final rebuilt compiler and common conformance corpus.
+
+After the collector change, the fresh bootstrap at
+`C:\Users\Ubehage\AppData\Local\Temp\ube native context 49f0f01f-46f9-41d6-ae3e-610eb5293a0e\build\UBE-Bootstrap.exe`
+passed `rtk proxy powershell -NoProfile -File runtime/tests/callnew/check.ps1 -BootstrapExe <that executable>`.
+O0/O2 assertions cover worker ownership and fresh failure, changed caller-return
+scalar rejection, all 11 capture-allocation sites failing both attempts, native
+startup failure, recovery after every fault, and zero live allocations.
+Source evidence: `ube native workers eaee691e-1862-4953-b7b8-3ac0f203b83a`;
+fault evidence: `ube worker faults 56a774c7-04db-4a14-ab18-f17d48e7de21`, both
+under the user's temporary directory. Independent read-only tools passed:
+`bootstrap/tools/runtime-text.ps1` (150717 bytes) and
+`bootstrap/tools/llvm-templates.ps1` (170 templates, 23451 ASCII bytes,
+checksum 1841488).
+
+The complete rerun
+`rtk proxy powershell -NoProfile -File bootstrap/tests/native-lowering/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube native context 49f0f01f-46f9-41d6-ae3e-610eb5293a0e\build\UBE-Bootstrap.exe"`
+finished with exit 0 in
+`ube native lowering 740621aa-d145-4021-aecd-59f4ddbdaeeb`.
+It passed actual UBE-generated O0/O2 language and changed-input observations,
+entry/initialization/recursion checks, system/path/namespace/process wrappers,
+source CallNew capture faults and recovery, and compiler/library object checks
+against the reviewed native imports with no unavailable helper dependencies.
+Its final actual UBE-emitted ownership gate passed all 54 dynamic-storage groups
+with zero live allocations at disposal; evidence:
+`ube dynamic storage b1ee98ca-eab0-4e3b-b4b0-b9b1765a486f`.
+The included worker-fault evidence is
+`ube worker faults a7b734a2-a88a-4fc3-b866-a59a52d6d67d`.
+These directories are under the user's temporary directory. This establishes
+the updated lowering/runtime regression gate, not final compiler concurrency
+or self-hosting conformance.
+
+The compiler-emission allocation gate also passed both variants on bootstrap
+49f0f01f: `bootstrap/tests/native-lowering/allocation-check.ps1 -BootstrapExe <that executable>`
+qualified all 70 allocation sites at O0/O2, and the same command with `-CallNew`
+qualified all 97 sites. Both include malformed-input, I/O, depth, independent
+recovery and zero-live-allocation assertions. Evidence directories are
+`ube lowering failures 0e2c3775-4d7d-4873-830d-4c15f4143cdb` and
+`ube lowering failures 66358234-312f-4152-bbfb-3e00d4e83708` under the user's
+temporary directory; full commands are recorded in the gate README.
+
+The updated compiler built from bootstrap 49f0f01f into
+`C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler bootstrap 2\UBE.exe`
+in 12749 ms. The command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler bootstrap 2\UBE.exe"`
+then passed with exit 0. Both generations were built by that invocation, with
+compiler-process times of 16438 and 16371 ms. Their manifests, verified source
+ledgers and native assets match one another and current repository bytes.
+Generated compiler LLVM is byte-identical, SHA256
+`6A74E8612F33FE66B57B175F0A193EDFD20A8D339E5359569DC05074C7FB2E16`.
+Native images differ only at byte 128 within the COFF TimeDateStamp field;
+zeroing only that documented four-byte field produces identical images.
+Evidence and both generation packages:
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild ee02eff8-ab8e-476f-83e3-5f7d9e2e0e0f`.
+These build timings are observations during regression work, not the idle
+one-versus-two-worker performance measurement. The shared seed/compiler CLI
+conformance command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild ee02eff8-ab8e-476f-83e3-5f7d9e2e0e0f\generation-2\UBE.exe" -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube native context 49f0f01f-46f9-41d6-ae3e-610eb5293a0e\build\UBE-Bootstrap.exe"`
+passed all 860 assertions with exit 0. It ran the same seven source families
+against both compilers at O0/O2, including CallNew, deterministic IR, native
+results, malformed input/identity guards and prior-output preservation after
+missing, nonzero, no-output and timed-out backends. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube compiler conformance be739a8d-325e-48ca-b3f2-6055d22342d5`.
+
+The owner requested the next roadmap item and authorized updating the root
+README and pushing the completed work to GitHub. The goal is the full existing
+concurrency gate, including overlapping intra-project work and same-process
+independent requests, deterministic output, failure/cancellation isolation and
+performance evidence. [CONCURRENCY.md](CONCURRENCY.md) records the source/runtime
+assessment and the owner's worker-completion decision: escaping worker-entry
+FAIL ends that worker normally, while ThreadWait delivers fresh FAIL on the
+waiting thread. Timeout/cancellation remain normal status. The runtime and source
+thread implementations are undergoing qualification. The full compiler
+concurrency gate remains pending; self-hosting remains the passing baseline.
+
+The owner subsequently clarified CallNew: ordinary Call syntax and parameter
+semantics, Subs or Functions, usable both as a statement and as a LongLong
+thread-ID expression. Parser/binding and documentation are being reconciled;
+native thread-start emission now has capture ownership and entry-thunk
+implementations in both emitters. Source-level lifetime and fault qualification
+is in progress; this is not yet a completed compiler concurrency gate.
+
+Native planning now carries request-owned escape facts and a per-symbol storage
+escape flag, derived from the checked syntax/binding graph. NativeOwnership and
+NativeThreads implement retained local/temporary boxes, hidden owner arguments,
+typed capture cleanup and statically bound worker entry thunks. The native guard
+was removed for qualification after that implementation was connected.
+The command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/native-planning/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube native context 20f3aadd-b9bf-4494-b699-de49dc2d5d79\build\UBE-Bootstrap.exe"`
+passed 18 cases and 9,153 assertions at each of O0/O2; the changed frame input
+was rejected at exact assertion 423 at both levels. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube native planning 7aac5e13-2c3e-4df9-b973-a793a8fd4378`.
+This checks the planning integration on the admitted serial profile, not worker
+capture execution. An earlier attempt failed to link because the shared test
+import helper omitted CreateThread; that explicit import is now included.
+
+Self-host source packaging includes NativeEscapes. The command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/package-check.ps1`
+passed 250 assertions, including the junction-ancestor refusal and unchanged
+sentinel, with evidence in
+`C:\Users\Ubehage\AppData\Local\Temp\ube self-host sources 1fcdf8db-b42f-44df-b268-6736abd56b2b`.
+This is packaging evidence only; the updated compiler has not yet passed a new
+self-hosting or concurrency gate.
+
+Capture implementation must account for fixed local arrays: their existing
+inline payload has no retainable block. The selected implementation gives
+escaping fixed local arrays a separately owned payload, retaining the original
+bounds. Indexed escape requirements must propagate back through ByRef array
+parameters so the originating local receives that storage. Program-owned fixed
+arrays may retain inline storage. Both emitters now implement this lifetime case,
+with complete execution/fault qualification still in progress.
+
+After integrating the ownership-aware frame accounting, the command
+`rtk proxy powershell -NoProfile -File bootstrap/tests/native-planning/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube native workers 6e56a4fa-607e-4158-bbb8-444bb4d39224\UBE-Bootstrap.exe"`
+passed 21 cases and 10,067 assertions at each of O0/O2, plus exact frame-input
+mutation rejection at assertion 423. New cases distinguish escaping fixed
+payloads from ordinary inline frame storage, charge the hidden array owner and
+indexed pin, and charge a boxed record snapshot and its cleanup. Evidence:
+`C:\Users\Ubehage\AppData\Local\Temp\ube native planning d67f092d-33c1-4768-9ce2-436db7f55481`.
+
+The initial integrated native-lowering run passed the existing executable,
+control/error and system/path/file/process observations at O0/O2, then exposed
+an unavailable `__chkstk` dependency in NativeExpressions.EmitCall: its O0 frame
+was 4,664 bytes. Argument preparation was extracted into a separate procedure;
+the complete rerun, including source CallNew execution and fault cases, remains
+in progress. The failed run's evidence is
+`C:\Users\Ubehage\AppData\Local\Temp\ube native lowering 59e05d8f-0e37-4905-a201-c2679a37712d`.
+No bound increase or runtime helper substitution was made.
+
+The complete native-lowering gate subsequently passed with exit 0:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/native-lowering/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube native workers 6e56a4fa-607e-4158-bbb8-444bb4d39224\UBE-Bootstrap.exe"`.
+Evidence is `ube native lowering 2e395f76-a7d8-4e9c-9ccc-0afc04a87e14` under
+the system temporary directory. This includes the source CallNew cases at
+O0/O2, capture allocation/startup failures with recovery, the existing runtime
+observations, actual compiler objects without forbidden helpers or unreviewed
+imports, and all 54 UBE-emitted dynamic-storage groups. The compiler-source
+driver alone now has a measured 120-second test deadline: its preserved
+60-second timeout case completed in 63.68 seconds on a controlled rerun.
+Other emission-driver deadlines remain 60 seconds. The final aggregate command
+passed without relying on manual continuation.
+
+The compiler-side fault gates now pass with the current owner-aware emitter:
+`bootstrap/tests/native-lowering/allocation-check.ps1` with bootstrap
+`C:\Users\Ubehage\AppData\Local\Temp\ube native workers 6e56a4fa-607e-4158-bbb8-444bb4d39224\UBE-Bootstrap.exe`
+passed all 70 observed allocation sites at O0/O2. The same command with
+`-CallNew` passed all 97 observed sites while emitting local boxes, hidden
+owners, record/array snapshots, indexed fixed-array captures, grouped
+temporaries and nested worker thunks. Each variant also passed malformed input,
+write/flush failures, depth boundaries, exact recovered-output hashes and zero
+live allocations at disposal. Evidence directories are respectively
+`ube lowering failures 4909a005-0893-4fd2-85db-5989798b19f5` and
+`ube lowering failures 836f3156-cb37-4ab7-9800-856d3c3b0698` under the system
+temporary directory. Runtime capture-allocation checks are separate.
+
+An initial native compiler build at
+`C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler bootstrap 1\UBE.exe`
+successfully rebuilt the 50-module compiler package into
+`C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler self 1\UBE.exe`.
+The first attempt hit the build helper's 180-second deadline; both emission
+chunks had completed and concatenation had begun. After that process was
+confirmed terminated, rerunning the same compiler/package completed with
+`BUILD OK`. This is an intermediate self-build, not fixed-point or conformance
+qualification. Coordinator cleanup/diagnostic review fixes and removal of
+duplicate private-chunk validation require another current-source build.
+The build helper now accepts an explicit bounded `-TimeoutMilliseconds`
+override (its default remains 180,000) and reports elapsed compiler-process
+time; this does not change compiler/backend timeouts.
+
+The reviewed current package subsequently built through the UBE-built compiler
+at `C:\Users\Ubehage\AppData\Local\Temp\ube concurrent compiler self 3\UBE.exe`.
+The exact command used `bootstrap/tools/build-compiler.ps1` with compiler
+`ube concurrent compiler self 1\UBE.exe`, destination `ube concurrent compiler
+self 3`, and `-TimeoutMilliseconds 360000`; it completed with `BUILD` after
+182,905 milliseconds of compiler-process time. This measurement includes the
+older input compiler's chunk assembly and is not the final parallel speedup
+measurement. A prior `self 2` snapshot was cleanly rejected at the unchanged
+128-cell frame bound after an extra replay-state assignment; extracting
+PrepareReplay removed that aggregate temporary. The `self 3` source ledger
+includes this correction and the private-chunk direct-copy optimization.
+Current-source conformance and repeated self-build artifact comparison remain
+pending. Performance trials reserve an otherwise idle window before those
+heavy checks resume.
+
+The reserved idle benchmark completed with identical IR across all four trials,
+but two workers were about 25% slower than one worker on the full 51-module
+compiler-plus-probe workload. Raw results are in `ube concurrent compilation
+38e1d451-c37a-4bfb-94d5-f36e273423a9`; CONCURRENCY.md records the exact times,
+hash and measurement scope. Useful parallelism is therefore not qualified.
+A separate test-only profile is counting collection scans, reclaim work,
+descriptor snapshots and storage-lock contention before any runtime optimization.
+Current-source CLI conformance and final reproducible rebuilds are held while
+this performance issue is resolved. Do not mark the roadmap complete or push
+based only on overlap and passing correctness cases.
+
 ## Completed: runnable compiler and reproducible self-hosting
 
 The approved "Build compiler in UBE" item passed its sequential self-hosting

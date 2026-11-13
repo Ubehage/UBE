@@ -112,7 +112,7 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
 $files = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | ForEach-Object { Join-Path $root ('std-lib/src/portable/'+$_+'.bas') }
-$files += @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeContext') | ForEach-Object { Join-Path $root ('compiler/src/'+$_+'.bas') }
+$files += @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','NativeEscapes','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeContext') | ForEach-Object { Join-Path $root ('compiler/src/'+$_+'.bas') }
 $files += Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
 $library=Join-Path $artifacts 'emitter.ll'
@@ -123,7 +123,7 @@ $symbols=@{}
 foreach($line in ($bound.Stdout -split '\r?\n')) {
     if($line -notmatch '^SYMBOL ') {continue}
     $f=$line.Substring(7).Split('|')
-    if($f[5] -eq '18' -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
+    if([int]$f[5] -eq ($files.Count - 1) -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
 }
 foreach($name in @('ConfigurePath','SetPathByte','Emit')) {Require ($symbols.ContainsKey($name)) "Missing $name"}
 $emitted=[IO.File]::ReadAllText($library,$utf8)
@@ -181,36 +181,38 @@ dirty:
   %slot = getelementptr i64, ptr @ctx.a, i64 %i
   store volatile i64 -1, ptr %slot
   %next = add i64 %i, 1
-  %more = icmp ult i64 %next, 336
+  %more = icmp ult i64 %next, 866
   br i1 %more, label %dirty, label %initialize
 initialize:
   call void @ube.context.init(ptr @ctx.a)
   call void @ube.context.init(ptr @ctx.b)
   %size = call i64 @ube.context.size()
-  %size.ok = icmp eq i64 %size, 2688
+  %size.ok = icmp eq i64 %size, 6928
 '@ + "`r`n" + (Assert-IR '%size.ok' 1) + @'
   br label %zero.check
 zero.check:
   %j = phi i64 [ 0, %continue1 ], [ %jnext, %zero.next ]
   %zptr = getelementptr i64, ptr @ctx.a, i64 %j
   %z = load volatile i64, ptr %zptr
-  %zero = icmp eq i64 %z, 0
+  %zero.value = icmp eq i64 %z, 0
+  %program.slot = icmp eq i64 %j, 2
+  %zero = or i1 %zero.value, %program.slot
   br i1 %zero, label %zero.next, label %bad.zero
 bad.zero:
   ret i32 2
 zero.next:
   %jnext = add i64 %j, 1
-  %again = icmp ult i64 %jnext, 336
+  %again = icmp ult i64 %jnext, 866
   br i1 %again, label %zero.check, label %project
 project:
   %initialized = call i1 @ube.project.init(ptr @ctx.a)
   %trace.value = load i64, ptr @trace
   %ordered = icmp eq i64 %trace.value, 12
 '@ + "`r`n" + (Assert-IR '%ordered' 3) + @'
-  %a = getelementptr %ube.context, ptr @ctx.a, i32 0, i32 3, i64 0
-  %other = getelementptr %ube.context, ptr @ctx.a, i32 0, i32 3, i64 5
-  %b = getelementptr %ube.context, ptr @ctx.b, i32 0, i32 3, i64 0
-  %scalar = getelementptr %ube.context, ptr @ctx.a, i32 0, i32 3, i64 4
+  %a = call ptr @ube.storage.address(ptr @ctx.a, i64 0)
+  %other = call ptr @ube.storage.address(ptr @ctx.a, i64 5)
+  %b = call ptr @ube.storage.address(ptr @ctx.b, i64 0)
+  %scalar = call ptr @ube.storage.address(ptr @ctx.a, i64 4)
   store i64 123, ptr %scalar
   %allocated.a = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %a, i64 2, i64 0, i64 1)
   %allocated.other = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %other, i64 3, i64 0, i64 1)
@@ -224,12 +226,12 @@ project:
   %refused.depth = xor i1 %busy.depth, true
 '@ + "`r`n" + (Assert-IR '%refused.depth' 5) + @'
   store i64 0, ptr %depth
-  %file = getelementptr %ube.context, ptr @ctx.a, i32 0, i32 7, i64 0, i32 0
+  %file = call ptr @ube.resource.slot(ptr @ctx.a, i64 0)
   store i64 1, ptr %file
   %busy.file = call i1 @ube.context.dispose(ptr @ctx.a)
   %refused.file = xor i1 %busy.file, true
 '@ + "`r`n" + (Assert-IR '%refused.file' 6) + @'
-  %head.a = getelementptr %ube.context, ptr @ctx.a, i32 0, i32 4
+  %head.a = call ptr @ube.memory.head(ptr @ctx.a)
   %live.a = load ptr, ptr %head.a
   %still.owned = icmp ne ptr %live.a, null
 '@ + "`r`n" + (Assert-IR '%still.owned' 7) + @'
@@ -247,7 +249,7 @@ project:
   %scalar.value = load i64, ptr %scalar
   %scalar.ok = icmp eq i64 %scalar.value, 123
 '@ + "`r`n" + (Assert-IR '%scalar.ok' 10) + @'
-  %head.b = getelementptr %ube.context, ptr @ctx.b, i32 0, i32 4
+  %head.b = call ptr @ube.memory.head(ptr @ctx.b)
   %live.b = load ptr, ptr %head.b
   %isolated = icmp ne ptr %live.b, null
 '@ + "`r`n" + (Assert-IR '%isolated' 11) + @'

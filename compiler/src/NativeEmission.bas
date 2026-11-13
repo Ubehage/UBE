@@ -1,6 +1,7 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeEmission"
 ' Holds request-owned LLVM numbering and failure edges; source operations remain checked by the frontend.
+Public Const MaximumWork As Long = 10000000
 Public Type EmissionState
     Text As LLVMWriter.WriterState
     Work As Long
@@ -23,7 +24,7 @@ End Type
 ' Every traversal and generated identity contributes to one bounded emission request.
 Public Function Charge(ByRef State As EmissionState) As Boolean
     If State.Text.Failed Then Exit Function
-    If State.Work >= 10000000 Then
+    If State.Work >= MaximumWork Then
         State.Text.Failed = True
         State.FailureCode = 6
         State.FailureReason = 56

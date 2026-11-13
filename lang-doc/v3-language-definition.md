@@ -915,7 +915,8 @@ UBE preserves the classic VB call surfaces while making association and
 evaluation deterministic. Expression calls use parentheses; `Call` statements
 use parentheses when arguments are supplied; statements without `Call` use the
 unparenthesized form. Either statement form may intentionally discard a
-Function result. `CallNew` remains the separately restricted Sub-only form.
+Function result. `CallNew` uses the explicit `Call` target and argument syntax,
+starts that Sub or Function on a new thread, and yields the thread identifier.
 
 Arguments may be positional, omitted, or named as
 `ParameterName := expression`. Positional arguments precede named arguments;
@@ -994,7 +995,7 @@ ineffective combinations are diagnosed rather than ignored.
 
 ### 5.1 Creation
 
-`CallNew` starts an existing `Sub` on a new UBE thread and evaluates to a
+`CallNew` starts an existing `Sub` or `Function` on a new UBE thread and evaluates to a
 `LongLong` UBE thread identifier. Its exact source form is:
 
 ```ube
@@ -1005,16 +1006,12 @@ CallNew Background.Logger(LogPath)  ' The returned ID may be ignored.
 CallNew IdleWorker()
 ```
 
-The keyword is followed by a directly visible, statically resolved `Sub` name
-and its ordinary parenthesized argument list. A local-module Sub, an accessible
-member or imported/public-module Sub, or a qualified name resolved by ordinary
-scope rules is eligible. The result may be used as an expression or ignored as
-a standalone statement. Parentheses remain required for a target with no
-arguments.
-
-A `Function`, variable-held callback, computed address, runtime name, or other
-dynamically selected target is a compile-time error in UBE 1.0. Users may write
-a wrapper Sub when a Function's return value is intentionally discarded.
+The keyword uses the same target and argument syntax as explicit `Call`, with
+ordinary name resolution, visibility and parameter rules. Both Subs and
+Functions are eligible. Arguments use parentheses; a zero-argument target may
+omit them, as in `CallNew IdleWorker`. The thread identifier may be used as an
+expression or ignored as a standalone statement. A Function's own return value
+is discarded; it is not the value of the `CallNew` expression.
 
 The successful identifier is an ordinary positive `LongLong`, so it can be stored,
 compared, logged, placed in custom values and arrays, or passed through an API.
@@ -1034,15 +1031,18 @@ thread's `Err`; it supplies no usable identifier to the failed statement.
 ### 5.2 Argument capture
 
 Arguments are evaluated once on the calling thread, from left to right, before
-the new thread becomes observable. Every `CallNew` target parameter must be
-`ByVal` in UBE 1.0; a target requiring any ordinary `ByRef` parameter is a
-compile-time error. No reference to caller-owned stack storage may escape into
-the new thread.
+the new thread becomes observable. Parameters retain ordinary `ByVal` and
+`ByRef` semantics, including the ordinary default passing mode and grouped
+argument temporaries. Referenced storage and argument temporaries must remain
+valid for the worker's use; starting a thread must not create a dangling reference.
 
-Scalar arguments are copied. Strings, arrays, and custom datatypes cross the
+`ByVal` scalar arguments are copied. Strings, arrays, and custom datatypes passed
+`ByVal` cross the
 thread boundary as independent value snapshots under their ordinary copy
 rules. Object and class arguments copy their strong reference instead, so the
-calling and new threads intentionally share the same object identity.
+calling and new threads intentionally share the same object identity. Ordinary
+`ByRef` arguments retain their storage identity, so writes are visible through
+the caller's alias under the threading synchronization rules.
 
 Shared-object access must remain memory-safe even when user synchronization is
 missing: a data race may make the logical ordering and result unpredictable,
@@ -1155,7 +1155,8 @@ Sub ThreadYield()
 and returns through ordinary control flow. No operation may asynchronously
 tear down a thread while it holds a lock or is mutating managed state.
 
-A worker ends when its target Sub returns or executes `Exit Sub`; UBE 1.0 adds
+A worker ends when its target procedure returns or executes `Exit Sub` or
+`Exit Function`; the Function's result is discarded. UBE 1.0 adds
 no `StopThread`, `KillThread`, or `Exit Thread` statement. A stop request wakes
 the target when it is blocked in `ThreadEvent`, `Semaphore`, `MessageQueue`, or
 `ThreadWait`. An interrupted wait returns `0` without recording `Err`; the
@@ -1163,10 +1164,24 @@ worker distinguishes cancellation from timeout by calling
 `ThreadStopRequested()`. Returning then runs ordinary scope cleanup on every
 control-flow edge.
 
-`ThreadWait` returns `1` when the target has finished and `0` on timeout or
-cancellation. A valid already-completed target returns `1` immediately;
-waiting on the current thread reports FAIL and records `Err`. Multiple threads
-may wait for the same target.
+`ThreadWait` returns `1` when the target has completed successfully and `0` on
+timeout or cancellation. These successful results preserve the waiting thread's
+Err. Waiting on the current thread reports FAIL and records Err. Multiple
+threads may wait for the same target.
+
+A fresh FAIL escaping the worker's entry procedure ends that worker through ordinary
+completion and compiler-owned cleanup. It neither runs another thread's handler
+remotely nor terminates the process. Explicit user resources still require
+explicit cleanup before raising. The completion stores its fresh outcome and
+captured error number separately: stale Err on normal return is not a failure,
+and a fresh FAIL remains failed even if its error number is zero.
+
+When `ThreadWait` observes failed completion, it copies the captured error number
+into the waiting thread's Err and reports a fresh FAIL instead of a usable
+return value. The waiter follows its own statement/handler rules. An already
+completed target supplies the same outcome immediately; repeated waits and
+different waiters each receive a fresh FAIL for failed completion. Completion
+observation makes the worker's preceding actions visible in either case.
 
 `ThreadRequestStop` returns `1` when the request is recorded, including when a
 request was already pending. A valid completed thread returns `0` without
@@ -1176,9 +1191,11 @@ it does not produce a successful zero or False result.
 
 `ThreadYield` only offers another runnable thread an execution opportunity;
 program correctness cannot depend on whether a particular thread runs next.
-The runtime retains enough compact metadata for completed identifiers to
-distinguish completion from a never-issued ID without retaining full native
-thread resources.
+The runtime retains enough bounded metadata for completed identifiers to
+distinguish successful completion, failed completion with its captured error
+number, and a never-issued ID without retaining full native thread resources.
+Reserve this metadata before creation and refuse creation cleanly when its
+capacity is exhausted; do not evict an issued ID's completion outcome.
 
 ### 5.4 Program lifetime and callback-event sources
 

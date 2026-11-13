@@ -1,5 +1,18 @@
 # UBE expression binding acceptance
 
+The 2026-11-13 CallNew binding and escape qualification passed 70 cases and 26,561
+assertions at both O0 and O2; the changed-expression control failed at assertion
+759 as expected. Evidence:
+`ube expression binding 792736cc-6fcf-44ac-9ec9-901f089729d9`.
+The host was built by the source-parsing gate in
+`ube dynamic storage f74435c1-1c92-48d3-bdc8-0bed74787936/build`.
+Thread starts retain callable identity, return LongLong independently of a
+Function's result type, and use ordinary ByVal, direct ByRef and grouped ByRef
+temporary modes. Escape assertions cover transitive/recursive aliases, globals,
+grouped temporaries, record fields, fixed-array payload ownership and aggregate
+ByVal snapshots. Native worker execution is qualified separately by
+`runtime/tests/callnew/check.ps1`, not by these static assertions.
+
 Run `rtk proxy powershell -NoProfile -File bootstrap/tests/expression-binding/check.ps1 -BootstrapExe <executable>`.
 The host builds the actual UBE expression binder, checked constant helpers,
 declaration binder, syntax pipeline and UBECore. Test projects are then read from

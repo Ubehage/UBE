@@ -2,7 +2,10 @@
 param(
     [string]$VB6 = 'C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE',
     [string]$BootstrapExe = '',
-    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe'
+    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
+    [switch]$CallNewOnly,
+    [switch]$ResourceConcurrencyOnly,
+    [switch]$ArrayDeclarationOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -112,9 +115,13 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
 $core=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
-$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativePlanning','NativeEmission','NativeValues','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
+$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files=@($core)+@($compiler)+@(Join-Path $PSScriptRoot 'Probe.bas')
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
+$catalog=Join-Path $artifacts 'templates.bin'
+$runtime=Join-Path $artifacts 'windows-runtime.ll'
+Copy-Item -LiteralPath (Join-Path $root 'compiler/llvm/templates.bin') -Destination $catalog
+Copy-Item -LiteralPath (Join-Path $root 'compiler/llvm/windows-runtime.ll') -Destination $runtime
 $library=Join-Path $artifacts 'emitter.ll'
 $null=Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $bound=Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$manifest)
@@ -127,8 +134,6 @@ foreach($line in ($bound.Stdout -split '\r?\n')) {
 }
 foreach($name in @('ConfigurePath','SetPathByte','ResetProject','AppendSource','Emit','EntrySymbol','DiagnosticField')) {Require ($symbols.ContainsKey($name)) "Missing driver $name"}
 $emitted=[IO.File]::ReadAllText($library,$utf8)
-$catalog=Join-Path $root 'compiler/llvm/templates.bin'
-$runtime=Join-Path $root 'compiler/llvm/windows-runtime.ll'
 
 # Builds a native driver that reads original sources and runs only the production UBE lowering pipeline.
 function Emit-Project([string]$Name,[string[]]$Sources,[string]$Level,[bool]$Executable=$false) {
@@ -186,7 +191,10 @@ function Emit-Project([string]$Name,[string[]]$Sources,[string]$Level,[bool]$Exe
     $lines.Add('  %exit = trunc i64 %exit64 to i32');$lines.Add('  ret i32 %exit');$lines.Add('}')
     $ir=$path+'.driver.ll';$exe=$path+'.driver.exe'
     Write-Text $ir ($emitted+($lines-join "`r`n"));Build-Harness $ir $exe $Level
-    $run=Invoke-BoundedProcess $exe @() 60000
+    $deadline=60000
+    # The complete compiler corpus measured 63.68 seconds in this unoptimized native driver.
+    if($Name -eq 'compiler-sources'){$deadline=120000}
+    $run=Invoke-BoundedProcess $exe @() $deadline
     $minimum=1;if($Executable){$minimum=0}
     $detail='';if($run.ExitCode -lt -65536){$packed=-[long]$run.ExitCode;$line=$packed % 65536;$high=[math]::Floor($packed/65536);$module=$high % 128-1;$code=[math]::Floor($high/128);$detail=" diagnosticCode=$code module=$module line=$line"}
     Require ($run.ExitCode -ge $minimum -and $run.ExitCode -lt 16384) "UBE lowering $Name failed code $($run.ExitCode)$detail : $($run.Evidence)"
@@ -207,9 +215,12 @@ entry:
   %pair = call { i1, i64 } @ube.proc.$($Output.Entry)(ptr @test.ctx, i64 %seed)
   %fresh = extractvalue { i1, i64 } %pair, 0
   %value = extractvalue { i1, i64 } %pair, 1
+  call void @ube.thread.root.complete(ptr @test.ctx, i1 %fresh)
+  %drained = call i1 @ube.thread.drain(ptr @test.ctx)
   %disposed = call i1 @ube.context.dispose(ptr @test.ctx)
   %started = and i1 %init, %fresh
-  %good = and i1 %started, %disposed
+  %released = and i1 %drained, %disposed
+  %good = and i1 %started, %released
   %code = trunc i64 %value to i32
   %exit = select i1 %good, i32 %code, i32 9999
   ret i32 %exit
@@ -222,15 +233,81 @@ entry:
     Write-Output "PASS: fully UBE-generated $Name $Level exit$Expected"
 }
 
+# Uses the same production driver for a focused source-worker lifetime and fault matrix.
+function Check-CallNewFaults {
+    $captureSources=@((Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'),(Join-Path $root 'runtime/tests/callnew/Faults.bas'))
+    $captureOutput=Emit-Project 'callnew-faults' $captureSources 'O0'
+    $captureGate=Invoke-BoundedProcess 'powershell.exe' @('-NoProfile','-File',(Join-Path $root 'runtime/tests/callnew/fault-check.ps1'),'-BootstrapExe',$BootstrapExe,'-Clang',$Clang,'-LoweredIR',$captureOutput.Path,'-ExerciseSymbol',[string]$captureOutput.Entry) 120000
+    Require ($captureGate.ExitCode -eq 0) "UBE-emitted CallNew capture fault gate failed: $($captureGate.Evidence) $($captureGate.Stderr)"
+    Write-Output $captureGate.Stdout
+}
+if($ArrayDeclarationOnly){
+    $arraySources=@((Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'),(Join-Path $root 'runtime/tests/array-declaration/Probe.bas'))
+    $arrayOutput=Emit-Project 'array-declaration' $arraySources 'O0'
+    $arrayGate=Invoke-BoundedProcess 'powershell.exe' @('-NoProfile','-File',(Join-Path $root 'runtime/tests/array-declaration/check.ps1'),'-LoweredIR',$arrayOutput.Path,'-Clang',$Clang) 120000
+    Require ($arrayGate.ExitCode -eq 0) "UBE-emitted array declaration gate failed: $($arrayGate.Evidence) $($arrayGate.Stderr)"
+    Write-Output $arrayGate.Stdout
+    Write-Output 'PASS: focused actual UBE captured dynamic array declaration reset gate'
+    exit 0
+}
+if($ResourceConcurrencyOnly){
+    $ownerSources=@((Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'),(Join-Path $root 'std-lib/src/portable/FilePrimitives.bas'),(Join-Path $root 'runtime/tests/resource-concurrency/Owners.bas'))
+    $ownerOutput=Emit-Project 'resource-concurrency' $ownerSources 'O0'
+    $ownerGate=Invoke-BoundedProcess 'powershell.exe' @('-NoProfile','-File',(Join-Path $root 'runtime/tests/resource-concurrency/check.ps1'),'-BootstrapExe',$BootstrapExe,'-LoweredIR',$ownerOutput.Path,'-ProbeSymbol',[string]$ownerOutput.Entry) 120000
+    Require ($ownerGate.ExitCode -eq 0) "UBE-emitted resource concurrency gate failed: $($ownerGate.Evidence) $($ownerGate.Stderr)"
+    Write-Output $ownerGate.Stdout
+    Write-Output 'PASS: focused actual UBE shared resource concurrency gate'
+    exit 0
+}
+if($CallNewOnly){
+    $workerBridge=Join-Path $artifacts 'WorkerHarness.bas'
+    Write-Text $workerBridge @'
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "WorkerHarness"
+Public Function Run(ByVal Seed As Long) As Long
+    Dim Result As Long
+    If Seed <> 1 Then Run = 91: Exit Function
+    Result = Workers.Run()
+    If Result <> 0 Then Run = Result: Exit Function
+    Result = CaptureProbe.Run()
+    If Result <> 0 Then Run = 100 + Result: Exit Function
+    Result = WorkerCapacity.Run()
+    If Result <> 0 Then Run = 200 + Result
+End Function
+'@
+    $workerSources=@((Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'),(Join-Path $root 'runtime/tests/callnew/Workers.bas'),(Join-Path $root 'runtime/tests/callnew/CaptureProbe.bas'),(Join-Path $root 'runtime/tests/callnew/Capacity.bas'),$workerBridge)
+    foreach($level in @('O0','O2')){
+        $output=Emit-Project 'callnew' $workerSources $level
+        Execute-Library $output 'callnew' $level
+        Execute-Library $output 'callnew-negative' $level 2 91
+    }
+    $negativeWorker=Join-Path $artifacts 'Workers-negative.bas'
+    $workerSource=[IO.File]::ReadAllText($workerSources[1],$utf8)
+    $changedWorker=$workerSource.Replace('Observed <> 41','Observed <> 42')
+    Require ($changedWorker -cne $workerSource) 'Missing source ownership negative-control observation'
+    Write-Text $negativeWorker $changedWorker
+    $workerSources[1]=$negativeWorker
+    $negativeOutput=Emit-Project 'callnew-observation-negative' $workerSources 'O2'
+    Execute-Library $negativeOutput 'callnew-observation-negative' 'O2' 1 1
+    Check-CallNewFaults
+    Write-Output 'PASS: focused actual UBE CallNew ownership and allocation failure gate'
+    exit 0
+}
+
 $fixtures=@(
  'integer-types/fixtures/IntegerProbe.bas',
  'aggregate-storage/fixtures/StorageProbe.bas',
  'aggregate-storage/fixtures/QuotedTypes.bas',
  'dynamic-storage/fixtures/DynamicProbe.bas',
+ 'dynamic-storage/fixtures/ArgumentProbe.bas',
  'counted-buffers/fixtures/BufferProbe.bas',
  'file-io/fixtures/FileProbe.bas',
  'source-scanning/ControlFlowProbe.bas'
 ) | ForEach-Object {Join-Path $root ('bootstrap/tests/'+$_)}
+$fixtures+=Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'
+$fixtures+=Join-Path $root 'runtime/tests/callnew/Workers.bas'
+$fixtures+=Join-Path $root 'runtime/tests/callnew/CaptureProbe.bas'
+$fixtures+=Join-Path $root 'runtime/tests/callnew/Capacity.bas'
 $types=@('Byte','Integer','Long','LongLong','Boolean')
 $matrix="UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"ConversionMatrix`"`r`n"
 foreach($source in $types){foreach($destination in $types){$matrix+="Public Function From${source}To${destination}(ByVal Value As $source) As $destination`r`nFrom${source}To${destination} = Value`r`nEnd Function`r`n"}}
@@ -241,14 +318,15 @@ $checks=@(
  'IntegerProbe.CheckArithmetic','IntegerProbe.CheckFailures','IntegerProbe.CheckByRef',
  'StorageProbe.CheckStorage','StorageProbe.CheckAliases','StorageProbe.CheckBounds','QuotedTypes.CheckBracketed',
  'DynamicProbe.CheckSourceBuffer','DynamicProbe.CheckValues','DynamicProbe.CheckPins','DynamicProbe.CheckIndexCapture','DynamicProbe.CheckCleanup',
+ 'ArgumentProbe.CheckByValRecord','ArgumentProbe.CheckByValArray','ArgumentProbe.CheckByValPinnedRecord',
  'BufferProbe.CheckCopies','BufferProbe.CheckStatus','BufferProbe.CheckAppend','BufferProbe.CheckAppendValidation','BufferProbe.CheckConversion',
- 'ControlFlowProbe.Run'
+ 'ControlFlowProbe.Run','Workers.Run','CaptureProbe.Run','WorkerCapacity.Run'
 )
 $roundtrip=Join-Path $artifacts 'full-pipeline-roundtrip.bin'
 $pathBytes=$utf8.GetBytes($roundtrip)
 $bridge="UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Harness`"`r`nPublic Function Run(ByVal Seed As Long) As Long`r`nDim Result As Long`r`nOn Error GoTo Failed`r`n"
 $checkNumber=1
-foreach($check in $checks){$bridge+="Result = $check(Seed)`r`nIf Result <> 0 Then Run = $($checkNumber*100) + Result: Exit Function`r`n";$checkNumber++}
+foreach($check in $checks){$argument='Seed';if($check -in @('Workers.Run','CaptureProbe.Run','WorkerCapacity.Run')){$argument=''};$bridge+="Result = $check($argument)`r`nIf Result <> 0 Then Run = $($checkNumber*100) + Result: Exit Function`r`n";$checkNumber++}
 $bridge+="Result = FileProbe.Configure($($pathBytes.Length), $($pathBytes.Length))`r`nIf Result <> 0 Then Run = 2001: Exit Function`r`n"
 for($i=0;$i -lt $pathBytes.Length;$i++){$bridge+="Result = FileProbe.SetPathByte(0, $i, $($pathBytes[$i]))`r`nResult = FileProbe.SetPathByte(1, $i, $($pathBytes[$i]))`r`n"}
 $bridge+="Result = FileProbe.CheckRoundTrip(Seed)`r`nIf Result <> 0 Then Run = 2100 + Result: Exit Function`r`nExit Function`r`nFailed:`r`nRun = 9000 + Err.Number`r`nEnd Function`r`n"
@@ -441,6 +519,9 @@ End Function
     Write-Output "PASS: UBE process start/wait/terminate/close, exit status, aliases and foreign owner refusal $level"
 }
 
+# Exercises every capture allocation and native startup refusal using fully UBE-emitted source workers.
+Check-CallNewFaults
+
 # The compiler and portable-library procedure bodies themselves must be lowered by UBE and accepted by LLVM.
 $actual=Emit-Project 'compiler-sources' (@($core)+@($compiler)) 'O0'
 foreach($level in @('O0','O2')) {
@@ -451,7 +532,17 @@ foreach($level in @('O0','O2')) {
     $undefined=Invoke-BoundedProcess (Join-Path ([IO.Path]::GetDirectoryName($Clang)) 'llvm-nm.exe') @('--undefined-only',$object)
     Require ($undefined.ExitCode -eq 0 -and $undefined.Stdout -notmatch '__chkstk|memcpy|memmove|memset') "Generated compiler has unavailable helper dependency $level : $($undefined.Evidence)"
     $allowed=@('__imp_CloseHandle','__imp_CreateFileW','__imp_FlushFileBuffers','__imp_GetFileSizeEx','__imp_GetFileType','__imp_MultiByteToWideChar','__imp_ReadFile','__imp_VirtualAlloc','__imp_VirtualFree','__imp_WriteFile','__imp_GetCommandLineW','__imp_GetStdHandle','__imp_WideCharToMultiByte','__imp_GetFullPathNameW','__imp_GetFinalPathNameByHandleW','__imp_CompareStringOrdinal','__imp_GetFileInformationByHandle','__imp_GetModuleFileNameW','__imp_GetTickCount64','__imp_GetCurrentProcess','__imp_DuplicateHandle','__imp_CreateProcessW','__imp_InitializeProcThreadAttributeList','__imp_UpdateProcThreadAttribute','__imp_DeleteProcThreadAttributeList','__imp_CreateJobObjectW','__imp_SetInformationJobObject','__imp_AssignProcessToJobObject','__imp_ResumeThread','__imp_WaitForSingleObject','__imp_GetExitCodeProcess','__imp_QueryInformationJobObject','__imp_TerminateJobObject','__imp_TerminateProcess','__imp_Sleep','__imp_GetLastError','__imp_CreateDirectoryW','__imp_RemoveDirectoryW','__imp_DeleteFileW','__imp_MoveFileExW','__imp_GetFileAttributesW')
+    $allowed+='__imp_CreateThread'
     foreach($line in ($undefined.Stdout -split '\r?\n')){if($line.Trim().Length -gt 0){Require ($line -match '^\s*U\s+(\S+)\s*$') 'Unrecognized undefined-symbol evidence';Require ($Matches[1] -in $allowed) "Unexpected generated compiler dependency $($Matches[1])"}}
     Write-Output "PASS: actual compiler/library bodies lowered by UBE and LLVM compiled $level"
 }
+# Reuses the allocator-observed ownership gate on the same ordered source corpus lowered by UBE.
+$dynamicSources = @((Join-Path $root 'std-lib/src/portable/BufferPrimitives.bas'))
+foreach ($fixture in @('DynamicProbe.bas','AllocationProbe.bas','QuotaProbe.bas','ArgumentProbe.bas')) {
+    $dynamicSources += Join-Path $root ('bootstrap/tests/dynamic-storage/fixtures/' + $fixture)
+}
+$dynamicOutput = Emit-Project 'dynamic-ownership' $dynamicSources 'O2'
+$dynamicGate = Invoke-BoundedProcess 'powershell.exe' @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $root 'bootstrap/tests/dynamic-storage/check.ps1'),'-BootstrapExe',$BootstrapExe,'-Clang',$Clang,'-LoweredIR',$dynamicOutput.Path) 120000
+Require ($dynamicGate.ExitCode -eq 0 -and $dynamicGate.Stdout -match 'PASS: 54 dynamic storage groups\.') "UBE-emitted ownership gate failed: $($dynamicGate.Evidence)"
+Write-Output $dynamicGate.Stdout
 Write-Output "PASS: complete UBE native lowering. Evidence: $artifacts"

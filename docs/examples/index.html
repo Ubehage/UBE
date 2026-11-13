@@ -55,6 +55,6 @@ Public Sub Main()
     If WorkerId &lt;&gt; 0 Then
         Call ThreadWait(WorkerId)
     End If
-End Sub</code></pre><p><code>CallNew</code> evaluates the arguments before the worker begins. <code>ThreadWait</code> returns <code>1</code> when the worker finishes and <code>0</code> on timeout or interruption.</p>
+End Sub</code></pre><p><code>CallNew</code> evaluates the arguments before the worker begins. <code>ThreadWait</code> returns <code>1</code> when the worker finishes successfully and <code>0</code> on timeout or cancellation. If a fresh FAIL escapes the worker's entry procedure, a wait observing that completion reports fresh FAIL in the waiting thread and records the worker's captured error number there.</p>
 <div class="callout"><strong>Example status</strong>The v2 compiler does not establish that these UBE 1.0 programs run. Examples will be marked tested only after the matching compiler-v3 conformance tests pass.</div>
 <footer class="article-footer">Article ID: examples.overview - Last reviewed 2026-10-15</footer></main></body></html>

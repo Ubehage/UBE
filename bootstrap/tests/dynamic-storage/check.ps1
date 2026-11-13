@@ -2,6 +2,7 @@
 param(
     [string]$VB6 = 'C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE',
     [string]$BootstrapExe = '',
+    [string]$LoweredIR = '',
     [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -164,16 +165,50 @@ function Add-AllocatorObserver([string]$Text) {
 }
 
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
-$manifest = Copy-Fixtures 'dynamic library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $PSScriptRoot 'fixtures/DynamicProbe.bas'),(Join-Path $PSScriptRoot 'fixtures/AllocationProbe.bas'),(Join-Path $PSScriptRoot 'fixtures/QuotaProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'dynamic library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $PSScriptRoot 'fixtures/DynamicProbe.bas'),(Join-Path $PSScriptRoot 'fixtures/AllocationProbe.bas'),(Join-Path $PSScriptRoot 'fixtures/QuotaProbe.bas'),(Join-Path $PSScriptRoot 'fixtures/ArgumentProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
+if ($LoweredIR) {
+    # Compiler-owned identities differ; map only unique first source statements in the identical corpus.
+    $reference = Join-Path $artifacts 'bootstrap-reference.ll'
+    $null = Invoke-Compiler @('--emit-llvm',$manifest,$reference) 'EMIT OK'
+    $referenceText = [IO.File]::ReadAllText($reference,$utf8)
+    $nativeText = [IO.File]::ReadAllText($LoweredIR,$utf8)
+    $locations = @{}
+    foreach ($definition in [regex]::Matches($nativeText,'(?ms)^define \{ i1, i64 \} @ube\.proc\.(\d+)\([^\r\n]*\) \{(.*?)^\}')) {
+        $location = [regex]::Match($definition.Groups[2].Value,'; module (\d+), node \d+, line (\d+), column (\d+)')
+        if ($location.Success) {
+            $key = $location.Groups[1].Value + ':' + $location.Groups[2].Value + ':' + $location.Groups[3].Value
+            Require (-not $locations.ContainsKey($key)) 'Ambiguous native procedure source location'
+            $locations[$key] = [int]$definition.Groups[1].Value
+        }
+    }
+    foreach ($name in @($procedures.Keys)) {
+        $definition = [regex]::Match($referenceText,('(?ms)^define \{ i1, i64 \} @ube\.proc\.' + $procedures[$name] + '\([^\r\n]*\) \{(.*?)^\}'))
+        $location = [regex]::Match($definition.Groups[1].Value,'; source module=(\d+) line=(\d+) column=(\d+)')
+        if ($location.Success) {
+            $key = $location.Groups[1].Value + ':' + $location.Groups[2].Value + ':' + $location.Groups[3].Value
+            Require ($locations.ContainsKey($key)) "Missing native procedure location for $name"
+            $procedures[$name] = $locations[$key]
+        }
+    }
+}
 $ir = Join-Path $artifacts 'dynamic-storage.ll'
-$null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'
+if ($LoweredIR) { Copy-Item -LiteralPath $LoweredIR -Destination $ir } else { $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK' }
 $again = Join-Path $artifacts 'dynamic-storage-again.ll'
-$null = Invoke-Compiler @('--emit-llvm',$manifest,$again) 'EMIT OK'
-Require ((Get-FileHash $ir).Hash -eq (Get-FileHash $again).Hash) 'Emission must be deterministic'
-$script:passed++
+if (-not $LoweredIR) {
+    $null = Invoke-Compiler @('--emit-llvm',$manifest,$again) 'EMIT OK'
+    Require ((Get-FileHash $ir).Hash -eq (Get-FileHash $again).Hash) 'Emission must be deterministic'
+    $script:passed++
+}
 $observed = Add-AllocatorObserver ([IO.File]::ReadAllText($ir,$utf8))
 $cases = @(
+    @{Name='CheckByValRecord'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
+    @{Name='CheckByValArray'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
+    @{Name='CheckByValPinnedRecord'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
+    @{Name='CheckByValCopyFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=2; Quota=0; Calls=3},
+    @{Name='CheckByValSecondCopyFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=2; Calls=4},
+    @{Name='CheckByValLaterFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=2; Calls=2},
+    @{Name='CheckByValDepthFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=0; Calls=1},
     @{Name='CheckHeapQuota'; Prepare=$false; Fail=0; Quota=0; Calls=15},
     @{Name='CheckSourceBuffer'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
     @{Name='CheckValues'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
@@ -191,9 +226,13 @@ foreach ($case in $cases) {
     $stem = $case.Name + '-' + $case.Fail + '-' + $case.Quota
     $harness = @('@test.input = global i64 1','@test.context = private global %ube.context zeroinitializer, align 8','define i32 @main() {','entry:','  %ctx = getelementptr %ube.context, ptr @test.context, i32 0','  call void @ube.context.init(ptr %ctx)','  %init = call i1 @ube.project.init(ptr %ctx)','  %seed = load volatile i64, ptr @test.input')
     if ($case.Prepare) {
-        $harness += @("  %setup = call { i1, i64 } @ube.proc.$($procedures['Prepare'])(ptr %ctx, i64 %seed)",'  %setup.ok = extractvalue { i1, i64 } %setup, 0','  %setup.value = extractvalue { i1, i64 } %setup, 1','  %setup.zero = icmp eq i64 %setup.value, 0','  %setup.good = and i1 %setup.ok, %setup.zero','  %started = and i1 %init, %setup.good')
+        $setupName = 'Prepare'
+        if ($case.ContainsKey('Setup')) { $setupName = $case.Setup }
+        $harness += @("  %setup = call { i1, i64 } @ube.proc.$($procedures[$setupName])(ptr %ctx, i64 %seed)",'  %setup.ok = extractvalue { i1, i64 } %setup, 0','  %setup.value = extractvalue { i1, i64 } %setup, 1','  %setup.zero = icmp eq i64 %setup.value, 0','  %setup.good = and i1 %setup.ok, %setup.zero','  %started = and i1 %init, %setup.good')
     } else { $harness += '  %started = and i1 %init, true' }
+    if ($case.Name -eq 'CheckByValDepthFailure') { $harness += @('  %depth.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 1','  store atomic i64 255, ptr %depth.ptr monotonic, align 8') }
     $harness += @('  store i64 0, ptr @test.alloc.calls',"  store i64 $($case.Fail), ptr @test.fail.remaining", "  store i64 $($case.Quota), ptr @test.max.live", "  %result = call { i1, i64 } @ube.proc.$($procedures[$case.Name])(ptr %ctx, i64 %seed)",'  %ok = extractvalue { i1, i64 } %result, 0','  %value = extractvalue { i1, i64 } %result, 1','  %zero = icmp eq i64 %value, 0','  %good = and i1 %ok, %zero','  %calls = load i64, ptr @test.alloc.calls')
+    if ($case.Name -eq 'CheckByValDepthFailure') { $harness += '  store atomic i64 0, ptr %depth.ptr monotonic, align 8' }
     if ($case.Calls -ge 0) { $harness += "  %attempts = icmp eq i64 %calls, $($case.Calls)" } else { $harness += '  %attempts = icmp uge i64 %calls, 0' }
     $harness += @('  %disposed = call i1 @ube.context.dispose(ptr %ctx)','  %live = load i64, ptr @test.live','  %clean = icmp eq i64 %live, 0','  %a = and i1 %started, %good','  %b = and i1 %attempts, %disposed','  %c = and i1 %a, %b','  %all = and i1 %c, %clean','  %exit = select i1 %all, i32 0, i32 1','  ret i32 %exit','}')
     $combined = Join-Path $artifacts ($stem + '.ll')

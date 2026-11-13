@@ -404,7 +404,23 @@ $null = Find-One $escapedAst 'variable' 'a\b'
 $script:passed++
 Write-Output 'PASS: escaped AST field delimiters and bracket-identifier decoding'
 
+$threadBody = "Sub Worker(ByVal Value As Long)`nEnd Sub`nSub Run()`nDim Id As LongLong`nId = CallNew Worker(42)`nCallNew Other.Worker`nEnd Sub"
+$threadManifest = New-Fixture 'thread start syntax' @($threadBody)
+$threadAst = Read-Ast $threadManifest
+$threadExpression = Find-One $threadAst 'thread-start' 'expression'
+$threadStatement = Find-One $threadAst 'thread-start' 'statement'
+$threadChildren = @(Children $threadAst $threadExpression)
+Require ($threadChildren.Count -eq 2 -and $threadChildren[0].Kind -eq 'name' -and $threadChildren[0].Text -eq 'Worker' -and $threadChildren[1].Kind -eq 'number' -and $threadChildren[1].Text -eq '42') 'CallNew expression lost static callee/capture order'
+$threadChildren = @(Children $threadAst $threadStatement)
+Require ($threadChildren.Count -eq 1 -and $threadChildren[0].Kind -eq 'member' -and $threadChildren[0].Text -eq 'Worker') 'CallNew statement lost qualified static callee'
+$script:passed++
+Write-Output 'PASS: thread start expression and ignored-result statement retain distinct AST nodes'
+
 $invalidCases = @(
+    @{ Name='CallNew arguments require parentheses'; Body="Sub Run()`nCallNew Worker 1`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:4:' },
+    @{ Name='CallNew requires spacing'; Body="Sub Run()`nCallNew[Worker]()`nEnd Sub"; Code='E_PARSE'; Location='Example.bas:4:' },
+    @{ Name='CallNew rejects computed target'; Body="Sub Run()`nCallNew (Worker)()`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:4:' },
+    @{ Name='CallNew rejects trailing capture comma'; Body="Sub Run()`nCallNew Worker(1,)`nEnd Sub"; Code='E_PARSE'; Location='Example.bas:4:' },
     @{ Name='unterminated string'; Body="Sub Main()`nErr.Raise `"unterminated`nEnd Sub"; Code='E_LEXICAL'; Location='Example.bas:4:' },
     @{ Name='truncated hex'; Body="Sub Main()`nErr.Raise &H`nEnd Sub"; Code='E_LEXICAL'; Location='Example.bas:4:' },
     @{ Name='invalid character'; Body="Sub Main()`nErr.Raise ?`nEnd Sub"; Code='E_LEXICAL'; Location='Example.bas:4:' },

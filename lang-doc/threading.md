@@ -13,6 +13,12 @@ zero values. The stored Err record never determines whether a call failed.
 
 ## Ordinary shared access
 
+CallNew follows explicit Call target and argument syntax for Subs and Functions.
+It yields a thread identifier and discards a target Function's own result.
+Ordinary ByVal copies and ByRef aliases are prepared in source order before the
+worker becomes observable. Referenced storage and argument temporaries remain
+valid for the worker's use; the thread boundary does not change parameter modes.
+
 All normally visible program state remains accessible from every UBE thread.
 Scalar and managed-reference reads/writes are non-tearing and observe a
 complete value written by some thread. The implementation cannot invent an
@@ -30,7 +36,8 @@ may contain an invalid managed reference. Programs requiring an invariant use
 The following establish visibility in addition to each thread's source order:
 
 - evaluation of `CallNew` arguments happens before the worker begins;
-- a worker's actions happen before a successful `ThreadWait` returns;
+- a worker's actions happen before `ThreadWait` observes its completion,
+  whether the wait returns `1` or delivers that worker's escaping FAIL;
 - outermost `SyncLock` release happens before the next successful acquisition
   of the same object monitor;
 - all approved atomic operations participate in one sequentially consistent
@@ -83,11 +90,26 @@ wait failure reports FAIL and sets that thread's `Err`; timeout does neither.
 
 `On Error` state and active handlers are per thread and per procedure under the
 core specification. Ordinary same-thread failed calls are handled on their
-caller's thread; worker failures cannot enter a creator's handler on another
-thread. Detailed failure delivery for UI dispatch, events and raw callbacks
-remains a separate boundary decision and must not be inferred from sticky Err.
-Cancellation never jumps into a handler. Returning after cancellation releases
-locals and monitors on the ordinary compiler-generated cleanup edges.
+caller's thread. A fresh FAIL escaping the entry procedure ends that worker through
+its ordinary completion and compiler-owned cleanup paths. It does not remotely
+execute a creator's handler, change another thread's Err, or terminate the
+process. Explicit user resources still require explicit cleanup before raising.
+
+The worker's completion retains the fresh success/FAIL outcome separately from
+the captured error number. Normal return with stale Err is successful
+completion. A failed outcome remains failed even if its captured number is zero.
+`ThreadWait` returns `1` after successful completion. If it observes failed
+completion, that call instead records the captured error number in the waiting
+thread's Err and reports a fresh FAIL, with no usable return value. The waiting
+thread then follows its own ordinary statement/handler rules. Each waiter,
+including a repeated wait on the same completed ID, receives the same completion
+outcome; every delivered failure is fresh. A successful wait preserves caller Err.
+
+Timeout and cooperative cancellation remain successful `0` results and preserve
+Err; they do not represent observed completion. Cancellation never jumps into a
+handler. Returning after cancellation releases locals and monitors on the
+ordinary compiler-generated cleanup edges. Detailed failure delivery for UI
+dispatch, events and raw callbacks remains a separate boundary decision.
 
 ## Callbacks, locks, and unload
 
@@ -132,7 +154,11 @@ Identifiers increase monotonically as nonnegative `LongLong` values and are
 not reused during the process. If the positive ID space is exhausted, further
 creation fails permanently with FAIL plus `Err`. Completed threads release native
 handles, stacks, roots, wait registrations, and transient errors while keeping
-only bounded completion metadata needed by the public API.
+only bounded completion metadata needed by the public API, including the fresh
+completion outcome and captured error number for later waits. Metadata required
+by an issued ID must not be discarded or reused for a different thread. Its
+capacity must be reserved before creation; exhaustion produces controlled
+creation failure rather than changing the meaning of an existing ID.
 
 ## Orderly shutdown
 

@@ -22,8 +22,23 @@ nearer roadmap or progress file.
 The final UBE-written compiler must be multithreaded, with all compiler code
 thread-safe from the start, as reaffirmed by the owner on 2026-11-10. The VB6
 bootstrap may remain sequential. The concrete architecture requirement is in
-`project-docs/Development-Plan.md`; its pending concurrency gate is in
+`project-docs/Development-Plan.md`; its concurrency gate is in
 `compiler/ACCEPTANCE.md`. This requirement is independent of the later IDE.
+
+### Concurrent compiler checkpoint — 2026-11-13
+
+- [x] Qualify independent project work and simultaneous requests in the
+  UBE-written compiler. The bounded one/two-worker gate passed deterministic
+  output, diagnostics, failure/cancellation, publication and recovery checks.
+  Final idle source-to-LLVM means were 3927/3549 ms (one/two workers) on the
+  frozen 51-module workload. Successive self-builds matched LLVM exactly and
+  native images after PE timestamp normalization. The bootstrap and both
+  self-built compilers passed the common conformance corpus.
+  Exact commands, artifacts and limits are in `compiler/Progress.md`.
+
+The next existing roadmap area is complete language and product support;
+its unchecked requirements remain open. This checkpoint does not claim the
+full language, complete threading library, debugger, IDE or target portability.
 
 ### Active definition priority: error handling
 

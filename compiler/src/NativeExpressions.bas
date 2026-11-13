@@ -30,7 +30,7 @@ Failed:
 End Function
 
 ' Captures the complete left record before any right-side evaluation can mutate its storage.
-Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim LeftNode As Long
     Dim RightNode As Long
     Dim Count As Long
@@ -47,11 +47,11 @@ Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRe
     RightNode = N(LeftNode - 1).NextSibling
     Count = L(LeftNode - 1).StorageCells
     If Count < 1 Or Count > 128 Then InvalidRequest S: Exit Function
-    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, LeftNode, Terminated)
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, LeftNode, Terminated)
     If Address = 0 Or Terminated Then Exit Function
     If NativeStorage.SnapshotCells(S, B, Token, Catalog, Address, Count, LeftValues) = False Then Exit Function
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, LeftNode) = False Then Exit Function
-    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, RightNode, Terminated)
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, Terminated)
     If Address = 0 Or Terminated Then Exit Function
     If NativeStorage.SnapshotCells(S, B, Token, Catalog, Address, Count, RightValues) = False Then Exit Function
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, RightNode) = False Then Exit Function
@@ -83,16 +83,106 @@ Failed:
     S.ErrorNode = S.CurrentNode
 End Function
 
-' Prepares arguments once in source order and guards the fresh call result after releasing borrows.
-Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+' Copies one aggregate argument into caller-owned storage before later arguments can mutate its source.
+Private Function PrepareAggregateArgument(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim Values() As Long
+    Dim SourceAddress As Long
+    Dim Destination As Long
+    Dim Copied As Long
+    On Error GoTo Failed
+    SourceAddress = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+    If SourceAddress = 0 Or Terminated Then Exit Function
+    If Escapes(Node - 1).NeedsOwner Then
+        If NativeOwnership.TryAllocateTemporary(E, L, S, B, Token, Catalog, Seen, Nexts, Node) = False Then Exit Function
+    End If
+    Destination = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+    If Destination = 0 Then Exit Function
+    If E(Node - 1).ArrayRank <> 0 Then
+        Copied = NativeEmission.NewValue(S)
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Copied, Destination, SourceAddress, L(Node - 1).ElementCells) = False Then Exit Function
+        If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Copied) = False Then Exit Function
+    Else
+        If NativeStorage.SnapshotCells(S, B, Token, Catalog, SourceAddress, L(Node - 1).StorageCells, Values) = False Then Exit Function
+        If NativeStorage.StoreCells(S, B, Token, Catalog, Destination, Values) = False Then Exit Function
+    End If
+    PrepareAggregateArgument = Destination
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Evaluates each actual once, retaining caller-owned snapshots until the containing call completes.
+Private Function TryPrepareArguments(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean, ByRef Values() As Long, ByRef Owners() As Long, ByRef Count As Long) As Boolean
+    Dim Callee As Long
+    Dim Argument As Long
+    Dim Value As Long
+    Dim Address As Long
+    Dim Role As Long
+    Dim OwnersReady As Boolean
+    On Error GoTo Failed
+    Role = E(Node - 1).TrustedRole
+    Callee = N(Node - 1).FirstChild
+    Argument = N(Callee - 1).NextSibling
+    If ResizeValues(Values, 64, False) = False Then GoTo Failed
+    Do While Argument <> 0
+        If Count >= 64 Then InvalidRequest S: Exit Function
+        If E(Argument - 1).ArgumentMode = 2 Then
+            Value = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
+            If Value = 0 Or Terminated Then Exit Function
+        ElseIf E(Argument - 1).ArgumentMode = 1 And (E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0) Then
+            Value = PrepareAggregateArgument(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
+            If Value = 0 Or Terminated Then Exit Function
+        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 And N(Node - 1).Kind <> SourceParser.ThreadStartNode Then
+            ' A checked pure constant can be materialized after module initialization without spanning its call.
+            Value = 0
+        Else
+            Value = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, E(Argument - 1).ConvertedType, Terminated)
+            If Value = 0 Or Terminated Then Exit Function
+            If E(Argument - 1).ArgumentMode = 3 Then
+                If Escapes(Argument - 1).NeedsOwner Then
+                    If NativeOwnership.TryAllocateTemporary(E, L, S, B, Token, Catalog, Seen, Nexts, Argument) = False Then Exit Function
+                End If
+                Address = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Argument)
+                If Address = 0 Then Exit Function
+                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
+                Value = Address
+            End If
+        End If
+        Values(Count) = Value
+        If Escapes(Argument - 1).NeedsOwner Then
+            If OwnersReady = False Then
+                If ResizeValues(Owners, 64, False) = False Then GoTo Failed
+                OwnersReady = True
+            End If
+            Owners(Count) = NativeOwnership.ArgumentOwner(A, P, Escapes, Pins, S, B, Token, Catalog, Argument)
+            If Owners(Count) = 0 Then Exit Function
+        End If
+        Count = Count + 1
+        Argument = N(Argument - 1).NextSibling
+    Loop
+    TryPrepareArguments = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Publishes prepared arguments and guards fresh status after releasing caller-owned values.
+Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+    Dim Values() As Long
+    Dim Owners() As Long
+    Dim Parameter As Long
     Dim Symbol As Long
     Dim Callee As Long
     Dim Argument As Long
     Dim Count As Long
     Dim Index As Long
     Dim Value As Long
-    Dim Address As Long
     Dim Pair As Long
     Dim Result As Long
     Dim Template As Long
@@ -101,32 +191,13 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Symbol = E(Node - 1).SymbolIndex
     Role = E(Node - 1).TrustedRole
     Callee = N(Node - 1).FirstChild
-    Argument = N(Callee - 1).NextSibling
-    If ResizeValues(Values, 64, False) = False Then GoTo Failed
-    Do While Argument <> 0
-        If Count >= 64 Then InvalidRequest S: Exit Function
-        If E(Argument - 1).ArgumentMode = 2 Then
-            Value = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
-            If Value = 0 Or Terminated Then Exit Function
-        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 Then
-            ' A checked pure constant can be materialized after module initialization without spanning its call.
-            Value = 0
-        Else
-            Value = EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Argument, E(Argument - 1).ConvertedType, Terminated)
-            If Value = 0 Or Terminated Then Exit Function
-            If E(Argument - 1).ArgumentMode = 3 Then
-                Address = NativeStorage.TempAddress(S, B, Token, Catalog, Argument)
-                If Address = 0 Then Exit Function
-                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
-                Value = Address
-            End If
-        End If
-        Values(Count) = Value
-        Count = Count + 1
-        Argument = N(Argument - 1).NextSibling
-    Loop
+    If TryPrepareArguments(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated, Values, Owners, Count) = False Then Exit Function
+    If N(Node - 1).Kind = SourceParser.ThreadStartNode Then
+        EmitCall = NativeThreads.EmitStart(N, E, P, Escapes, Pins, Values, Owners, S, B, Token, Catalog, Seen, Nexts, Node, Count)
+        Exit Function
+    End If
     If Role = 2 Then
-        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreErrorValue, Value, 0, 0, 0) = False Then Exit Function
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreErrorValue, Values(0), 0, 0, 0) = False Then Exit Function
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnFailureBranch, 0, 0, 0, 0) = False Then Exit Function
         Terminated = True
         Exit Function
@@ -140,7 +211,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         If Values(Index) = 0 Then
-            Value = EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Argument, E(Argument - 1).ConvertedType, Terminated)
+            Value = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, E(Argument - 1).ConvertedType, Terminated)
             If Value = 0 Or Terminated Then Exit Function
             Values(Index) = Value
         End If
@@ -148,18 +219,25 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
         Argument = N(Argument - 1).NextSibling
     Loop
     Index = 0
+    Parameter = A(Symbol - 1).FirstParameter
     Pair = NativeEmission.NewValue(S)
     If Fragment(S, B, Token, Catalog, LLVMTemplates.CallStart, Pair, Symbol) = False Then Exit Function
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         Template = LLVMTemplates.CallValueArgument
-        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Then Template = LLVMTemplates.CallReferenceArgument
+        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.CallReferenceArgument
         If Fragment(S, B, Token, Catalog, Template, Values(Index), 0) = False Then Exit Function
+        If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
+            If Owners(Index) = 0 Then InvalidRequest S: Exit Function
+            If Fragment(S, B, Token, Catalog, LLVMTemplates.CallReferenceArgument, Owners(Index), 0) = False Then Exit Function
+        End If
+        Parameter = A(Parameter - 1).NextParameter
         Index = Index + 1
         Argument = N(Argument - 1).NextSibling
     Loop
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallEnd, 0, 0, 0, 0) = False Then Exit Function
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, Node) = False Then Exit Function
+    If NativeFrames.TryReleaseArgumentArrays(N, E, P, Escapes, S, B, Token, Catalog, Node) = False Then Exit Function
     If NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) = False Then Exit Function
     Result = NativeEmission.NewValue(S)
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Result, Pair, 0, 0) = False Then Exit Function
@@ -173,7 +251,7 @@ Failed:
 End Function
 
 ' Converts a checked constant before materialization; runtime values retain their ordinary checked conversion edge.
-Public Function EmitConvertedExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal DestinationType As Long, ByRef Terminated As Boolean) As Long
+Public Function EmitConvertedExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal DestinationType As Long, ByRef Terminated As Boolean) As Long
     Dim Converted As LongLong
     Dim Reason As Long
     Dim Value As Long
@@ -186,7 +264,7 @@ Public Function EmitConvertedExpression(ByRef N() As SourceParser.SyntaxNode, By
         EmitConvertedExpression = NativeEmission.Literal(S, B, Token, Catalog, Converted)
         Exit Function
     End If
-    Value = EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+    Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
     If Value = 0 Or Terminated Then Exit Function
     EmitConvertedExpression = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, Value, E(Node - 1).TypeCode, DestinationType)
     Exit Function
@@ -198,7 +276,7 @@ Failed:
 End Function
 
 ' Lowers every admitted scalar expression or call using already checked identities and types.
-Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim Kind As Long
     Dim Child As Long
     Dim RightNode As Long
@@ -217,7 +295,7 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         Exit Function
     End If
     If E(Node - 1).AccessKind = 1 Or E(Node - 1).AccessKind = 2 Then
-        Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         If Address = 0 Or Terminated Then Exit Function
         Result = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Result, Address, 0, 0) = False Then Exit Function
@@ -237,10 +315,10 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Result, Address, 0, 0) = False Then Exit Function
         End If
     ElseIf Kind = SourceParser.GroupNode Then
-        Result = EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
+        Result = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
     ElseIf Kind = SourceParser.UnaryNode Then
         Child = N(Node - 1).FirstChild
-        LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
+        LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
         If LeftValue = 0 Or Terminated Then Exit Function
         Operator = N(Node - 1).Value
         If Operator = SyntaxTokens.SymMinus Then
@@ -253,18 +331,18 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         Else
             InvalidRequest S: Exit Function
         End If
-    ElseIf Kind = SourceParser.CallNode Then
-        Result = EmitCall(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+    ElseIf Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode Then
+        Result = EmitCall(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
     ElseIf Kind = SourceParser.BinaryNode Then
         Child = N(Node - 1).FirstChild
         If E(Child - 1).TypeSymbol <> 0 Then
-            EmitExpression = EmitRecordComparison(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+            EmitExpression = EmitRecordComparison(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
             Exit Function
         End If
         RightNode = N(Child - 1).NextSibling
-        LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
+        LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
         If LeftValue = 0 Or Terminated Then Exit Function
-        RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
+        RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
         If RightValue = 0 Or Terminated Then Exit Function
         Operator = N(Node - 1).Value
         If Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then

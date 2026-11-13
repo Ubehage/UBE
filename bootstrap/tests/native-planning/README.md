@@ -12,7 +12,8 @@ The UBE probe loads runtime source files through `FileBytes`, `SourceScanner`, `
 
 The native O0/O2 assertions cover:
 
-- Four control cells, scalar/record/array storage, result identity, one cell per ByRef parameter, grouped ByRef temporary storage, record assignment and comparison snapshots, and reusable per-statement index-pin slots.
+- Four control cells, scalar/record/array storage, result identity, one cell per ordinary ByRef parameter, grouped ByRef temporary storage, record assignment and comparison snapshots, and reusable per-statement index-pin slots.
+- Escape facts are derived before frame accounting. Promoted local storage charges one owner slot; an escaping pointer parameter charges its pointer and hidden owner. A fixed array passed through an ordinary ByRef call to an indexed `CallNew` capture uses owned payload storage, while the same nonescaping array remains subject to the inline frame bound. Boxed ByVal record captures charge both the owner slot and their value snapshot.
 - Exact 128-cell frame and 64-parameter boundaries, with their first excess rejected.
 - Module context offsets across two modules, including fixed and dynamic array descriptors.
 - Ascending `FirstScopeSymbol` / `NextScopeSymbol` ownership lists, compared against an independent full declaration scan. These request-owned indexes let procedure cleanup visit its own declarations without repeatedly scanning unrelated modules.

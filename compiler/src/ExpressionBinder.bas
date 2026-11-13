@@ -394,7 +394,9 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Kind As Long
     Dim Role As Long
     Dim Destination As Long
+    Dim ThreadStart As Boolean
     On Error GoTo Failed
+    ThreadStart = N(Node - 1).Kind = SourceParser.ThreadStartNode
     Callee = N(Node - 1).FirstChild
     If N(Callee - 1).Kind = SourceParser.CallNode Then
         If BindExpression(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Callee, 0, 0) = False Then Exit Function
@@ -402,6 +404,7 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
         If ResolveReference(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Callee, False) = False Then Exit Function
     End If
     If F(Callee - 1).ArrayRank <> 0 Then
+        If ThreadStart Then BindCall = Reject(N, M, A, F, D, 3, 17, Node): Exit Function
         If ValueContext = False Then BindCall = Reject(N, M, A, F, D, 3, 14, Node): Exit Function
         BindCall = BindIndex(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Node, Callee): Exit Function
     End If
@@ -420,7 +423,13 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
         SymbolValue A, F, S, Node, Symbol
         F(Node - 1).Writable = False
     End If
-    If ValueContext And Kind = SourceParser.SubNode Then BindCall = Reject(N, M, A, F, D, 3, 16, Node): Exit Function
+    If ThreadStart Then
+        F(Node - 1).TypeCode = SyntaxTokens.KwLongLong
+        F(Node - 1).TypeSymbol = 0
+        F(Node - 1).ArrayRank = 0
+    ElseIf ValueContext And Kind = SourceParser.SubNode Then
+        BindCall = Reject(N, M, A, F, D, 3, 16, Node): Exit Function
+    End If
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         Count = Count + 1
@@ -436,9 +445,14 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
             F(Argument - 1).ArgumentMode = 1
             If ConvertValue(N, M, A, F, D, Argument, Destination) = False Then Exit Function
         ElseIf Aggregate(F, Argument) Or A(Parameter - 1).TypeSymbol <> 0 Or A(Parameter - 1).ArrayRank <> 0 Then
-            If A(Parameter - 1).PassingMode <> SyntaxTokens.KwByRef Or N(Argument - 1).Kind = SourceParser.GroupNode Then BindCall = Reject(N, M, A, F, D, 8, 11, Argument): Exit Function
-            If F(Argument - 1).Writable = False Or SameType(A, F, Argument, Parameter) = False Then BindCall = Reject(N, M, A, F, D, 10, 12, Argument): Exit Function
-            F(Argument - 1).ArgumentMode = 2
+            If SameType(A, F, Argument, Parameter) = False Then BindCall = Reject(N, M, A, F, D, 10, 12, Argument): Exit Function
+            If A(Parameter - 1).PassingMode = SyntaxTokens.KwByVal Then
+                F(Argument - 1).ArgumentMode = 1
+            Else
+                If N(Argument - 1).Kind = SourceParser.GroupNode Then BindCall = Reject(N, M, A, F, D, 8, 11, Argument): Exit Function
+                If F(Argument - 1).Writable = False Then BindCall = Reject(N, M, A, F, D, 10, 12, Argument): Exit Function
+                F(Argument - 1).ArgumentMode = 2
+            End If
             F(Argument - 1).ConvertedType = Destination
         ElseIf A(Parameter - 1).PassingMode = SyntaxTokens.KwByVal Or N(Argument - 1).Kind = SourceParser.GroupNode Then
             F(Argument - 1).ArgumentMode = 1
@@ -656,7 +670,7 @@ Private Function BindExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
         F(Node - 1).TrustedRole = 0
     ElseIf Kind = SourceParser.BinaryNode Then
         If BindBinary(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Node, Required, Destination) = False Then Exit Function
-    ElseIf Kind = SourceParser.CallNode Then
+    ElseIf Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode Then
         If Required <> 0 Then BindExpression = Reject(N, M, A, F, D, 11, 27, Node): Exit Function
         If BindCall(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Node, True) = False Then Exit Function
     Else
@@ -827,7 +841,7 @@ Private Function CheckRoots(ByRef B() As Byte, ByRef T() As SourceScanner.Source
         Kind = N(Node - 1).Kind
         If Kind = SourceParser.VariableNode Or Kind = SourceParser.AssignmentNode Then
             If BindAssignment(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Node) = False Then Exit Function
-        ElseIf Kind = SourceParser.CallNode And N(Node - 1).Value <> 0 Then
+        ElseIf (Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode) And N(Node - 1).Value <> 0 Then
             If BindCall(B, T, N, M, C, P, A, F, H, L, U, K, S, D, Node, False) = False Then Exit Function
         ElseIf Kind = SourceParser.IfNode Or (Kind = SourceParser.DoNode And N(Node - 1).Value <> 0) Then
             Child = N(Node - 1).FirstChild
@@ -882,7 +896,7 @@ Public Function TryBindExpressions(ByRef Bytes() As Byte, ByRef Tokens() As Sour
         Node = Symbols(Index).DeclarationNode
         If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.ParameterNode Then
             If Symbols(Index).TypeSymbol <> 0 Or Symbols(Index).ArrayRank <> 0 Then
-                If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).PassingMode = SyntaxTokens.KwByVal Then TryBindExpressions = Reject(Nodes, Modules, Symbols, Candidate, Diagnostic, 8, 11, Node): Exit Function
+                If Symbols(Index).Kind = SourceParser.FunctionNode Then TryBindExpressions = Reject(Nodes, Modules, Symbols, Candidate, Diagnostic, 8, 11, Node): Exit Function
             End If
         End If
         If Symbols(Index).Kind = SourceParser.FieldNode And Symbols(Index).ArrayRank <> 0 Then TryBindExpressions = Reject(Nodes, Modules, Symbols, Candidate, Diagnostic, 8, 11, Node): Exit Function

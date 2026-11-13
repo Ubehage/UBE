@@ -79,13 +79,24 @@ Thread safety and useful parallel execution are distinct acceptance obligations.
 The compiler must produce deterministic results and diagnostics regardless of
 worker scheduling. A single-worker mode provides a comparison baseline.
 The required concurrency evidence is specified in `../compiler/ACCEPTANCE.md`;
-the current bootstrap tests do not establish it. This requirement concerns the
+the sequential bootstrap tests alone do not establish it. The bounded Windows
+x64 one/two-worker UBE compiler gate now passes, including independent requests,
+failure/cancellation and recovery, with measured useful parallelism and renewed
+self-hosting/conformance. Exact evidence and limits are in `../compiler/Progress.md`.
+This requirement concerns the
 compiler implementation; generated programs retain their separately specified
 threading semantics.
 
+The owner closed worker-entry completion on 2026-11-13: ThreadWait observing
+a worker's escaping FAIL reports fresh FAIL and the captured error number in
+the waiter's own thread. The contract in `../lang-doc/threading.md` now permits
+that focused implementation and its acceptance tests. It does not authorize
+remote handler execution or settle event/UI and foreign callback delivery.
+
 Do not implement Adaptive, assembly lowering, complicated Resume targets,
-cross-thread failure transfer or foreign callback behavior until their remaining
-contracts are closed. They do not block proving the agreed scalar failure flow.
+remaining cross-thread lifecycle failure transfer or foreign callback behavior
+until their remaining contracts are closed. They do not block proving the
+agreed scalar failure flow.
 
 ## Decision and evidence ownership
 

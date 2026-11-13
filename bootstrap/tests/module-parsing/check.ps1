@@ -421,7 +421,24 @@ foreach ($depthCase in @(@('thirty grouped expressions',("Sub Main()`r`nA = " + 
     Write-Text $path ($envelope + $depthCase[1])
     Accept-Source $path 1 20
 }
+$threadSyntax = 'UBE SOURCE 1 MODULE' + "`r`n" + 'Attribute UBE_Name = "ThreadSyntax"' + "`r`nSub Run()`r`nDim Id As LongLong`r`nId = CallNew Workers.Run(42)`r`nCallNew IdleWorker`r`nEnd Sub`r`n"
+$threadPath = Join-Path $artifacts 'thread-start-syntax.bas'
+Write-Text $threadPath $threadSyntax
+Accept-Source $threadPath 1 10
+$threadExpression = Find-Span $threadSyntax 'CallNew Workers.Run(42)' 30 1
+Node-Equals $threadExpression 1 0 'thread start expression retains value form' 1
+$threadTarget = Call-Probe 'NodeField' @(1,$threadExpression,8)
+Node-Equals $threadTarget 0 14 'thread start uses statically qualified member' 1
+$threadCapture = Call-Probe 'NodeField' @(1,$threadTarget,10)
+Node-Equals $threadCapture 0 16 'thread start retains first capture after callee' 1
+$threadStatement = Find-Span $threadSyntax 'CallNew IdleWorker' 30 1
+Node-Equals $threadStatement 1 1 'thread start ignored-result statement retained' 1
+
 $invalid = @(
+    @('CallNew arguments require parentheses',"Sub Run()`r`nCallNew Worker 1`r`nEnd Sub`r`n",2),
+    @('CallNew missing spacing',"Sub Run()`r`nCallNew[Worker]()`r`nEnd Sub`r`n",2),
+    @('CallNew computed target',"Sub Run()`r`nCallNew (Worker)()`r`nEnd Sub`r`n",3),
+    @('CallNew trailing capture comma',"Sub Run()`r`nCallNew Worker(1,)`r`nEnd Sub`r`n",2),
     @('expression syntax depth limit',("Sub Main()`r`nA = " + ('(' * 80) + '1' + (')' * 80) + "`r`nEnd Sub`r`n"),4),
     @('loop syntax depth limit',("Sub Main()`r`n" + ("Do`r`n" * 40) + "A = 1`r`n" + ("Loop`r`n" * 40) + "End Sub`r`n"),4),
     @('missing procedure ending',"Sub Main()`r`nDim A As Long`r`n",2),

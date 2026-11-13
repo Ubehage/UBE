@@ -16,6 +16,27 @@ Private EntrySymbol As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 Private Bindings() As ExpressionBinder.BoundExpression
 Private BindingCount As Long
+Private EscapeFacts() As NativeEscapes.EscapeFact
+Private EscapeCount As Long
+
+' Runs ownership propagation only after successful ordinary expression binding.
+Public Function AnalyzeEscapes() As Long
+    If NativeEscapes.TryAnalyzeEscapes(Nodes, Symbols, Bindings, Counts.NodeCount, SymbolCount, EscapeFacts, EscapeCount, Diagnostic) = False Then AnalyzeEscapes = 1
+End Function
+
+' Observes declaration storage promotion independently of argument ownership classification.
+Public Function EscapingSymbol(ByVal Symbol As Long) As Boolean
+    EscapingSymbol = EscapeFacts(Symbols(Symbol - 1).DeclarationNode - 1).StorageEscapes
+End Function
+
+' Reads the explicit ownership obligation for one actual argument.
+Public Function EscapeField(ByVal Node As Long, ByVal Field As Long) As Long
+    If Field = 0 Then
+        If EscapeFacts(Node - 1).NeedsOwner Then EscapeField = 1
+    End If
+    If Field = 1 Then EscapeField = EscapeFacts(Node - 1).OwnerKind
+    If Field = 2 Then EscapeField = EscapeFacts(Node - 1).OwnerIdentity
+End Function
 
 ' Measures retained expression storage after a failed candidate resets its logical count.
 Private Intrinsic Function BindingLength(ByRef Values() As ExpressionBinder.BoundExpression) As Long

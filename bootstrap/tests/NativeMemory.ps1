@@ -11,6 +11,7 @@ function Get-NativeMemoryLinkArguments([string]$IR, [string]$Clang, [string]$Dir
         $definition = Join-Path $Directory ($stem + '.def')
         $exports = "LIBRARY KERNEL32.dll`r`nEXPORTS`r`nVirtualAlloc`r`nVirtualFree`r`n"
         if ($fileImports) { $exports += "CreateFileW`r`nReadFile`r`nWriteFile`r`nCloseHandle`r`nGetFileSizeEx`r`nGetFileType`r`nFlushFileBuffers`r`nMultiByteToWideChar`r`nGetCommandLineW`r`nGetStdHandle`r`nWideCharToMultiByte`r`nGetFullPathNameW`r`nGetFinalPathNameByHandleW`r`nCompareStringOrdinal`r`nGetFileInformationByHandle`r`nGetModuleFileNameW`r`nGetTickCount64`r`nGetCurrentProcess`r`nDuplicateHandle`r`nCreateProcessW`r`nInitializeProcThreadAttributeList`r`nUpdateProcThreadAttribute`r`nDeleteProcThreadAttributeList`r`nCreateJobObjectW`r`nSetInformationJobObject`r`nAssignProcessToJobObject`r`nResumeThread`r`nWaitForSingleObject`r`nGetExitCodeProcess`r`nQueryInformationJobObject`r`nTerminateJobObject`r`nTerminateProcess`r`nSleep`r`nGetLastError`r`nCreateDirectoryW`r`nRemoveDirectoryW`r`nDeleteFileW`r`nMoveFileExW`r`nGetFileAttributesW`r`n" }
+        if ($text.Contains('@CreateThread')) { $exports += "CreateThread`r`n" }
         Write-Text $definition $exports
         $tool = Join-Path ([IO.Path]::GetDirectoryName($Clang)) 'llvm-dlltool.exe'
         Require (Test-Path -LiteralPath $tool) "Required installed LLVM import tool missing: $tool"

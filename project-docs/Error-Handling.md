@@ -35,13 +35,38 @@ The following are still decisions, not accidental implementation defaults:
    If and Do, including For, Select Case and SyncLock. The owner approved
    skipping the entire If/Do construct on a failed condition; an enabled handler
    still receives control. A failed Boolean conversion is not False.
-2. Exact return/diagnostic behavior for worker entry, event dispatch, raw native
-   callbacks, UI-thread routing and module startup/finalization boundaries.
+2. Exact return/diagnostic behavior for event dispatch, raw native callbacks,
+   UI-thread routing and module startup/finalization boundaries. Worker-entry
+   completion and waiting were settled separately below.
 3. Complete Err signatures/codes, Error statement equivalence, and any new
    Try-style APIs beyond the explicitly documented record-only primitives.
 
 Documentation review does not establish runtime conformance. The parent work
 item supplies the first executable acceptance gate.
+
+## Worker completion decision — 2026-11-13
+
+The owner approved ordinary worker termination when an error ends its entry
+procedure, with FAIL delivered to a caller waiting for that worker's result.
+The native UBE thread contract therefore records a fresh FAIL escaping the entry
+Sub as failed completion, after ordinary compiler-owned cleanup. Explicit user
+resources still require explicit cleanup before raising. No creator's handler
+runs remotely, and completion does not itself change another thread's Err or
+terminate the process.
+
+`ThreadWait` observes the stored outcome. Successful completion returns `1`;
+timeout/cancellation returns `0`. These successful results preserve caller Err.
+Failed completion instead supplies a fresh FAIL to that wait call and copies
+the captured error number into the waiter's Err. Multiple waiters and repeated
+waits receive the same stored outcome, with a new FAIL on every failed wait.
+The waiter's own statement/handler rules apply. Stale Err on normal worker
+return is not failed completion; fresh FAIL with error number zero still is.
+
+The normative details are in `../lang-doc/threading.md` and section 5.3 of
+`../lang-doc/v3-language-definition.md`. This decision adds no separate
+ThreadCompletion query API and does not close event/UI, foreign-callback or
+module-lifecycle failure boundaries. Implementation and acceptance remain
+pending; this record is not evidence of native concurrency.
 
 ## Existing baseline
 
@@ -149,7 +174,7 @@ Do not implement caller behavior merely by testing Err at procedure return.
 | Try-style API | Fresh status must be documented independently of Err; define whether a False result is normal non-success or a language failure for that API. The name Try alone decides nothing. |
 | Resource cleanup fails after another failure | Retain the primary failure for the operation's outward report; define secondary diagnostics without accidental overwriting. Explicit user operations still obey normal last-error rules. |
 | Callback / event handler | Define failure transfer separately from the event subscription and dispatch order; never run a caller's handler on a different thread. |
-| Worker failure | Keep worker Err separate from creator/waiter Err; waiting successfully is not itself a failure. Define any completion error reporting explicitly. |
+| Worker failure | Approved 2026-11-13: fresh FAIL escaping entry ends the worker through ordinary cleanup. ThreadWait observing that completion copies the captured error number into its own thread's Err and reports fresh FAIL; repeated waits and multiple waiters receive the same outcome. Normal completion with stale Err is successful. Timeout/cancellation remains successful zero. |
 | Foreign call | Map a fresh outward failure to ABI status; do not fail because of stale Err. Never unwind through foreign frames. |
 | Initialization | Distinguish handled recoverable errors from failure to establish a valid initialized module; stale Err alone cannot cancel startup. |
 | Finalization/shutdown | Attempt remaining safe cleanup after a cleanup error; do not resurrect objects or create new work to escape termination. |

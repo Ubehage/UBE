@@ -163,7 +163,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "  br i1 %missing, label %failed, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %actual = load i64, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  %actual = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %correct = icmp eq i64 %actual, 4" & vbCrLf
     Text = Text & "  br i1 %correct, label %done, label %wrong" & vbCrLf
     Text = Text & "wrong:" & vbCrLf
@@ -184,9 +184,9 @@ Private Function NativeProcessOwners() As String
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i32 @ube.process.command(ptr %array, ptr %packed, ptr %wide) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %empty = icmp eq i64 %length, 0" & vbCrLf
@@ -200,7 +200,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "copy:" & vbCrLf
     Text = Text & "  %index = phi i64 [0, %prepare], [%next, %more]" & vbCrLf
     Text = Text & "  %source = getelementptr i64, ptr %data, i64 %index" & vbCrLf
-    Text = Text & "  %value = load i64, ptr %source" & vbCrLf
+    Text = Text & "  %value = load atomic i64, ptr %source monotonic, align 8" & vbCrLf
     Text = Text & "  %nul = icmp eq i64 %value, 0" & vbCrLf
     Text = Text & "  br i1 %nul, label %failed, label %pack" & vbCrLf
     Text = Text & "pack:" & vbCrLf
@@ -229,7 +229,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %information = alloca [48 x i8], align 8" & vbCrLf
     Text = Text & "  %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8" & vbCrLf
-    Text = Text & "  %attached = load i64, ptr %attached.ptr" & vbCrLf
+    Text = Text & "  %attached = load atomic i64, ptr %attached.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %contained = icmp ne i64 %attached, 0" & vbCrLf
     Text = Text & "  br i1 %contained, label %query, label %unattached" & vbCrLf
     Text = Text & "query:" & vbCrLf
@@ -246,7 +246,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "  %process = load ptr, ptr %process.ptr" & vbCrLf
     Text = Text & "  %exists = icmp ne ptr %process, null" & vbCrLf
     Text = Text & "  %exited.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 6" & vbCrLf
-    Text = Text & "  %exited = load i64, ptr %exited.ptr" & vbCrLf
+    Text = Text & "  %exited = load atomic i64, ptr %exited.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %live = icmp eq i64 %exited, 0" & vbCrLf
     Text = Text & "  %running = and i1 %exists, %live" & vbCrLf
     Text = Text & "  %result = zext i1 %running to i64" & vbCrLf
@@ -259,7 +259,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "  %native.exit = alloca i32, align 4" & vbCrLf
     Text = Text & "  %exit.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 5" & vbCrLf
     Text = Text & "  %exited.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 6" & vbCrLf
-    Text = Text & "  %exited = load i64, ptr %exited.ptr" & vbCrLf
+    Text = Text & "  %exited = load atomic i64, ptr %exited.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %cached = icmp ne i64 %exited, 0" & vbCrLf
     Text = Text & "  br i1 %cached, label %query, label %process" & vbCrLf
     Text = Text & "process:" & vbCrLf
@@ -268,8 +268,8 @@ Private Function NativeProcessOwners() As String
     Text = Text & "  %missing = icmp eq ptr %handle, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %not.created, label %wait" & vbCrLf
     Text = Text & "not.created:" & vbCrLf
-    Text = Text & "  store i64 1, ptr %exit.ptr" & vbCrLf
-    Text = Text & "  store i64 1, ptr %exited.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 1, ptr %exit.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 1, ptr %exited.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  br label %query" & vbCrLf
     Text = Text & "wait:" & vbCrLf
     Text = Text & "  %result = call i32 @ube.target.process.wait(ptr %handle, i32 %milliseconds)" & vbCrLf
@@ -284,8 +284,8 @@ Private Function NativeProcessOwners() As String
     Text = Text & "cache:" & vbCrLf
     Text = Text & "  %code32 = load i32, ptr %native.exit" & vbCrLf
     Text = Text & "  %code = sext i32 %code32 to i64" & vbCrLf
-    Text = Text & "  store i64 %code, ptr %exit.ptr" & vbCrLf
-    Text = Text & "  store i64 1, ptr %exited.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 %code, ptr %exit.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 1, ptr %exited.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  br label %query" & vbCrLf
     Text = Text & "query:" & vbCrLf
     Text = Text & "  %active = call i64 @ube.process.active(ptr %state)" & vbCrLf
@@ -304,7 +304,7 @@ Private Function NativeProcessOwners() As String
     Text = Text & "  br i1 %bad.after, label %failed, label %finish" & vbCrLf
     Text = Text & "finish:" & vbCrLf
     Text = Text & "  %current = phi i64 [%active, %pause.check], [%after, %sleep]" & vbCrLf
-    Text = Text & "  %root.state = load i64, ptr %exited.ptr" & vbCrLf
+    Text = Text & "  %root.state = load atomic i64, ptr %exited.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %root.done = icmp ne i64 %root.state, 0" & vbCrLf
     Text = Text & "  %empty = icmp eq i64 %current, 0" & vbCrLf
     Text = Text & "  %complete = and i1 %root.done, %empty" & vbCrLf
@@ -319,7 +319,7 @@ End Function
 ' Emits the reviewed NativeProcessStart target definitions.
 Private Function NativeProcessStart() As String
     Dim Text As String
-    Text = Text & "define internal i1 @ube.process.start(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.process.start.pinned(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %attribute.size = alloca i64, align 8" & vbCrLf
     Text = Text & "  %attribute.live = alloca i1, align 1" & vbCrLf
@@ -347,8 +347,8 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "validate:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %old = load i64, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %old = load atomic i64, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  %available = icmp eq i64 %old, 0" & vbCrLf
     Text = Text & "  br i1 %available, label %reserve, label %request.fail" & vbCrLf
     Text = Text & "reserve:" & vbCrLf
@@ -394,9 +394,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  store ptr null, ptr %handle.ptr" & vbCrLf
-    Text = Text & "  store i64 4, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 4, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  store atomic i64 %token, ptr %slot release, align 8" & vbCrLf
-    Text = Text & "  store i64 %token, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  %process.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 1" & vbCrLf
     Text = Text & "  %thread.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 2" & vbCrLf
     Text = Text & "  %input.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 3" & vbCrLf
@@ -426,7 +426,7 @@ Private Function NativeProcessStart() As String
     Text = Text & "  br i1 %no.log, label %retain.failure, label %log.kind" & vbCrLf
     Text = Text & "log.kind:" & vbCrLf
     Text = Text & "  %log.kind.ptr = getelementptr %ube.resource, ptr %log.slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %log.mode = load i64, ptr %log.kind.ptr" & vbCrLf
+    Text = Text & "  %log.mode = load atomic i64, ptr %log.kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %writable = icmp eq i64 %log.mode, 2" & vbCrLf
     Text = Text & "  br i1 %writable, label %duplicate, label %wrong.log" & vbCrLf
     Text = Text & "wrong.log:" & vbCrLf
@@ -440,9 +440,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  call void @ube.resource.unlock(ptr %log.slot)" & vbCrLf
     Text = Text & "  br i1 %duplicated, label %attribute.measure, label %io.fail" & vbCrLf
     Text = Text & "attribute.measure:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %attribute.size" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %attribute.size monotonic, align 8" & vbCrLf
     Text = Text & "  %measurement = call i1 @ube.target.process.attributes(ptr null, ptr %attribute.size)" & vbCrLf
-    Text = Text & "  %size = load i64, ptr %attribute.size" & vbCrLf
+    Text = Text & "  %size = load atomic i64, ptr %attribute.size monotonic, align 8" & vbCrLf
     Text = Text & "  %positive = icmp ugt i64 %size, 0" & vbCrLf
     Text = Text & "  %bounded = icmp ule i64 %size, 4096" & vbCrLf
     Text = Text & "  %valid.size = and i1 %positive, %bounded" & vbCrLf
@@ -485,11 +485,11 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %assigned = call i1 @ube.target.process.assign(ptr %job, ptr %native.process)" & vbCrLf
     Text = Text & "  br i1 %assigned, label %contained, label %io.fail" & vbCrLf
     Text = Text & "contained:" & vbCrLf
-    Text = Text & "  store i64 1, ptr %attached.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 1, ptr %attached.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %resumed = call i1 @ube.target.process.resume(ptr %native.thread)" & vbCrLf
     Text = Text & "  br i1 %resumed, label %started, label %io.fail" & vbCrLf
     Text = Text & "started:" & vbCrLf
-    Text = Text & "  store i64 1, ptr %started.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 1, ptr %started.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  call void @ube.target.process.deleteattributes(ptr %attributes)" & vbCrLf
     Text = Text & "  store i1 false, ptr %attribute.live" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
@@ -519,6 +519,48 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.process.start(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.app = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %descriptor.command = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %descriptor.directory = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %app, ptr %token.out)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %app, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %command, ptr %token.out)" & vbCrLf
+    Text = Text & "  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %command, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias.4 = call i1 @ube.array.descriptor.overlaps(ptr %directory, ptr %token.out)" & vbCrLf
+    Text = Text & "  %alias.5 = call i1 @ube.array.descriptor.overlaps(ptr %directory, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  %aliases.2 = or i1 %aliases.1, %alias.2" & vbCrLf
+    Text = Text & "  %aliases.3 = or i1 %aliases.2, %alias.3" & vbCrLf
+    Text = Text & "  %aliases.4 = or i1 %aliases.3, %alias.4" & vbCrLf
+    Text = Text & "  %aliases.5 = or i1 %aliases.4, %alias.5" & vbCrLf
+    Text = Text & "  br i1 %aliases.5, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.app = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %app)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.app, ptr %descriptor.app" & vbCrLf
+    Text = Text & "  %pin.app = extractvalue { i64, i64, ptr, ptr } %snapshot.app, 3" & vbCrLf
+    Text = Text & "  %snapshot.command = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %command)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.command, ptr %descriptor.command" & vbCrLf
+    Text = Text & "  %pin.command = extractvalue { i64, i64, ptr, ptr } %snapshot.command, 3" & vbCrLf
+    Text = Text & "  %same.command.app = icmp eq ptr %command, %app" & vbCrLf
+    Text = Text & "  %selected.command.app = select i1 %same.command.app, ptr %descriptor.app, ptr %descriptor.command" & vbCrLf
+    Text = Text & "  %snapshot.directory = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %directory)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.directory, ptr %descriptor.directory" & vbCrLf
+    Text = Text & "  %pin.directory = extractvalue { i64, i64, ptr, ptr } %snapshot.directory, 3" & vbCrLf
+    Text = Text & "  %same.directory.app = icmp eq ptr %directory, %app" & vbCrLf
+    Text = Text & "  %selected.directory.app = select i1 %same.directory.app, ptr %descriptor.app, ptr %descriptor.directory" & vbCrLf
+    Text = Text & "  %same.directory.command = icmp eq ptr %directory, %command" & vbCrLf
+    Text = Text & "  %selected.directory.command = select i1 %same.directory.command, ptr %selected.command.app, ptr %selected.directory.app" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.process.start.pinned(ptr %ctx, ptr %descriptor.app, ptr %selected.command.app, ptr %selected.directory.command, i64 %log.token, ptr %token.out, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.app)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.command)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.directory)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
+    Text = Text & "}" & vbCrLf
     NativeProcessStart = Text
 End Function
 
@@ -543,7 +585,7 @@ Private Function NativeProcessWait() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "validate:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  %excessive = icmp ugt i64 %milliseconds, 5000" & vbCrLf
     Text = Text & "  br i1 %excessive, label %request.fail, label %lookup" & vbCrLf
     Text = Text & "lookup:" & vbCrLf
@@ -558,13 +600,13 @@ Private Function NativeProcessWait() As String
     Text = Text & "  br i1 %bad.observation, label %io.fail, label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
     Text = Text & "  %value = zext i32 %observation to i64" & vbCrLf
-    Text = Text & "  store i64 %value, ptr %state.out" & vbCrLf
+    Text = Text & "  store atomic i64 %value, ptr %state.out monotonic, align 8" & vbCrLf
     Text = Text & "  %finished = icmp eq i32 %observation, 1" & vbCrLf
     Text = Text & "  br i1 %finished, label %publish.exit, label %success" & vbCrLf
     Text = Text & "publish.exit:" & vbCrLf
     Text = Text & "  %exit.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 5" & vbCrLf
-    Text = Text & "  %code = load i64, ptr %exit.ptr" & vbCrLf
-    Text = Text & "  store i64 %code, ptr %exit.out" & vbCrLf
+    Text = Text & "  %code = load atomic i64, ptr %exit.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 %code, ptr %exit.out monotonic, align 8" & vbCrLf
     Text = Text & "  br label %success" & vbCrLf
     Text = Text & "success:" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
@@ -587,7 +629,7 @@ Private Function NativeProcessWait() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "lookup:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  %slot = call ptr @ube.process.acquire(ptr %ctx, i64 %token, ptr %failure)" & vbCrLf
     Text = Text & "  %missing = icmp eq ptr %slot, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %failed, label %inspect" & vbCrLf
@@ -598,7 +640,7 @@ Private Function NativeProcessWait() As String
     Text = Text & "  br i1 %complete, label %success, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8" & vbCrLf
-    Text = Text & "  %attached = load i64, ptr %attached.ptr" & vbCrLf
+    Text = Text & "  %attached = load atomic i64, ptr %attached.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %contained = icmp ne i64 %attached, 0" & vbCrLf
     Text = Text & "  br i1 %contained, label %job, label %process" & vbCrLf
     Text = Text & "job:" & vbCrLf
@@ -641,8 +683,8 @@ Private Function NativeProcessRelease() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "lookup:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %token = load i64, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %token = load atomic i64, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  %empty = icmp eq i64 %token, 0" & vbCrLf
     Text = Text & "  br i1 %empty, label %success, label %acquire" & vbCrLf
     Text = Text & "acquire:" & vbCrLf
@@ -675,7 +717,7 @@ Private Function NativeProcessRelease() As String
     Text = Text & "  br i1 %is.job, label %detach, label %advance" & vbCrLf
     Text = Text & "detach:" & vbCrLf
     Text = Text & "  %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8" & vbCrLf
-    Text = Text & "  store i64 0, ptr %attached.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %attached.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  br label %advance" & vbCrLf
     Text = Text & "advance:" & vbCrLf
     Text = Text & "  %current = phi i1 [true, %handles], [false, %close], [true, %clear], [true, %detach]" & vbCrLf
@@ -687,7 +729,7 @@ Private Function NativeProcessRelease() As String
     Text = Text & "  br i1 %accepted, label %forget, label %close.fail" & vbCrLf
     Text = Text & "forget:" & vbCrLf
     Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
-    Text = Text & "  store i64 0, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  br label %success" & vbCrLf
     Text = Text & "busy:" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf

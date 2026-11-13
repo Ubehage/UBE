@@ -163,7 +163,7 @@ function Observe-Targets([string]$Text) {
     foreach ($probe in @(
         @{Name='path'; Store='  store volatile i8 %pack.byte, ptr %pack.target'},
         @{Name='pack'; Store='  store volatile i8 %byte, ptr %target'},
-        @{Name='unpack'; Store='  store volatile i64 %read.value, ptr %read.target'}
+        @{Name='unpack'; Store='  store atomic volatile i64 %read.value, ptr %read.target monotonic, align 8'}
     )) {
         Require ([regex]::Matches($Text,[regex]::Escape($probe.Store)).Count -eq 1) "Missing unique movement observation point $($probe.Name)"
         $suffix = $probe.Name

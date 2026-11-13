@@ -77,15 +77,15 @@ Private Function FileTargetsAndRegistryIR() As String
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 %code, i64 %number) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0" & vbCrLf
-    Text = Text & "  store i64 %number, ptr %err" & vbCrLf
-    Text = Text & "  store i64 %code, ptr %failure" & vbCrLf
+    Text = Text & "  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0" & vbCrLf
+    Text = Text & "  store atomic i64 %number, ptr %err monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 %code, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.aliasfail(ptr %ctx) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0" & vbCrLf
-    Text = Text & "  store i64 5, ptr %err" & vbCrLf
+    Text = Text & "  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0" & vbCrLf
+    Text = Text & "  store atomic i64 5, ptr %err monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i64 @ube.resource.token() {" & vbCrLf
@@ -110,7 +110,7 @@ Private Function FileTargetsAndRegistryIR() As String
     Text = Text & "  br label %scan" & vbCrLf
     Text = Text & "scan:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %entry ], [ %next, %advance ]" & vbCrLf
-    Text = Text & "  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index" & vbCrLf
+    Text = Text & "  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)" & vbCrLf
     Text = Text & "  %token = load atomic i64, ptr %slot acquire, align 8" & vbCrLf
     Text = Text & "  %empty = icmp eq i64 %token, 0" & vbCrLf
     Text = Text & "  br i1 %empty, label %claim, label %advance" & vbCrLf
@@ -146,7 +146,7 @@ Private Function FileTargetsAndRegistryIR() As String
     Text = Text & "  br label %scan" & vbCrLf
     Text = Text & "scan:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %entry ], [ %next, %advance ]" & vbCrLf
-    Text = Text & "  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index" & vbCrLf
+    Text = Text & "  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)" & vbCrLf
     Text = Text & "  %token = load atomic i64, ptr %slot acquire, align 8" & vbCrLf
     Text = Text & "  %busy.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 4" & vbCrLf
     Text = Text & "  %busy = load atomic i64, ptr %busy.ptr acquire, align 8" & vbCrLf
@@ -174,7 +174,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  br i1 %positive, label %scan, label %stale" & vbCrLf
     Text = Text & "scan:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %entry ], [ %next, %advance ]" & vbCrLf
-    Text = Text & "  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index" & vbCrLf
+    Text = Text & "  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)" & vbCrLf
     Text = Text & "  %token = load atomic i64, ptr %slot acquire, align 8" & vbCrLf
     Text = Text & "  %matches = icmp eq i64 %token, %wanted" & vbCrLf
     Text = Text & "  br i1 %matches, label %claim, label %advance" & vbCrLf
@@ -211,7 +211,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  store ptr null, ptr %handle.ptr" & vbCrLf
     Text = Text & "  store atomic i64 0, ptr %slot release, align 8" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  %collected = call i1 @ube.memory.collect(ptr %ctx)" & vbCrLf
     Text = Text & "  ret void" & vbCrLf
@@ -225,9 +225,9 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %desc.inside = icmp ult i64 %desc.after, 32" & vbCrLf
     Text = Text & "  %desc.cross = icmp ult i64 %desc.before, 8" & vbCrLf
     Text = Text & "  %desc.overlap = or i1 %desc.inside, %desc.cross" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %bytes = mul i64 %length, 8" & vbCrLf
@@ -244,11 +244,31 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %overlap = or i1 %desc.overlap, %occupied" & vbCrLf
     Text = Text & "  ret i1 %overlap" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.file.open(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.open.pinned(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %mode = select i1 %write, i64 2, i64 1" & vbCrLf
     Text = Text & "  %result = call i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i64 %mode)" & vbCrLf
     Text = Text & "  ret i1 %result" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.open(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %token.out)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %length.out)" & vbCrLf
+    Text = Text & "  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  %aliases.2 = or i1 %aliases.1, %alias.2" & vbCrLf
+    Text = Text & "  br i1 %aliases.2, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path" & vbCrLf
+    Text = Text & "  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.file.open.pinned(ptr %ctx, ptr %descriptor.path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.path)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i64 %mode) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -277,9 +297,9 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "outputs:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %length.out" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %old.token = load i64, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %length.out monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %old.token = load atomic i64, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  %owned = icmp ne i64 %old.token, 0" & vbCrLf
     Text = Text & "  %negative = icmp slt i64 %maximum, 0" & vbCrLf
     Text = Text & "  %bad.request = or i1 %owned, %negative" & vbCrLf
@@ -288,9 +308,9 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "path.size:" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %path" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %path monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %path, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %empty = icmp sle i64 %length, 0" & vbCrLf
@@ -304,7 +324,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "scan:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %path.data ], [ %next, %advance ]" & vbCrLf
     Text = Text & "  %cell = getelementptr i64, ptr %data, i64 %index" & vbCrLf
-    Text = Text & "  %byte = load i64, ptr %cell" & vbCrLf
+    Text = Text & "  %byte = load atomic i64, ptr %cell monotonic, align 8" & vbCrLf
     Text = Text & "  %zero = icmp eq i64 %byte, 0" & vbCrLf
     Text = Text & "  br i1 %zero, label %path.fail, label %advance" & vbCrLf
     Text = Text & "advance:" & vbCrLf
@@ -341,7 +361,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "pack:" & vbCrLf
     Text = Text & "  %pack.index = phi i64 [ 0, %pack.start ], [ %pack.next, %pack ]" & vbCrLf
     Text = Text & "  %pack.source = getelementptr i64, ptr %data, i64 %pack.index" & vbCrLf
-    Text = Text & "  %pack.value = load i64, ptr %pack.source" & vbCrLf
+    Text = Text & "  %pack.value = load atomic i64, ptr %pack.source monotonic, align 8" & vbCrLf
     Text = Text & "  %pack.byte = trunc i64 %pack.value to i8" & vbCrLf
     Text = Text & "  %pack.target = getelementptr i8, ptr %packed, i64 %pack.index" & vbCrLf
     Text = Text & "  store volatile i8 %pack.byte, ptr %pack.target" & vbCrLf
@@ -382,7 +402,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  store ptr %handle, ptr %handle.ptr" & vbCrLf
     Text = Text & "  %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  store i64 %mode, ptr %mode.ptr" & vbCrLf
+    Text = Text & "  store atomic i64 %mode, ptr %mode.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %kind = call i32 @ube.target.file.type(ptr %handle)" & vbCrLf
     Text = Text & "  %regular = icmp eq i32 %kind, 1" & vbCrLf
     Text = Text & "  br i1 %regular, label %mode.check, label %query.fail" & vbCrLf
@@ -394,11 +414,11 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "file.check:" & vbCrLf
     Text = Text & "  br i1 %write, label %success.create, label %query" & vbCrLf
     Text = Text & "query:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %size.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %size.out monotonic, align 8" & vbCrLf
     Text = Text & "  %queried = call i1 @ube.target.file.size(ptr %handle, ptr %size.out)" & vbCrLf
     Text = Text & "  br i1 %queried, label %size.check, label %query.fail" & vbCrLf
     Text = Text & "size.check:" & vbCrLf
-    Text = Text & "  %size = load i64, ptr %size.out" & vbCrLf
+    Text = Text & "  %size = load atomic i64, ptr %size.out monotonic, align 8" & vbCrLf
     Text = Text & "  %size.negative = icmp slt i64 %size, 0" & vbCrLf
     Text = Text & "  br i1 %size.negative, label %query.fail, label %size.limit" & vbCrLf
     Text = Text & "size.limit:" & vbCrLf
@@ -419,7 +439,7 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "retained:" & vbCrLf
     Text = Text & "  store atomic i64 %token, ptr %slot release, align 8" & vbCrLf
-    Text = Text & "  store i64 %token, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  %close.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 7, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
@@ -430,8 +450,8 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "success:" & vbCrLf
     Text = Text & "  %result.length = phi i64 [ 0, %success.create ], [ %size, %success.read ]" & vbCrLf
     Text = Text & "  store atomic i64 %token, ptr %slot release, align 8" & vbCrLf
-    Text = Text & "  store i64 %token, ptr %token.out" & vbCrLf
-    Text = Text & "  store i64 %result.length, ptr %length.out" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %token.out monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 %result.length, ptr %length.out monotonic, align 8" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "}" & vbCrLf
@@ -441,7 +461,7 @@ End Function
 ' Defines single-operation byte transfers and explicit file release.
 Private Function FileTransferAndReleaseIR() As String
     Dim Text As String
-    Text = Text & "define internal i1 @ube.file.transfer(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.transfer.pinned(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %native.progress = alloca i32, align 4" & vbCrLf
     Text = Text & "  %alias = icmp eq ptr %progress, %failure" & vbCrLf
@@ -458,11 +478,11 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "outputs:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %progress" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %progress monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %start.negative = icmp slt i64 %start, 0" & vbCrLf
@@ -486,7 +506,7 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  br i1 %missing, label %failed, label %mode" & vbCrLf
     Text = Text & "mode:" & vbCrLf
     Text = Text & "  %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %actual.mode = load i64, ptr %mode.ptr" & vbCrLf
+    Text = Text & "  %actual.mode = load atomic i64, ptr %mode.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %wanted.mode = select i1 %write, i64 2, i64 1" & vbCrLf
     Text = Text & "  %right.mode = icmp eq i64 %actual.mode, %wanted.mode" & vbCrLf
     Text = Text & "  br i1 %right.mode, label %check.empty, label %mode.fail" & vbCrLf
@@ -518,7 +538,7 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "pack:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %prepare ], [ %next, %pack ]" & vbCrLf
     Text = Text & "  %source = getelementptr i64, ptr %payload, i64 %index" & vbCrLf
-    Text = Text & "  %value = load i64, ptr %source" & vbCrLf
+    Text = Text & "  %value = load atomic i64, ptr %source monotonic, align 8" & vbCrLf
     Text = Text & "  %byte = trunc i64 %value to i8" & vbCrLf
     Text = Text & "  %target = getelementptr i8, ptr %scratch, i64 %index" & vbCrLf
     Text = Text & "  store volatile i8 %byte, ptr %target" & vbCrLf
@@ -540,7 +560,7 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "publish.mode:" & vbCrLf
     Text = Text & "  br i1 %write, label %write.progress, label %read.status" & vbCrLf
     Text = Text & "write.progress:" & vbCrLf
-    Text = Text & "  store i64 %done, ptr %progress" & vbCrLf
+    Text = Text & "  store atomic i64 %done, ptr %progress monotonic, align 8" & vbCrLf
     Text = Text & "  br i1 %ok, label %success, label %io.fail" & vbCrLf
     Text = Text & "read.status:" & vbCrLf
     Text = Text & "  br i1 %ok, label %read.progress, label %io.fail" & vbCrLf
@@ -553,25 +573,43 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  %read.byte = load i8, ptr %read.source" & vbCrLf
     Text = Text & "  %read.value = zext i8 %read.byte to i64" & vbCrLf
     Text = Text & "  %read.target = getelementptr i64, ptr %payload, i64 %read.index" & vbCrLf
-    Text = Text & "  store volatile i64 %read.value, ptr %read.target" & vbCrLf
+    Text = Text & "  store atomic volatile i64 %read.value, ptr %read.target monotonic, align 8" & vbCrLf
     Text = Text & "  %read.next = add i64 %read.index, 1" & vbCrLf
     Text = Text & "  %read.more = icmp ult i64 %read.next, %done" & vbCrLf
     Text = Text & "  br i1 %read.more, label %unpack, label %read.complete" & vbCrLf
     Text = Text & "read.complete:" & vbCrLf
-    Text = Text & "  store i64 %done, ptr %progress" & vbCrLf
+    Text = Text & "  store atomic i64 %done, ptr %progress monotonic, align 8" & vbCrLf
     Text = Text & "  br label %success" & vbCrLf
     Text = Text & "success:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %owner)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %owner)" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "io.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %owner)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %owner)" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  %code = select i1 %write, i64 15, i64 5" & vbCrLf
     Text = Text & "  %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 %code, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.transfer(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %progress)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array" & vbCrLf
+    Text = Text & "  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.file.transfer.pinned(ptr %ctx, i64 %token, ptr %descriptor.array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.array)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.close(ptr %ctx, ptr %token.out, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -585,8 +623,8 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "outputs:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %token = load i64, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %token = load atomic i64, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  %empty = icmp eq i64 %token, 0" & vbCrLf
     Text = Text & "  br i1 %empty, label %success, label %lookup" & vbCrLf
     Text = Text & "lookup:" & vbCrLf
@@ -595,7 +633,7 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  br i1 %missing, label %failed, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %kind.value = load i64, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %kind.low = icmp sge i64 %kind.value, 1" & vbCrLf
     Text = Text & "  %kind.high = icmp sle i64 %kind.value, 3" & vbCrLf
     Text = Text & "  %file.kind = and i1 %kind.low, %kind.high" & vbCrLf
@@ -611,7 +649,7 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  br i1 %closed, label %released, label %close.fail" & vbCrLf
     Text = Text & "released:" & vbCrLf
     Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
-    Text = Text & "  store i64 0, ptr %token.out" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %token.out monotonic, align 8" & vbCrLf
     Text = Text & "  br label %success" & vbCrLf
     Text = Text & "close.fail:" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
@@ -630,13 +668,13 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "lookup:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  %slot = call ptr @ube.resource.acquire(ptr %ctx, i64 %token, ptr %failure)" & vbCrLf
     Text = Text & "  %missing = icmp eq ptr %slot, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %failed, label %mode" & vbCrLf
     Text = Text & "mode:" & vbCrLf
     Text = Text & "  %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %actual.mode = load i64, ptr %mode.ptr" & vbCrLf
+    Text = Text & "  %actual.mode = load atomic i64, ptr %mode.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %writable = icmp eq i64 %actual.mode, 2" & vbCrLf
     Text = Text & "  br i1 %writable, label %flush, label %mode.fail" & vbCrLf
     Text = Text & "mode.fail:" & vbCrLf
@@ -697,10 +735,10 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  %status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "done:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.system.commandline(ptr %ctx, ptr %array, ptr %count, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.commandline.pinned(ptr %ctx, ptr %array, ptr %count, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %array, ptr %count, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %acquire, label %failed" & vbCrLf
@@ -722,15 +760,15 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  %empty = icmp eq i64 %index, 0" & vbCrLf
     Text = Text & "  br i1 %empty, label %empty.success, label %measure" & vbCrLf
     Text = Text & "empty.success:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %count" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %count monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "measure:" & vbCrLf
     Text = Text & "  %units = trunc i64 %index to i32" & vbCrLf
     Text = Text & "  %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)" & vbCrLf
     Text = Text & "  %size = sext i32 %size32 to i64" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %capacity = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %invalid = icmp sle i64 %size, 0" & vbCrLf
@@ -758,16 +796,16 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  %byte = load i8, ptr %source" & vbCrLf
     Text = Text & "  %value = zext i8 %byte to i64" & vbCrLf
     Text = Text & "  %destination = getelementptr i64, ptr %data, i64 %position" & vbCrLf
-    Text = Text & "  store volatile i64 %value, ptr %destination" & vbCrLf
+    Text = Text & "  store atomic volatile i64 %value, ptr %destination monotonic, align 8" & vbCrLf
     Text = Text & "  %after = add i64 %position, 1" & vbCrLf
     Text = Text & "  %more = icmp ult i64 %after, %size" & vbCrLf
     Text = Text & "  br i1 %more, label %copy, label %success" & vbCrLf
     Text = Text & "success:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
-    Text = Text & "  store i64 %size, ptr %count" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
+    Text = Text & "  store atomic i64 %size, ptr %count monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "conversion.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  br label %io.fail" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
@@ -781,19 +819,37 @@ Private Function SystemOperationsIR() As String
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.system.write(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.commandline(ptr %ctx, ptr %array, ptr %count, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %count)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array" & vbCrLf
+    Text = Text & "  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.system.commandline.pinned(ptr %ctx, ptr %descriptor.array, ptr %count, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.array)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.write.pinned(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %progress = alloca i32, align 4" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %array, ptr %written, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %validate, label %failed" & vbCrLf
     Text = Text & "validate:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %written" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %written monotonic, align 8" & vbCrLf
     Text = Text & "  %stdout = icmp eq i64 %stream, 1" & vbCrLf
     Text = Text & "  %stderr = icmp eq i64 %stream, 2" & vbCrLf
     Text = Text & "  %stream.ok = or i1 %stdout, %stderr" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %start.bad = icmp ult i64 %length, %start" & vbCrLf
@@ -831,7 +887,7 @@ Private Function SystemOperationsIR() As String
     Text = Text & "pack:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %prepare ], [ %next, %pack ]" & vbCrLf
     Text = Text & "  %source = getelementptr i64, ptr %source.base, i64 %index" & vbCrLf
-    Text = Text & "  %value = load i64, ptr %source" & vbCrLf
+    Text = Text & "  %value = load atomic i64, ptr %source monotonic, align 8" & vbCrLf
     Text = Text & "  %byte = trunc i64 %value to i8" & vbCrLf
     Text = Text & "  %destination = getelementptr i8, ptr %scratch, i64 %index" & vbCrLf
     Text = Text & "  store volatile i8 %byte, ptr %destination" & vbCrLf
@@ -844,11 +900,11 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  %accepted = call i1 @ube.target.file.write(ptr %native.handle, ptr %scratch, i32 %count32, ptr %progress)" & vbCrLf
     Text = Text & "  %done32 = load i32, ptr %progress" & vbCrLf
     Text = Text & "  %done = zext i32 %done32 to i64" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %bad.progress = icmp ugt i64 %done, %count" & vbCrLf
     Text = Text & "  br i1 %bad.progress, label %io.fail, label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
-    Text = Text & "  store i64 %done, ptr %written" & vbCrLf
+    Text = Text & "  store atomic i64 %done, ptr %written monotonic, align 8" & vbCrLf
     Text = Text & "  br i1 %accepted, label %success, label %io.fail" & vbCrLf
     Text = Text & "success:" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
@@ -863,6 +919,24 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.write(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %written)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array" & vbCrLf
+    Text = Text & "  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.system.write.pinned(ptr %ctx, i64 %stream, ptr %descriptor.array, i64 %start, i64 %count, ptr %written, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.array)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     SystemOperationsIR = Text
 End Function
@@ -908,14 +982,14 @@ Private Function PathOperationsIR() As String
     Text = Text & "  %status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "done:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i32 @ube.path.decode(ptr %array, ptr %packed, ptr %wide) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %large = icmp ugt i64 %length, 4096" & vbCrLf
@@ -933,7 +1007,7 @@ Private Function PathOperationsIR() As String
     Text = Text & "pack:" & vbCrLf
     Text = Text & "  %index = phi i64 [ 0, %prepare ], [ %next, %copy ]" & vbCrLf
     Text = Text & "  %source = getelementptr i64, ptr %data, i64 %index" & vbCrLf
-    Text = Text & "  %value = load i64, ptr %source" & vbCrLf
+    Text = Text & "  %value = load atomic i64, ptr %source monotonic, align 8" & vbCrLf
     Text = Text & "  %zero = icmp eq i64 %value, 0" & vbCrLf
     Text = Text & "  br i1 %zero, label %failed, label %copy" & vbCrLf
     Text = Text & "copy:" & vbCrLf
@@ -960,9 +1034,9 @@ Private Function PathOperationsIR() As String
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)" & vbCrLf
     Text = Text & "  %size = sext i32 %size32 to i64" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %capacity = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %invalid = icmp sle i64 %size, 0" & vbCrLf
@@ -985,12 +1059,12 @@ Private Function PathOperationsIR() As String
     Text = Text & "  %byte = load i8, ptr %source" & vbCrLf
     Text = Text & "  %value = zext i8 %byte to i64" & vbCrLf
     Text = Text & "  %destination = getelementptr i64, ptr %data, i64 %position" & vbCrLf
-    Text = Text & "  store volatile i64 %value, ptr %destination" & vbCrLf
+    Text = Text & "  store atomic volatile i64 %value, ptr %destination monotonic, align 8" & vbCrLf
     Text = Text & "  %after = add i64 %position, 1" & vbCrLf
     Text = Text & "  %more = icmp ult i64 %after, %size" & vbCrLf
     Text = Text & "  br i1 %more, label %copy, label %done" & vbCrLf
     Text = Text & "done:" & vbCrLf
-    Text = Text & "  store i64 %size, ptr %count" & vbCrLf
+    Text = Text & "  store atomic i64 %size, ptr %count monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
@@ -999,9 +1073,9 @@ Private Function PathOperationsIR() As String
     Text = Text & "  %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal void @ube.path.finish(ptr %block, ptr %slot) {" & vbCrLf
+    Text = Text & "define internal void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %owned = icmp ne ptr %slot, null" & vbCrLf
     Text = Text & "  br i1 %owned, label %unlock, label %done" & vbCrLf
     Text = Text & "unlock:" & vbCrLf
@@ -1010,7 +1084,7 @@ Private Function PathOperationsIR() As String
     Text = Text & "done:" & vbCrLf
     Text = Text & "  ret void" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.path.resolve(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.resolve.pinned(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %first = select i1 %final, ptr %output, ptr %input" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %first, ptr %output, ptr %count, ptr %failure)" & vbCrLf
@@ -1023,7 +1097,7 @@ Private Function PathOperationsIR() As String
     Text = Text & "  br i1 %missing, label %failed, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %acquired, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %kind.value = load i64, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %kind.low = icmp sge i64 %kind.value, 1" & vbCrLf
     Text = Text & "  %kind.high = icmp sle i64 %kind.value, 3" & vbCrLf
     Text = Text & "  %file.kind = and i1 %kind.low, %kind.high" & vbCrLf
@@ -1064,24 +1138,53 @@ Private Function PathOperationsIR() As String
     Text = Text & "  br i1 %excessive, label %request.fail, label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
     Text = Text & "  %result = call i1 @ube.path.publish(ptr %ctx, ptr %wide.output, i32 %units, ptr %output, ptr %count, ptr %failure, ptr %packed.output)" & vbCrLf
-    Text = Text & "  call void @ube.path.finish(ptr %block, ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)" & vbCrLf
     Text = Text & "  ret i1 %result" & vbCrLf
     Text = Text & "memory.fail:" & vbCrLf
-    Text = Text & "  call void @ube.path.finish(ptr %block, ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)" & vbCrLf
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
-    Text = Text & "  call void @ube.path.finish(ptr %block, ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "io.fail:" & vbCrLf
-    Text = Text & "  call void @ube.path.finish(ptr %block, ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)" & vbCrLf
     Text = Text & "  %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.path.compare(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.resolve(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.input = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %descriptor.output = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %input, ptr %count)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %input, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %count)" & vbCrLf
+    Text = Text & "  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  %aliases.2 = or i1 %aliases.1, %alias.2" & vbCrLf
+    Text = Text & "  %aliases.3 = or i1 %aliases.2, %alias.3" & vbCrLf
+    Text = Text & "  br i1 %aliases.3, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.input = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %input)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.input, ptr %descriptor.input" & vbCrLf
+    Text = Text & "  %pin.input = extractvalue { i64, i64, ptr, ptr } %snapshot.input, 3" & vbCrLf
+    Text = Text & "  %snapshot.output = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %output)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.output, ptr %descriptor.output" & vbCrLf
+    Text = Text & "  %pin.output = extractvalue { i64, i64, ptr, ptr } %snapshot.output, 3" & vbCrLf
+    Text = Text & "  %same.output.input = icmp eq ptr %output, %input" & vbCrLf
+    Text = Text & "  %selected.output.input = select i1 %same.output.input, ptr %descriptor.input, ptr %descriptor.output" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.path.resolve.pinned(ptr %ctx, ptr %descriptor.input, i64 %token, ptr %selected.output.input, ptr %count, ptr %failure, i1 %final)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.input)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.output)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.compare.pinned(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %allocate, label %failed" & vbCrLf
@@ -1123,22 +1226,51 @@ Private Function PathOperationsIR() As String
     Text = Text & "  br label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
     Text = Text & "  %result = phi i64 [ %empty.value, %empty ], [ %value, %normalize ]" & vbCrLf
-    Text = Text & "  store i64 %result, ptr %ordering" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  store atomic i64 %result, ptr %ordering monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "memory.fail:" & vbCrLf
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "io.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.compare(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.first = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %descriptor.second = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %ordering)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %ordering)" & vbCrLf
+    Text = Text & "  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  %aliases.2 = or i1 %aliases.1, %alias.2" & vbCrLf
+    Text = Text & "  %aliases.3 = or i1 %aliases.2, %alias.3" & vbCrLf
+    Text = Text & "  br i1 %aliases.3, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.first = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %first)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.first, ptr %descriptor.first" & vbCrLf
+    Text = Text & "  %pin.first = extractvalue { i64, i64, ptr, ptr } %snapshot.first, 3" & vbCrLf
+    Text = Text & "  %snapshot.second = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %second)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.second, ptr %descriptor.second" & vbCrLf
+    Text = Text & "  %pin.second = extractvalue { i64, i64, ptr, ptr } %snapshot.second, 3" & vbCrLf
+    Text = Text & "  %same.second.first = icmp eq ptr %second, %first" & vbCrLf
+    Text = Text & "  %selected.second.first = select i1 %same.second.first, ptr %descriptor.first, ptr %descriptor.second" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.path.compare.pinned(ptr %ctx, ptr %descriptor.first, ptr %selected.second.first, ptr %ordering, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.first)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.second)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     PathOperationsIR = Text
 End Function
@@ -1171,13 +1303,31 @@ Private Function FileMetadataIR() As String
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.directory.open(ptr %ctx, ptr %path, ptr %token, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.directory.open.pinned(ptr %ctx, ptr %path, ptr %token, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %length = alloca i64, align 8" & vbCrLf
     Text = Text & "  %result = call i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 0, ptr %token, ptr %length, ptr %failure, i64 3)" & vbCrLf
     Text = Text & "  ret i1 %result" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.file.identity(ptr %ctx, i64 %token, ptr %array, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.directory.open(ptr %ctx, ptr %path, ptr %token, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %token)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path" & vbCrLf
+    Text = Text & "  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.directory.open.pinned(ptr %ctx, ptr %descriptor.path, ptr %token, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.path)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.identity.pinned(ptr %ctx, i64 %token, ptr %array, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %information = alloca [52 x i8], align 4" & vbCrLf
     Text = Text & "  %null = icmp eq ptr %failure, null" & vbCrLf
@@ -1188,10 +1338,10 @@ Private Function FileMetadataIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "capacity:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
-    Text = Text & "  %lower = load i64, ptr %array" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
+    Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
-    Text = Text & "  %upper = load i64, ptr %upper.ptr" & vbCrLf
+    Text = Text & "  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %distance = sub i64 %upper, %lower" & vbCrLf
     Text = Text & "  %length = add i64 %distance, 1" & vbCrLf
     Text = Text & "  %short = icmp slt i64 %length, 12" & vbCrLf
@@ -1205,7 +1355,7 @@ Private Function FileMetadataIR() As String
     Text = Text & "  br i1 %missing, label %failed, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %kind.value = load i64, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %kind.low = icmp sge i64 %kind.value, 1" & vbCrLf
     Text = Text & "  %kind.high = icmp sle i64 %kind.value, 3" & vbCrLf
     Text = Text & "  %right.kind = and i1 %kind.low, %kind.high" & vbCrLf
@@ -1232,7 +1382,7 @@ Private Function FileMetadataIR() As String
     Text = Text & "  %byte = load i8, ptr %source" & vbCrLf
     Text = Text & "  %value = zext i8 %byte to i64" & vbCrLf
     Text = Text & "  %destination = getelementptr i64, ptr %data, i64 %index" & vbCrLf
-    Text = Text & "  store volatile i64 %value, ptr %destination" & vbCrLf
+    Text = Text & "  store atomic volatile i64 %value, ptr %destination monotonic, align 8" & vbCrLf
     Text = Text & "  %next = add i64 %index, 1" & vbCrLf
     Text = Text & "  %more = icmp ult i64 %next, 12" & vbCrLf
     Text = Text & "  br i1 %more, label %copy, label %done" & vbCrLf
@@ -1245,6 +1395,22 @@ Private Function FileMetadataIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.file.identity(ptr %ctx, i64 %token, ptr %array, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)" & vbCrLf
+    Text = Text & "  br i1 %alias.0, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array" & vbCrLf
+    Text = Text & "  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.file.identity.pinned(ptr %ctx, i64 %token, ptr %descriptor.array, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.array)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.length(ptr %ctx, i64 %token, ptr %length, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -1259,13 +1425,13 @@ Private Function FileMetadataIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "acquire:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  %slot = call ptr @ube.resource.acquire(ptr %ctx, i64 %token, ptr %failure)" & vbCrLf
     Text = Text & "  %missing = icmp eq ptr %slot, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %failed, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
-    Text = Text & "  %kind.value = load i64, ptr %kind.ptr" & vbCrLf
+    Text = Text & "  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
     Text = Text & "  %kind.low = icmp sge i64 %kind.value, 1" & vbCrLf
     Text = Text & "  %kind.high = icmp sle i64 %kind.value, 2" & vbCrLf
     Text = Text & "  %right.kind = and i1 %kind.low, %kind.high" & vbCrLf
@@ -1277,15 +1443,15 @@ Private Function FileMetadataIR() As String
     Text = Text & "query:" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
-    Text = Text & "  store i64 0, ptr %size" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %size monotonic, align 8" & vbCrLf
     Text = Text & "  %accepted = call i1 @ube.target.file.size(ptr %handle, ptr %size)" & vbCrLf
     Text = Text & "  br i1 %accepted, label %range, label %io.fail" & vbCrLf
     Text = Text & "range:" & vbCrLf
-    Text = Text & "  %value = load i64, ptr %size" & vbCrLf
+    Text = Text & "  %value = load atomic i64, ptr %size monotonic, align 8" & vbCrLf
     Text = Text & "  %invalid = icmp ugt i64 %value, 2147483647" & vbCrLf
     Text = Text & "  br i1 %invalid, label %range.fail, label %done" & vbCrLf
     Text = Text & "done:" & vbCrLf
-    Text = Text & "  store i64 %value, ptr %length" & vbCrLf
+    Text = Text & "  store atomic i64 %value, ptr %length monotonic, align 8" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "range.fail:" & vbCrLf
@@ -1317,7 +1483,7 @@ Private Function SystemIntrospectionIR() As String
     Text = Text & "  %value = call i64 @GetTickCount64()" & vbCrLf
     Text = Text & "  ret i64 %value" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.system.executable(ptr %ctx, ptr %output, ptr %count, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.executable.pinned(ptr %ctx, ptr %output, ptr %count, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %output, ptr %count, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %allocate, label %failed" & vbCrLf
@@ -1337,21 +1503,39 @@ Private Function SystemIntrospectionIR() As String
     Text = Text & "  br i1 %large, label %request.fail, label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
     Text = Text & "  %result = call i1 @ube.path.publish(ptr %ctx, ptr %wide, i32 %units, ptr %output, ptr %count, ptr %failure, ptr %packed)" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  ret i1 %result" & vbCrLf
     Text = Text & "memory.fail:" & vbCrLf
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "io.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.system.executable(ptr %ctx, ptr %output, ptr %count, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.output = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %count)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.output = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %output)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.output, ptr %descriptor.output" & vbCrLf
+    Text = Text & "  %pin.output = extractvalue { i64, i64, ptr, ptr } %snapshot.output, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.system.executable.pinned(ptr %ctx, ptr %descriptor.output, ptr %count, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.output)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.system.clock(ptr %ctx, ptr %value, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -1366,8 +1550,8 @@ Private Function SystemIntrospectionIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "query:" & vbCrLf
     Text = Text & "  %ticks = call i64 @ube.target.system.clock()" & vbCrLf
-    Text = Text & "  store i64 %ticks, ptr %value" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 %ticks, ptr %value monotonic, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "}" & vbCrLf
     SystemIntrospectionIR = Text
@@ -1432,7 +1616,7 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %negative = sub i64 0, %error" & vbCrLf
     Text = Text & "  ret i64 %negative" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.path.mutate(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.mutate.pinned(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %replace = icmp eq i64 %operation, 4" & vbCrLf
     Text = Text & "  %other = select i1 %replace, ptr %second, ptr %first" & vbCrLf
@@ -1446,7 +1630,7 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "allocate:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %failure" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 4608, i64 1)" & vbCrLf
     Text = Text & "  %missing = icmp eq ptr %block, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %memory.fail, label %prepare" & vbCrLf
@@ -1484,7 +1668,7 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  br label %result" & vbCrLf
     Text = Text & "result:" & vbCrLf
     Text = Text & "  %error = phi i64 [ %move.error, %move ], [ %create.error, %create.directory ], [ %remove.error, %remove.directory ], [ %delete.error, %delete.file ]" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %success = icmp eq i64 %error, 0" & vbCrLf
     Text = Text & "  br i1 %success, label %done, label %classify" & vbCrLf
     Text = Text & "classify:" & vbCrLf
@@ -1508,9 +1692,34 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.mutate(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.first = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %descriptor.second = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.first = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %first)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.first, ptr %descriptor.first" & vbCrLf
+    Text = Text & "  %pin.first = extractvalue { i64, i64, ptr, ptr } %snapshot.first, 3" & vbCrLf
+    Text = Text & "  %snapshot.second = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %second)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.second, ptr %descriptor.second" & vbCrLf
+    Text = Text & "  %pin.second = extractvalue { i64, i64, ptr, ptr } %snapshot.second, 3" & vbCrLf
+    Text = Text & "  %same.second.first = icmp eq ptr %second, %first" & vbCrLf
+    Text = Text & "  %selected.second.first = select i1 %same.second.first, ptr %descriptor.first, ptr %descriptor.second" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.path.mutate.pinned(ptr %ctx, ptr %descriptor.first, ptr %selected.second.first, ptr %failure, i64 %operation)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.first)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.second)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.directory.create(ptr %ctx, ptr %path, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -1532,7 +1741,7 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %result = call i1 @ube.path.mutate(ptr %ctx, ptr %source, ptr %destination, ptr %failure, i64 4)" & vbCrLf
     Text = Text & "  ret i1 %result" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal i1 @ube.path.kind(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.kind.pinned(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %path, ptr %kind, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %allocate, label %failed" & vbCrLf
@@ -1548,7 +1757,7 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  br i1 %valid, label %query, label %request.fail" & vbCrLf
     Text = Text & "query:" & vbCrLf
     Text = Text & "  %attributes = call i64 @ube.target.path.attributes(ptr %wide)" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %negative = icmp slt i64 %attributes, 0" & vbCrLf
     Text = Text & "  br i1 %negative, label %classify, label %present" & vbCrLf
     Text = Text & "classify:" & vbCrLf
@@ -1557,19 +1766,19 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %absent = or i1 %file.missing, %path.missing" & vbCrLf
     Text = Text & "  br i1 %absent, label %missing.path, label %io.fail" & vbCrLf
     Text = Text & "missing.path:" & vbCrLf
-    Text = Text & "  store i64 0, ptr %kind" & vbCrLf
+    Text = Text & "  store atomic i64 0, ptr %kind monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "present:" & vbCrLf
     Text = Text & "  %directory.bit = and i64 %attributes, 16" & vbCrLf
     Text = Text & "  %directory = icmp ne i64 %directory.bit, 0" & vbCrLf
     Text = Text & "  %value = select i1 %directory, i64 2, i64 1" & vbCrLf
-    Text = Text & "  store i64 %value, ptr %kind" & vbCrLf
+    Text = Text & "  store atomic i64 %value, ptr %kind monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "memory.fail:" & vbCrLf
     Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "request.fail:" & vbCrLf
-    Text = Text & "  call void @ube.block.drop(ptr %block)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "io.fail:" & vbCrLf
@@ -1577,6 +1786,24 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.path.kind(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %kind)" & vbCrLf
+    Text = Text & "  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)" & vbCrLf
+    Text = Text & "  %aliases.1 = or i1 %alias.0, %alias.1" & vbCrLf
+    Text = Text & "  br i1 %aliases.1, label %alias.fail, label %pin" & vbCrLf
+    Text = Text & "alias.fail:" & vbCrLf
+    Text = Text & "  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path" & vbCrLf
+    Text = Text & "  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.path.kind.pinned(ptr %ctx, ptr %descriptor.path, ptr %kind, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %pin.path)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
     Text = Text & "}" & vbCrLf
     NamespaceOperationsIR = Text
 End Function

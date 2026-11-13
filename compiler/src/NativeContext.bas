@@ -10,7 +10,7 @@ Public Function TryEmitContext(ByRef Symbols() As DeclarationBinder.BoundSymbol,
     Dim Index As Long
     On Error GoTo Failed
     If State.Failed Then Exit Function
-    Words = 325 + Summary.ModuleCount + Summary.ContextCells
+    Words = 853 + Summary.ModuleCount + Summary.ModuleCount + Summary.ContextCells
     Bytes = Words + Words
     Bytes = Bytes + Bytes
     Bytes = Bytes + Bytes

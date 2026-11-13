@@ -202,19 +202,42 @@ declarations and signatures under `../bootstrap/DECLARATION-BINDING.md`.
 Its native gate accepts actual compiler/library modules and checks scoped
 identity, visibility, nominal type references, parameter modes and executable
 entry selection. Recursive Type references resolve as graph edges only.
+CallNew syntax and binding are qualified independently of native execution.
+The host and UBE parser retain a distinct thread-start node with explicit Call
+target/argument syntax, including optional parentheses for zero arguments.
+The binder accepts Subs and Functions, yields LongLong thread identity and
+retains ordinary ByVal/ByRef argument modes. Native source workers and captured
+storage are now qualified at O0/O2 through the bootstrap host and UBE lowerer
+within the admitted scalar and finite aggregate profile. Escaping ByRef storage,
+ByVal aggregate snapshots and grouped scalar temporaries remain valid until
+worker cleanup. This does not admit managed objects, aggregate Function results,
+or the complete coordination library. The low-level `ThreadPrimitives.Wait(Id,
+TimeoutMilliseconds)` requires its timeout argument; the specified global
+`ThreadWait` convenience API with an optional timeout is not thereby qualified.
+The source-parsing, module-parsing, expression-binding and runtime CallNew gates
+record this scope. The integrated concurrent compiler gate also passes for
+bounded one/two-worker emission and independent requests in one process
+(`ube concurrent compilation 30afd7ad-b7cf-4153-a352-0b8b29e31988`).
+
 The UBE expression component now checks references, calls, assignments,
 conversions, ByRef modes, labels and exact scalar constants under
 `../bootstrap/EXPRESSION-BINDING.md`. Its native gate qualifies actual compiler
 and library bodies at O0/O2, with precise diagnostics and failure preservation.
 Nominal recursive equality is checked as a type fact, not executed or laid out.
 Separate UBE passes now validate intrinsic authority and finite aggregate
-layout under `../bootstrap/SEMANTIC-STORAGE.md`. Lowering still uses the VB6
-bootstrap; the new facts do not yet qualify a complete UBE-written compiler.
+layout under `../bootstrap/SEMANTIC-STORAGE.md`. Production lowering is now
+implemented in UBE, with the VB6 bootstrap retained as an independent reference.
+The final integrated compiler reached the successive self-build fixed point
+(`ube compiler rebuild 18c217dd-d417-4e79-b96a-198202d3613a`). The matching
+common-conformance checks also passed: 860 assertions for bootstrap/generation 2
+and 446 for generation 1, including both optimization modes and backend recovery.
 Exact native and failure-gate evidence is in `../compiler/Progress.md`.
 
 ## Explicitly outside the initial implementation
 
-Classes/events, collection and GC of arbitrary object graphs, native threads,
+Native threads were outside the original scalar profile; the admitted source
+worker and concurrent compiler qualifications above supersede that exclusion.
+Classes/events, collection and GC of arbitrary object graphs,
 foreign exports/callbacks, UI/designer formats, Adaptive result inference,
 assembly/bytecode lowering and full library compatibility are not admitted by
 the scalar profile. Resume syntax remains unsupported; the If/Do targets are

@@ -241,7 +241,7 @@ function Primitive-Source([string]$Name,[string]$Parameters,[string]$Result,[str
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
 $files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object {Join-Path $coreDirectory $_}
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','NativePlanning.bas') | ForEach-Object {Join-Path $compilerDirectory $_}
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','NativeEscapes.bas','NativePlanning.bas') | ForEach-Object {Join-Path $compilerDirectory $_}
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -359,6 +359,42 @@ $value=Call-Probe 'DiagnosticField' @(5);Check-Value $value $offset 'cycle diagn
 $recursive=Module-Source 'Recursion' "Public Value As Long = Again(1)`r`nPublic Function Again(ByVal N As Long) As Long`r`nIf N > 0 Then`r`nAgain = Again(N - 1)`r`nEnd If`r`nEnd Function"
 $null=Plan-Project 'same-module-recursion' @($recursive)
 $value=Call-Probe 'Dependency' @(0,0);Check-Value $value 0 'same-module recursion is not a cross-module cycle'
+
+$escapedFixed=Module-Source 'EscapedFixed' @'
+Public Sub Take(ByRef Item As Long)
+End Sub
+Public Sub Forward(ByRef Items() As Long)
+CallNew Take(Items(0))
+End Sub
+Public Sub Work()
+Dim Items(-2 To 200) As Long
+Call Forward(Items)
+End Sub
+'@
+$null=Plan-Project 'escaped-fixed-payload' @($escapedFixed)
+$forward=Find-Declaration $escapedFixed 'Sub Forward' 'Forward' 7
+$work=Find-Declaration $escapedFixed 'Sub Work' 'Work' 7
+$value=Call-Probe 'PlanField' @($forward,1);Check-Value $value 7 'escaping array parameter pointer plus hidden owner and indexed pin'
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 5 'escaping fixed array charges one box slot instead of inline payload'
+$ordinaryFixed=$escapedFixed.Replace('CallNew Take(Items(0))','Call Take(Items(0))')
+$null=Plan-Project 'ordinary-fixed-frame-limit' @($ordinaryFixed) 6 50
+
+$boxedTemporary=Module-Source 'BoxedTemporary' @'
+Type Pair
+First As Long
+Second As Long
+End Type
+Public Sub Take(ByVal Item As Pair)
+End Sub
+Public Sub Work()
+Dim Item As Pair
+CallNew Take(Item)
+End Sub
+'@
+$null=Plan-Project 'boxed-record-snapshot' @($boxedTemporary)
+$work=Find-Declaration $boxedTemporary 'Sub Work' 'Work' 7
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 9 'record capture charges owner slot and complete value snapshot'
+$value=Call-Probe 'PlanField' @($work,5);Check-Value $value 1 'record capture records required argument cleanup'
 
 Start-Project 'CompilerSources'
 foreach($file in $files){Append-Source $file}

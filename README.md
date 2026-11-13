@@ -30,11 +30,13 @@ The long-term goal is a complete native development system:
 ## Project status
 *UBE is in early development and is not ready for production use.*
 
-**The compiler now builds itself.** The VB6 bootstrap builds the UBE-written compiler, which has completed two successive self-builds as a native 64-bit Windows executable.
+**The compiler now builds itself and compiles in parallel.** The VB6 bootstrap builds the UBE-written compiler, which has completed two successive self-builds as a native 64-bit Windows executable. The latest self-builds took approximately 15–16 seconds each on the development machine.
 
 Both self-built compilers generate byte-identical LLVM. Their native executables match after normalizing only the PE timestamp. The bootstrap and both self-built compilers pass the same tests for supported language features, errors and recovery, with optimization both off and on. Failed builds preserve earlier output files.
 
-The current language subset includes multiple modules, records, arrays, checked arithmetic, error handling and explicit file operations. Concurrent compilation is next; the full language, source-level debugging and IDE remain under development.
+The compiler uses two native workers for independent code emission, with a single-worker comparison mode. Tests cover overlapping work, simultaneous independent requests, deterministic output, failure isolation, cancellation and recovery. On a fixed 51-module workload, source-to-LLVM compilation averaged 3.549 seconds with two workers versus 3.927 seconds with one: 9.63% faster on the tested machine. This measurement excludes the native backend.
+
+The current language subset includes multiple modules, records, arrays, checked arithmetic, error handling, explicit file operations and native `CallNew` workers. The full language, source-level debugging and IDE remain under development.
 
 See the [self-hosting results](compiler/Progress.md) for commands and test evidence, and the [development plan](project-docs/Development-Plan.md) for upcoming work.
 
@@ -113,6 +115,7 @@ and acceptance gates. The compiler is not yet available as a packaged release.
 - [compiler/](compiler/README.md) — compiler plan, source profile and acceptance gates
 - [std-lib/](std-lib/README.md) — fresh UBECore standard-library project
 - [bootstrap/](bootstrap/README.md) — VB6 bootstrap compiler and native tests
+- [runtime/](runtime/README.md) — native worker runtime, regression tests and profiling helpers
 - [Release-Requirements.md](Release-Requirements.md) — owner-defined release requirements
 - [Workplan.md](Workplan.md) — current repository-wide work checkpoint
 

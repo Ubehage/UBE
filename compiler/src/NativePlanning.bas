@@ -8,6 +8,9 @@ Public Type NativeSymbolPlan
     ResultSymbol As Long
     FirstScopeSymbol As Long
     NextScopeSymbol As Long
+    ArgumentArrayCount As Long
+    StorageEscapes As Boolean
+    TemporaryOwnerCount As Long
 End Type
 
 Public Type NativePlanSummary
@@ -168,7 +171,13 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                 Plans(Index).ContextOffset = ContextCells
                 ContextCells = ContextCells + Cells
             Else
-                If Kind = SourceParser.ParameterNode And A(Index).PassingMode = SyntaxTokens.KwByRef Then Cells = 1
+                If Plans(Index).StorageEscapes Then Cells = 1
+                If Kind = SourceParser.ParameterNode Then
+                    If A(Index).PassingMode = SyntaxTokens.KwByRef Or A(Index).ArrayRank <> 0 Or A(Index).TypeSymbol <> 0 Then
+                        Cells = 1
+                        If Plans(Index).StorageEscapes Then Cells = 2
+                    End If
+                End If
                 If Cells < 1 Then Cells = 1
                 If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
                 If Kind = DeclarationBinder.ResultSymbol Then Plans(Scope - 1).ResultSymbol = Index + 1
@@ -183,7 +192,7 @@ Failed:
 End Function
 
 ' Charges grouped argument temporaries, reusable statement pins and record snapshots before emission.
-Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim StatementPins() As Long
     Dim Node As Long = 1
     Dim Scope As Long
@@ -200,6 +209,19 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
         Kind = N(Node - 1).Kind
         If E(Node - 1).ArgumentMode = 3 Then
             If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+        ElseIf E(Node - 1).ArgumentMode = 1 Then
+            Cells = 0
+            If E(Node - 1).ArrayRank <> 0 Then
+                Cells = 4
+                If Escapes(Node - 1).NeedsOwner Then Cells = 1
+                Plans(Scope - 1).ArgumentArrayCount = Plans(Scope - 1).ArgumentArrayCount + 1
+            ElseIf E(Node - 1).TypeSymbol <> 0 Then
+                Cells = L(Node - 1).StorageCells + L(Node - 1).StorageCells
+                If Escapes(Node - 1).NeedsOwner Then Cells = 1 + L(Node - 1).StorageCells
+            End If
+            If Cells <> 0 Then
+                If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
+            End If
         End If
         If E(Node - 1).AccessKind = 2 Then
             Statement = Node
@@ -363,8 +385,11 @@ Failed:
 End Function
 
 ' Prepares scratch maps from fresh matching semantic facts; summary counts commit only on complete success.
-Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Dependencies() As Byte, ByRef Summary As NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Dependencies() As Byte, ByRef Summary As NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim ContextCells As Long
+    Dim FactCount As Long
+    Dim Symbol As Long
+    Dim Node As Long
     On Error GoTo StorageFailure
     Summary.SymbolCount = 0
     Summary.NodeCount = 0
@@ -375,9 +400,23 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     If SymbolCount < 1 Or SymbolCount > 16384 Or C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
     If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeNumbers(Pins, C.NodeCount, False) Then GoTo StorageFailure
+    If Not NativeEscapes.TryAnalyzeEscapes(N, A, E, C.NodeCount, SymbolCount, Escapes, FactCount, Diagnostic) Then Exit Function
+    Symbol = 1
+    Do While Symbol <= SymbolCount
+        Plans(Symbol - 1).StorageEscapes = Escapes(A(Symbol - 1).DeclarationNode - 1).StorageEscapes
+        Symbol = Symbol + 1
+    Loop
     If Not PlanSymbols(B, T, N, M, C, A, SymbolCount, L, Plans, ContextCells, Diagnostic) Then Exit Function
-    If Not PlanNodes(N, M, C, E, L, EntrySymbol, IsExecutable, Plans, Pins, Diagnostic) Then Exit Function
+    If Not PlanNodes(N, M, C, E, L, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Diagnostic) Then Exit Function
     If Not InitializerDependencies(N, M, C, A, SymbolCount, E, Dependencies, Diagnostic) Then Exit Function
+    Node = 1
+    Do While Node <= C.NodeCount
+        If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
+            Symbol = E(Node - 1).ScopeSymbol
+            Plans(Symbol - 1).TemporaryOwnerCount = Plans(Symbol - 1).TemporaryOwnerCount + 1
+        End If
+        Node = Node + 1
+    Loop
     Summary.SymbolCount = SymbolCount
     Summary.NodeCount = C.NodeCount
     Summary.ModuleCount = C.ModuleCount

@@ -74,6 +74,11 @@ Private Function UsageErrorText(ByRef Value() As Byte) As Boolean
     Value(55) = 116
     Value(56) = 46
     Value(57) = 108
+    UsageErrorText = BuildUsageText(Value)
+End Function
+
+' Supplies the build-command alternative in the reviewed usage diagnostic.
+Private Function BuildUsageText(ByRef Value() As Byte) As Boolean
     Value(58) = 108
     Value(59) = 62
     Value(60) = 32
@@ -131,7 +136,7 @@ Private Function UsageErrorText(ByRef Value() As Byte) As Boolean
     Value(112) = 104
     Value(113) = 62
     Value(114) = 93
-    UsageErrorText = True
+    BuildUsageText = True
 End Function
 
 ' Supplies the reviewed LoadErrorText diagnostic text.

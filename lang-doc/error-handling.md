@@ -145,9 +145,18 @@ This settles Err.Raise, fresh FAIL status, default statement continuation,
 caller label handling, assignment preservation and cleanup responsibility.
 Full Err member signatures, explicit Error statement equivalence,
 control-statement resume targets other than If and Do,
-Try-style record-only APIs and cross-thread/foreign lifecycle boundaries still
+Try-style record-only APIs and remaining cross-thread/foreign lifecycle boundaries still
 require the detailed decisions listed in the project review. They must not
 silently weaken the approved behavior above.
+
+Worker-entry completion was approved separately on 2026-11-13: a fresh FAIL
+escaping the entry procedure ends the worker through ordinary cleanup. ThreadWait
+observing that completion reports fresh FAIL in the waiter's own thread and
+records the captured error number there. Normal return with stale Err remains
+successful. Repeated waits and multiple waiters receive the same outcome, each
+with a fresh failure when applicable; timeout/cancellation remains successful
+zero. See `threading.md`. Event/UI, foreign callback and module-lifecycle
+failure delivery remain separate open boundaries.
 
 No grammar change is required: Err.Raise uses the existing member-call syntax.
 FAIL describes internal execution status, not an additional source token.

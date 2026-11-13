@@ -144,6 +144,32 @@ Failed:
     Exit Function
 End Function
 
+' Resolves one bounded emission chunk; ordinal two is reserved for quota-diagnostic replay.
+Public Function TryEmissionPath(ByRef Stage() As Byte, ByVal Ordinal As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean
+    Dim Leaf() As Byte
+    On Error GoTo Failed
+    Failure = 1
+    If Ordinal < 0 Or Ordinal > 2 Then TryEmissionPath = FilePrimitives.SetError(5): Exit Function
+    If Not BufferPrimitives.TryResizeBytes(Leaf, 13, False) Then Exit Function
+    Leaf(0) = 101
+    Leaf(1) = 109
+    Leaf(2) = 105
+    Leaf(3) = 115
+    Leaf(4) = 115
+    Leaf(5) = 105
+    Leaf(6) = 111
+    Leaf(7) = 110
+    Leaf(8) = 45
+    Leaf(9) = 48 + Ordinal
+    Leaf(10) = 46
+    Leaf(11) = 108
+    Leaf(12) = 108
+    TryEmissionPath = WindowsPaths.TryResolveSource(Stage, Leaf, Result, Failure)
+    Exit Function
+Failed:
+    Failure = 1
+End Function
+
 ' Reads the capacity of caller-owned source path records without trusting their count.
 Private Intrinsic Function PathCount(ByRef Paths() As ProjectLoader.SourcePath) As Long
 Attribute PathCount.UBE_Primitive = "Array.Length"
@@ -387,6 +413,14 @@ Public Function TryDiscard(ByRef Stage() As Byte, ByRef StageOwned As Boolean, B
     Do While Kind <= CompilerLog
         If TryStagePath(Stage, Kind, Path, CleanupFailure) = False Then GoTo Rejected
         If FilePrimitives.TryDelete(Path, CleanupFailure) = False Then
+            If CleanupFailure <> 18 Then GoTo Rejected
+        End If
+        Kind = Kind + 1
+    Loop
+    Kind = 0
+    Do While Kind <= 2
+        If Not TryEmissionPath(Stage, Kind, Path, CleanupFailure) Then GoTo Rejected
+        If Not FilePrimitives.TryDelete(Path, CleanupFailure) Then
             If CleanupFailure <> 18 Then GoTo Rejected
         End If
         Kind = Kind + 1

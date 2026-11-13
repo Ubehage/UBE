@@ -662,14 +662,14 @@ Private Function BindArrayShape(ByRef Project As ProjectContext, ByRef Parsed As
     Dim Count As Variant
     Bound.Symbols(Symbol).ArrayRank = 1
     If Parsed.Nodes(Shape).Text = "dynamic" Then
-        If Bound.Symbols(Symbol).Kind = "parameter" And Bound.Symbols(Symbol).PassingMode = "ByRef" Then
+        If Bound.Symbols(Symbol).Kind = "parameter" Then
             Bound.Symbols(Symbol).StorageCells = 0
             BindArrayShape = True
         ElseIf Bound.Symbols(Symbol).Kind = "variable" Then
             Bound.Symbols(Symbol).StorageCells = 4
             BindArrayShape = True
         Else
-            BindArrayShape = BindingError(Project, Parsed, Shape, Diagnostic, "E_UNSUPPORTED", "dynamic arrays require owned variables or rank-only ByRef parameters")
+            BindArrayShape = BindingError(Project, Parsed, Shape, Diagnostic, "E_UNSUPPORTED", "dynamic arrays require owned variables or rank-only parameters")
         End If
         Exit Function
     End If
@@ -731,7 +731,18 @@ Private Function HostPrimitiveSignature(ByVal Role As String) As String
     Case "file.trydelete": HostPrimitiveSignature = "AR"
     Case "file.tryreplace": HostPrimitiveSignature = "AAR"
     Case "path.trykind": HostPrimitiveSignature = "ARR"
+    Case "thread.isalive", "thread.requeststop": HostPrimitiveSignature = "L"
+    Case "thread.wait": HostPrimitiveSignature = "LL"
     Case "error.set": HostPrimitiveSignature = "V"
+    End Select
+End Function
+
+' Identifies thread result types, including explicitly supported zero-argument roles.
+Private Function ThreadPrimitiveResult(ByVal Role As String) As String
+    Select Case Role
+    Case "thread.currentid": ThreadPrimitiveResult = "LongLong"
+    Case "thread.wait", "thread.requeststop": ThreadPrimitiveResult = "Long"
+    Case "thread.isalive", "thread.stoprequested", "thread.yield": ThreadPrimitiveResult = "Boolean"
     End Select
 End Function
 
@@ -745,6 +756,10 @@ Private Function HostPrimitiveParameter(ByRef Parsed As ParsedProject, ByRef Bou
     Child = Parsed.Nodes(Bound.Symbols(Parameter).DeclarationNode).FirstChild
     If Child <> 0 Then
         If Parsed.Nodes(Child).Kind = "array-shape" Then Exit Function
+    End If
+    If Expected = "L" Then
+        HostPrimitiveParameter = Bound.Symbols(Parameter).TypeName = "LongLong" And Bound.Symbols(Parameter).PassingMode = "ByVal"
+        Exit Function
     End If
     If Expected = "Q" Then
         HostPrimitiveParameter = Bound.Symbols(Parameter).TypeName = "LongLong" And Bound.Symbols(Parameter).PassingMode = "ByRef"
@@ -769,6 +784,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
     Dim Position As Long
     Dim Role As String
     Dim HostSignature As String
+    Dim ThreadResult As String
     Dim Kind As String
     Dim ArrayParameter As Boolean
     Dim SignatureMatches As Boolean
@@ -808,7 +824,8 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                 End If
                 Role = FoldAscii(Parsed.Nodes(AttributeNode).Text)
                 HostSignature = HostPrimitiveSignature(Role)
-                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" And Len(HostSignature) = 0 Then
+                ThreadResult = ThreadPrimitiveResult(Role)
+                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" And Len(HostSignature) = 0 And Len(ThreadResult) = 0 Then
                     ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_UNSUPPORTED", "unknown or unsupported primitive role " & Parsed.Nodes(AttributeNode).Text)
                     Exit Function
                 End If
@@ -817,7 +834,9 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 SignatureMatches = (Kind = "function")
-                If Len(HostSignature) > 0 Then
+                If Len(ThreadResult) > 0 Then
+                    SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = ThreadResult And Bound.Symbols(Symbol).ParameterCount = Len(HostSignature)
+                ElseIf Len(HostSignature) > 0 Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = Len(HostSignature)
                 ElseIf Role = "array.length" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Long" And Bound.Symbols(Symbol).ParameterCount = 1
@@ -931,10 +950,6 @@ Private Function PrepareValueTypes(ByRef Project As ProjectContext, ByRef Parsed
             If Bound.Symbols(Symbol).TypeSymbol <> 0 Or Bound.Symbols(Symbol).ArrayRank <> 0 Then
                 If Kind = "function" Or Kind = "result" Or Kind = "constant" Then
                     PrepareValueTypes = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "aggregate results and Const declarations are outside this profile")
-                    Exit Function
-                End If
-                If Kind = "parameter" And Bound.Symbols(Symbol).PassingMode <> "ByRef" Then
-                    PrepareValueTypes = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "aggregate ByVal parameters are outside this profile")
                     Exit Function
                 End If
             End If
@@ -1287,10 +1302,16 @@ Private Function BindCall(ByRef Project As ProjectContext, ByRef Parsed As Parse
     Dim Count As Long
     Dim ActualSymbol As Long
     Dim Kind As String
+    Dim ThreadStart As Boolean
+    ThreadStart = Parsed.Nodes(Node).Kind = "thread-start"
     Callee = Parsed.Nodes(Node).FirstChild
     Symbol = ResolveReference(Project, Parsed, Bound, State, Callee, False, Diagnostic)
     If Symbol = 0 Then Exit Function
     If Bound.Nodes(Callee).ArrayRank <> 0 Then
+        If ThreadStart Then
+            BindCall = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "CallNew requires a callable target")
+            Exit Function
+        End If
         If Not ValueContext Then
             BindCall = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "array indexing is not a procedure-call statement")
         Else
@@ -1303,7 +1324,7 @@ Private Function BindCall(ByRef Project As ProjectContext, ByRef Parsed As Parse
         BindCall = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "selected declaration is not callable")
         Exit Function
     End If
-    If ValueContext And Kind = "sub" Then
+    If Not ThreadStart And ValueContext And Kind = "sub" Then
         BindCall = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Sub invocation cannot be used as a value")
         Exit Function
     End If
@@ -1319,20 +1340,29 @@ Private Function BindCall(ByRef Project As ProjectContext, ByRef Parsed As Parse
     Bound.Nodes(Node).SymbolIndex = Symbol
     Call SymbolValue(Bound, Node, Symbol)
     If Kind = "sub" Then Bound.Nodes(Node).TypeName = "Void"
+    If ThreadStart Then Bound.Nodes(Node).TypeName = "LongLong"
     Parameter = Bound.Symbols(Symbol).FirstParameter
     Argument = Parsed.Nodes(Callee).NextSibling
     Do While Argument <> 0
         If Not BindExpression(Project, Parsed, Bound, State, Argument, 0, Diagnostic, Bound.Symbols(Parameter).TypeName) Then Exit Function
         If AggregateValue(Bound, Argument) Or Bound.Symbols(Parameter).ArrayRank <> 0 Or Bound.Symbols(Parameter).TypeSymbol <> 0 Then
-            If Bound.Symbols(Parameter).PassingMode <> "ByRef" Or Parsed.Nodes(Argument).Kind = "group" Then
-                BindCall = BindingError(Project, Parsed, Argument, Diagnostic, "E_UNSUPPORTED", "aggregate ByVal and grouped ByRef temporaries are outside this profile")
+            If Not SameValueType(Bound, Argument, Parameter) Then
+                BindCall = BindingError(Project, Parsed, Argument, Diagnostic, "E_ARGUMENT", "aggregate arguments require exact nominal/element type and rank")
                 Exit Function
             End If
-            If Not Bound.Nodes(Argument).Writable Or Not SameValueType(Bound, Argument, Parameter) Then
-                BindCall = BindingError(Project, Parsed, Argument, Diagnostic, "E_ARGUMENT", "aggregate ByRef requires exact nominal/element type, rank and writable storage")
-                Exit Function
+            If Bound.Symbols(Parameter).PassingMode = "ByVal" Then
+                Bound.Nodes(Argument).ArgumentMode = "value"
+            Else
+                If Parsed.Nodes(Argument).Kind = "group" Then
+                    BindCall = BindingError(Project, Parsed, Argument, Diagnostic, "E_UNSUPPORTED", "grouped aggregate ByRef temporaries are outside this profile")
+                    Exit Function
+                End If
+                If Not Bound.Nodes(Argument).Writable Then
+                    BindCall = BindingError(Project, Parsed, Argument, Diagnostic, "E_ARGUMENT", "aggregate ByRef requires writable storage")
+                    Exit Function
+                End If
+                Bound.Nodes(Argument).ArgumentMode = "alias"
             End If
-            Bound.Nodes(Argument).ArgumentMode = "alias"
             Bound.Nodes(Argument).ConvertedType = Bound.Symbols(Parameter).TypeName
         ElseIf Bound.Symbols(Parameter).PassingMode = "ByVal" Then
             Bound.Nodes(Argument).ArgumentMode = "value"
@@ -1549,7 +1579,7 @@ Private Function BindExpression(ByRef Project As ProjectContext, ByRef Parsed As
         End If
     Case "binary"
         If Not BindBinary(Project, Parsed, Bound, State, Node, Required, Diagnostic, DestinationType) Then Exit Function
-    Case "call"
+    Case "call", "thread-start"
         If Required <> 0 Then
             BindExpression = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "required constants cannot call procedures")
             Exit Function
@@ -1716,7 +1746,7 @@ Private Function CheckNodes(ByRef Project As ProjectContext, ByRef Parsed As Par
             End If
         Case "goto", "on-error"
             If Not BindBranch(Project, Parsed, Bound, State, Node, Diagnostic) Then Exit Function
-        Case "call"
+        Case "call", "thread-start"
             Parent = Parsed.Nodes(Node).Parent
             If Parent > 0 Then
                 Kind = Parsed.Nodes(Parent).Kind

@@ -15,6 +15,7 @@ Public Function TryAppendInteger(ByRef Destination() As Byte, ByRef Used As Long
     Dim Twice As LongLong
     Dim Four As LongLong
     Dim Eight As LongLong
+    Dim Power As LongLong
     Dim Started As Boolean
     On Error GoTo RuntimeFailure
     If Used < 0 Then TryAppendInteger = FilePrimitives.SetError(5): Exit Function
@@ -27,20 +28,23 @@ Public Function TryAppendInteger(ByRef Destination() As Byte, ByRef Used As Long
     Remaining = Value
     If Value < 0 Then Scratch(0) = 45: Count = 1
     If Value > 0 Then Remaining = -Value
-    Powers(0) = -1
+    Power = -1
+    Powers(0) = Power
     Index = 1
     Do While Index < 19
-        Twice = Powers(Index - 1) + Powers(Index - 1)
+        Twice = Power + Power
         Four = Twice + Twice
         Eight = Four + Four
-        Powers(Index) = Eight + Twice
+        Power = Eight + Twice
+        Powers(Index) = Power
         Index = Index + 1
     Loop
     Index = 18
     Do While Index >= 0
+        Power = Powers(Index)
         Digit = 0
-        Do While Remaining <= Powers(Index)
-            Remaining = Remaining - Powers(Index)
+        Do While Remaining <= Power
+            Remaining = Remaining - Power
             Digit = Digit + 1
         Loop
         If Digit <> 0 Or Started Or Index = 0 Then

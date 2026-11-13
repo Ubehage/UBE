@@ -34,6 +34,13 @@ Public Const DirectoryRemove As Long = 27
 Public Const FileDelete As Long = 28
 Public Const FileReplace As Long = 29
 Public Const PathKind As Long = 30
+Public Const ThreadCurrentId As Long = 31
+Public Const ThreadIsAlive As Long = 32
+Public Const ThreadWait As Long = 33
+Public Const ThreadRequestStop As Long = 34
+Public Const ThreadStopRequested As Long = 35
+Public Const ThreadYield As Long = 36
+
 
 ' Allocates a private zero-filled role map before atomic publication.
 Private Intrinsic Function ResizeRoles(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
@@ -42,6 +49,7 @@ End Function
 
 ' Supplies the reviewed ASCII spelling table; source text is decoded only by SyntaxTokens.
 Private Function RoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role >= 31 And Role <= 36 Then RoleCharacter = ThreadRoleCharacter(Role, Position): Exit Function
     RoleCharacter = -1
     If Role = 1 Or Role = 2 Or Role = 3 Or Role = 4 Or Role = 11 Then
         RoleCharacter = StorageRoleCharacter(Role, Position)
@@ -689,6 +697,120 @@ Private Function DirectoryRoleCharacter(ByVal Role As Long, ByVal Position As Lo
     End If
 End Function
 
+' Supplies the exact spelling of reviewed thread roles.
+Private Function ThreadRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    ThreadRoleCharacter = -1
+    If Role = 31 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 99: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 117: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 11 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 12 Then ThreadRoleCharacter = 110: Exit Function
+        If Position = 13 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 14 Then ThreadRoleCharacter = 105: Exit Function
+        If Position = 15 Then ThreadRoleCharacter = 100: Exit Function
+        Exit Function
+    End If
+    If Role = 32 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 105: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 115: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 108: Exit Function
+        If Position = 11 Then ThreadRoleCharacter = 105: Exit Function
+        If Position = 12 Then ThreadRoleCharacter = 118: Exit Function
+        If Position = 13 Then ThreadRoleCharacter = 101: Exit Function
+        Exit Function
+    End If
+    If Role = 33 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 119: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 105: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 116: Exit Function
+        Exit Function
+    End If
+    If Role = 34 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 113: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 117: Exit Function
+        If Position = 11 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 12 Then ThreadRoleCharacter = 115: Exit Function
+        If Position = 13 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 14 Then ThreadRoleCharacter = 115: Exit Function
+        If Position = 15 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 16 Then ThreadRoleCharacter = 111: Exit Function
+        If Position = 17 Then ThreadRoleCharacter = 112: Exit Function
+        Exit Function
+    End If
+    If Role = 35 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 115: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 111: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 112: Exit Function
+        If Position = 11 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 12 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 13 Then ThreadRoleCharacter = 113: Exit Function
+        If Position = 14 Then ThreadRoleCharacter = 117: Exit Function
+        If Position = 15 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 16 Then ThreadRoleCharacter = 115: Exit Function
+        If Position = 17 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 18 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 19 Then ThreadRoleCharacter = 100: Exit Function
+        Exit Function
+    End If
+    If Role = 36 Then
+        If Position = 0 Then ThreadRoleCharacter = 116: Exit Function
+        If Position = 1 Then ThreadRoleCharacter = 104: Exit Function
+        If Position = 2 Then ThreadRoleCharacter = 114: Exit Function
+        If Position = 3 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 4 Then ThreadRoleCharacter = 97: Exit Function
+        If Position = 5 Then ThreadRoleCharacter = 100: Exit Function
+        If Position = 6 Then ThreadRoleCharacter = 46: Exit Function
+        If Position = 7 Then ThreadRoleCharacter = 121: Exit Function
+        If Position = 8 Then ThreadRoleCharacter = 105: Exit Function
+        If Position = 9 Then ThreadRoleCharacter = 101: Exit Function
+        If Position = 10 Then ThreadRoleCharacter = 108: Exit Function
+        If Position = 11 Then ThreadRoleCharacter = 100: Exit Function
+        Exit Function
+    End If
+End Function
+
 ' Compares every decoded character including the terminator, so names and hashes cannot confer authority.
 Private Function ReadRole(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByVal Token As Long) As Long
     Dim Role As Long
@@ -697,7 +819,7 @@ Private Function ReadRole(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Actual As Long
     On Error GoTo Failed
     Role = 1
-    Do While Role <= 30
+    Do While Role <= 36
         Position = 0
         Do
             Expected = RoleCharacter(Role, Position)
@@ -732,6 +854,9 @@ End Function
 
 ' Returns exact arity for each reviewed primitive role.
 Private Function ParameterCount(ByVal Role As Long) As Long
+    If Role = ThreadCurrentId Or Role = ThreadStopRequested Or Role = ThreadYield Then ParameterCount = 0: Exit Function
+    If Role = ThreadIsAlive Or Role = ThreadRequestStop Then ParameterCount = 1: Exit Function
+    If Role = ThreadWait Then ParameterCount = 2: Exit Function
     If Role = DirectoryCreate Then ParameterCount = 2: Exit Function
     If Role = DirectoryRemove Then ParameterCount = 2: Exit Function
     If Role = FileDelete Then ParameterCount = 2: Exit Function
@@ -756,6 +881,7 @@ End Function
 
 ' Classifies each formal as generic array, byte array, value Long, reference Long, or value Boolean.
 Private Function ParameterShape(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role >= ThreadCurrentId And Role <= ThreadYield Then ParameterShape = 7: Exit Function
     ParameterShape = 3
     If Role = DirectoryCreate Then
         If Position = 1 Then ParameterShape = 2
@@ -902,6 +1028,7 @@ Private Function MatchesParameter(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     ExpectedType = SyntaxTokens.KwLong
     ExpectedMode = SyntaxTokens.KwByval
     If Shape = 4 Then ExpectedMode = SyntaxTokens.KwByref
+    If Shape = 7 Then ExpectedType = SyntaxTokens.KwLonglong
     If Shape = 5 Then ExpectedType = SyntaxTokens.KwBoolean
     If Shape = 6 Then ExpectedType = SyntaxTokens.KwLonglong: ExpectedMode = SyntaxTokens.KwByref
     MatchesParameter = A(Symbol - 1).TypeCode = ExpectedType And A(Symbol - 1).PassingMode = ExpectedMode
@@ -919,6 +1046,8 @@ Private Function MatchesSignature(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If A(Symbol - 1).Kind <> SourceParser.FunctionNode Then Exit Function
     If A(Symbol - 1).TypeSymbol <> 0 Or A(Symbol - 1).ArrayRank <> 0 Then Exit Function
     ExpectedType = SyntaxTokens.KwBoolean
+    If Role = ThreadCurrentId Then ExpectedType = SyntaxTokens.KwLonglong
+    If Role = ThreadWait Or Role = ThreadRequestStop Then ExpectedType = SyntaxTokens.KwLong
     If Role = ArrayLength Then ExpectedType = SyntaxTokens.KwLong
     If A(Symbol - 1).TypeCode <> ExpectedType Then Exit Function
     If A(Symbol - 1).ParameterCount <> ParameterCount(Role) Then Exit Function

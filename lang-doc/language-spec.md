@@ -353,8 +353,9 @@ Supplied arguments are evaluated exactly once from left to right in source
 order, including receiver/index expressions used to locate `ByRef` storage.
 Naming changes association, not evaluation order. All argument values,
 conversions, and aliases are prepared before the callee begins. This order also
-applies to `RaiseEvent`; `CallNew` then performs its separately specified
-`ByVal` capture before making the worker observable.
+applies to `RaiseEvent` and `CallNew`. CallNew prepares the ordinary ByVal
+copies and ByRef aliases, keeping their storage valid, before making the worker
+observable.
 
 A direct `ByRef` actual aliases writable caller storage and must have exactly
 the parameter's declared type. It cannot rely on numeric conversion, Variant
@@ -385,9 +386,9 @@ Expression calls use parentheses. A statement with `Call` uses parentheses
 when it supplies arguments; `Call Name` and `Call Name()` are both legal for a
 zero-parameter target. A statement without `Call` uses the classic
 unparenthesized argument form. Either statement form may invoke a Function and
-discard its result; Subs cannot be used as value expressions. `CallNew` keeps
-its stricter approved syntax and accepts only a Sub with parenthesized `ByVal`
-arguments.
+discard its result; Subs cannot be used as ordinary call value expressions.
+`CallNew` uses explicit `Call` target and argument syntax for either a Sub or
+Function and yields the thread identifier, discarding a Function's own result.
 
 UBE is always explicitly and statically typed. Every variable, constant,
 parameter, property, and function result must declare its type with an `As`
@@ -1237,14 +1238,17 @@ loads a fresh default identity for a new lifetime.
 
 ## 13. Threads, events, and program lifetime
 
-`CallNew Qualified.Sub(arguments)` starts a directly visible, statically
-resolved `Sub` and returns a positive `LongLong` program thread identifier on
+`CallNew Qualified.Procedure(arguments)` uses the same target and argument
+syntax as explicit `Call` for a Sub or Function, including optional parentheses
+for a zero-argument target, and returns a positive `LongLong` program thread identifier on
 success. Creation failure reports FAIL and records `Err`; it does not supply a
 usable zero identifier to the surrounding expression. Identifiers are not native
-handles, are not reused during a process, and may be ignored. A Function is not
-a legal target. Arguments are evaluated once from left to right and captured
-`ByVal` before the worker begins; value data is copied and object identities are
-shared.
+handles, are not reused during a process, and may be ignored. A Function's own
+return value is discarded. Arguments are evaluated once from left to right
+before the worker begins and follow ordinary `ByVal` and `ByRef` semantics.
+ByVal value data is copied and object identities are shared; ByRef retains the
+referenced storage identity. Referenced storage and argument temporaries must
+remain valid for the worker's use.
 
 All program state normally visible to code remains visible from every UBE
 thread. Unsynchronized competing access has unspecified relative order but
@@ -1255,9 +1259,20 @@ ordering defined in [`threading.md`](threading.md).
 
 Stopping is cooperative. `ThreadRequestStop` records a sticky request and
 wakes approved waits; `ThreadStopRequested()` lets the worker observe it and
-return through normal cleanup. `ThreadWait` waits for completion and makes the
-worker's preceding actions visible on success. UBE does not forcibly terminate
-a thread.
+return through normal cleanup. `ThreadWait` returns `1` for successful worker
+completion and `0` for timeout or cancellation, preserving the caller's Err.
+A fresh FAIL escaping the worker's entry procedure ends that worker through ordinary
+completion and compiler-owned cleanup; it does not remotely execute another
+thread's handler or terminate the process. Explicit user resources still need
+explicit cleanup before raising.
+
+The completion retains its fresh outcome separately from the captured error
+number. Normal return with stale Err is successful; fresh FAIL with error number
+zero is still failed. A wait observing failed completion records that captured
+number in its own thread's Err and reports fresh FAIL with no usable result.
+Each waiter, including repeated waits, follows its own statement/handler rules.
+Observing either completion outcome makes the worker's preceding actions
+visible. UBE does not forcibly terminate a thread.
 
 Events dispatch synchronously unless an individual API explicitly documents a
 different model. An event handler may cause the same event to be raised again;

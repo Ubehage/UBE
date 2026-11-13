@@ -2,7 +2,8 @@
 param(
     [string]$VB6 = 'C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE',
     [string]$BootstrapExe = '',
-    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe'
+    [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
+    [switch]$CallNew
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -112,7 +113,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
 $files=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8')|ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
-$files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues','NativeStorage','NativeExpressions','NativeControl','NativeFrames','NativeContext','NativeIntrinsics','NativeLowering')|ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
+$files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','NativeEscapes','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeControl','NativeFrames','NativeContext','NativeIntrinsics','NativeLowering')|ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files+=Join-Path $PSScriptRoot 'AllocationProbe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
 $library=Join-Path $artifacts 'emitter.ll'
@@ -225,10 +226,32 @@ Public Function Run(ByVal Seed As Long) As Long
     Run = ReadValue((Seed)) + 1
 End Function
 '@
+if ($CallNew) {
+    $source += "`r`n" + @'
+Public Sub Save(ByRef Value As Long)
+End Sub
+Public Sub Forward(ByRef Value As Long)
+    CallNew Save(Value)
+End Sub
+Public Sub Worker(ByRef Value As Long, ByVal Item As Pair, ByVal Items() As Long)
+    CallNew Save(Value)
+    CallNew Save(Item.First)
+    CallNew Save(Items(0))
+End Sub
+Public Function Launch(ByVal Seed As Long) As LongLong
+    Dim Items(0 To 1) As Long
+    Dim Item As Pair
+    Item.First = Seed
+    Launch = CallNew Worker(Items(0), Item, Items)
+    CallNew Save((Seed))
+    Call Forward(Seed)
+End Function
+'@
+}
 $inputs=(Byte-Global 'test.source' $utf8.GetBytes($source))+(Byte-Global 'test.catalog' ([IO.File]::ReadAllBytes((Join-Path $root 'compiler/llvm/templates.bin'))))+(Byte-Global 'test.runtime' ([IO.File]::ReadAllBytes((Join-Path $root 'compiler/llvm/windows-runtime.ll'))))
 $observedIR=Join-Path $artifacts 'observed.ll'
 Write-Text $observedIR ($observed+$observer+$inputs)
-$types=([regex]::Matches($emitted,'(?m)^%ube\.(?:resource|context) = type .*')|ForEach-Object {$_.Value}) -join "`r`n"
+$types=([regex]::Matches($emitted,'(?m)^%ube\.(?:resource|thread|program|context) = type .*')|ForEach-Object {$_.Value}) -join "`r`n"
 $externals=@'
 @test.calls = external global i64
 @test.fail.at = external global i64

@@ -30,6 +30,7 @@ Public Const ExitNode As Long = 26
 Public Const GoToNode As Long = 27
 Public Const LabelNode As Long = 28
 Public Const OnErrorNode As Long = 29
+Public Const ThreadStartNode As Long = 30
 
 Public Type SyntaxNode
     Kind As Long
@@ -400,6 +401,30 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Parses a thread target using the explicit Call target and argument syntax.
+Private Function ParseThreadStart(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic) As Long
+    Dim Start As Long
+    Dim Target As Long
+    Dim Node As Long
+    On Error GoTo Failed
+    Start = S.Position
+    S.Position = S.Position + 1
+    If RequireSpace(T, S, D) = False Then Exit Function
+    Target = ParseName(B, T, N, S, D)
+    If Target = 0 Then Exit Function
+    Node = NewNode(T, N, S, D, ThreadStartNode, Start)
+    If Node = 0 Then Exit Function
+    AddChild N, Node, Target
+    If CodeAt(B, T, S, 0) = SyntaxTokens.SymOpen Then
+        If CallArguments(B, T, N, S, D, Node) = False Then Exit Function
+    End If
+    FinishNode T, N, S, Node
+    ParseThreadStart = Node
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Retains call, index and field postfix syntax for later declaration-based binding.
 Private Function ParsePostfix(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic) As Long
     Dim Start As Long
@@ -460,7 +485,10 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Start = S.Position
     Code = CodeAt(B, T, S, 0)
     Kind = KindAt(T, S, 0)
-    If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Or Code = SyntaxTokens.KwNot Then
+    If Code = SyntaxTokens.KwCallNew Then
+        Node = ParseThreadStart(B, T, N, S, D)
+        If Node = 0 Then Exit Function
+    ElseIf Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Or Code = SyntaxTokens.KwNot Then
         S.Position = S.Position + 1
         Node = NewNode(T, N, S, D, UnaryNode, Start)
         If Node = 0 Then Exit Function
@@ -773,6 +801,13 @@ Private Function ParseStatement(ByRef B() As Byte, ByRef T() As SourceScanner.So
     If Code = SyntaxTokens.KwDo Then ParseStatement = ParseDo(B, T, N, S, D): Exit Function
     If Code = SyntaxTokens.KwIf Then ParseStatement = ParseIf(B, T, N, S, D): Exit Function
     If Code = SyntaxTokens.KwOn Then ParseStatement = ParseOnError(B, T, N, S, D): Exit Function
+    If Code = SyntaxTokens.KwCallNew Then
+        Node = ParseThreadStart(B, T, N, S, D)
+        If Node = 0 Then Exit Function
+        N(Node - 1).Value = 1
+        ParseStatement = Node
+        Exit Function
+    End If
     If Code = SyntaxTokens.KwGoTo Then
         S.Position = S.Position + 1
         If RequireSpace(T, S, D) = False Then Exit Function

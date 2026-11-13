@@ -40,7 +40,10 @@ Public Function StorageAddress(ByRef A() As DeclarationBinder.BoundSymbol, ByRef
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ContextAddress, Value, P(Symbol - 1).ContextOffset, 0, 0) Then Exit Function
     Else
         Template = LLVMTemplates.SlotAddress
-        If A(Symbol - 1).Kind = SourceParser.ParameterNode And A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Then Template = LLVMTemplates.ArgumentAddress
+        If NativeOwnership.HasLocalBox(A, P, Symbol) Then Template = LLVMTemplates.BoxAddress
+        If A(Symbol - 1).Kind = SourceParser.ParameterNode Then
+            If A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Or A(Symbol - 1).ArrayRank = 1 Or A(Symbol - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.ArgumentAddress
+        End If
         If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Symbol, 0, 0) Then Exit Function
     End If
     StorageAddress = Value
@@ -53,12 +56,15 @@ Failed:
 End Function
 
 ' Returns the address of one preplanned grouped-ByRef temporary.
-Public Function TempAddress(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long) As Long
+Public Function TempAddress(ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long) As Long
     Dim Value As Long
+    Dim Template As Long
     On Error GoTo Failed
     If S.Text.Failed Then Exit Function
     Value = NativeEmission.NewValue(S)
-    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TemporaryAddress, Value, Node, 0, 0) Then Exit Function
+    Template = LLVMTemplates.TemporaryAddress
+    If Escapes(Node - 1).NeedsOwner Then Template = LLVMTemplates.BoxTemporaryAddress
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Node, 0, 0) Then Exit Function
     TempAddress = Value
     Exit Function
 Failed:
@@ -69,7 +75,7 @@ Failed:
 End Function
 
 ' Resolves one lvalue, retaining the captured indexed payload before index evaluation can replace it.
-Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim Receiver As Long
     Dim IndexNode As Long
     Dim Symbol As Long
@@ -90,12 +96,12 @@ Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As D
     If Not NativeEmission.Charge(S) Then Exit Function
     If Terminated Then Exit Function
     If N(Node - 1).Kind = SourceParser.GroupNode Then
-        EmitAddress = EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
+        EmitAddress = EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
         Exit Function
     End If
     If E(Node - 1).AccessKind = 1 Then
         Receiver = N(Node - 1).FirstChild
-        Base = EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
+        Base = EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
         If Base = 0 Or Terminated Then Exit Function
         Symbol = E(Node - 1).SymbolIndex
         Result = NativeEmission.NewValue(S)
@@ -103,25 +109,20 @@ Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As D
     ElseIf E(Node - 1).AccessKind = 2 Then
         Receiver = N(Node - 1).FirstChild
         IndexNode = N(Receiver - 1).NextSibling
-        Base = EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
+        Base = EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
         If Base = 0 Or Terminated Then Exit Function
+        Pointer = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ArraySnapshot, Pointer, Base, 0, 0) Then Exit Function
         Lower = NativeEmission.NewValue(S)
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Lower, Base, 0, 0) Then Exit Function
-        Pointer = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Lower, Pointer, 0, 0) Then Exit Function
         Upper = NativeEmission.NewValue(S)
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Base, 1, 0) Then Exit Function
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Upper, Pointer, 0, 0) Then Exit Function
-        Pointer = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Upper, Pointer, 1, 0) Then Exit Function
         Data = NativeEmission.NewValue(S)
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Base, 2, 0) Then Exit Function
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadPointer, Data, Pointer, 0, 0) Then Exit Function
-        Pointer = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Data, Pointer, 2, 0) Then Exit Function
         Block = NativeEmission.NewValue(S)
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Base, 3, 0) Then Exit Function
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadPointer, Block, Pointer, 0, 0) Then Exit Function
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.RetainBlock, Block, 0, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Block, Pointer, 3, 0) Then Exit Function
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.PinBlock, Block, Pins(Node - 1), 0, 0) Then Exit Function
-        IndexValue = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, IndexNode, Terminated)
+        IndexValue = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, IndexNode, Terminated)
         If IndexValue = 0 Or Terminated Then Exit Function
         IndexValue = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, IndexValue, E(IndexNode - 1).TypeCode, SyntaxTokens.KwLongLong)
         If IndexValue = 0 Then Exit Function
@@ -219,7 +220,7 @@ Public Function ReleaseLocalArrays(ByRef A() As DeclarationBinder.BoundSymbol, B
     Symbol = P(S.CurrentSymbol - 1).FirstScopeSymbol
     Do While Symbol <> 0
         If Not NativeEmission.Charge(S) Then Exit Function
-        If A(Symbol - 1).ScopeSymbol = S.CurrentSymbol And A(Symbol - 1).Kind = SourceParser.VariableNode And A(Symbol - 1).ArrayRank = 1 Then
+        If A(Symbol - 1).ScopeSymbol = S.CurrentSymbol And A(Symbol - 1).Kind = SourceParser.VariableNode And A(Symbol - 1).ArrayRank = 1 And P(Symbol - 1).StorageEscapes = False Then
             Address = StorageAddress(A, P, S, B, Token, Catalog, Symbol)
             If Address = 0 Then Exit Function
             If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ClearArray, Address, 0, 0, 0) Then Exit Function
@@ -298,6 +299,29 @@ Failed:
     S.ErrorNode = S.CurrentNode
 End Function
 
+' Initializes an unpublished empty descriptor without releasing uninitialized storage.
+Public Function TryInitializeEmptyArray(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Address As Long) As Boolean
+    Dim Pointer As Long
+    On Error GoTo Failed
+    If S.Text.Failed Then Exit Function
+    Pointer = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, 1, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, 0, Address, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, -1, Pointer, 0, 0) Then Exit Function
+    Pointer = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, 2, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreNullPointer, Pointer, 0, 0, 0) Then Exit Function
+    Pointer = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, 3, 0) Then Exit Function
+    TryInitializeEmptyArray = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreNullPointer, Pointer, 0, 0, 0)
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
 ' Initializes descriptors and admitted fixed payloads; bulk zero stores stay independent of the CRT.
 Public Function NeutralStorage(ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Symbol As Long, ByVal Address As Long, ByVal HeaderOnly As Boolean, ByVal ReleaseExisting As Boolean) As Boolean
     Dim Index As Long
@@ -314,17 +338,17 @@ Public Function NeutralStorage(ByRef A() As DeclarationBinder.BoundSymbol, ByRef
         If ReleaseExisting Then
             If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ClearArray, Address, 0, 0, 0) Then Exit Function
         End If
+        If Not E(Node - 1).HasBounds Then
+            If ReleaseExisting Then NeutralStorage = True: Exit Function
+            NeutralStorage = TryInitializeEmptyArray(S, B, Token, Catalog, Address)
+            Exit Function
+        End If
         Pointer = NativeEmission.NewValue(S)
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, 1, 0) Then Exit Function
-        If E(Node - 1).HasBounds Then
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, E(Node - 1).LowerBound, Address, 0, 0) Then Exit Function
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, E(Node - 1).UpperBound, Pointer, 0, 0) Then Exit Function
-            Data = NativeEmission.NewValue(S)
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Data, Address, 4, 0) Then Exit Function
-        Else
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, 0, Address, 0, 0) Then Exit Function
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, -1, Pointer, 0, 0) Then Exit Function
-        End If
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, E(Node - 1).LowerBound, Address, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreConstant, E(Node - 1).UpperBound, Pointer, 0, 0) Then Exit Function
+        Data = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Data, Address, 4, 0) Then Exit Function
         Pointer = NativeEmission.NewValue(S)
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, 2, 0) Then Exit Function
         If Data = 0 Then

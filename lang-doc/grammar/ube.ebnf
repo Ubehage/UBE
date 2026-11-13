@@ -439,7 +439,7 @@ me-expression       = "Me" ;
 parenthesized-expression = "(", spacing, expression, spacing, ")" ;
 new-expression      = "New", spacing1, type-name ;
 address-of-expression = "AddressOf", spacing1, qualified-name ;
-call-new-expression = "CallNew", spacing1, qualified-name, argument-list ;
+call-new-expression = "CallNew", spacing1, callable-expression, [ argument-list ] ;
 leading-dot-expression = ".", member-name, { postfix-part } ;
 
 (* Names and types *)

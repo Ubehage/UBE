@@ -52,9 +52,11 @@ foreach ($line in ($body -split '\r?\n')) {
     $null = $output.Append((Read-Expression $statement.Groups[1].Value)).Append([char]13).Append([char]10)
 }
 $process = [IO.File]::ReadAllText((Join-Path $root 'bootstrap/src/NativeProcessRuntime.bas'), $encoding)
+$threads = [IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap/NativeThreadRuntime.bas'), $encoding)
 $packages = @(
     @{Source=$files; Entry='NativeFileIR'; Parts='FileTargetsAndRegistryIR,FileAcquisitionIR,FileTransferAndReleaseIR,SystemOperationsIR,PathOperationsIR,FileMetadataIR,SystemIntrospectionIR,NamespaceOperationsIR'},
-    @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease'}
+    @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease'},
+    @{Source=$threads; Entry='NativeThreadIR'; Parts='NativeThreadTargets,NativeThreadIdentity,NativeThreadExecution,NativeThreadWaitOwners,NativeThreadWaiting,NativeThreadControl,NativeThreadShutdown'}
 )
 foreach ($package in $packages) {
     $entry = Read-Body $package.Source $package.Entry 'Function'

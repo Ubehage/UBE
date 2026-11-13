@@ -96,10 +96,14 @@ and shared-state rules are in the development plan's concurrency requirement.
   only in the documented PE timestamp. Common positive, negative and recovery
   conformance passed through the bootstrap and both UBE outputs. Concrete
   scope and acceptance: ../bootstrap/SELF-HOSTING.md; exact evidence: Progress.md.
-- [ ] Implement and qualify concurrent compilation in the UBE-written compiler:
+- [x] Implement and qualify concurrent compilation in the UBE-written compiler:
   execute independent project work in parallel, isolate simultaneous requests,
   and pass the concurrency gate in ACCEPTANCE.md. Preserve the same semantics
   and deterministic results in single-worker and multi-worker execution.
+  The bounded one/two-worker gate passes, including simultaneous requests,
+  failure/cancellation, publication and recovery. Final fixed-workload timing
+  measured a 9.63% reduction with two workers. Successive self-builds and the
+  shared conformance corpus pass; commands, evidence and limits are in Progress.md.
 
 ## Complete language and product support
 

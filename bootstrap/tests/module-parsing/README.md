@@ -1,5 +1,12 @@
 # Actual UBE module parser gate
 
+The 2026-11-13 CallNew grammar qualification passed 32 cases and 7,754
+structural assertions at both O0 and O2. The changed-operator control failed
+at assertion 429 as expected. Evidence:
+`ube module parsing a4d82e4a-d41f-475b-82c6-05b97008ebb8`.
+ThreadStartNode retains the ordinary Call target and optional argument list;
+its value field distinguishes expression and ignored-identity statement forms.
+
 Run `powershell -NoProfile -File bootstrap/tests/module-parsing/check.ps1 -BootstrapExe <UBE-Bootstrap.exe>`.
 Omit `-BootstrapExe` to build the VB6 bootstrap. LLVM Clang and its sibling
 llvm-dlltool are required. Children run hidden with deadlines; source, emitted

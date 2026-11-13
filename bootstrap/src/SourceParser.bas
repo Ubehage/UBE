@@ -366,6 +366,24 @@ Private Function CallArguments(ByRef P As ParsedProject, ByRef S As ParserState,
     CallArguments = True
 End Function
 
+' Parses a thread target using the explicit Call target and argument syntax.
+Private Function ParseThreadStart(ByRef P As ParsedProject, ByRef S As ParserState, ByRef Diagnostic As String) As Long
+    Dim Start As Long, Target As Long, Node As Long
+    Start = S.Position
+    S.Position = S.Position + 1
+    If Not RequireSpace(P, S, Diagnostic) Then Exit Function
+    Target = ParseName(P, S, Diagnostic)
+    If Target = 0 Then Exit Function
+    Node = NewNode(P, S, "thread-start", "expression", Start, Diagnostic)
+    If Node = 0 Then Exit Function
+    Call AddChild(P, Node, Target)
+    If AtToken(P, S, "(") Then
+        If Not CallArguments(P, S, Node, Diagnostic) Then Exit Function
+    End If
+    Call FinishNode(P, S, Node)
+    ParseThreadStart = Node
+End Function
+
 ' Retains calls and indexed/field postfix syntax for later declaration-based disambiguation.
 Private Function ParsePostfix(ByRef P As ParsedProject, ByRef S As ParserState, ByRef Diagnostic As String) As Long
     Dim Node As Long, Child As Long, Start As Long, Name As String
@@ -434,7 +452,10 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
     Dim Kind As String
     Start = S.Position
     Kind = TokenKind(P, S)
-    If AtToken(P, S, "+") Or AtToken(P, S, "-") Or AtToken(P, S, "not") Then
+    If AtToken(P, S, "callnew") Then
+        Node = ParseThreadStart(P, S, Diagnostic)
+        If Node = 0 Then Exit Function
+    ElseIf AtToken(P, S, "+") Or AtToken(P, S, "-") Or AtToken(P, S, "not") Then
         Text = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
         S.Position = S.Position + 1
         Node = NewNode(P, S, "unary", Text, Start, Diagnostic)
@@ -688,6 +709,13 @@ Private Function ParseStatement(ByRef P As ParsedProject, ByRef S As ParserState
     End If
     If AtToken(P, S, "on") Then
         ParseStatement = ParseOnError(P, S, Diagnostic)
+        Exit Function
+    End If
+    If AtToken(P, S, "callnew") Then
+        Node = ParseThreadStart(P, S, Diagnostic)
+        If Node = 0 Then Exit Function
+        P.Nodes(Node).Text = "statement"
+        ParseStatement = Node
         Exit Function
     End If
     If AtToken(P, S, "goto") Then

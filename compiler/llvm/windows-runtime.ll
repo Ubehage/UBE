@@ -1,4 +1,83 @@
 %ube.block = type { ptr, i64, i64 }
+define internal i1 @ube.array.descriptor.overlaps(ptr %array, ptr %output) {
+entry:
+  %start = ptrtoint ptr %array to i64
+  %address = ptrtoint ptr %output to i64
+  %distance = sub i64 %address, %start
+  %inside = icmp ult i64 %distance, 32
+  %before = sub i64 %start, %address
+  %crosses = icmp ult i64 %before, 8
+  %intersects = or i1 %inside, %crosses
+  %exists = icmp ne ptr %array, null
+  %overlaps = and i1 %intersects, %exists
+  ret i1 %overlaps
+}
+define internal ptr @ube.thread.program(ptr %ctx) {
+entry:
+  %address = getelementptr %ube.thread, ptr %ctx, i32 0, i32 2
+  %program = load ptr, ptr %address
+  ret ptr %program
+}
+define void @ube.thread.init(ptr %ctx, ptr %program, ptr %control) {
+entry:
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
+  %depth = getelementptr %ube.thread, ptr %ctx, i32 0, i32 1
+  %owner = getelementptr %ube.thread, ptr %ctx, i32 0, i32 2
+  %state = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  store atomic i64 0, ptr %err monotonic, align 8
+  store atomic i64 0, ptr %depth monotonic, align 8
+  store ptr %program, ptr %owner
+  store ptr %control, ptr %state
+  ret void
+}
+define internal ptr @ube.module.state(ptr %ctx, i64 %index) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 0, i64 %index
+  ret ptr %address
+}
+
+define internal ptr @ube.storage.address(ptr %ctx, i64 %index) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 1, i64 %index
+  ret ptr %address
+}
+
+define internal ptr @ube.resource.slot(ptr %ctx, i64 %index) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 5, i64 %index
+  ret ptr %address
+}
+
+define internal ptr @ube.module.owner(ptr %ctx, i64 %index) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 9, i64 %index
+  ret ptr %address
+}
+
+define internal ptr @ube.memory.head(ptr %ctx) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 2
+  ret ptr %address
+}
+
+define internal ptr @ube.memory.bytes(ptr %ctx) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 3
+  ret ptr %address
+}
+
+define internal ptr @ube.memory.count(ptr %ctx) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 4
+  ret ptr %address
+}
 declare dllimport ptr @VirtualAlloc(ptr, i64, i32, i32)
 declare dllimport i32 @VirtualFree(ptr, i64, i32)
 define ptr @ube.target.allocate(i64 %bytes) {
@@ -18,31 +97,36 @@ entry:
   br i1 %exists, label %retain, label %done
 retain:
   %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1
-  %refs = load i64, ptr %refs.ptr
-  %next = add i64 %refs, 1
-  store i64 %next, ptr %refs.ptr
+  %previous = atomicrmw add ptr %refs.ptr, i64 1 monotonic
   br label %done
 done:
   ret void
 }
-define internal void @ube.block.drop(ptr %block) {
+define internal void @ube.block.drop(ptr %ctx, ptr %block) {
 entry:
   %exists = icmp ne ptr %block, null
   br i1 %exists, label %drop, label %done
 drop:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %pending = getelementptr %ube.program, ptr %program, i32 0, i32 12
   %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1
-  %refs = load i64, ptr %refs.ptr
-  %next = sub i64 %refs, 1
-  store i64 %next, ptr %refs.ptr
+  %previous = atomicrmw sub ptr %refs.ptr, i64 1 release
+  %last = icmp eq i64 %previous, 1
+  br i1 %last, label %retired, label %done
+retired:
+  %marked = atomicrmw or ptr %pending, i64 1 release
   br label %done
 done:
   ret void
 }
-define internal i1 @ube.memory.collect(ptr %ctx) {
+define internal i1 @ube.memory.collect.locked(ptr %ctx) {
 entry:
-  %head = getelementptr %ube.context, ptr %ctx, i32 0, i32 4
-  %bytes.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 5
-  %count.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 6
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %pending = getelementptr %ube.program, ptr %program, i32 0, i32 12
+  %acknowledged = atomicrmw xchg ptr %pending, i64 0 acq_rel
+  %head = call ptr @ube.memory.head(ptr %ctx)
+  %bytes.ptr = call ptr @ube.memory.bytes(ptr %ctx)
+  %count.ptr = call ptr @ube.memory.count(ptr %ctx)
   br label %scan
 scan:
   %link = phi ptr [ %head, %entry ], [ %block, %keep ], [ %link, %freed ]
@@ -52,30 +136,33 @@ scan:
   br i1 %exists, label %inspect, label %done
 inspect:
   %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1
-  %refs = load i64, ptr %refs.ptr
+  %refs = load atomic i64, ptr %refs.ptr acquire, align 8
   %unused = icmp eq i64 %refs, 0
   br i1 %unused, label %release, label %keep
 release:
   %next = load ptr, ptr %block
   %charge.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 2
-  %charge = load i64, ptr %charge.ptr
+  %charge = load atomic i64, ptr %charge.ptr monotonic, align 8
   %ok = call i1 @ube.target.release(ptr %block)
-  br i1 %ok, label %freed, label %keep
+  br i1 %ok, label %freed, label %refused
+refused:
+  %remarked = atomicrmw or ptr %pending, i64 1 release
+  br label %keep
 freed:
   store ptr %next, ptr %link
-  %bytes = load i64, ptr %bytes.ptr
+  %bytes = load atomic i64, ptr %bytes.ptr monotonic, align 8
   %less.bytes = sub i64 %bytes, %charge
-  store i64 %less.bytes, ptr %bytes.ptr
-  %count = load i64, ptr %count.ptr
+  store atomic i64 %less.bytes, ptr %bytes.ptr monotonic, align 8
+  %count = load atomic i64, ptr %count.ptr monotonic, align 8
   %less.count = sub i64 %count, 1
-  store i64 %less.count, ptr %count.ptr
+  store atomic i64 %less.count, ptr %count.ptr monotonic, align 8
   br label %scan
 keep:
   br label %scan
 done:
   ret i1 %worked
 }
-define internal ptr @ube.memory.new(ptr %ctx, i64 %count, i64 %stride) {
+define internal ptr @ube.memory.new.locked(ptr %ctx, i64 %count, i64 %stride) {
 entry:
   %negative = icmp sle i64 %count, 0
   %large = icmp sgt i64 %count, 1048576
@@ -96,14 +183,14 @@ size:
   br i1 %charge.large, label %failed, label %quota
 quota:
   %available = sub i64 67108864, %charge
-  %head = getelementptr %ube.context, ptr %ctx, i32 0, i32 4
-  %bytes.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 5
-  %count.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 6
+  %head = call ptr @ube.memory.head(ptr %ctx)
+  %bytes.ptr = call ptr @ube.memory.bytes(ptr %ctx)
+  %count.ptr = call ptr @ube.memory.count(ptr %ctx)
   br label %attempt
 attempt:
   %retry = phi i1 [ false, %quota ], [ true, %collect ]
-  %bytes = load i64, ptr %bytes.ptr
-  %blocks = load i64, ptr %count.ptr
+  %bytes = load atomic i64, ptr %bytes.ptr monotonic, align 8
+  %blocks = load atomic i64, ptr %count.ptr monotonic, align 8
   %over.bytes = icmp ugt i64 %bytes, %available
   %over.blocks = icmp uge i64 %blocks, 4096
   %over = or i1 %over.bytes, %over.blocks
@@ -115,26 +202,26 @@ allocate:
 miss:
   br i1 %retry, label %failed, label %collect
 collect:
-  %collected = call i1 @ube.memory.collect(ptr %ctx)
+  %collected = call i1 @ube.memory.collect.locked(ptr %ctx)
   br label %attempt
 allocated:
   %old.head = load ptr, ptr %head
   store ptr %old.head, ptr %block
   %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1
-  store i64 1, ptr %refs.ptr
+  store atomic i64 1, ptr %refs.ptr monotonic, align 8
   %charge.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 2
-  store i64 %charge, ptr %charge.ptr
+  store atomic i64 %charge, ptr %charge.ptr monotonic, align 8
   store ptr %block, ptr %head
   %new.bytes = add i64 %bytes, %charge
   %new.blocks = add i64 %blocks, 1
-  store i64 %new.bytes, ptr %bytes.ptr
-  store i64 %new.blocks, ptr %count.ptr
+  store atomic i64 %new.bytes, ptr %bytes.ptr monotonic, align 8
+  store atomic i64 %new.blocks, ptr %count.ptr monotonic, align 8
   %data = getelementptr %ube.block, ptr %block, i64 1
   br label %zero
 zero:
   %index = phi i64 [ 0, %allocated ], [ %next.index, %zero ]
   %cell = getelementptr i64, ptr %data, i64 %index
-  store volatile i64 0, ptr %cell
+  store atomic volatile i64 0, ptr %cell monotonic, align 8
   %next.index = add i64 %index, 1
   %more = icmp ult i64 %next.index, %cells
   br i1 %more, label %zero, label %done
@@ -143,31 +230,70 @@ done:
 failed:
   ret ptr null
 }
-define internal void @ube.array.clear(ptr %array) {
+define internal void @ube.array.clear(ptr %ctx, ptr %array) {
 entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  call void @ube.array.clear.locked(ptr %ctx, ptr %array)
+  call void @ube.program.storage.unlock(ptr %program)
+  ret void
+}
+define internal void @ube.array.clear.locked(ptr %ctx, ptr %array) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.array.lock(ptr %program, ptr %array)
   %upper.ptr = getelementptr i64, ptr %array, i64 1
   %data.ptr = getelementptr i64, ptr %array, i64 2
   %block.ptr = getelementptr i64, ptr %array, i64 3
   %old = load ptr, ptr %block.ptr
-  store i64 0, ptr %array
-  store i64 -1, ptr %upper.ptr
+  store atomic i64 0, ptr %array monotonic, align 8
+  store atomic i64 -1, ptr %upper.ptr monotonic, align 8
   store ptr null, ptr %data.ptr
   store ptr null, ptr %block.ptr
-  call void @ube.block.drop(ptr %old)
+  call void @ube.block.drop(ptr %ctx, ptr %old)
+  call void @ube.array.unlock(ptr %program, ptr %array)
   ret void
 }
-define internal void @ube.array.install(ptr %array, ptr %block, i64 %lower, i64 %upper) {
+define internal void @ube.box.drop(ptr %ctx, ptr %block, i1 %contains.array) {
 entry:
+  %exists = icmp ne ptr %block, null
+  br i1 %exists, label %inspect, label %done
+inspect:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %refs.ptr = getelementptr %ube.block, ptr %block, i32 0, i32 1
+  %refs = load atomic i64, ptr %refs.ptr acquire, align 8
+  %last = icmp eq i64 %refs, 1
+  %clear = and i1 %last, %contains.array
+  br i1 %clear, label %clear.array, label %drop
+clear.array:
+  %array = getelementptr %ube.block, ptr %block, i64 1
+  call void @ube.array.clear.locked(ptr %ctx, ptr %array)
+  br label %drop
+drop:
+  call void @ube.block.drop(ptr %ctx, ptr %block)
+  call void @ube.program.storage.unlock(ptr %program)
+  br label %done
+done:
+  ret void
+}
+define internal void @ube.array.install(ptr %ctx, ptr %array, ptr %block, i64 %lower, i64 %upper) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  call void @ube.array.lock(ptr %program, ptr %array)
   %upper.ptr = getelementptr i64, ptr %array, i64 1
   %data.ptr = getelementptr i64, ptr %array, i64 2
   %block.ptr = getelementptr i64, ptr %array, i64 3
   %old = load ptr, ptr %block.ptr
   %data = getelementptr %ube.block, ptr %block, i64 1
-  store i64 %lower, ptr %array
-  store i64 %upper, ptr %upper.ptr
+  store atomic i64 %lower, ptr %array monotonic, align 8
+  store atomic i64 %upper, ptr %upper.ptr monotonic, align 8
   store ptr %data, ptr %data.ptr
   store ptr %block, ptr %block.ptr
-  call void @ube.block.drop(ptr %old)
+  call void @ube.block.drop(ptr %ctx, ptr %old)
+  call void @ube.array.unlock(ptr %program, ptr %array)
+  call void @ube.program.storage.unlock(ptr %program)
   ret void
 }
 define internal void @ube.cells.copy(ptr %source, ptr %destination, i64 %count) {
@@ -178,8 +304,8 @@ copy:
   %index = phi i64 [ 0, %entry ], [ %next, %copy ]
   %from = getelementptr i64, ptr %source, i64 %index
   %to = getelementptr i64, ptr %destination, i64 %index
-  %value = load volatile i64, ptr %from
-  store volatile i64 %value, ptr %to
+  %value = load atomic volatile i64, ptr %from monotonic, align 8
+  store atomic volatile i64 %value, ptr %to monotonic, align 8
   %next = add i64 %index, 1
   %more = icmp ult i64 %next, %count
   br i1 %more, label %copy, label %done
@@ -188,14 +314,14 @@ done:
 }
 define internal i1 @ube.array.tryresize(ptr %ctx, ptr %array, i64 %count, i64 %preserve, i64 %stride) {
 entry:
-  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
   %negative = icmp slt i64 %count, 0
   br i1 %negative, label %argument.fail, label %empty.test
 empty.test:
   %empty = icmp eq i64 %count, 0
   br i1 %empty, label %empty.resize, label %allocate
 empty.resize:
-  call void @ube.array.clear(ptr %array)
+  call void @ube.array.clear(ptr %ctx, ptr %array)
   %empty.collected = call i1 @ube.memory.collect(ptr %ctx)
   ret i1 true
 allocate:
@@ -207,9 +333,11 @@ prepared:
   %keep = icmp ne i64 %preserve, 0
   br i1 %keep, label %intersection, label %publish
 intersection:
-  %old.lower = load i64, ptr %array
-  %old.upper.ptr = getelementptr i64, ptr %array, i64 1
-  %old.upper = load i64, ptr %old.upper.ptr
+  %snapshot = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  %old.lower = extractvalue { i64, i64, ptr, ptr } %snapshot, 0
+  %old.upper = extractvalue { i64, i64, ptr, ptr } %snapshot, 1
+  %old.data = extractvalue { i64, i64, ptr, ptr } %snapshot, 2
+  %old.block = extractvalue { i64, i64, ptr, ptr } %snapshot, 3
   %positive.lower = icmp sgt i64 %old.lower, 0
   %first = select i1 %positive.lower, i64 %old.lower, i64 0
   %smaller.upper = icmp slt i64 %old.upper, %upper
@@ -217,8 +345,6 @@ intersection:
   %overlap = icmp sle i64 %first, %last
   br i1 %overlap, label %copy, label %publish
 copy:
-  %old.data.ptr = getelementptr i64, ptr %array, i64 2
-  %old.data = load ptr, ptr %old.data.ptr
   %data = getelementptr %ube.block, ptr %block, i64 1
   %old.index = sub i64 %first, %old.lower
   %old.offset = mul i64 %old.index, %stride
@@ -231,28 +357,33 @@ copy:
   call void @ube.cells.copy(ptr %source, ptr %destination, i64 %cells)
   br label %publish
 publish:
-  call void @ube.array.install(ptr %array, ptr %block, i64 0, i64 %upper)
+  %pin = phi ptr [null, %prepared], [%old.block, %intersection], [%old.block, %copy]
+  call void @ube.array.install(ptr %ctx, ptr %array, ptr %block, i64 0, i64 %upper)
+  call void @ube.block.drop(ptr %ctx, ptr %pin)
   %collected = call i1 @ube.memory.collect(ptr %ctx)
   ret i1 true
 argument.fail:
-  store i64 5, ptr %err
+  store atomic i64 5, ptr %err monotonic, align 8
   ret i1 false
 memory.fail:
-  store i64 7, ptr %err
+  store atomic i64 7, ptr %err monotonic, align 8
   ret i1 false
 }
 define internal i1 @ube.array.trycopy(ptr %ctx, ptr %destination, ptr %source, i64 %stride) {
 entry:
-  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0
-  %lower = load i64, ptr %source
-  %upper.ptr = getelementptr i64, ptr %source, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
+  %snapshot = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %source)
+  %lower = extractvalue { i64, i64, ptr, ptr } %snapshot, 0
+  %upper = extractvalue { i64, i64, ptr, ptr } %snapshot, 1
+  %source.data = extractvalue { i64, i64, ptr, ptr } %snapshot, 2
+  %pin = extractvalue { i64, i64, ptr, ptr } %snapshot, 3
   %distance = sub i64 %upper, %lower
   %count = add i64 %distance, 1
   %empty = icmp eq i64 %count, 0
   br i1 %empty, label %empty.copy, label %allocate
 empty.copy:
-  call void @ube.array.clear(ptr %destination)
+  call void @ube.array.clear(ptr %ctx, ptr %destination)
+  call void @ube.block.drop(ptr %ctx, ptr %pin)
   %empty.collected = call i1 @ube.memory.collect(ptr %ctx)
   ret i1 true
 allocate:
@@ -260,17 +391,205 @@ allocate:
   %ok = icmp ne ptr %block, null
   br i1 %ok, label %copy, label %memory.fail
 copy:
-  %source.data.ptr = getelementptr i64, ptr %source, i64 2
-  %source.data = load ptr, ptr %source.data.ptr
   %destination.data = getelementptr %ube.block, ptr %block, i64 1
   %cells = mul i64 %count, %stride
   call void @ube.cells.copy(ptr %source.data, ptr %destination.data, i64 %cells)
-  call void @ube.array.install(ptr %destination, ptr %block, i64 %lower, i64 %upper)
+  call void @ube.array.install(ptr %ctx, ptr %destination, ptr %block, i64 %lower, i64 %upper)
+  call void @ube.block.drop(ptr %ctx, ptr %pin)
   %collected = call i1 @ube.memory.collect(ptr %ctx)
   ret i1 true
 memory.fail:
-  store i64 7, ptr %err
+  call void @ube.block.drop(ptr %ctx, ptr %pin)
+  store atomic i64 7, ptr %err monotonic, align 8
   ret i1 false
+}
+define internal void @ube.program.storage.lock(ptr %program) {
+entry:
+  %lock = getelementptr %ube.program, ptr %program, i32 0, i32 6
+  br label %attempt
+attempt:
+  %pair = cmpxchg ptr %lock, i64 0, i64 1 acquire monotonic
+  %won = extractvalue { i64, i1 } %pair, 1
+  br i1 %won, label %done, label %attempt
+done:
+  ret void
+}
+define internal void @ube.program.storage.unlock(ptr %program) {
+entry:
+  %lock = getelementptr %ube.program, ptr %program, i32 0, i32 6
+  store atomic i64 0, ptr %lock release, align 8
+  ret void
+}
+define internal ptr @ube.array.lock.address(ptr %program, ptr %array) {
+entry:
+  %address = ptrtoint ptr %array to i64
+  %low = lshr i64 %address, 3
+  %page = lshr i64 %address, 12
+  %stack = lshr i64 %address, 16
+  %region = lshr i64 %address, 22
+  %high = lshr i64 %address, 32
+  %a = xor i64 %low, %page
+  %b = xor i64 %a, %stack
+  %c = xor i64 %b, %region
+  %d = xor i64 %c, %high
+  %stripe = and i64 %d, 63
+  %index = add i64 %stripe, 1
+  %lock = getelementptr %ube.program, ptr %program, i32 0, i32 13, i64 %index, i64 0
+  ret ptr %lock
+}
+define internal void @ube.array.lock(ptr %program, ptr %array) {
+entry:
+  %lock = call ptr @ube.array.lock.address(ptr %program, ptr %array)
+  br label %attempt
+attempt:
+  %pair = cmpxchg ptr %lock, i64 0, i64 1 acquire monotonic
+  %won = extractvalue { i64, i1 } %pair, 1
+  br i1 %won, label %done, label %attempt
+done:
+  ret void
+}
+define internal void @ube.array.unlock(ptr %program, ptr %array) {
+entry:
+  %lock = call ptr @ube.array.lock.address(ptr %program, ptr %array)
+  store atomic i64 0, ptr %lock release, align 8
+  ret void
+}
+define internal { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array) {
+entry:
+  %empty = icmp eq ptr %array, null
+  br i1 %empty, label %absent, label %capture
+absent:
+  ret { i64, i64, ptr, ptr } { i64 0, i64 -1, ptr null, ptr null }
+capture:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.array.lock(ptr %program, ptr %array)
+  %upper.ptr = getelementptr i64, ptr %array, i64 1
+  %data.ptr = getelementptr i64, ptr %array, i64 2
+  %block.ptr = getelementptr i64, ptr %array, i64 3
+  %lower = load atomic i64, ptr %array monotonic, align 8
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
+  %data = load ptr, ptr %data.ptr
+  %block = load ptr, ptr %block.ptr
+  call void @ube.block.retain(ptr %block)
+  call void @ube.array.unlock(ptr %program, ptr %array)
+  %first = insertvalue { i64, i64, ptr, ptr } poison, i64 %lower, 0
+  %second = insertvalue { i64, i64, ptr, ptr } %first, i64 %upper, 1
+  %third = insertvalue { i64, i64, ptr, ptr } %second, ptr %data, 2
+  %result = insertvalue { i64, i64, ptr, ptr } %third, ptr %block, 3
+  ret { i64, i64, ptr, ptr } %result
+}
+define internal i64 @ube.array.length(ptr %ctx, ptr %array) {
+entry:
+  %snapshot = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  %lower = extractvalue { i64, i64, ptr, ptr } %snapshot, 0
+  %upper = extractvalue { i64, i64, ptr, ptr } %snapshot, 1
+  %block = extractvalue { i64, i64, ptr, ptr } %snapshot, 3
+  %distance = sub i64 %upper, %lower
+  %length = add i64 %distance, 1
+  call void @ube.block.drop(ptr %ctx, ptr %block)
+  ret i64 %length
+}
+define internal i1 @ube.memory.collect(ptr %ctx) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %pending = getelementptr %ube.program, ptr %program, i32 0, i32 12
+  %retired = load atomic i64, ptr %pending acquire, align 8
+  %needed = icmp ne i64 %retired, 0
+  br i1 %needed, label %collect, label %idle
+idle:
+  ret i1 false
+collect:
+  call void @ube.program.storage.lock(ptr %program)
+  %worked = call i1 @ube.memory.collect.locked(ptr %ctx)
+  call void @ube.program.storage.unlock(ptr %program)
+  ret i1 %worked
+}
+define internal ptr @ube.memory.new(ptr %ctx, i64 %count, i64 %stride) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %block = call ptr @ube.memory.new.locked(ptr %ctx, i64 %count, i64 %stride)
+  call void @ube.program.storage.unlock(ptr %program)
+  ret ptr %block
+}
+define internal { i1, i64 } @ube.memory.copybytes(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2, i64 %arg.3, i64 %arg.4) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %source.lower = load atomic i64, ptr %arg.0 monotonic, align 8
+  %source.upper.ptr = getelementptr i64, ptr %arg.0, i64 1
+  %source.upper = load atomic i64, ptr %source.upper.ptr monotonic, align 8
+  %source.distance = sub i64 %source.upper, %source.lower
+  %source.length = add i64 %source.distance, 1
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
+  %count.invalid = icmp slt i64 %arg.4, 0
+  br i1 %count.invalid, label %argument.fail, label %span.starts
+span.starts:
+  %destination.lower = load atomic i64, ptr %arg.2 monotonic, align 8
+  %destination.upper.ptr = getelementptr i64, ptr %arg.2, i64 1
+  %destination.upper = load atomic i64, ptr %destination.upper.ptr monotonic, align 8
+  %destination.distance = sub i64 %destination.upper, %destination.lower
+  %destination.length = add i64 %destination.distance, 1
+  %source.negative = icmp slt i64 %arg.1, 0
+  %destination.negative = icmp slt i64 %arg.3, 0
+  %source.past = icmp sgt i64 %arg.1, %source.length
+  %destination.past = icmp sgt i64 %arg.3, %destination.length
+  %negative = or i1 %source.negative, %destination.negative
+  %past = or i1 %source.past, %destination.past
+  %start.invalid = or i1 %negative, %past
+  br i1 %start.invalid, label %span.fail, label %span.count
+span.count:
+  %source.remaining = sub i64 %source.length, %arg.1
+  %destination.remaining = sub i64 %destination.length, %arg.3
+  %source.short = icmp sgt i64 %arg.4, %source.remaining
+  %destination.short = icmp sgt i64 %arg.4, %destination.remaining
+  %span.invalid = or i1 %source.short, %destination.short
+  br i1 %span.invalid, label %span.fail, label %copy.test
+copy.test:
+  %empty = icmp eq i64 %arg.4, 0
+  br i1 %empty, label %copy.done, label %copy.choose
+copy.choose:
+  %source.data.ptr = getelementptr i64, ptr %arg.0, i64 2
+  %source.data = load ptr, ptr %source.data.ptr
+  %destination.data.ptr = getelementptr i64, ptr %arg.2, i64 2
+  %destination.data = load ptr, ptr %destination.data.ptr
+  %same = icmp eq ptr %arg.0, %arg.2
+  %later = icmp sgt i64 %arg.3, %arg.1
+  %backward = and i1 %same, %later
+  br i1 %backward, label %copy.backward, label %copy.forward
+copy.forward:
+  %forward.index = phi i64 [ 0, %copy.choose ], [ %forward.next, %copy.forward ]
+  %forward.source.index = add i64 %arg.1, %forward.index
+  %forward.destination.index = add i64 %arg.3, %forward.index
+  %forward.source = getelementptr i64, ptr %source.data, i64 %forward.source.index
+  %forward.destination = getelementptr i64, ptr %destination.data, i64 %forward.destination.index
+  %forward.value = load atomic volatile i64, ptr %forward.source monotonic, align 8
+  store atomic volatile i64 %forward.value, ptr %forward.destination monotonic, align 8
+  %forward.next = add i64 %forward.index, 1
+  %forward.more = icmp slt i64 %forward.next, %arg.4
+  br i1 %forward.more, label %copy.forward, label %copy.done
+copy.backward:
+  %backward.remaining = phi i64 [ %arg.4, %copy.choose ], [ %backward.index, %copy.backward ]
+  %backward.index = sub i64 %backward.remaining, 1
+  %backward.source.index = add i64 %arg.1, %backward.index
+  %backward.destination.index = add i64 %arg.3, %backward.index
+  %backward.source = getelementptr i64, ptr %source.data, i64 %backward.source.index
+  %backward.destination = getelementptr i64, ptr %destination.data, i64 %backward.destination.index
+  %backward.value = load atomic volatile i64, ptr %backward.source monotonic, align 8
+  store atomic volatile i64 %backward.value, ptr %backward.destination monotonic, align 8
+  %backward.more = icmp ne i64 %backward.index, 0
+  br i1 %backward.more, label %copy.backward, label %copy.done
+argument.fail:
+  store atomic i64 5, ptr %err monotonic, align 8
+  call void @ube.program.storage.unlock(ptr %program)
+  ret { i1, i64 } { i1 true, i64 0 }
+span.fail:
+  store atomic i64 9, ptr %err monotonic, align 8
+  call void @ube.program.storage.unlock(ptr %program)
+  ret { i1, i64 } { i1 true, i64 0 }
+copy.done:
+  call void @ube.program.storage.unlock(ptr %program)
+  ret { i1, i64 } { i1 true, i64 -1 }
 }
 @ube.resource.next = internal global i64 1, align 8
 declare dllimport ptr @CreateFileW(ptr, i32, i32, ptr, i32, i32, ptr)
@@ -331,15 +650,15 @@ entry:
 }
 define internal i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 %code, i64 %number) {
 entry:
-  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0
-  store i64 %number, ptr %err
-  store i64 %code, ptr %failure
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
+  store atomic i64 %number, ptr %err monotonic, align 8
+  store atomic i64 %code, ptr %failure monotonic, align 8
   ret i1 false
 }
 define internal i1 @ube.file.aliasfail(ptr %ctx) {
 entry:
-  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0
-  store i64 5, ptr %err
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
+  store atomic i64 5, ptr %err monotonic, align 8
   ret i1 false
 }
 define internal i64 @ube.resource.token() {
@@ -364,7 +683,7 @@ entry:
   br label %scan
 scan:
   %index = phi i64 [ 0, %entry ], [ %next, %advance ]
-  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index
+  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)
   %token = load atomic i64, ptr %slot acquire, align 8
   %empty = icmp eq i64 %token, 0
   br i1 %empty, label %claim, label %advance
@@ -400,7 +719,7 @@ entry:
   br label %scan
 scan:
   %index = phi i64 [ 0, %entry ], [ %next, %advance ]
-  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index
+  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)
   %token = load atomic i64, ptr %slot acquire, align 8
   %busy.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 4
   %busy = load atomic i64, ptr %busy.ptr acquire, align 8
@@ -422,7 +741,7 @@ entry:
   br i1 %positive, label %scan, label %stale
 scan:
   %index = phi i64 [ 0, %entry ], [ %next, %advance ]
-  %slot = getelementptr %ube.context, ptr %ctx, i32 0, i32 7, i64 %index
+  %slot = call ptr @ube.resource.slot(ptr %ctx, i64 %index)
   %token = load atomic i64, ptr %slot acquire, align 8
   %matches = icmp eq i64 %token, %wanted
   br i1 %matches, label %claim, label %advance
@@ -459,7 +778,7 @@ entry:
   %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
   store ptr null, ptr %handle.ptr
   store atomic i64 0, ptr %slot release, align 8
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   call void @ube.resource.unlock(ptr %slot)
   %collected = call i1 @ube.memory.collect(ptr %ctx)
   ret void
@@ -473,9 +792,9 @@ entry:
   %desc.inside = icmp ult i64 %desc.after, 32
   %desc.cross = icmp ult i64 %desc.before, 8
   %desc.overlap = or i1 %desc.inside, %desc.cross
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %bytes = mul i64 %length, 8
@@ -492,11 +811,31 @@ entry:
   %overlap = or i1 %desc.overlap, %occupied
   ret i1 %overlap
 }
-define internal i1 @ube.file.open(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {
+define internal i1 @ube.file.open.pinned(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {
 entry:
   %mode = select i1 %write, i64 2, i64 1
   %result = call i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i64 %mode)
   ret i1 %result
+}
+define internal i1 @ube.file.open(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write) {
+entry:
+  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %token.out)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %length.out)
+  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  %aliases.2 = or i1 %aliases.1, %alias.2
+  br i1 %aliases.2, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)
+  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path
+  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3
+  %accepted = call i1 @ube.file.open.pinned(ptr %ctx, ptr %descriptor.path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i1 %write)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.path)
+  ret i1 %accepted
 }
 define internal i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 %maximum, ptr %token.out, ptr %length.out, ptr %failure, i64 %mode) {
 entry:
@@ -525,9 +864,9 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 outputs:
-  store i64 0, ptr %length.out
-  store i64 0, ptr %failure
-  %old.token = load i64, ptr %token.out
+  store atomic i64 0, ptr %length.out monotonic, align 8
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %old.token = load atomic i64, ptr %token.out monotonic, align 8
   %owned = icmp ne i64 %old.token, 0
   %negative = icmp slt i64 %maximum, 0
   %bad.request = or i1 %owned, %negative
@@ -536,9 +875,9 @@ request.fail:
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
 path.size:
-  %lower = load i64, ptr %path
+  %lower = load atomic i64, ptr %path monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %path, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %empty = icmp sle i64 %length, 0
@@ -552,7 +891,7 @@ path.data:
 scan:
   %index = phi i64 [ 0, %path.data ], [ %next, %advance ]
   %cell = getelementptr i64, ptr %data, i64 %index
-  %byte = load i64, ptr %cell
+  %byte = load atomic i64, ptr %cell monotonic, align 8
   %zero = icmp eq i64 %byte, 0
   br i1 %zero, label %path.fail, label %advance
 advance:
@@ -589,7 +928,7 @@ pack.start:
 pack:
   %pack.index = phi i64 [ 0, %pack.start ], [ %pack.next, %pack ]
   %pack.source = getelementptr i64, ptr %data, i64 %pack.index
-  %pack.value = load i64, ptr %pack.source
+  %pack.value = load atomic i64, ptr %pack.source monotonic, align 8
   %pack.byte = trunc i64 %pack.value to i8
   %pack.target = getelementptr i8, ptr %packed, i64 %pack.index
   store volatile i8 %pack.byte, ptr %pack.target
@@ -630,7 +969,7 @@ admit:
   %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
   store ptr %handle, ptr %handle.ptr
   %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  store i64 %mode, ptr %mode.ptr
+  store atomic i64 %mode, ptr %mode.ptr monotonic, align 8
   %kind = call i32 @ube.target.file.type(ptr %handle)
   %regular = icmp eq i32 %kind, 1
   br i1 %regular, label %mode.check, label %query.fail
@@ -642,11 +981,11 @@ directory.check:
 file.check:
   br i1 %write, label %success.create, label %query
 query:
-  store i64 0, ptr %size.out
+  store atomic i64 0, ptr %size.out monotonic, align 8
   %queried = call i1 @ube.target.file.size(ptr %handle, ptr %size.out)
   br i1 %queried, label %size.check, label %query.fail
 size.check:
-  %size = load i64, ptr %size.out
+  %size = load atomic i64, ptr %size.out monotonic, align 8
   %size.negative = icmp slt i64 %size, 0
   br i1 %size.negative, label %query.fail, label %size.limit
 size.limit:
@@ -667,7 +1006,7 @@ rejected:
   ret i1 false
 retained:
   store atomic i64 %token, ptr %slot release, align 8
-  store i64 %token, ptr %token.out
+  store atomic i64 %token, ptr %token.out monotonic, align 8
   call void @ube.resource.unlock(ptr %slot)
   %close.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 7, i64 57)
   ret i1 false
@@ -678,12 +1017,12 @@ success.read:
 success:
   %result.length = phi i64 [ 0, %success.create ], [ %size, %success.read ]
   store atomic i64 %token, ptr %slot release, align 8
-  store i64 %token, ptr %token.out
-  store i64 %result.length, ptr %length.out
+  store atomic i64 %token, ptr %token.out monotonic, align 8
+  store atomic i64 %result.length, ptr %length.out monotonic, align 8
   call void @ube.resource.unlock(ptr %slot)
   ret i1 true
 }
-define internal i1 @ube.file.transfer(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {
+define internal i1 @ube.file.transfer.pinned(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {
 entry:
   %native.progress = alloca i32, align 4
   %alias = icmp eq ptr %progress, %failure
@@ -700,11 +1039,11 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 outputs:
-  store i64 0, ptr %progress
-  store i64 0, ptr %failure
-  %lower = load i64, ptr %array
+  store atomic i64 0, ptr %progress monotonic, align 8
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %start.negative = icmp slt i64 %start, 0
@@ -728,7 +1067,7 @@ lookup:
   br i1 %missing, label %failed, label %mode
 mode:
   %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %actual.mode = load i64, ptr %mode.ptr
+  %actual.mode = load atomic i64, ptr %mode.ptr monotonic, align 8
   %wanted.mode = select i1 %write, i64 2, i64 1
   %right.mode = icmp eq i64 %actual.mode, %wanted.mode
   br i1 %right.mode, label %check.empty, label %mode.fail
@@ -760,7 +1099,7 @@ prepare:
 pack:
   %index = phi i64 [ 0, %prepare ], [ %next, %pack ]
   %source = getelementptr i64, ptr %payload, i64 %index
-  %value = load i64, ptr %source
+  %value = load atomic i64, ptr %source monotonic, align 8
   %byte = trunc i64 %value to i8
   %target = getelementptr i8, ptr %scratch, i64 %index
   store volatile i8 %byte, ptr %target
@@ -782,7 +1121,7 @@ observed:
 publish.mode:
   br i1 %write, label %write.progress, label %read.status
 write.progress:
-  store i64 %done, ptr %progress
+  store atomic i64 %done, ptr %progress monotonic, align 8
   br i1 %ok, label %success, label %io.fail
 read.status:
   br i1 %ok, label %read.progress, label %io.fail
@@ -795,25 +1134,43 @@ unpack:
   %read.byte = load i8, ptr %read.source
   %read.value = zext i8 %read.byte to i64
   %read.target = getelementptr i64, ptr %payload, i64 %read.index
-  store volatile i64 %read.value, ptr %read.target
+  store atomic volatile i64 %read.value, ptr %read.target monotonic, align 8
   %read.next = add i64 %read.index, 1
   %read.more = icmp ult i64 %read.next, %done
   br i1 %read.more, label %unpack, label %read.complete
 read.complete:
-  store i64 %done, ptr %progress
+  store atomic i64 %done, ptr %progress monotonic, align 8
   br label %success
 success:
-  call void @ube.block.drop(ptr %owner)
+  call void @ube.block.drop(ptr %ctx, ptr %owner)
   call void @ube.resource.unlock(ptr %slot)
   ret i1 true
 io.fail:
-  call void @ube.block.drop(ptr %owner)
+  call void @ube.block.drop(ptr %ctx, ptr %owner)
   call void @ube.resource.unlock(ptr %slot)
   %code = select i1 %write, i64 15, i64 5
   %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 %code, i64 57)
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.file.transfer(ptr %ctx, i64 %token, ptr %array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write) {
+entry:
+  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %progress)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array
+  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3
+  %accepted = call i1 @ube.file.transfer.pinned(ptr %ctx, i64 %token, ptr %descriptor.array, i64 %start, i64 %count, ptr %progress, ptr %failure, i1 %write)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.array)
+  ret i1 %accepted
 }
 define internal i1 @ube.file.close(ptr %ctx, ptr %token.out, ptr %failure) {
 entry:
@@ -827,8 +1184,8 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 outputs:
-  store i64 0, ptr %failure
-  %token = load i64, ptr %token.out
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %token = load atomic i64, ptr %token.out monotonic, align 8
   %empty = icmp eq i64 %token, 0
   br i1 %empty, label %success, label %lookup
 lookup:
@@ -837,7 +1194,7 @@ lookup:
   br i1 %missing, label %failed, label %kind
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %kind.value = load i64, ptr %kind.ptr
+  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8
   %kind.low = icmp sge i64 %kind.value, 1
   %kind.high = icmp sle i64 %kind.value, 3
   %file.kind = and i1 %kind.low, %kind.high
@@ -853,7 +1210,7 @@ close:
   br i1 %closed, label %released, label %close.fail
 released:
   call void @ube.resource.forget(ptr %ctx, ptr %slot)
-  store i64 0, ptr %token.out
+  store atomic i64 0, ptr %token.out monotonic, align 8
   br label %success
 close.fail:
   call void @ube.resource.unlock(ptr %slot)
@@ -872,13 +1229,13 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 lookup:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   %slot = call ptr @ube.resource.acquire(ptr %ctx, i64 %token, ptr %failure)
   %missing = icmp eq ptr %slot, null
   br i1 %missing, label %failed, label %mode
 mode:
   %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %actual.mode = load i64, ptr %mode.ptr
+  %actual.mode = load atomic i64, ptr %mode.ptr monotonic, align 8
   %writable = icmp eq i64 %actual.mode, 2
   br i1 %writable, label %flush, label %mode.fail
 mode.fail:
@@ -933,10 +1290,10 @@ failed:
   %status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 done:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   ret i1 true
 }
-define internal i1 @ube.system.commandline(ptr %ctx, ptr %array, ptr %count, ptr %failure) {
+define internal i1 @ube.system.commandline.pinned(ptr %ctx, ptr %array, ptr %count, ptr %failure) {
 entry:
   %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %array, ptr %count, ptr %failure)
   br i1 %outputs, label %acquire, label %failed
@@ -958,15 +1315,15 @@ length:
   %empty = icmp eq i64 %index, 0
   br i1 %empty, label %empty.success, label %measure
 empty.success:
-  store i64 0, ptr %count
+  store atomic i64 0, ptr %count monotonic, align 8
   ret i1 true
 measure:
   %units = trunc i64 %index to i32
   %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)
   %size = sext i32 %size32 to i64
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %capacity = add i64 %distance, 1
   %invalid = icmp sle i64 %size, 0
@@ -994,16 +1351,16 @@ copy:
   %byte = load i8, ptr %source
   %value = zext i8 %byte to i64
   %destination = getelementptr i64, ptr %data, i64 %position
-  store volatile i64 %value, ptr %destination
+  store atomic volatile i64 %value, ptr %destination monotonic, align 8
   %after = add i64 %position, 1
   %more = icmp ult i64 %after, %size
   br i1 %more, label %copy, label %success
 success:
-  call void @ube.block.drop(ptr %block)
-  store i64 %size, ptr %count
+  call void @ube.block.drop(ptr %ctx, ptr %block)
+  store atomic i64 %size, ptr %count monotonic, align 8
   ret i1 true
 conversion.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   br label %io.fail
 request.fail:
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
@@ -1017,19 +1374,37 @@ io.fail:
 failed:
   ret i1 false
 }
-define internal i1 @ube.system.write(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {
+define internal i1 @ube.system.commandline(ptr %ctx, ptr %array, ptr %count, ptr %failure) {
+entry:
+  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %count)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array
+  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3
+  %accepted = call i1 @ube.system.commandline.pinned(ptr %ctx, ptr %descriptor.array, ptr %count, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.array)
+  ret i1 %accepted
+}
+define internal i1 @ube.system.write.pinned(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {
 entry:
   %progress = alloca i32, align 4
   %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %array, ptr %written, ptr %failure)
   br i1 %outputs, label %validate, label %failed
 validate:
-  store i64 0, ptr %written
+  store atomic i64 0, ptr %written monotonic, align 8
   %stdout = icmp eq i64 %stream, 1
   %stderr = icmp eq i64 %stream, 2
   %stream.ok = or i1 %stdout, %stderr
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %start.bad = icmp ult i64 %length, %start
@@ -1067,7 +1442,7 @@ prepare:
 pack:
   %index = phi i64 [ 0, %prepare ], [ %next, %pack ]
   %source = getelementptr i64, ptr %source.base, i64 %index
-  %value = load i64, ptr %source
+  %value = load atomic i64, ptr %source monotonic, align 8
   %byte = trunc i64 %value to i8
   %destination = getelementptr i8, ptr %scratch, i64 %index
   store volatile i8 %byte, ptr %destination
@@ -1080,11 +1455,11 @@ write:
   %accepted = call i1 @ube.target.file.write(ptr %native.handle, ptr %scratch, i32 %count32, ptr %progress)
   %done32 = load i32, ptr %progress
   %done = zext i32 %done32 to i64
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %bad.progress = icmp ugt i64 %done, %count
   br i1 %bad.progress, label %io.fail, label %publish
 publish:
-  store i64 %done, ptr %written
+  store atomic i64 %done, ptr %written monotonic, align 8
   br i1 %accepted, label %success, label %io.fail
 success:
   ret i1 true
@@ -1099,6 +1474,24 @@ io.fail:
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.system.write(ptr %ctx, i64 %stream, ptr %array, i64 %start, i64 %count, ptr %written, ptr %failure) {
+entry:
+  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %written)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array
+  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3
+  %accepted = call i1 @ube.system.write.pinned(ptr %ctx, i64 %stream, ptr %descriptor.array, i64 %start, i64 %count, ptr %written, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.array)
+  ret i1 %accepted
 }
 declare dllimport i32 @GetFullPathNameW(ptr, i32, ptr, ptr)
 declare dllimport i32 @GetFinalPathNameByHandleW(ptr, ptr, i32, i32)
@@ -1138,14 +1531,14 @@ failed:
   %status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 done:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   ret i1 true
 }
 define internal i32 @ube.path.decode(ptr %array, ptr %packed, ptr %wide) {
 entry:
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %large = icmp ugt i64 %length, 4096
@@ -1163,7 +1556,7 @@ prepare:
 pack:
   %index = phi i64 [ 0, %prepare ], [ %next, %copy ]
   %source = getelementptr i64, ptr %data, i64 %index
-  %value = load i64, ptr %source
+  %value = load atomic i64, ptr %source monotonic, align 8
   %zero = icmp eq i64 %value, 0
   br i1 %zero, label %failed, label %copy
 copy:
@@ -1190,9 +1583,9 @@ define internal i1 @ube.path.publish(ptr %ctx, ptr %wide, i32 %units, ptr %array
 entry:
   %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)
   %size = sext i32 %size32 to i64
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %capacity = add i64 %distance, 1
   %invalid = icmp sle i64 %size, 0
@@ -1215,12 +1608,12 @@ copy:
   %byte = load i8, ptr %source
   %value = zext i8 %byte to i64
   %destination = getelementptr i64, ptr %data, i64 %position
-  store volatile i64 %value, ptr %destination
+  store atomic volatile i64 %value, ptr %destination monotonic, align 8
   %after = add i64 %position, 1
   %more = icmp ult i64 %after, %size
   br i1 %more, label %copy, label %done
 done:
-  store i64 %size, ptr %count
+  store atomic i64 %size, ptr %count monotonic, align 8
   ret i1 true
 request.fail:
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
@@ -1229,9 +1622,9 @@ io.fail:
   %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)
   ret i1 false
 }
-define internal void @ube.path.finish(ptr %block, ptr %slot) {
+define internal void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot) {
 entry:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %owned = icmp ne ptr %slot, null
   br i1 %owned, label %unlock, label %done
 unlock:
@@ -1240,7 +1633,7 @@ unlock:
 done:
   ret void
 }
-define internal i1 @ube.path.resolve(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {
+define internal i1 @ube.path.resolve.pinned(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {
 entry:
   %first = select i1 %final, ptr %output, ptr %input
   %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %first, ptr %output, ptr %count, ptr %failure)
@@ -1253,7 +1646,7 @@ acquire:
   br i1 %missing, label %failed, label %kind
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %acquired, i32 0, i32 3
-  %kind.value = load i64, ptr %kind.ptr
+  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8
   %kind.low = icmp sge i64 %kind.value, 1
   %kind.high = icmp sle i64 %kind.value, 3
   %file.kind = and i1 %kind.low, %kind.high
@@ -1294,24 +1687,53 @@ bound:
   br i1 %excessive, label %request.fail, label %publish
 publish:
   %result = call i1 @ube.path.publish(ptr %ctx, ptr %wide.output, i32 %units, ptr %output, ptr %count, ptr %failure, ptr %packed.output)
-  call void @ube.path.finish(ptr %block, ptr %slot)
+  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)
   ret i1 %result
 memory.fail:
-  call void @ube.path.finish(ptr %block, ptr %slot)
+  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 request.fail:
-  call void @ube.path.finish(ptr %block, ptr %slot)
+  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
 io.fail:
-  call void @ube.path.finish(ptr %block, ptr %slot)
+  call void @ube.path.finish(ptr %ctx, ptr %block, ptr %slot)
   %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)
   ret i1 false
 failed:
   ret i1 false
 }
-define internal i1 @ube.path.compare(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {
+define internal i1 @ube.path.resolve(ptr %ctx, ptr %input, i64 %token, ptr %output, ptr %count, ptr %failure, i1 %final) {
+entry:
+  %descriptor.input = alloca { i64, i64, ptr, ptr }, align 8
+  %descriptor.output = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %input, ptr %count)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %input, ptr %failure)
+  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %count)
+  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  %aliases.2 = or i1 %aliases.1, %alias.2
+  %aliases.3 = or i1 %aliases.2, %alias.3
+  br i1 %aliases.3, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.input = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %input)
+  store { i64, i64, ptr, ptr } %snapshot.input, ptr %descriptor.input
+  %pin.input = extractvalue { i64, i64, ptr, ptr } %snapshot.input, 3
+  %snapshot.output = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %output)
+  store { i64, i64, ptr, ptr } %snapshot.output, ptr %descriptor.output
+  %pin.output = extractvalue { i64, i64, ptr, ptr } %snapshot.output, 3
+  %same.output.input = icmp eq ptr %output, %input
+  %selected.output.input = select i1 %same.output.input, ptr %descriptor.input, ptr %descriptor.output
+  %accepted = call i1 @ube.path.resolve.pinned(ptr %ctx, ptr %descriptor.input, i64 %token, ptr %selected.output.input, ptr %count, ptr %failure, i1 %final)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.input)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.output)
+  ret i1 %accepted
+}
+define internal i1 @ube.path.compare.pinned(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {
 entry:
   %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure)
   br i1 %outputs, label %allocate, label %failed
@@ -1353,22 +1775,51 @@ normalize:
   br label %publish
 publish:
   %result = phi i64 [ %empty.value, %empty ], [ %value, %normalize ]
-  store i64 %result, ptr %ordering
-  call void @ube.block.drop(ptr %block)
+  store atomic i64 %result, ptr %ordering monotonic, align 8
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   ret i1 true
 memory.fail:
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 request.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
 io.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.path.compare(ptr %ctx, ptr %first, ptr %second, ptr %ordering, ptr %failure) {
+entry:
+  %descriptor.first = alloca { i64, i64, ptr, ptr }, align 8
+  %descriptor.second = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %ordering)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %failure)
+  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %ordering)
+  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  %aliases.2 = or i1 %aliases.1, %alias.2
+  %aliases.3 = or i1 %aliases.2, %alias.3
+  br i1 %aliases.3, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.first = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %first)
+  store { i64, i64, ptr, ptr } %snapshot.first, ptr %descriptor.first
+  %pin.first = extractvalue { i64, i64, ptr, ptr } %snapshot.first, 3
+  %snapshot.second = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %second)
+  store { i64, i64, ptr, ptr } %snapshot.second, ptr %descriptor.second
+  %pin.second = extractvalue { i64, i64, ptr, ptr } %snapshot.second, 3
+  %same.second.first = icmp eq ptr %second, %first
+  %selected.second.first = select i1 %same.second.first, ptr %descriptor.first, ptr %descriptor.second
+  %accepted = call i1 @ube.path.compare.pinned(ptr %ctx, ptr %descriptor.first, ptr %selected.second.first, ptr %ordering, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.first)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.second)
+  ret i1 %accepted
 }
 declare dllimport i32 @GetFileInformationByHandle(ptr, ptr)
 define ptr @ube.target.directory.open(ptr %path) {
@@ -1395,13 +1846,31 @@ inspect:
 failed:
   ret i1 false
 }
-define internal i1 @ube.directory.open(ptr %ctx, ptr %path, ptr %token, ptr %failure) {
+define internal i1 @ube.directory.open.pinned(ptr %ctx, ptr %path, ptr %token, ptr %failure) {
 entry:
   %length = alloca i64, align 8
   %result = call i1 @ube.file.open.mode(ptr %ctx, ptr %path, i64 0, ptr %token, ptr %length, ptr %failure, i64 3)
   ret i1 %result
 }
-define internal i1 @ube.file.identity(ptr %ctx, i64 %token, ptr %array, ptr %failure) {
+define internal i1 @ube.directory.open(ptr %ctx, ptr %path, ptr %token, ptr %failure) {
+entry:
+  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %token)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)
+  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path
+  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3
+  %accepted = call i1 @ube.directory.open.pinned(ptr %ctx, ptr %descriptor.path, ptr %token, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.path)
+  ret i1 %accepted
+}
+define internal i1 @ube.file.identity.pinned(ptr %ctx, i64 %token, ptr %array, ptr %failure) {
 entry:
   %information = alloca [52 x i8], align 4
   %null = icmp eq ptr %failure, null
@@ -1412,10 +1881,10 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 capacity:
-  store i64 0, ptr %failure
-  %lower = load i64, ptr %array
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %short = icmp slt i64 %length, 12
@@ -1429,7 +1898,7 @@ acquire:
   br i1 %missing, label %failed, label %kind
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %kind.value = load i64, ptr %kind.ptr
+  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8
   %kind.low = icmp sge i64 %kind.value, 1
   %kind.high = icmp sle i64 %kind.value, 3
   %right.kind = and i1 %kind.low, %kind.high
@@ -1456,7 +1925,7 @@ copy:
   %byte = load i8, ptr %source
   %value = zext i8 %byte to i64
   %destination = getelementptr i64, ptr %data, i64 %index
-  store volatile i64 %value, ptr %destination
+  store atomic volatile i64 %value, ptr %destination monotonic, align 8
   %next = add i64 %index, 1
   %more = icmp ult i64 %next, 12
   br i1 %more, label %copy, label %done
@@ -1469,6 +1938,22 @@ io.fail:
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.file.identity(ptr %ctx, i64 %token, ptr %array, ptr %failure) {
+entry:
+  %descriptor.array = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %array, ptr %failure)
+  br i1 %alias.0, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.array = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %array)
+  store { i64, i64, ptr, ptr } %snapshot.array, ptr %descriptor.array
+  %pin.array = extractvalue { i64, i64, ptr, ptr } %snapshot.array, 3
+  %accepted = call i1 @ube.file.identity.pinned(ptr %ctx, i64 %token, ptr %descriptor.array, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.array)
+  ret i1 %accepted
 }
 define internal i1 @ube.file.length(ptr %ctx, i64 %token, ptr %length, ptr %failure) {
 entry:
@@ -1483,13 +1968,13 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 acquire:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   %slot = call ptr @ube.resource.acquire(ptr %ctx, i64 %token, ptr %failure)
   %missing = icmp eq ptr %slot, null
   br i1 %missing, label %failed, label %kind
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %kind.value = load i64, ptr %kind.ptr
+  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8
   %kind.low = icmp sge i64 %kind.value, 1
   %kind.high = icmp sle i64 %kind.value, 2
   %right.kind = and i1 %kind.low, %kind.high
@@ -1501,15 +1986,15 @@ kind.fail:
 query:
   %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
   %handle = load ptr, ptr %handle.ptr
-  store i64 0, ptr %size
+  store atomic i64 0, ptr %size monotonic, align 8
   %accepted = call i1 @ube.target.file.size(ptr %handle, ptr %size)
   br i1 %accepted, label %range, label %io.fail
 range:
-  %value = load i64, ptr %size
+  %value = load atomic i64, ptr %size monotonic, align 8
   %invalid = icmp ugt i64 %value, 2147483647
   br i1 %invalid, label %range.fail, label %done
 done:
-  store i64 %value, ptr %length
+  store atomic i64 %value, ptr %length monotonic, align 8
   call void @ube.resource.unlock(ptr %slot)
   ret i1 true
 range.fail:
@@ -1535,7 +2020,7 @@ entry:
   %value = call i64 @GetTickCount64()
   ret i64 %value
 }
-define internal i1 @ube.system.executable(ptr %ctx, ptr %output, ptr %count, ptr %failure) {
+define internal i1 @ube.system.executable.pinned(ptr %ctx, ptr %output, ptr %count, ptr %failure) {
 entry:
   %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %output, ptr %count, ptr %failure)
   br i1 %outputs, label %allocate, label %failed
@@ -1555,21 +2040,39 @@ range:
   br i1 %large, label %request.fail, label %publish
 publish:
   %result = call i1 @ube.path.publish(ptr %ctx, ptr %wide, i32 %units, ptr %output, ptr %count, ptr %failure, ptr %packed)
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   ret i1 %result
 memory.fail:
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 io.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %io.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 5, i64 57)
   ret i1 false
 request.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.system.executable(ptr %ctx, ptr %output, ptr %count, ptr %failure) {
+entry:
+  %descriptor.output = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %count)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %output, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.output = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %output)
+  store { i64, i64, ptr, ptr } %snapshot.output, ptr %descriptor.output
+  %pin.output = extractvalue { i64, i64, ptr, ptr } %snapshot.output, 3
+  %accepted = call i1 @ube.system.executable.pinned(ptr %ctx, ptr %descriptor.output, ptr %count, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.output)
+  ret i1 %accepted
 }
 define internal i1 @ube.system.clock(ptr %ctx, ptr %value, ptr %failure) {
 entry:
@@ -1584,8 +2087,8 @@ alias.fail:
   ret i1 false
 query:
   %ticks = call i64 @ube.target.system.clock()
-  store i64 %ticks, ptr %value
-  store i64 0, ptr %failure
+  store atomic i64 %ticks, ptr %value monotonic, align 8
+  store atomic i64 0, ptr %failure monotonic, align 8
   ret i1 true
 }
 declare dllimport i32 @GetLastError()
@@ -1644,7 +2147,7 @@ failed:
   %negative = sub i64 0, %error
   ret i64 %negative
 }
-define internal i1 @ube.path.mutate(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {
+define internal i1 @ube.path.mutate.pinned(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {
 entry:
   %replace = icmp eq i64 %operation, 4
   %other = select i1 %replace, ptr %second, ptr %first
@@ -1658,7 +2161,7 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 allocate:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   %block = call ptr @ube.memory.new(ptr %ctx, i64 4608, i64 1)
   %missing = icmp eq ptr %block, null
   br i1 %missing, label %memory.fail, label %prepare
@@ -1696,7 +2199,7 @@ delete.file:
   br label %result
 result:
   %error = phi i64 [ %move.error, %move ], [ %create.error, %create.directory ], [ %remove.error, %remove.directory ], [ %delete.error, %delete.file ]
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %success = icmp eq i64 %error, 0
   br i1 %success, label %done, label %classify
 classify:
@@ -1720,9 +2223,34 @@ memory.fail:
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 request.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
+}
+define internal i1 @ube.path.mutate(ptr %ctx, ptr %first, ptr %second, ptr %failure, i64 %operation) {
+entry:
+  %descriptor.first = alloca { i64, i64, ptr, ptr }, align 8
+  %descriptor.second = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %first, ptr %failure)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %second, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.first = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %first)
+  store { i64, i64, ptr, ptr } %snapshot.first, ptr %descriptor.first
+  %pin.first = extractvalue { i64, i64, ptr, ptr } %snapshot.first, 3
+  %snapshot.second = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %second)
+  store { i64, i64, ptr, ptr } %snapshot.second, ptr %descriptor.second
+  %pin.second = extractvalue { i64, i64, ptr, ptr } %snapshot.second, 3
+  %same.second.first = icmp eq ptr %second, %first
+  %selected.second.first = select i1 %same.second.first, ptr %descriptor.first, ptr %descriptor.second
+  %accepted = call i1 @ube.path.mutate.pinned(ptr %ctx, ptr %descriptor.first, ptr %selected.second.first, ptr %failure, i64 %operation)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.first)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.second)
+  ret i1 %accepted
 }
 define internal i1 @ube.directory.create(ptr %ctx, ptr %path, ptr %failure) {
 entry:
@@ -1744,7 +2272,7 @@ entry:
   %result = call i1 @ube.path.mutate(ptr %ctx, ptr %source, ptr %destination, ptr %failure, i64 4)
   ret i1 %result
 }
-define internal i1 @ube.path.kind(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {
+define internal i1 @ube.path.kind.pinned(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {
 entry:
   %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %path, ptr %kind, ptr %failure)
   br i1 %outputs, label %allocate, label %failed
@@ -1760,7 +2288,7 @@ prepare:
   br i1 %valid, label %query, label %request.fail
 query:
   %attributes = call i64 @ube.target.path.attributes(ptr %wide)
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %negative = icmp slt i64 %attributes, 0
   br i1 %negative, label %classify, label %present
 classify:
@@ -1769,19 +2297,19 @@ classify:
   %absent = or i1 %file.missing, %path.missing
   br i1 %absent, label %missing.path, label %io.fail
 missing.path:
-  store i64 0, ptr %kind
+  store atomic i64 0, ptr %kind monotonic, align 8
   ret i1 true
 present:
   %directory.bit = and i64 %attributes, 16
   %directory = icmp ne i64 %directory.bit, 0
   %value = select i1 %directory, i64 2, i64 1
-  store i64 %value, ptr %kind
+  store atomic i64 %value, ptr %kind monotonic, align 8
   ret i1 true
 memory.fail:
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 request.fail:
-  call void @ube.block.drop(ptr %block)
+  call void @ube.block.drop(ptr %ctx, ptr %block)
   %request.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
   ret i1 false
 io.fail:
@@ -1789,6 +2317,24 @@ io.fail:
   ret i1 false
 failed:
   ret i1 false
+}
+define internal i1 @ube.path.kind(ptr %ctx, ptr %path, ptr %kind, ptr %failure) {
+entry:
+  %descriptor.path = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %kind)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %path, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  br i1 %aliases.1, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.path = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %path)
+  store { i64, i64, ptr, ptr } %snapshot.path, ptr %descriptor.path
+  %pin.path = extractvalue { i64, i64, ptr, ptr } %snapshot.path, 3
+  %accepted = call i1 @ube.path.kind.pinned(ptr %ctx, ptr %descriptor.path, ptr %kind, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.path)
+  ret i1 %accepted
 }
 %ube.process = type { ptr, ptr, ptr, ptr, ptr, i64, i64, i64, i64 }
 @ube.process.nullname = private constant [4 x i16] [i16 78, i16 85, i16 76, i16 0]
@@ -1932,7 +2478,7 @@ entry:
   br i1 %missing, label %failed, label %kind
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
-  %actual = load i64, ptr %kind.ptr
+  %actual = load atomic i64, ptr %kind.ptr monotonic, align 8
   %correct = icmp eq i64 %actual, 4
   br i1 %correct, label %done, label %wrong
 wrong:
@@ -1953,9 +2499,9 @@ entry:
 }
 define internal i32 @ube.process.command(ptr %array, ptr %packed, ptr %wide) {
 entry:
-  %lower = load i64, ptr %array
+  %lower = load atomic i64, ptr %array monotonic, align 8
   %upper.ptr = getelementptr i64, ptr %array, i64 1
-  %upper = load i64, ptr %upper.ptr
+  %upper = load atomic i64, ptr %upper.ptr monotonic, align 8
   %distance = sub i64 %upper, %lower
   %length = add i64 %distance, 1
   %empty = icmp eq i64 %length, 0
@@ -1969,7 +2515,7 @@ prepare:
 copy:
   %index = phi i64 [0, %prepare], [%next, %more]
   %source = getelementptr i64, ptr %data, i64 %index
-  %value = load i64, ptr %source
+  %value = load atomic i64, ptr %source monotonic, align 8
   %nul = icmp eq i64 %value, 0
   br i1 %nul, label %failed, label %pack
 pack:
@@ -1998,7 +2544,7 @@ define internal i64 @ube.process.active(ptr %state) {
 entry:
   %information = alloca [48 x i8], align 8
   %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8
-  %attached = load i64, ptr %attached.ptr
+  %attached = load atomic i64, ptr %attached.ptr monotonic, align 8
   %contained = icmp ne i64 %attached, 0
   br i1 %contained, label %query, label %unattached
 query:
@@ -2015,7 +2561,7 @@ unattached:
   %process = load ptr, ptr %process.ptr
   %exists = icmp ne ptr %process, null
   %exited.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 6
-  %exited = load i64, ptr %exited.ptr
+  %exited = load atomic i64, ptr %exited.ptr monotonic, align 8
   %live = icmp eq i64 %exited, 0
   %running = and i1 %exists, %live
   %result = zext i1 %running to i64
@@ -2028,7 +2574,7 @@ entry:
   %native.exit = alloca i32, align 4
   %exit.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 5
   %exited.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 6
-  %exited = load i64, ptr %exited.ptr
+  %exited = load atomic i64, ptr %exited.ptr monotonic, align 8
   %cached = icmp ne i64 %exited, 0
   br i1 %cached, label %query, label %process
 process:
@@ -2037,8 +2583,8 @@ process:
   %missing = icmp eq ptr %handle, null
   br i1 %missing, label %not.created, label %wait
 not.created:
-  store i64 1, ptr %exit.ptr
-  store i64 1, ptr %exited.ptr
+  store atomic i64 1, ptr %exit.ptr monotonic, align 8
+  store atomic i64 1, ptr %exited.ptr monotonic, align 8
   br label %query
 wait:
   %result = call i32 @ube.target.process.wait(ptr %handle, i32 %milliseconds)
@@ -2053,8 +2599,8 @@ read.exit:
 cache:
   %code32 = load i32, ptr %native.exit
   %code = sext i32 %code32 to i64
-  store i64 %code, ptr %exit.ptr
-  store i64 1, ptr %exited.ptr
+  store atomic i64 %code, ptr %exit.ptr monotonic, align 8
+  store atomic i64 1, ptr %exited.ptr monotonic, align 8
   br label %query
 query:
   %active = call i64 @ube.process.active(ptr %state)
@@ -2073,7 +2619,7 @@ sleep:
   br i1 %bad.after, label %failed, label %finish
 finish:
   %current = phi i64 [%active, %pause.check], [%after, %sleep]
-  %root.state = load i64, ptr %exited.ptr
+  %root.state = load atomic i64, ptr %exited.ptr monotonic, align 8
   %root.done = icmp ne i64 %root.state, 0
   %empty = icmp eq i64 %current, 0
   %complete = and i1 %root.done, %empty
@@ -2082,7 +2628,7 @@ finish:
 failed:
   ret i32 -1
 }
-define internal i1 @ube.process.start(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {
+define internal i1 @ube.process.start.pinned(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {
 entry:
   %attribute.size = alloca i64, align 8
   %attribute.live = alloca i1, align 1
@@ -2110,8 +2656,8 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 validate:
-  store i64 0, ptr %failure
-  %old = load i64, ptr %token.out
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %old = load atomic i64, ptr %token.out monotonic, align 8
   %available = icmp eq i64 %old, 0
   br i1 %available, label %reserve, label %request.fail
 reserve:
@@ -2157,9 +2703,9 @@ publish:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
   %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
   store ptr null, ptr %handle.ptr
-  store i64 4, ptr %kind.ptr
+  store atomic i64 4, ptr %kind.ptr monotonic, align 8
   store atomic i64 %token, ptr %slot release, align 8
-  store i64 %token, ptr %token.out
+  store atomic i64 %token, ptr %token.out monotonic, align 8
   %process.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 1
   %thread.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 2
   %input.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 3
@@ -2189,7 +2735,7 @@ input.owned:
   br i1 %no.log, label %retain.failure, label %log.kind
 log.kind:
   %log.kind.ptr = getelementptr %ube.resource, ptr %log.slot, i32 0, i32 3
-  %log.mode = load i64, ptr %log.kind.ptr
+  %log.mode = load atomic i64, ptr %log.kind.ptr monotonic, align 8
   %writable = icmp eq i64 %log.mode, 2
   br i1 %writable, label %duplicate, label %wrong.log
 wrong.log:
@@ -2203,9 +2749,9 @@ duplicate:
   call void @ube.resource.unlock(ptr %log.slot)
   br i1 %duplicated, label %attribute.measure, label %io.fail
 attribute.measure:
-  store i64 0, ptr %attribute.size
+  store atomic i64 0, ptr %attribute.size monotonic, align 8
   %measurement = call i1 @ube.target.process.attributes(ptr null, ptr %attribute.size)
-  %size = load i64, ptr %attribute.size
+  %size = load atomic i64, ptr %attribute.size monotonic, align 8
   %positive = icmp ugt i64 %size, 0
   %bounded = icmp ule i64 %size, 4096
   %valid.size = and i1 %positive, %bounded
@@ -2248,11 +2794,11 @@ created.owned:
   %assigned = call i1 @ube.target.process.assign(ptr %job, ptr %native.process)
   br i1 %assigned, label %contained, label %io.fail
 contained:
-  store i64 1, ptr %attached.ptr
+  store atomic i64 1, ptr %attached.ptr monotonic, align 8
   %resumed = call i1 @ube.target.process.resume(ptr %native.thread)
   br i1 %resumed, label %started, label %io.fail
 started:
-  store i64 1, ptr %started.ptr
+  store atomic i64 1, ptr %started.ptr monotonic, align 8
   call void @ube.target.process.deleteattributes(ptr %attributes)
   store i1 false, ptr %attribute.live
   call void @ube.resource.unlock(ptr %slot)
@@ -2282,6 +2828,48 @@ memory.fail:
   %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 7)
   ret i1 false
 }
+define internal i1 @ube.process.start(ptr %ctx, ptr %app, ptr %command, ptr %directory, i64 %log.token, ptr %token.out, ptr %failure) {
+entry:
+  %descriptor.app = alloca { i64, i64, ptr, ptr }, align 8
+  %descriptor.command = alloca { i64, i64, ptr, ptr }, align 8
+  %descriptor.directory = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.0 = call i1 @ube.array.descriptor.overlaps(ptr %app, ptr %token.out)
+  %alias.1 = call i1 @ube.array.descriptor.overlaps(ptr %app, ptr %failure)
+  %alias.2 = call i1 @ube.array.descriptor.overlaps(ptr %command, ptr %token.out)
+  %alias.3 = call i1 @ube.array.descriptor.overlaps(ptr %command, ptr %failure)
+  %alias.4 = call i1 @ube.array.descriptor.overlaps(ptr %directory, ptr %token.out)
+  %alias.5 = call i1 @ube.array.descriptor.overlaps(ptr %directory, ptr %failure)
+  %aliases.1 = or i1 %alias.0, %alias.1
+  %aliases.2 = or i1 %aliases.1, %alias.2
+  %aliases.3 = or i1 %aliases.2, %alias.3
+  %aliases.4 = or i1 %aliases.3, %alias.4
+  %aliases.5 = or i1 %aliases.4, %alias.5
+  br i1 %aliases.5, label %alias.fail, label %pin
+alias.fail:
+  %rejected = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+pin:
+  %snapshot.app = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %app)
+  store { i64, i64, ptr, ptr } %snapshot.app, ptr %descriptor.app
+  %pin.app = extractvalue { i64, i64, ptr, ptr } %snapshot.app, 3
+  %snapshot.command = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %command)
+  store { i64, i64, ptr, ptr } %snapshot.command, ptr %descriptor.command
+  %pin.command = extractvalue { i64, i64, ptr, ptr } %snapshot.command, 3
+  %same.command.app = icmp eq ptr %command, %app
+  %selected.command.app = select i1 %same.command.app, ptr %descriptor.app, ptr %descriptor.command
+  %snapshot.directory = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %directory)
+  store { i64, i64, ptr, ptr } %snapshot.directory, ptr %descriptor.directory
+  %pin.directory = extractvalue { i64, i64, ptr, ptr } %snapshot.directory, 3
+  %same.directory.app = icmp eq ptr %directory, %app
+  %selected.directory.app = select i1 %same.directory.app, ptr %descriptor.app, ptr %descriptor.directory
+  %same.directory.command = icmp eq ptr %directory, %command
+  %selected.directory.command = select i1 %same.directory.command, ptr %selected.command.app, ptr %selected.directory.app
+  %accepted = call i1 @ube.process.start.pinned(ptr %ctx, ptr %descriptor.app, ptr %selected.command.app, ptr %selected.directory.command, i64 %log.token, ptr %token.out, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.app)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.command)
+  call void @ube.block.drop(ptr %ctx, ptr %pin.directory)
+  ret i1 %accepted
+}
 define internal i1 @ube.process.wait(ptr %ctx, i64 %token, i64 %milliseconds, ptr %state.out, ptr %exit.out, ptr %failure) {
 entry:
   %same.a = icmp eq ptr %state.out, %exit.out
@@ -2300,7 +2888,7 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 validate:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   %excessive = icmp ugt i64 %milliseconds, 5000
   br i1 %excessive, label %request.fail, label %lookup
 lookup:
@@ -2315,13 +2903,13 @@ observe:
   br i1 %bad.observation, label %io.fail, label %publish
 publish:
   %value = zext i32 %observation to i64
-  store i64 %value, ptr %state.out
+  store atomic i64 %value, ptr %state.out monotonic, align 8
   %finished = icmp eq i32 %observation, 1
   br i1 %finished, label %publish.exit, label %success
 publish.exit:
   %exit.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 5
-  %code = load i64, ptr %exit.ptr
-  store i64 %code, ptr %exit.out
+  %code = load atomic i64, ptr %exit.ptr monotonic, align 8
+  store atomic i64 %code, ptr %exit.out monotonic, align 8
   br label %success
 success:
   call void @ube.resource.unlock(ptr %slot)
@@ -2344,7 +2932,7 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 lookup:
-  store i64 0, ptr %failure
+  store atomic i64 0, ptr %failure monotonic, align 8
   %slot = call ptr @ube.process.acquire(ptr %ctx, i64 %token, ptr %failure)
   %missing = icmp eq ptr %slot, null
   br i1 %missing, label %failed, label %inspect
@@ -2355,7 +2943,7 @@ inspect:
   br i1 %complete, label %success, label %kind
 kind:
   %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8
-  %attached = load i64, ptr %attached.ptr
+  %attached = load atomic i64, ptr %attached.ptr monotonic, align 8
   %contained = icmp ne i64 %attached, 0
   br i1 %contained, label %job, label %process
 job:
@@ -2392,8 +2980,8 @@ alias.fail:
   %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)
   ret i1 false
 lookup:
-  store i64 0, ptr %failure
-  %token = load i64, ptr %token.out
+  store atomic i64 0, ptr %failure monotonic, align 8
+  %token = load atomic i64, ptr %token.out monotonic, align 8
   %empty = icmp eq i64 %token, 0
   br i1 %empty, label %success, label %acquire
 acquire:
@@ -2426,7 +3014,7 @@ clear:
   br i1 %is.job, label %detach, label %advance
 detach:
   %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8
-  store i64 0, ptr %attached.ptr
+  store atomic i64 0, ptr %attached.ptr monotonic, align 8
   br label %advance
 advance:
   %current = phi i1 [true, %handles], [false, %close], [true, %clear], [true, %detach]
@@ -2438,7 +3026,7 @@ finish:
   br i1 %accepted, label %forget, label %close.fail
 forget:
   call void @ube.resource.forget(ptr %ctx, ptr %slot)
-  store i64 0, ptr %token.out
+  store atomic i64 0, ptr %token.out monotonic, align 8
   br label %success
 busy:
   call void @ube.resource.unlock(ptr %slot)
@@ -2454,6 +3042,637 @@ close.fail:
   ret i1 false
 success:
   ret i1 true
+failed:
+  ret i1 false
+}
+; Native thread mechanics. Generated source entry thunks own typed capture cleanup.
+%ube.worker = type { ptr, i64, ptr, i64, i64, i64, ptr, ptr, %ube.thread, i64, i64, i64 }
+@ube.thread.next = internal global i64 1
+declare dllimport ptr @CreateThread(ptr, i64, ptr, ptr, i32, ptr)
+define ptr @ube.target.thread.start(ptr %procedure, ptr %argument) {
+entry:
+  %handle = call ptr @CreateThread(ptr null, i64 8388608, ptr %procedure, ptr %argument, i32 65536, ptr null)
+  ret ptr %handle
+}
+define i32 @ube.target.thread.wait(ptr %handle, i32 %milliseconds) {
+entry:
+  %result = call i32 @WaitForSingleObject(ptr %handle, i32 %milliseconds)
+  ret i32 %result
+}
+define i1 @ube.target.thread.close(ptr %handle) {
+entry:
+  %status = call i32 @CloseHandle(ptr %handle)
+  %ok = icmp ne i32 %status, 0
+  ret i1 %ok
+}
+define internal { i1, i64 } @ube.thread.failure(ptr %ctx, i64 %number) {
+entry:
+  store i64 %number, ptr %ctx, align 8
+  ret { i1, i64 } zeroinitializer
+}
+define internal { i1, i64 } @ube.thread.value(i64 %value) {
+entry:
+  %pair = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %pair
+}
+define internal void @ube.thread.registry.lock(ptr %program) {
+entry:
+  %lock = getelementptr %ube.program, ptr %program, i32 0, i32 11
+  br label %acquire
+acquire:
+  %attempt = cmpxchg ptr %lock, i64 0, i64 1 acquire monotonic
+  %ok = extractvalue { i64, i1 } %attempt, 1
+  br i1 %ok, label %done, label %yield
+yield:
+  call void @Sleep(i32 0)
+  br label %acquire
+done:
+  ret void
+}
+define internal void @ube.thread.registry.unlock(ptr %program) {
+entry:
+  %lock = getelementptr %ube.program, ptr %program, i32 0, i32 11
+  store atomic i64 0, ptr %lock release, align 8
+  ret void
+}
+define internal i64 @ube.thread.issue() {
+entry:
+  br label %retry
+retry:
+  %old = load atomic i64, ptr @ube.thread.next seq_cst, align 8
+  %exhausted = icmp eq i64 %old, 0
+  br i1 %exhausted, label %failed, label %issue
+issue:
+  %last = icmp eq i64 %old, 9223372036854775807
+  %increment = add i64 %old, 1
+  %next = select i1 %last, i64 0, i64 %increment
+  %pair = cmpxchg ptr @ube.thread.next, i64 %old, i64 %next seq_cst seq_cst
+  %ok = extractvalue { i64, i1 } %pair, 1
+  br i1 %ok, label %done, label %retry
+done:
+  ret i64 %old
+failed:
+  ret i64 0
+}
+define internal ptr @ube.thread.record.new(ptr %ctx) {
+entry:
+  %block = call ptr @ube.memory.new(ptr %ctx, i64 16, i64 1)
+  %ok = icmp ne ptr %block, null
+  br i1 %ok, label %done, label %failed
+done:
+  %data = getelementptr %ube.block, ptr %block, i64 1
+  ret ptr %data
+failed:
+  ret ptr null
+}
+define internal void @ube.thread.record.drop(ptr %ctx, ptr %record) {
+entry:
+  %block = getelementptr %ube.block, ptr %record, i64 -1
+  call void @ube.block.drop(ptr %ctx, ptr %block)
+  ret void
+}
+define internal void @ube.thread.record.link(ptr %program, ptr %record) {
+entry:
+  %head = getelementptr %ube.program, ptr %program, i32 0, i32 10
+  %old = load atomic ptr, ptr %head acquire, align 8
+  store ptr %old, ptr %record, align 8
+  store atomic ptr %record, ptr %head release, align 8
+  ret void
+}
+define internal ptr @ube.thread.record.find(ptr %ctx, i64 %id) {
+entry:
+  %valid = icmp sgt i64 %id, 0
+  br i1 %valid, label %head, label %failed
+head:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %address = getelementptr %ube.program, ptr %program, i32 0, i32 10
+  %first = load atomic ptr, ptr %address acquire, align 8
+  br label %scan
+scan:
+  %record = phi ptr [ %first, %head ], [ %next, %advance ]
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %inspect, label %failed
+inspect:
+  %id.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 1
+  %candidate = load i64, ptr %id.ptr, align 8
+  %same = icmp eq i64 %candidate, %id
+  br i1 %same, label %done, label %advance
+advance:
+  %next = load ptr, ptr %record, align 8
+  br label %scan
+done:
+  ret ptr %record
+failed:
+  ret ptr null
+}
+
+define internal ptr @ube.thread.current.record(ptr %ctx) {
+entry:
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  %existing = load ptr, ptr %control, align 8
+  %ready = icmp ne ptr %existing, null
+  br i1 %ready, label %known, label %allocate
+known:
+  ret ptr %existing
+allocate:
+  %record = call ptr @ube.thread.record.new(ptr %ctx)
+  %allocated = icmp ne ptr %record, null
+  br i1 %allocated, label %identity, label %failed
+identity:
+  %id = call i64 @ube.thread.issue()
+  %issued = icmp ne i64 %id, 0
+  br i1 %issued, label %publish, label %discard
+publish:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %id.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 1
+  %state = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  store i64 %id, ptr %id.ptr, align 8
+  store atomic i64 1, ptr %state release, align 8
+  call void @ube.thread.registry.lock(ptr %program)
+  call void @ube.thread.record.link(ptr %program, ptr %record)
+  call void @ube.thread.registry.unlock(ptr %program)
+  store ptr %record, ptr %control, align 8
+  ret ptr %record
+discard:
+  call void @ube.thread.record.drop(ptr %ctx, ptr %record)
+  br label %failed
+failed:
+  ret ptr null
+}
+define { i1, i64 } @ube.thread.current(ptr %ctx) {
+entry:
+  %record = call ptr @ube.thread.current.record(ptr %ctx)
+  %ok = icmp ne ptr %record, null
+  br i1 %ok, label %done, label %failed
+done:
+  %id.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 1
+  %id = load i64, ptr %id.ptr, align 8
+  %result = call { i1, i64 } @ube.thread.value(i64 %id)
+  ret { i1, i64 } %result
+failed:
+  %failure = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 7)
+  ret { i1, i64 } %failure
+}
+define i1 @ube.thread.stop.requested(ptr %ctx) {
+entry:
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  %record = load ptr, ptr %control, align 8
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %inspect, label %none
+inspect:
+  %flag = getelementptr %ube.worker, ptr %record, i32 0, i32 5
+  %stop = load atomic i64, ptr %flag seq_cst, align 8
+  %requested = icmp ne i64 %stop, 0
+  ret i1 %requested
+none:
+  ret i1 false
+}
+
+define internal i32 @ube.thread.entry(ptr %record) {
+entry:
+  %state = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  br label %gate
+gate:
+  %value = load atomic i64, ptr %state acquire, align 8
+  %started = icmp ne i64 %value, 0
+  br i1 %started, label %run, label %yield
+yield:
+  call void @Sleep(i32 0)
+  br label %gate
+run:
+  %ctx = getelementptr %ube.worker, ptr %record, i32 0, i32 8
+  %entry.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 7
+  %capture.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 6
+  %procedure = load ptr, ptr %entry.ptr, align 8
+  %capture = load ptr, ptr %capture.ptr, align 8
+  %payload = getelementptr %ube.block, ptr %capture, i64 1
+  %success = call i1 %procedure(ptr %ctx, ptr %payload)
+  %error = load i64, ptr %ctx, align 8
+  %saved = select i1 %success, i64 0, i64 %error
+  %error.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 4
+  store i64 %saved, ptr %error.ptr, align 8
+  call void @ube.block.drop(ptr %ctx, ptr %capture)
+  store ptr null, ptr %capture.ptr, align 8
+  store i64 0, ptr %ctx, align 8
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %active = getelementptr %ube.program, ptr %program, i32 0, i32 7
+  %completion = select i1 %success, i64 2, i64 3
+  store atomic i64 %completion, ptr %state release, align 8
+  %previous = atomicrmw sub ptr %active, i64 1 acq_rel
+  ret i32 0
+}
+define { i1, i64 } @ube.thread.start(ptr %ctx, ptr %procedure, ptr %capture) {
+entry:
+  %null.procedure = icmp eq ptr %procedure, null
+  %null.capture = icmp eq ptr %capture, null
+  %invalid = or i1 %null.procedure, %null.capture
+  br i1 %invalid, label %bad, label %current
+current:
+  %parent = call ptr @ube.thread.current.record(ptr %ctx)
+  %parent.ok = icmp ne ptr %parent, null
+  br i1 %parent.ok, label %allocate, label %memory
+allocate:
+  %record = call ptr @ube.thread.record.new(ptr %ctx)
+  %allocated = icmp ne ptr %record, null
+  br i1 %allocated, label %reserve, label %memory
+reserve:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %active.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 7
+  %closed.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 8
+  call void @ube.thread.registry.lock(ptr %program)
+  %active = load atomic i64, ptr %active.ptr acquire, align 8
+  %closed = load atomic i64, ptr %closed.ptr acquire, align 8
+  %full = icmp uge i64 %active, 64
+  %closing = icmp ne i64 %closed, 0
+  %refused = or i1 %full, %closing
+  br i1 %refused, label %unlock.discard, label %identity
+identity:
+  %id = call i64 @ube.thread.issue()
+  %issued = icmp ne i64 %id, 0
+  br i1 %issued, label %admitted, label %unlock.discard
+admitted:
+  %prior = atomicrmw add ptr %active.ptr, i64 1 acq_rel
+  call void @ube.thread.registry.unlock(ptr %program)
+  %id.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 1
+  %capture.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 6
+  %entry.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 7
+  %thread = getelementptr %ube.worker, ptr %record, i32 0, i32 8
+  store i64 %id, ptr %id.ptr, align 8
+  store ptr %capture, ptr %capture.ptr, align 8
+  store ptr %procedure, ptr %entry.ptr, align 8
+  call void @ube.thread.init(ptr %thread, ptr %program, ptr %record)
+  %handle = call ptr @ube.target.thread.start(ptr @ube.thread.entry, ptr %record)
+  %created = icmp ne ptr %handle, null
+  br i1 %created, label %publish, label %unreserve
+publish:
+  %handle.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 2
+  %state.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  store ptr %handle, ptr %handle.ptr, align 8
+  call void @ube.thread.registry.lock(ptr %program)
+  call void @ube.thread.record.link(ptr %program, ptr %record)
+  call void @ube.thread.registry.unlock(ptr %program)
+  store atomic i64 1, ptr %state.ptr release, align 8
+  %result = call { i1, i64 } @ube.thread.value(i64 %id)
+  ret { i1, i64 } %result
+unreserve:
+  %previous = atomicrmw sub ptr %active.ptr, i64 1 acq_rel
+  call void @ube.thread.record.drop(ptr %ctx, ptr %record)
+  %failure = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 57)
+  ret { i1, i64 } %failure
+unlock.discard:
+  call void @ube.thread.registry.unlock(ptr %program)
+  call void @ube.thread.record.drop(ptr %ctx, ptr %record)
+  br label %memory
+memory:
+  %oom = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 7)
+  ret { i1, i64 } %oom
+bad:
+  %bad.result = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 5)
+  ret { i1, i64 } %bad.result
+}
+
+; A native handle is closed only after every admitted waiter has stopped using it.
+define internal i1 @ube.thread.wait.release(ptr %ctx, ptr %record, i1 %joined) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %waiters = getelementptr %ube.worker, ptr %record, i32 0, i32 9
+  %closing = getelementptr %ube.worker, ptr %record, i32 0, i32 10
+  %finished = getelementptr %ube.worker, ptr %record, i32 0, i32 11
+  %handle.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 2
+  call void @ube.thread.registry.lock(ptr %program)
+  %count = load i64, ptr %waiters, align 8
+  %less = sub i64 %count, 1
+  store i64 %less, ptr %waiters, align 8
+  %old.done = load i64, ptr %finished, align 8
+  %done = select i1 %joined, i64 1, i64 %old.done
+  store i64 %done, ptr %finished, align 8
+  %busy = load i64, ptr %closing, align 8
+  %handle = load ptr, ptr %handle.ptr, align 8
+  %last = icmp eq i64 %less, 0
+  %native.done = icmp eq i64 %done, 1
+  %idle = icmp eq i64 %busy, 0
+  %exists = icmp ne ptr %handle, null
+  %safe = and i1 %last, %native.done
+  %owned = and i1 %idle, %exists
+  %release = and i1 %safe, %owned
+  br i1 %release, label %claim, label %keep
+claim:
+  store i64 1, ptr %closing, align 8
+  call void @ube.thread.registry.unlock(ptr %program)
+  %ok = call i1 @ube.target.thread.close(ptr %handle)
+  call void @ube.thread.registry.lock(ptr %program)
+  %retained = select i1 %ok, ptr null, ptr %handle
+  store ptr %retained, ptr %handle.ptr, align 8
+  store i64 0, ptr %closing, align 8
+  call void @ube.thread.registry.unlock(ptr %program)
+  ret i1 %ok
+keep:
+  call void @ube.thread.registry.unlock(ptr %program)
+  ret i1 true
+}
+; Reads the release-published outcome independently of the persistent Err number.
+define internal { i1, i64 } @ube.thread.completion(ptr %ctx, ptr %record) {
+entry:
+  %state = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  %value = load atomic i64, ptr %state acquire, align 8
+  %failed = icmp eq i64 %value, 3
+  br i1 %failed, label %failure, label %success
+failure:
+  %error.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 4
+  %error = load i64, ptr %error.ptr, align 8
+  %bad = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 %error)
+  ret { i1, i64 } %bad
+success:
+  ret { i1, i64 } { i1 true, i64 1 }
+}
+
+define internal { i1, i64 } @ube.thread.wait.core(ptr %ctx, i64 %id, i64 %timeout, i1 %observe.stop) {
+entry:
+  %invalid.timeout = icmp slt i64 %timeout, -1
+  br i1 %invalid.timeout, label %invalid, label %lookup
+lookup:
+  %record = call ptr @ube.thread.record.find(ptr %ctx, i64 %id)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %self, label %invalid
+self:
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  %current = load ptr, ptr %control, align 8
+  %same = icmp eq ptr %current, %record
+  br i1 %same, label %invalid, label %acquire
+acquire:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %handle.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 2
+  %waiters = getelementptr %ube.worker, ptr %record, i32 0, i32 9
+  %finished = getelementptr %ube.worker, ptr %record, i32 0, i32 11
+  %closing.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 10
+  %state.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  call void @ube.thread.registry.lock(ptr %program)
+  %done = load i64, ptr %finished, align 8
+  %handle = load ptr, ptr %handle.ptr, align 8
+  %closing = load i64, ptr %closing.ptr, align 8
+  %already = icmp eq i64 %done, 1
+  %native = icmp ne ptr %handle, null
+  %idle = icmp eq i64 %closing, 0
+  %borrow = and i1 %native, %idle
+  br i1 %borrow, label %retain, label %unlocked
+retain:
+  %count = load i64, ptr %waiters, align 8
+  %more = add i64 %count, 1
+  store i64 %more, ptr %waiters, align 8
+  br label %unlocked
+unlocked:
+  call void @ube.thread.registry.unlock(ptr %program)
+  br i1 %already, label %already.complete, label %clock
+already.complete:
+  br i1 %borrow, label %release.joined, label %completed
+clock:
+  %started = call i64 @GetTickCount64()
+  %forever = icmp eq i64 %timeout, -1
+  br label %poll
+poll:
+  br i1 %borrow, label %native.poll, label %root.poll
+native.poll:
+  %status = call i32 @ube.target.thread.wait(ptr %handle, i32 0)
+  %joined = icmp eq i32 %status, 0
+  br i1 %joined, label %release.joined, label %native.status
+native.status:
+  %waiting = icmp eq i32 %status, 258
+  br i1 %waiting, label %pending, label %release.failed
+root.poll:
+  %state = load atomic i64, ptr %state.ptr acquire, align 8
+  %complete = icmp uge i64 %state, 2
+  br i1 %complete, label %completed, label %pending
+pending:
+  %requested = call i1 @ube.thread.stop.requested(ptr %ctx)
+  %stop = and i1 %requested, %observe.stop
+  %now = call i64 @GetTickCount64()
+  %elapsed = sub i64 %now, %started
+  %deadline = icmp uge i64 %elapsed, %timeout
+  %bounded = xor i1 %forever, true
+  %expired = and i1 %bounded, %deadline
+  %interrupted = or i1 %stop, %expired
+  br i1 %interrupted, label %interrupted.wait, label %pause
+pause:
+  call void @Sleep(i32 1)
+  br label %poll
+interrupted.wait:
+  br i1 %borrow, label %release.timeout, label %zero
+release.timeout:
+  %timeout.closed = call i1 @ube.thread.wait.release(ptr %ctx, ptr %record, i1 false)
+  br i1 %timeout.closed, label %zero, label %native.failed
+release.failed:
+  %failed.closed = call i1 @ube.thread.wait.release(ptr %ctx, ptr %record, i1 false)
+  br label %native.failed
+release.joined:
+  %closed = call i1 @ube.thread.wait.release(ptr %ctx, ptr %record, i1 true)
+  br i1 %closed, label %completed, label %joined.cleanup.failed
+joined.cleanup.failed:
+  %joined.state = load atomic i64, ptr %state.ptr acquire, align 8
+  %worker.failed = icmp eq i64 %joined.state, 3
+  br i1 %worker.failed, label %completed, label %native.failed
+completed:
+  %result = call { i1, i64 } @ube.thread.completion(ptr %ctx, ptr %record)
+  ret { i1, i64 } %result
+zero:
+  ret { i1, i64 } { i1 true, i64 0 }
+invalid:
+  %bad = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 5)
+  ret { i1, i64 } %bad
+native.failed:
+  %os = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 57)
+  ret { i1, i64 } %os
+}
+
+define { i1, i64 } @ube.thread.wait(ptr %ctx, i64 %id, i64 %timeout) {
+entry:
+  %result = call { i1, i64 } @ube.thread.wait.core(ptr %ctx, i64 %id, i64 %timeout, i1 true)
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.thread.alive(ptr %ctx, i64 %id) {
+entry:
+  %record = call ptr @ube.thread.record.find(ptr %ctx, i64 %id)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %inspect, label %invalid
+inspect:
+  %state = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  %value = load atomic i64, ptr %state acquire, align 8
+  %running = icmp ult i64 %value, 2
+  %answer = select i1 %running, i64 -1, i64 0
+  %result = call { i1, i64 } @ube.thread.value(i64 %answer)
+  ret { i1, i64 } %result
+invalid:
+  %bad = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 5)
+  ret { i1, i64 } %bad
+}
+define { i1, i64 } @ube.thread.request.stop(ptr %ctx, i64 %id) {
+entry:
+  %record = call ptr @ube.thread.record.find(ptr %ctx, i64 %id)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %inspect, label %invalid
+inspect:
+  %state = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  %value = load atomic i64, ptr %state acquire, align 8
+  %running = icmp ult i64 %value, 2
+  br i1 %running, label %request, label %done
+request:
+  %flag = getelementptr %ube.worker, ptr %record, i32 0, i32 5
+  store atomic i64 1, ptr %flag seq_cst, align 8
+  ret { i1, i64 } { i1 true, i64 1 }
+done:
+  ret { i1, i64 } { i1 true, i64 0 }
+invalid:
+  %bad = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 5)
+  ret { i1, i64 } %bad
+}
+
+; The generated process entry publishes Main's fresh outcome before waiting for workers.
+define void @ube.thread.root.complete(ptr %ctx, i1 %success) {
+entry:
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  %record = load ptr, ptr %control, align 8
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %publish, label %done
+publish:
+  %error.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 4
+  %state.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 3
+  %number = load i64, ptr %ctx, align 8
+  %saved = select i1 %success, i64 0, i64 %number
+  %state = select i1 %success, i64 2, i64 3
+  store i64 %saved, ptr %error.ptr, align 8
+  store atomic i64 %state, ptr %state.ptr release, align 8
+  ret void
+done:
+  ret void
+}
+; Main's return closes no live worker prematurely, including workers with ignored IDs.
+define i1 @ube.thread.drain(ptr %ctx) {
+entry:
+  %saved.error = load i64, ptr %ctx, align 8
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %head = getelementptr %ube.program, ptr %program, i32 0, i32 10
+  %active.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 7
+  %closed.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 8
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  %self = load ptr, ptr %control, align 8
+  br label %round
+round:
+  %first = load atomic ptr, ptr %head acquire, align 8
+  br label %scan
+scan:
+  %record = phi ptr [ %first, %round ], [ %next, %advance ]
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %inspect, label %quiescent
+inspect:
+  %same = icmp eq ptr %record, %self
+  br i1 %same, label %advance, label %join
+join:
+  %id.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 1
+  %id = load i64, ptr %id.ptr, align 8
+  %result = call { i1, i64 } @ube.thread.wait.core(ptr %ctx, i64 %id, i64 -1, i1 false)
+  %handle.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 2
+  call void @ube.thread.registry.lock(ptr %program)
+  %handle = load ptr, ptr %handle.ptr, align 8
+  call void @ube.thread.registry.unlock(ptr %program)
+  %released = icmp eq ptr %handle, null
+  br i1 %released, label %advance, label %retained
+advance:
+  %next = load ptr, ptr %record, align 8
+  br label %scan
+quiescent:
+  call void @ube.thread.registry.lock(ptr %program)
+  %active = load atomic i64, ptr %active.ptr acquire, align 8
+  %empty = icmp eq i64 %active, 0
+  br i1 %empty, label %close, label %again
+close:
+  store atomic i64 1, ptr %closed.ptr release, align 8
+  call void @ube.thread.registry.unlock(ptr %program)
+  store i64 %saved.error, ptr %ctx, align 8
+  ret i1 true
+again:
+  call void @ube.thread.registry.unlock(ptr %program)
+  call void @Sleep(i32 1)
+  br label %round
+retained:
+  %remaining = load atomic i64, ptr %active.ptr acquire, align 8
+  %workers.live = icmp ne i64 %remaining, 0
+  br i1 %workers.live, label %retry.observation, label %failed
+retry.observation:
+  call void @Sleep(i32 1)
+  br label %round
+failed:
+  store i64 %saved.error, ptr %ctx, align 8
+  ret i1 false
+}
+; Disposes completion records only after no worker or waiter can access them.
+define i1 @ube.thread.program.dispose(ptr %ctx) {
+entry:
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %active.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 7
+  %closed.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 8
+  %head = getelementptr %ube.program, ptr %program, i32 0, i32 10
+  call void @ube.thread.registry.lock(ptr %program)
+  %active = load atomic i64, ptr %active.ptr acquire, align 8
+  %empty = icmp eq i64 %active, 0
+  br i1 %empty, label %inspect.head, label %busy
+inspect.head:
+  %first = load atomic ptr, ptr %head acquire, align 8
+  br label %inspect
+inspect:
+  %record = phi ptr [ %first, %inspect.head ], [ %next, %advance ]
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %ownership, label %close.admission
+ownership:
+  %waiters.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 9
+  %closing.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 10
+  %waiters = load i64, ptr %waiters.ptr, align 8
+  %closing = load i64, ptr %closing.ptr, align 8
+  %waiting = icmp ne i64 %waiters, 0
+  %releasing = icmp ne i64 %closing, 0
+  %owned = or i1 %waiting, %releasing
+  br i1 %owned, label %busy, label %advance
+advance:
+  %next = load ptr, ptr %record, align 8
+  br label %inspect
+close.admission:
+  store atomic i64 1, ptr %closed.ptr release, align 8
+  call void @ube.thread.registry.unlock(ptr %program)
+  br label %release
+release:
+  %candidate = phi ptr [ %first, %close.admission ], [ %following, %released ]
+  %present = icmp ne ptr %candidate, null
+  br i1 %present, label %handle, label %discard.head
+handle:
+  %handle.ptr = getelementptr %ube.worker, ptr %candidate, i32 0, i32 2
+  %native = load ptr, ptr %handle.ptr, align 8
+  %has.handle = icmp ne ptr %native, null
+  br i1 %has.handle, label %close.handle, label %released
+close.handle:
+  %closed = call i1 @ube.target.thread.close(ptr %native)
+  br i1 %closed, label %clear, label %failed
+clear:
+  store ptr null, ptr %handle.ptr, align 8
+  br label %released
+released:
+  %following = load ptr, ptr %candidate, align 8
+  br label %release
+discard.head:
+  store atomic ptr null, ptr %head release, align 8
+  %control = getelementptr %ube.thread, ptr %ctx, i32 0, i32 3
+  store ptr null, ptr %control, align 8
+  br label %discard
+discard:
+  %item = phi ptr [ %first, %discard.head ], [ %after, %drop ]
+  %remains = icmp ne ptr %item, null
+  br i1 %remains, label %drop, label %done
+drop:
+  %after = load ptr, ptr %item, align 8
+  call void @ube.thread.record.drop(ptr %ctx, ptr %item)
+  br label %discard
+done:
+  ret i1 true
+busy:
+  call void @ube.thread.registry.unlock(ptr %program)
+  ret i1 false
 failed:
   ret i1 false
 }

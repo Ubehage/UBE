@@ -1,9 +1,10 @@
 # Compiler acceptance gates
 
-**Status:** bounded scalar source-compiler gates now pass; broader language and
-self-hosting requirements remain pending. Exact commands are in Progress.md.
+**Status:** the admitted source profile, successive self-hosting and bounded
+one/two-worker Windows x64 compiler concurrency gates pass. Full language and
+product qualification remain open. Exact scope and commands are in Progress.md.
 
-The current work is the scalar admission set in
+The qualified source boundary is recorded in
 `../lang-doc/bootstrap-profile.md`, under the authorized development plan.
 No prototype gate by itself qualifies a UBE compiler.
 
@@ -347,7 +348,9 @@ passing ordinary sequential tests is not evidence of thread safety.
 
 Performance measurements must accompany the overlap evidence, so useful
 parallelism is assessed separately from correctness. No fixed speedup is
-promised independently of workload and hardware. This gate is currently pending.
+promised independently of workload and hardware. The bounded one/two-worker
+Windows x64 gate passed on 2026-11-13; exact commands, evidence, measured
+performance and limits are recorded in Progress.md and CONCURRENCY.md.
 
 ## Self-hosting gate, after source dependencies are implemented
 

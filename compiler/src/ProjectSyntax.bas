@@ -101,7 +101,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     I = M.NodeBase
     Finish = I + M.NodeCount
     Do While I < Finish
-        If N(I).Kind < 1 Or N(I).Kind > 29 Then Exit Function
+        If N(I).Kind < 1 Or N(I).Kind > SourceParser.ThreadStartNode Then Exit Function
         If N(I).Utf16Start < 1 Or N(I).Utf16Length < 0 Or N(I).Line < 1 Or N(I).Column < 1 Then Exit Function
         If Not SpanFits(N(I).ByteStart, N(I).ByteLength, M.ByteBase, M.ByteCount) Then Exit Function
         If N(I).FirstToken < M.TokenBase Or N(I).FirstToken >= M.TokenBase + M.TokenCount Then Exit Function

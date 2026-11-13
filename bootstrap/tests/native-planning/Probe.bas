@@ -22,6 +22,7 @@ Private Expressions() As ExpressionBinder.BoundExpression
 Private ExpressionCount As Long
 Private Plans() As NativePlanning.NativeSymbolPlan
 Private Pins() As Long
+Private Escapes() As NativeEscapes.EscapeFact
 Private Dependencies() As Byte
 Private Summary As NativePlanning.NativePlanSummary
 
@@ -32,7 +33,7 @@ Public Function Bind(ByVal IsExecutable As Boolean) As Long
     If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, Diagnostic) Then Bind = 102: Exit Function
     If Not AggregateLayout.TryLayout(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Layout, LayoutCount, Diagnostic) Then Bind = 103: Exit Function
     If Not PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Roles, RoleCount, Diagnostic) Then Bind = 104: Exit Function
-    If Not NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layout, Roles, EntrySymbol, IsExecutable, Plans, Pins, Dependencies, Summary, Diagnostic) Then Bind = 1
+    If Not NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layout, Roles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then Bind = 1
     Exit Function
 Failed:
     Bind = 105
@@ -72,6 +73,8 @@ Public Function PlanField(ByVal Symbol As Long, ByVal Field As Long) As Long
     If Field = 1 Then PlanField = Plans(Symbol - 1).FrameCells
     If Field = 2 Then PlanField = Plans(Symbol - 1).PinCount
     If Field = 3 Then PlanField = Plans(Symbol - 1).ResultSymbol
+    If Field = 4 And Plans(Symbol - 1).StorageEscapes Then PlanField = 1
+    If Field = 5 Then PlanField = Plans(Symbol - 1).TemporaryOwnerCount
 End Function
 
 ' Checks each scope chain against an independent ascending scan of validated declaration ownership.
@@ -134,7 +137,7 @@ End Function
 
 ' Exercises explicit scalar preconditions only; scratch maps have no public atomic preservation promise.
 Public Function RejectPreconditions() As Long
-    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, 0, Expressions, Layout, Roles, EntrySymbol, False, Plans, Pins, Dependencies, Summary, Diagnostic) Then RejectPreconditions = 1: Exit Function
+    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, 0, Expressions, Layout, Roles, EntrySymbol, False, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then RejectPreconditions = 1: Exit Function
     If Summary.SymbolCount <> 0 Or Summary.NodeCount <> 0 Or Summary.ModuleCount <> 0 Or Summary.ContextCells <> 0 Or Summary.EntrySymbol <> 0 Then RejectPreconditions = 2: Exit Function
     If Diagnostic.Code <> 9 Or Diagnostic.Reason <> 50 Then RejectPreconditions = 3
 End Function

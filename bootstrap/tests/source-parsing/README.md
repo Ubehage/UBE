@@ -1,5 +1,11 @@
 # Source parsing acceptance gate
 
+The 2026-11-13 CallNew grammar qualification passed 44 cases, including a
+distinct expression/statement node, qualified targets, optional zero-argument
+parentheses, and invalid argument syntax. Evidence:
+`ube source parsing 1c6f2745-7d9c-480d-8824-e1681a438dfe`.
+This qualifies syntax only; native worker execution remains guarded.
+
 The runner builds the VB6 bootstrap or accepts `-BootstrapExe` for an existing
 build. Hidden child processes have a 30-second deadline and retained handles.
 Fixtures, build logs, stdout and stderr remain in the printed temporary directory.

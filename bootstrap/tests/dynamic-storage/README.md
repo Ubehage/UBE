@@ -33,6 +33,12 @@ The checked-in UBE sources exercise:
   replacement unchanged.
 - Local array cleanup after return and Err.Raise, failed later argument
   preparation, and context disposal of module owners.
+- Ordinary ByVal record and array snapshots captured before later arguments,
+  callee-private mutation and resize, and retained record-element aliases after
+  replacement. Allocation failures in the first or second snapshot, a later
+  argument raising an error, and callee depth refusal release caller-owned
+  snapshots before recovery; exact allocator-attempt counts and zero live
+  blocks after disposal are required at O0 and O2.
 - False/Err7 without handler transfer for failed Try operations; ordinary copy
   failure enters the enabled handler and preserves the old destination.
 
@@ -57,3 +63,10 @@ archive for VirtualAlloc/VirtualFree without adding a CRT dependency.
 Binding negatives check exact signatures and nominal record identity. Qualified
 and unqualified names for the same record must bind successfully. Invalid
 bindings and missing/broken import tools must preserve an existing artifact.
+
+The ordinary ByVal extension passed all 55 groups on 2026-11-13, with evidence
+in `ube dynamic storage 781e3c89-d268-4f66-b3d3-84f5f4902261`.
+The native-lowering gate supplies `-LoweredIR` for the exact same ordered
+five-module corpus to run its 54 execution/binding groups against production
+UBE-emitted bodies. That mode omits the bootstrap emission-determinism check;
+the native-lowering gate separately compares its O0/O2 emitter output.

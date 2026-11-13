@@ -243,7 +243,7 @@ function Constant-Equals([string]$Node,[string]$Expected,[string]$Description) {
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
 $files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','NativeEscapes.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'ExpressionProbe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -575,6 +575,223 @@ $value=Call-Probe 'Bind' @(0)
 Check-Value $value 0 'mutating primitive declaration invalidates current fixed-bound proof'
 $receiver=Find-Expression $arrayBody 'Values' 13 0 2
 Binding-Equals $receiver 11 0 'effect-invalidated reference retains no static bound proof'
+$script:passed++
+
+# Resolves the approved static thread-start form without claiming native thread execution.
+$threadCaller=Module-Source 'ThreadCaller' @'
+Public Sub StartWork(ByVal Seed As Long)
+    Dim Id As LongLong
+    Id = CallNew Workers.Run(Seed, 2147483648^)
+    CallNew LocalWorker
+    Id = CallNew ResultWorker(Seed, (Seed))
+    CallNew Err.Clear()
+End Sub
+Private Sub LocalWorker()
+End Sub
+Private Function ResultWorker(ByRef First As Long, Second As Long) As Byte
+End Function
+'@
+$threadWorker=Module-Source 'Workers' "Public Sub Run(ByVal Value As Long, ByVal Wide As LongLong)`r`nEnd Sub"
+$threadFolder=Join-Path $artifacts 'thread-start-bindings'
+Write-Text (Join-Path $threadFolder 'ThreadCaller.bas') $threadCaller
+Write-Text (Join-Path $threadFolder 'Workers.bas') $threadWorker
+$threadManifest=Join-Path $threadFolder 'project.UBE'
+Write-Text $threadManifest "UBE-Project 1`r`nName = `"BindingFixture`"`r`nKind = `"Library`"`r`nSource = `"ThreadCaller.bas`"`r`nSource = `"Workers.bas`"`r`n"
+$hostThread=Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$threadManifest)
+Require ($hostThread.ExitCode -eq 0 -and $hostThread.Stderr -ceq '') 'Host static thread-start binding failed'
+Require (([regex]::Matches($hostThread.Stdout,'(?m)^BOUND [0-9]+\|[0-9]+\|LongLong\|')).Count -ge 2) 'Host thread start does not expose LongLong result facts'
+Start-Project
+Append-Source (Join-Path $threadFolder 'ThreadCaller.bas')
+Append-Source (Join-Path $threadFolder 'Workers.bas')
+$value=Call-Probe 'Bind' @(0)
+Check-Value $value 0 'thread start selects static local and qualified Subs'
+$runSymbol=Find-Declaration $threadWorker 'Sub Run(' 'Run' 7 1
+$threadCall=Find-Expression $threadCaller 'CallNew Workers.Run(Seed, 2147483648^)' 30
+Binding-Equals $threadCall 0 $runSymbol 'thread start retains selected worker identity'
+Binding-Equals $threadCall 2 157 'thread start produces LongLong program identity'
+Binding-Equals $threadCall 7 0 'thread identity result is not writable storage'
+Binding-Equals $threadCall 8 0 'thread start is never a constant'
+$threadArgument=Find-Expression $threadCaller 'Seed' 13 0 1
+Binding-Equals $threadArgument 6 1 'thread scalar argument uses value capture'
+$threadArgument=Find-Expression $threadCaller '2147483648^' 16
+Binding-Equals $threadArgument 6 1 'thread wide argument uses value capture'
+Binding-Equals $threadArgument 5 157 'thread wide argument conversion remains LongLong'
+$threadIgnored=Find-Expression $threadCaller 'CallNew LocalWorker' 30
+$localWorker=Find-Declaration $threadCaller 'Sub LocalWorker(' 'LocalWorker' 7
+Binding-Equals $threadIgnored 0 $localWorker 'ignored identity retains local private worker selection'
+Binding-Equals $threadIgnored 2 157 'ignored identity has the same LongLong type'
+$threadFunction=Find-Expression $threadCaller 'CallNew ResultWorker(Seed, (Seed))' 30
+$functionSymbol=Find-Declaration $threadCaller 'Function ResultWorker(' 'ResultWorker' 8
+Binding-Equals $threadFunction 0 $functionSymbol 'thread start selects Function target'
+Binding-Equals $threadFunction 2 157 'thread identity does not use the Function Byte result'
+$referenceArgument=Find-Expression $threadCaller 'Seed' 13 0 2
+Binding-Equals $referenceArgument 6 2 'thread start retains ordinary direct ByRef alias'
+$temporaryArgument=Find-Expression $threadCaller '(Seed)' 20
+Binding-Equals $temporaryArgument 6 3 'thread start retains ordinary grouped ByRef temporary'
+$threadTrusted=Find-Expression $threadCaller 'CallNew Err.Clear()' 30
+Binding-Equals $threadTrusted 2 157 'ordinary callable trusted target yields thread identity'
+$script:passed++
+
+$aggregateValues=Module-Source 'AggregateValues' @'
+Type Item
+    Value As Long
+End Type
+Sub Take(ByVal Record As Item, ByVal Values() As Item)
+End Sub
+Sub Run()
+    Dim Record As Item
+    Dim Values(0 To 2) As Item
+    Call Take(Record, Values)
+    CallNew Take(Record, Values)
+End Sub
+'@
+$aggregatePath=Join-Path $artifacts 'aggregate-value-arguments.bas'
+Write-Text $aggregatePath $aggregateValues
+Start-Project
+Append-Source $aggregatePath
+$value=Call-Probe 'Bind' @(0)
+Check-Value $value 0 'ordinary and thread calls bind exact typed aggregate ByVal parameters'
+$recordArgument=Find-Expression $aggregateValues 'Record' 13 0 2
+Binding-Equals $recordArgument 6 1 'ordinary record argument uses value copy'
+Binding-Equals $recordArgument 4 0 'ordinary record argument preserves scalar rank'
+$arrayArgument=Find-Expression $aggregateValues 'Values' 13 0 3
+Binding-Equals $arrayArgument 6 1 'ordinary aggregate array argument uses value copy'
+Binding-Equals $arrayArgument 4 1 'ordinary aggregate array argument preserves rank'
+$script:passed++
+
+$escapeSource=Module-Source 'Owners' @'
+Type Item
+    Value As Long
+End Type
+Dim Shared As Long
+Dim GlobalItems(0 To 2) As Item
+Sub Sink(ByRef Value As Long)
+End Sub
+Sub ArraySink(ByRef Items() As Item)
+End Sub
+Sub RelayArray(ByRef Elements() As Item)
+    CallNew Sink(Elements(0).Value)
+End Sub
+Sub BridgeArray(ByRef ForwardArray() As Item)
+    Call RelayArray(ForwardArray)
+End Sub
+Sub Relay(ByRef Forwarded As Long)
+    CallNew Sink(Forwarded)
+End Sub
+Sub Bridge(ByRef Forward As Long)
+    Call Relay(Forward)
+End Sub
+Sub CycleA(ByRef Left As Long)
+    Call CycleB(Left)
+End Sub
+Sub CycleB(ByRef Right As Long)
+    Call CycleA(Right)
+    CallNew Sink(Right)
+End Sub
+Sub Own(ByVal Copy As Item, ByVal CopyArray() As Item, ByVal Number As Long)
+    CallNew Sink(Copy.Value)
+    CallNew ArraySink(CopyArray)
+    CallNew Sink(Number)
+End Sub
+Sub Run()
+    Dim Local As Long
+    Dim Quiet As Long
+    Dim Record As Item
+    Dim Values(0 To 2) As Item
+    Dim PayloadOnly(0 To 2) As Item
+    Dim ThroughRelay(0 To 2) As Item
+    Call Bridge(Local)
+    Call CycleA(Local)
+    Call Sink(Quiet)
+    CallNew Sink(Shared)
+    CallNew Sink(GlobalItems(0).Value)
+    CallNew Sink((Local))
+    CallNew Sink(Record.Value)
+    CallNew Sink(PayloadOnly(0).Value)
+    CallNew ArraySink(Values)
+    Call BridgeArray(ThroughRelay)
+    Call Own(Record, Values, Quiet)
+End Sub
+'@
+$escapePath=Join-Path $artifacts 'escape-owners.bas'
+Write-Text $escapePath $escapeSource
+Write-Text (Join-Path $artifacts 'escapes.UBE') "UBE-Project 1`r`nName = `"BindingFixture`"`r`nKind = `"Library`"`r`nSource = `"escape-owners.bas`"`r`n"
+Start-Project
+Append-Source $escapePath
+$value=Call-Probe 'Bind' @(0)
+Check-Value $value 0 'escape fixture ordinary binding succeeds'
+$value=Call-Probe 'AnalyzeEscapes'
+Check-Value $value 0 'escape analysis reaches a fixed point'
+foreach($name in @('Forwarded','Forward','Left','Right','Copy','CopyArray','Number','Elements','ForwardArray')){
+    $symbol=Find-Declaration $escapeSource ('By'+$(if($name -in @('Copy','CopyArray','Number')){'Val'}else{'Ref'})+' '+$name) $name 9
+    $value=Call-Probe 'EscapingSymbol' @($symbol)
+    Check-Value $value -1 "escaping parameter $name"
+}
+foreach($name in @('Local','Record','Values','PayloadOnly','ThroughRelay')){
+    $symbol=Find-Declaration $escapeSource ('Dim '+$name) $name 3
+    $value=Call-Probe 'EscapingSymbol' @($symbol)
+    Check-Value $value -1 "local storage owner $name survives caller return"
+}
+foreach($name in @('Shared','Quiet','GlobalItems')){
+    $symbol=Find-Declaration $escapeSource ('Dim '+$name) $name 3
+    $value=Call-Probe 'EscapingSymbol' @($symbol)
+    Check-Value $value 0 "storage $name does not require a box"
+}
+$node=Find-Expression $escapeSource '(Local)' 20 0 2
+$value=Call-Probe 'EscapeField' @($node,0);Check-Value $value 1 'grouped ByRef temporary needs owner'
+$value=Call-Probe 'EscapeField' @($node,1);Check-Value $value 3 'grouped ByRef has temporary identity'
+$value=Call-Probe 'EscapeField' @($node,2);Check-Value $value $node 'temporary owner refers to grouped argument node'
+$node=Find-Expression $escapeSource 'PayloadOnly(0).Value' 14
+$payload=Find-Expression $escapeSource 'PayloadOnly(0)' 15
+$value=Call-Probe 'EscapeField' @($node,0);Check-Value $value 1 'indexed record field needs payload owner'
+$value=Call-Probe 'EscapeField' @($node,1);Check-Value $value 4 'indexed field captures payload instead of descriptor'
+$value=Call-Probe 'EscapeField' @($node,2);Check-Value $value $payload 'indexed owner names original payload snapshot'
+$node=Find-Expression $escapeSource 'Shared' 13 0 1
+$value=Call-Probe 'EscapeField' @($node,1);Check-Value $value 1 'shared global storage remains program-owned'
+$node=Find-Expression $escapeSource 'Record' 13 0 2
+$value=Call-Probe 'EscapeField' @($node,0);Check-Value $value 1 'escaping ByVal record snapshot needs owner'
+$value=Call-Probe 'EscapeField' @($node,1);Check-Value $value 3 'ByVal snapshot owns a distinct temporary'
+$node=Find-Expression $escapeSource 'Values' 13 0 2
+$value=Call-Probe 'EscapeField' @($node,0);Check-Value $value 1 'escaping ByVal array snapshot needs owner'
+$value=Call-Probe 'EscapeField' @($node,1);Check-Value $value 3 'ByVal array snapshot owns its descriptor temporary'
+$script:passed++
+
+$threadInvalid=@(
+    @{Name='default ByRef'; Code=10; Host='E_ARGUMENT'; Body="Sub Worker(Value As Long)`r`nEnd Sub`r`nSub Run()`r`nCallNew Worker(1)`r`nEnd Sub"},
+    @{Name='wrong arity'; Code=10; Host='E_ARGUMENT'; Body="Sub Worker(ByVal Value As Long)`r`nEnd Sub`r`nSub Run()`r`nCallNew Worker()`r`nEnd Sub"},
+    @{Name='local scalar target'; Code=3; Host='E_TYPE'; Body="Sub Run()`r`nDim Worker As Long`r`nCallNew Worker()`r`nEnd Sub"},
+    @{Name='array target'; Code=3; Host='E_TYPE'; Body="Sub Run()`r`nDim Worker(0 To 2) As Long`r`nCallNew Worker(0)`r`nEnd Sub"},
+    @{Name='argument overflow'; Code=11; Host='E_CONSTANT'; Body="Sub Worker(ByVal Value As Byte)`r`nEnd Sub`r`nSub Run()`r`nCallNew Worker(256)`r`nEnd Sub"},
+    @{Name='constant thread identity'; Code=11; Host='E_CONSTANT'; Body="Sub Worker()`r`nEnd Sub`r`nConst Bad As LongLong = CallNew Worker()"}
+)
+foreach($case in $threadInvalid){
+    $directory=Join-Path $artifacts ('thread invalid '+$case.Name)
+    $path=Join-Path $directory 'Invalid.bas'
+    Write-Text $path (Module-Source 'Invalid' $case.Body)
+    $manifestPath=Join-Path $directory 'project.UBE'
+    Write-Text $manifestPath "UBE-Project 1`r`nName = `"BindingFixture`"`r`nKind = `"Library`"`r`nSource = `"Invalid.bas`"`r`n"
+    $hostRejected=Invoke-BoundedProcess $BootstrapExe @('--analyze',$manifestPath)
+    Require ($hostRejected.ExitCode -eq 1 -and $hostRejected.Stderr.Contains('UBE: '+$case.Host+':') -and $hostRejected.Stderr.Contains('Invalid.bas:')) "Host failed thread rejection $($case.Name): $($hostRejected.Evidence)"
+    Start-Project
+    Append-Source $path
+    $value=Call-Probe 'Bind' @(0)
+    Check-Value $value 1 "thread start rejects $($case.Name)"
+    $value=Call-Probe 'DiagnosticField' @(0)
+    Check-Value $value $case.Code "thread start diagnostic $($case.Name)"
+    $value=Call-Probe 'CountBindings'
+    Check-Value $value 0 'thread binding refusal publishes no facts'
+    $script:passed++
+}
+Start-Project
+$threadPrivate=Module-Source 'Workers' "Private Sub Run(ByVal Value As Long, ByVal Wide As LongLong)`r`nEnd Sub"
+$privatePath=Join-Path $artifacts 'thread-private-worker.bas'
+Write-Text $privatePath $threadPrivate
+Append-Source (Join-Path $threadFolder 'ThreadCaller.bas')
+Append-Source $privatePath
+$value=Call-Probe 'Bind' @(0)
+Check-Value $value 1 'thread target obeys cross-module private visibility'
+$value=Call-Probe 'DiagnosticField' @(0)
+Check-Value $value 2 'thread private target has ordinary visibility diagnostic'
 $script:passed++
 
 # A complete current compiler/library project must check its bodies, not only declarations.

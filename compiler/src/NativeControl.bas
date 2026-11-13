@@ -13,7 +13,7 @@ Failed:
 End Function
 
 ' Each sibling has its own next-statement identity, including the final statement of a nested body.
-Public Function TryEmitSequence(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Parent As Long, ByVal Continuation As Long) As Boolean
+Public Function TryEmitSequence(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Parent As Long, ByVal Continuation As Long) As Boolean
     Dim Node As Long
     Dim NextNode As Long
     Dim Target As Long
@@ -25,7 +25,7 @@ Public Function TryEmitSequence(ByRef N() As SourceParser.SyntaxNode, ByRef A() 
         NextNode = N(Node - 1).NextSibling
         Target = Continuation
         If NextNode <> 0 Then Target = NextNode
-        If TryEmitStatement(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Target) = False Then Exit Function
+        If TryEmitStatement(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Target) = False Then Exit Function
         Node = NextNode
     Loop
     TryEmitSequence = True
@@ -38,7 +38,7 @@ Failed:
 End Function
 
 ' A failed loop condition resumes beyond the entire loop, never as an ordinary False value.
-Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
+Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
     Dim Condition As Long
     Dim Body As Long
     Dim Header As Long
@@ -63,14 +63,14 @@ Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As 
     Value = BodyEntry
     If Mode = 1 Or Mode = 2 Then Value = Header
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Value, 0, 0, 0) = False Then Exit Function
-    If TryEmitSequence(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Body, Header) = False Then Exit Function
+    If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Body, Header) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Header, 0, 0, 0) = False Then Exit Function
     S.CurrentNode = Node
     S.ErrorNode = Node
     S.CurrentNext = Continuation
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) = False Then Exit Function
     If Condition <> 0 Then
-        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Condition, Terminated)
+        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Condition, Terminated)
         If S.Text.Failed Then Exit Function
         If Terminated = False Then
             Test = NativeEmission.NewValue(S)
@@ -94,23 +94,92 @@ Failed:
 End Function
 
 ' An assignment publishes only after all source evaluation, conversion and aggregate snapshots succeed.
-Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
+Private Function TryEmitAssignment(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Boolean
+    Dim Kind As Long
+    Dim Target As Long
+    Dim Symbol As Long
+    Dim ValueNode As Long
+    Dim Address As Long
+    Dim SourceAddress As Long
+    Dim Value As Long
+    Dim Test As Long
+    Dim Values() As Long
+    Dim DeferredAddress As Boolean
+    On Error GoTo Failed
+    Kind = N(Node - 1).Kind
+    Target = Node
+    If Kind = SourceParser.VariableNode Then
+        Symbol = E(Node - 1).SymbolIndex
+        ValueNode = ExpressionBinder.InitializerNode(N, Node)
+        Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, Symbol)
+        If S.Text.Failed Then Exit Function
+        If NativeOwnership.HasLocalBox(A, P, Symbol) And A(Symbol - 1).ArrayRank <> 0 And E(Node - 1).HasBounds Then
+            If NativeOwnership.TryResetFixedArray(A, E, L, S, B, Token, Catalog, Seen, Nexts, Symbol, Address, False) = False Then Exit Function
+        Else
+            If NativeStorage.NeutralStorage(A, E, L, S, B, Token, Catalog, Symbol, Address, False, True) = False Then Exit Function
+        End If
+    Else
+        Target = N(Node - 1).FirstChild
+        ValueNode = N(Target - 1).NextSibling
+        Symbol = E(Target - 1).SymbolIndex
+        ' Direct scalar frame addresses are stable and have no evaluation effects.
+        ' Materialize them at the store instead of carrying an SSA pointer across RHS calls.
+        If Symbol > 0 And E(Target - 1).AccessKind = 0 And E(Target - 1).ArrayRank = 0 And E(Target - 1).TypeSymbol = 0 Then
+            If P(Symbol - 1).ContextOffset < 0 Then DeferredAddress = True
+        End If
+        If DeferredAddress = False Then
+            Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
+            If S.Text.Failed Then Exit Function
+        End If
+    End If
+    If ValueNode <> 0 And Terminated = False Then
+        If E(Target - 1).ArrayRank <> 0 Or E(Target - 1).TypeSymbol <> 0 Then
+            SourceAddress = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ValueNode, Terminated)
+            If S.Text.Failed Then Exit Function
+            If Terminated = False Then
+                If E(Target - 1).ArrayRank = 1 Then
+                    Test = NativeEmission.NewValue(S)
+                    If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Test, Address, SourceAddress, L(Target - 1).ElementCells) = False Then Exit Function
+                    If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Test) = False Then Exit Function
+                Else
+                    If NativeStorage.SnapshotCells(S, B, Token, Catalog, SourceAddress, L(Target - 1).StorageCells, Values) = False Then Exit Function
+                    If NativeStorage.StoreCells(S, B, Token, Catalog, Address, Values) = False Then Exit Function
+                End If
+                If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, ValueNode) = False Then Exit Function
+            End If
+        Else
+            Value = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ValueNode, E(Target - 1).TypeCode, Terminated)
+            If S.Text.Failed Then Exit Function
+            If Terminated = False Then
+                If DeferredAddress Then
+                    Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, Symbol)
+                    If S.Text.Failed Then Exit Function
+                End If
+                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
+            End If
+        End If
+    End If
+    TryEmitAssignment = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Emits one statement and its control-flow continuation.
+Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
     Dim Kind As Long
     Dim Child As Long
-    Dim ValueNode As Long
     Dim ThenNode As Long
     Dim ElseNode As Long
-    Dim Symbol As Long
     Dim Value As Long
-    Dim Address As Long
     Dim Test As Long
     Dim Terminated As Boolean
-    Dim Values() As Long
-    Dim SourceAddress As Long
     Dim Target As Long
     Dim ThenEntry As Long
     Dim ElseEntry As Long
-    Dim DeferredAddress As Boolean
     On Error GoTo Failed
     If NativeEmission.Charge(S) = False Then Exit Function
     S.CurrentNode = Node
@@ -121,56 +190,9 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Node, 0, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) = False Then Exit Function
     If Kind = SourceParser.VariableNode Or Kind = SourceParser.AssignmentNode Then
-        Target = Node
-        If Kind = SourceParser.VariableNode Then
-            Symbol = E(Node - 1).SymbolIndex
-            ValueNode = ExpressionBinder.InitializerNode(N, Node)
-            Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, Symbol)
-            If S.Text.Failed Then Exit Function
-            If NativeStorage.NeutralStorage(A, E, L, S, B, Token, Catalog, Symbol, Address, False, True) = False Then Exit Function
-        Else
-            Target = N(Node - 1).FirstChild
-            ValueNode = N(Target - 1).NextSibling
-            Symbol = E(Target - 1).SymbolIndex
-            ' Direct scalar frame addresses are stable and have no evaluation effects.
-            ' Materialize them at the store instead of carrying an SSA pointer across RHS calls.
-            If Symbol > 0 And E(Target - 1).AccessKind = 0 And E(Target - 1).ArrayRank = 0 And E(Target - 1).TypeSymbol = 0 Then
-                If P(Symbol - 1).ContextOffset < 0 Then DeferredAddress = True
-            End If
-            If DeferredAddress = False Then
-                Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
-                If S.Text.Failed Then Exit Function
-            End If
-        End If
-        If ValueNode <> 0 And Terminated = False Then
-            If E(Target - 1).ArrayRank <> 0 Or E(Target - 1).TypeSymbol <> 0 Then
-                SourceAddress = NativeStorage.EmitAddress(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, ValueNode, Terminated)
-                If S.Text.Failed Then Exit Function
-                If Terminated = False Then
-                    If E(Target - 1).ArrayRank = 1 Then
-                        Test = NativeEmission.NewValue(S)
-                        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Test, Address, SourceAddress, L(Target - 1).ElementCells) = False Then Exit Function
-                        If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Test) = False Then Exit Function
-                    Else
-                        If NativeStorage.SnapshotCells(S, B, Token, Catalog, SourceAddress, L(Target - 1).StorageCells, Values) = False Then Exit Function
-                        If NativeStorage.StoreCells(S, B, Token, Catalog, Address, Values) = False Then Exit Function
-                    End If
-                    If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, ValueNode) = False Then Exit Function
-                End If
-            Else
-                Value = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, ValueNode, E(Target - 1).TypeCode, Terminated)
-                If S.Text.Failed Then Exit Function
-                If Terminated = False Then
-                    If DeferredAddress Then
-                        Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, Symbol)
-                        If S.Text.Failed Then Exit Function
-                    End If
-                    If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
-                End If
-            End If
-        End If
-    ElseIf Kind = SourceParser.CallNode Then
-        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If TryEmitAssignment(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated) = False Then Exit Function
+    ElseIf Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode Then
+        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         If S.Text.Failed Then Exit Function
     ElseIf Kind = SourceParser.GoToNode Or Kind = SourceParser.ExitNode Then
         Target = 0
@@ -188,7 +210,7 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
         Child = N(Node - 1).FirstChild
         ThenNode = N(Child - 1).NextSibling
         ElseNode = N(ThenNode - 1).NextSibling
-        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Child, Terminated)
+        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, Terminated)
         If S.Text.Failed Then Exit Function
         If Terminated = False Then
             Test = NativeEmission.NewValue(S)
@@ -198,11 +220,11 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
             ElseEntry = SequenceEntry(N, ElseNode, Continuation)
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, ThenEntry, ElseEntry, 0) = False Then Exit Function
         End If
-        If TryEmitSequence(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, ThenNode, Continuation) = False Then Exit Function
-        If TryEmitSequence(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, ElseNode, Continuation) = False Then Exit Function
+        If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ThenNode, Continuation) = False Then Exit Function
+        If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ElseNode, Continuation) = False Then Exit Function
         Terminated = True
     ElseIf Kind = SourceParser.DoNode Then
-        If TryEmitLoop(N, A, E, L, P, Pins, S, B, Token, Catalog, Seen, Nexts, Node, Continuation) = False Then Exit Function
+        If TryEmitLoop(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Continuation) = False Then Exit Function
         Terminated = True
     ElseIf Kind <> SourceParser.ConstantNode And Kind <> SourceParser.LabelNode Then
         S.Text.Failed = True
