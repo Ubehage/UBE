@@ -1,0 +1,458 @@
+[
+  {
+    "name": "Branch",
+    "text": "  br label %b{0}"
+  },
+  {
+    "name": "ConditionalBranch",
+    "text": "  br i1 %v{0}, label %b{1}, label %b{2}"
+  },
+  {
+    "name": "Label",
+    "text": "b{0}:"
+  },
+  {
+    "name": "IntegerValue",
+    "text": "  %v{0} = add i64 0, {1}"
+  },
+  {
+    "name": "LoadValue",
+    "text": "  %v{0} = load i64, ptr %v{1}"
+  },
+  {
+    "name": "StoreValue",
+    "text": "  store i64 %v{0}, ptr %v{1}"
+  },
+  {
+    "name": "ContextType",
+    "text": "%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }"
+  },
+  {
+    "name": "ProcedureStart",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx"
+  },
+  {
+    "name": "ValueParameter",
+    "text": ", i64 %arg.{0}"
+  },
+  {
+    "name": "ReferenceParameter",
+    "text": ", ptr %arg.{0}"
+  },
+  {
+    "name": "ProcedureBody",
+    "text": ") {"
+  },
+  {
+    "name": "FunctionEnd",
+    "text": "}"
+  },
+  {
+    "name": "ContextFileType",
+    "text": "%ube.file = type { i64, ptr, ptr, i64, i64 }"
+  },
+  {
+    "name": "ContextPrefix",
+    "text": "%ube.file = type { i64, ptr, ptr, i64, i64 }\r\n%ube.context = type { i64, i64, [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.file] }\r\n\r\ndeclare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)\r\n\r\ndefine i64 @ube.context.size() {\r\nentry:\r\n  ret i64 {2}\r\n}\r\ndefine void @ube.context.init(ptr %ctx) {\r\nentry:\r\n  br label %zero\r\nzero:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %zero ]\r\n  %slot = getelementptr i64, ptr %ctx, i64 %index\r\n  store volatile i64 0, ptr %slot, align 8\r\n  %next = add i64 %index, 1\r\n  %more = icmp ult i64 %next, {3}\r\n  br i1 %more, label %zero, label %done\r\ndone:\r\n  ret void\r\n}\r\ndefine i1 @ube.context.dispose(ptr %ctx) {\r\nentry:\r\n  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1\r\n  %depth = load i64, ptr %depth.ptr\r\n  %depth.active = icmp ne i64 %depth, 0\r\n  %files.empty = call i1 @ube.file.empty(ptr %ctx)\r\n  %files.live = xor i1 %files.empty, true\r\n  %active = or i1 %depth.active, %files.live\r\n  br i1 %active, label %busy, label %release\r\nbusy:\r\n  ret i1 false\r\nrelease:\r\n"
+  },
+  {
+    "name": "ContextArrayRelease",
+    "text": "  %array.{0} = getelementptr %ube.context, ptr %ctx, i32 0, i32 3, i64 {1}\r\n  call void @ube.array.clear(ptr %array.{0})\r\n"
+  },
+  {
+    "name": "ContextMiddle",
+    "text": "  %collected = call i1 @ube.memory.collect(ptr %ctx)\r\n  %head.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 4\r\n  %head = load ptr, ptr %head.ptr\r\n  %empty = icmp eq ptr %head, null\r\n  ret i1 %empty\r\n}\r\ndefine i1 @ube.project.init(ptr %ctx) {\r\nentry:\r\n"
+  },
+  {
+    "name": "EnsureModule",
+    "text": "  %module.{0} = call i1 @ube.module.ensure.{0}(ptr %ctx)\r\n"
+  },
+  {
+    "name": "ContextSuffix",
+    "text": "  ret i1 true\r\n}\r\n\r\n"
+  },
+  {
+    "name": "Entry",
+    "text": "@ube.entry.context = private global %ube.context zeroinitializer, align 8\r\ndefine i32 @main() {\r\nentry:\r\n  call void @ube.context.init(ptr @ube.entry.context)\r\n  %initialized = call i1 @ube.project.init(ptr @ube.entry.context)\r\n  br i1 %initialized, label %invoke, label %unavailable\r\ninvoke:\r\n  %result = call { i1, i64 } @ube.proc.{0}(ptr @ube.entry.context)\r\n  %success = extractvalue { i1, i64 } %result, 0\r\n  br i1 %success, label %complete, label %unavailable\r\ncomplete:\r\n  %value = extractvalue { i1, i64 } %result, 1\r\n  %status = trunc i64 %value to i32\r\n  %disposed = call i1 @ube.context.dispose(ptr @ube.entry.context)\r\n  br i1 %disposed, label %finished, label %unavailable\r\nfinished:\r\n  ret i32 %status\r\nunavailable:\r\n  %cleanup = call i1 @ube.context.dispose(ptr @ube.entry.context)\r\n  ; Defensive native-launch transport status, never a successful UBE FAIL value.\r\n  ret i32 1\r\n}\r\n"
+  },
+  {
+    "name": "StoreError",
+    "text": "  store i64 {0}, ptr %err"
+  },
+  {
+    "name": "FailureBranch",
+    "text": "  br label %failure.dispatch"
+  },
+  {
+    "name": "CallSuccess",
+    "text": "  %v{0} = extractvalue { i1, i64 } %v{1}, 0"
+  },
+  {
+    "name": "CallSuccessBranch",
+    "text": "  br i1 %v{0}, label %b{1}, label %failure.dispatch"
+  },
+  {
+    "name": "ValueNonzero",
+    "text": "  %v{0} = icmp ne i64 %v{1}, 0"
+  },
+  {
+    "name": "BooleanSelect",
+    "text": "  %v{0} = select i1 %v{1}, i64 -1, i64 0"
+  },
+  {
+    "name": "TruncateValue",
+    "text": "  %v{0} = trunc i64 %v{1} to i{2}"
+  },
+  {
+    "name": "SignExtendValue",
+    "text": "  %v{0} = sext i{2} %v{1} to i64"
+  },
+  {
+    "name": "ZeroExtendValue",
+    "text": "  %v{0} = zext i{2} %v{1} to i64"
+  },
+  {
+    "name": "DifferentValues",
+    "text": "  %v{0} = icmp ne i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "ComplementValue",
+    "text": "  %v{0} = xor i{2} %v{1}, -1"
+  },
+  {
+    "name": "OverflowFlag",
+    "text": "  %v{0} = extractvalue { i{2}, i1 } %v{1}, 1"
+  },
+  {
+    "name": "ArithmeticValue",
+    "text": "  %v{0} = extractvalue { i{2}, i1 } %v{1}, 0"
+  },
+  {
+    "name": "ArithmeticAdd16",
+    "text": "  %v{0} = call { i16, i1 } @llvm.sadd.with.overflow.i16(i16 %v{1}, i16 %v{2})"
+  },
+  {
+    "name": "ArithmeticSubtract16",
+    "text": "  %v{0} = call { i16, i1 } @llvm.ssub.with.overflow.i16(i16 %v{1}, i16 %v{2})"
+  },
+  {
+    "name": "ArithmeticAdd32",
+    "text": "  %v{0} = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %v{1}, i32 %v{2})"
+  },
+  {
+    "name": "ArithmeticSubtract32",
+    "text": "  %v{0} = call { i32, i1 } @llvm.ssub.with.overflow.i32(i32 %v{1}, i32 %v{2})"
+  },
+  {
+    "name": "ArithmeticAdd64",
+    "text": "  %v{0} = call { i64, i1 } @llvm.sadd.with.overflow.i64(i64 %v{1}, i64 %v{2})"
+  },
+  {
+    "name": "ArithmeticSubtract64",
+    "text": "  %v{0} = call { i64, i1 } @llvm.ssub.with.overflow.i64(i64 %v{1}, i64 %v{2})"
+  },
+  {
+    "name": "IntrinsicFileOpen",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4) {\r\nentry:\r\n  %accepted = call i1 @ube.file.open(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2, ptr %arg.3, ptr %arg.4, i1 false)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileCreateNew",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {\r\nentry:\r\n  %length = alloca i64, align 8\r\n  %accepted = call i1 @ube.file.open(ptr %ctx, ptr %arg.0, i64 2147483647, ptr %arg.1, ptr %length, ptr %arg.2, i1 true)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileRead",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {\r\nentry:\r\n  %accepted = call i1 @ube.file.transfer(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5, i1 false)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileWrite",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5) {\r\nentry:\r\n  %accepted = call i1 @ube.file.transfer(ptr %ctx, i64 %arg.0, ptr %arg.1, i64 %arg.2, i64 %arg.3, ptr %arg.4, ptr %arg.5, i1 true)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileClose",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.file.close(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicFileFlush",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.file.flush(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicErrorSet",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0) {\r\nentry:\r\n  %positive = icmp sgt i64 %arg.0, 0\r\n  %number = select i1 %positive, i64 %arg.0, i64 5\r\n  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0\r\n  store i64 %number, ptr %err\r\n  ret { i1, i64 } { i1 true, i64 0 }\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicArrayLength",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0) {\r\nentry:\r\n  %source.lower = load i64, ptr %arg.0\r\n  %source.upper.ptr = getelementptr i64, ptr %arg.0, i64 1\r\n  %source.upper = load i64, ptr %source.upper.ptr\r\n  %source.distance = sub i64 %source.upper, %source.lower\r\n  %source.length = add i64 %source.distance, 1\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %source.length, 1\r\n  ret { i1, i64 } %result\r\n}\r\n\r\n"
+  },
+  {
+    "name": "IntrinsicMemoryCopyBytes",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2, i64 %arg.3, i64 %arg.4) {\r\nentry:\r\n  %source.lower = load i64, ptr %arg.0\r\n  %source.upper.ptr = getelementptr i64, ptr %arg.0, i64 1\r\n  %source.upper = load i64, ptr %source.upper.ptr\r\n  %source.distance = sub i64 %source.upper, %source.lower\r\n  %source.length = add i64 %source.distance, 1\r\n  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0\r\n  %count.invalid = icmp slt i64 %arg.4, 0\r\n  br i1 %count.invalid, label %argument.fail, label %span.starts\r\nspan.starts:\r\n  %destination.lower = load i64, ptr %arg.2\r\n  %destination.upper.ptr = getelementptr i64, ptr %arg.2, i64 1\r\n  %destination.upper = load i64, ptr %destination.upper.ptr\r\n  %destination.distance = sub i64 %destination.upper, %destination.lower\r\n  %destination.length = add i64 %destination.distance, 1\r\n  %source.negative = icmp slt i64 %arg.1, 0\r\n  %destination.negative = icmp slt i64 %arg.3, 0\r\n  %source.past = icmp sgt i64 %arg.1, %source.length\r\n  %destination.past = icmp sgt i64 %arg.3, %destination.length\r\n  %negative = or i1 %source.negative, %destination.negative\r\n  %past = or i1 %source.past, %destination.past\r\n  %start.invalid = or i1 %negative, %past\r\n  br i1 %start.invalid, label %span.fail, label %span.count\r\nspan.count:\r\n  %source.remaining = sub i64 %source.length, %arg.1\r\n  %destination.remaining = sub i64 %destination.length, %arg.3\r\n  %source.short = icmp sgt i64 %arg.4, %source.remaining\r\n  %destination.short = icmp sgt i64 %arg.4, %destination.remaining\r\n  %span.invalid = or i1 %source.short, %destination.short\r\n  br i1 %span.invalid, label %span.fail, label %copy.test\r\ncopy.test:\r\n  %empty = icmp eq i64 %arg.4, 0\r\n  br i1 %empty, label %copy.done, label %copy.choose\r\ncopy.choose:\r\n  %source.data.ptr = getelementptr i64, ptr %arg.0, i64 2\r\n  %source.data = load ptr, ptr %source.data.ptr\r\n  %destination.data.ptr = getelementptr i64, ptr %arg.2, i64 2\r\n  %destination.data = load ptr, ptr %destination.data.ptr\r\n  %same = icmp eq ptr %arg.0, %arg.2\r\n  %later = icmp sgt i64 %arg.3, %arg.1\r\n  %backward = and i1 %same, %later\r\n  br i1 %backward, label %copy.backward, label %copy.forward\r\ncopy.forward:\r\n  %forward.index = phi i64 [ 0, %copy.choose ], [ %forward.next, %copy.forward ]\r\n  %forward.source.index = add i64 %arg.1, %forward.index\r\n  %forward.destination.index = add i64 %arg.3, %forward.index\r\n  %forward.source = getelementptr i64, ptr %source.data, i64 %forward.source.index\r\n  %forward.destination = getelementptr i64, ptr %destination.data, i64 %forward.destination.index\r\n  %forward.value = load volatile i64, ptr %forward.source\r\n  store volatile i64 %forward.value, ptr %forward.destination\r\n  %forward.next = add i64 %forward.index, 1\r\n  %forward.more = icmp slt i64 %forward.next, %arg.4\r\n  br i1 %forward.more, label %copy.forward, label %copy.done\r\ncopy.backward:\r\n  %backward.remaining = phi i64 [ %arg.4, %copy.choose ], [ %backward.index, %copy.backward ]\r\n  %backward.index = sub i64 %backward.remaining, 1\r\n  %backward.source.index = add i64 %arg.1, %backward.index\r\n  %backward.destination.index = add i64 %arg.3, %backward.index\r\n  %backward.source = getelementptr i64, ptr %source.data, i64 %backward.source.index\r\n  %backward.destination = getelementptr i64, ptr %destination.data, i64 %backward.destination.index\r\n  %backward.value = load volatile i64, ptr %backward.source\r\n  store volatile i64 %backward.value, ptr %backward.destination\r\n  %backward.more = icmp ne i64 %backward.index, 0\r\n  br i1 %backward.more, label %copy.backward, label %copy.done\r\nargument.fail:\r\n  store i64 5, ptr %err\r\n  ret { i1, i64 } { i1 true, i64 0 }\r\nspan.fail:\r\n  store i64 9, ptr %err\r\n  ret { i1, i64 } { i1 true, i64 0 }\r\ncopy.done:\r\n  ret { i1, i64 } { i1 true, i64 -1 }\r\n}\r\n\r\n"
+  },
+  {
+    "name": "IntrinsicArrayResize",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.array.tryresize(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2, i64 {1})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "IntrinsicArrayCopy",
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr %arg.0, ptr %arg.1, i64 {1})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+  },
+  {
+    "name": "ContextAddress",
+    "text": "  %v{0} = getelementptr %ube.context, ptr %ctx, i32 0, i32 3, i64 {1}"
+  },
+  {
+    "name": "ArgumentAddress",
+    "text": "  %v{0} = getelementptr i64, ptr %arg.{1}, i64 0"
+  },
+  {
+    "name": "SlotAddress",
+    "text": "  %v{0} = getelementptr i64, ptr %slot.{1}, i64 0"
+  },
+  {
+    "name": "TemporaryAddress",
+    "text": "  %v{0} = getelementptr i64, ptr %temp.{1}, i64 0"
+  },
+  {
+    "name": "CellAddress",
+    "text": "  %v{0} = getelementptr i64, ptr %v{1}, i64 {2}"
+  },
+  {
+    "name": "IndexedAddress",
+    "text": "  %v{0} = getelementptr i64, ptr %v{1}, i64 %v{2}"
+  },
+  {
+    "name": "LoadPointer",
+    "text": "  %v{0} = load ptr, ptr %v{1}"
+  },
+  {
+    "name": "StorePointer",
+    "text": "  store ptr %v{0}, ptr %v{1}"
+  },
+  {
+    "name": "StoreNullPointer",
+    "text": "  store ptr null, ptr %v{0}"
+  },
+  {
+    "name": "RetainBlock",
+    "text": "  call void @ube.block.retain(ptr %v{0})"
+  },
+  {
+    "name": "PinBlock",
+    "text": "  store ptr %v{0}, ptr %pin.{1}"
+  },
+  {
+    "name": "ReleasePin",
+    "text": "  %v{0} = load ptr, ptr %pin.{1}\r\n  store ptr null, ptr %pin.{1}\r\n  call void @ube.block.drop(ptr %v{0})"
+  },
+  {
+    "name": "CollectMemory",
+    "text": "  %v{0} = call i1 @ube.memory.collect(ptr %ctx)"
+  },
+  {
+    "name": "ClearArray",
+    "text": "  call void @ube.array.clear(ptr %v{0})"
+  },
+  {
+    "name": "BelowBound",
+    "text": "  %v{0} = icmp slt i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "AboveBound",
+    "text": "  %v{0} = icmp sgt i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "EitherCondition",
+    "text": "  %v{0} = or i1 %v{1}, %v{2}"
+  },
+  {
+    "name": "RelativeIndex",
+    "text": "  %v{0} = sub i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "ElementOffset",
+    "text": "  %v{0} = mul i64 %v{1}, {2}"
+  },
+  {
+    "name": "LoadVolatileValue",
+    "text": "  %v{0} = load volatile i64, ptr %v{1}"
+  },
+  {
+    "name": "StoreVolatileValue",
+    "text": "  store volatile i64 %v{0}, ptr %v{1}"
+  },
+  {
+    "name": "StoreConstant",
+    "text": "  store i64 {0}, ptr %v{1}"
+  },
+  {
+    "name": "StoreVolatileConstant",
+    "text": "  store volatile i64 {0}, ptr %v{1}"
+  },
+  {
+    "name": "EnsureModuleValue",
+    "text": "  %v{0} = call i1 @ube.module.ensure.{1}(ptr %ctx)"
+  },
+  {
+    "name": "ControlSite",
+    "text": "  store i32 {0}, ptr %failure.site"
+  },
+  {
+    "name": "ControlHandler",
+    "text": "  store i32 {0}, ptr %handler.target"
+  },
+  {
+    "name": "ControlZero",
+    "text": "  %v{0} = icmp eq i64 %v{1}, 0"
+  },
+  {
+    "name": "ControlArrayCopy",
+    "text": "  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3})"
+  },
+  {
+    "name": "CompareEqual",
+    "text": "  %v{0} = icmp eq i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "CompareLessEqual",
+    "text": "  %v{0} = icmp sle i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "CompareGreaterEqual",
+    "text": "  %v{0} = icmp sge i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "BooleanAnd",
+    "text": "  %v{0} = and i1 %v{1}, %v{2}"
+  },
+  {
+    "name": "BooleanInvert",
+    "text": "  %v{0} = xor i1 %v{1}, true"
+  },
+  {
+    "name": "IntegerAnd",
+    "text": "  %v{0} = and i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "IntegerOr",
+    "text": "  %v{0} = or i64 %v{1}, %v{2}"
+  },
+  {
+    "name": "StoreErrorValue",
+    "text": "  store i64 %v{0}, ptr %err"
+  },
+  {
+    "name": "ReturnFailureBranch",
+    "text": "  br label %return.fail"
+  },
+  {
+    "name": "LoadError",
+    "text": "  %v{0} = load i64, ptr %err"
+  },
+  {
+    "name": "CallStart",
+    "text": "  %v{0} = call { i1, i64 } @ube.proc.{1}(ptr %ctx"
+  },
+  {
+    "name": "CallValueArgument",
+    "text": ", i64 %v{0}"
+  },
+  {
+    "name": "CallReferenceArgument",
+    "text": ", ptr %v{0}"
+  },
+  {
+    "name": "CallEnd",
+    "text": ")"
+  },
+  {
+    "name": "CallValue",
+    "text": "  %v{0} = extractvalue { i1, i64 } %v{1}, 1"
+  },
+  {
+    "name": "ProcedurePointers",
+    "text": "entry:\r\n  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0\r\n  %depth.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 1"
+  },
+  {
+    "name": "ModuleInitializeStart",
+    "text": "define internal { i1, i64 } @ube.module.initialize.{0}(ptr %ctx) {\r\nentry:\r\n  %err = getelementptr %ube.context, ptr %ctx, i32 0, i32 0"
+  },
+  {
+    "name": "FrameControls",
+    "text": "  %handler.target = alloca i32, align 4\r\n  %handler.active = alloca i1, align 1\r\n  %failure.site = alloca i32, align 4\r\n  %handler.resume = alloca i32, align 4\r\n  store i32 0, ptr %handler.target\r\n  store i1 false, ptr %handler.active\r\n  store i32 0, ptr %failure.site\r\n  store i32 0, ptr %handler.resume"
+  },
+  {
+    "name": "AllocateSlot",
+    "text": "  %slot.{0} = alloca [{1} x i64], align 8"
+  },
+  {
+    "name": "StoreParameter",
+    "text": "  store i64 %arg.{0}, ptr %slot.{0}"
+  },
+  {
+    "name": "AllocateTemporary",
+    "text": "  %temp.{0} = alloca i64, align 8"
+  },
+  {
+    "name": "AllocatePin",
+    "text": "  %pin.{0} = alloca ptr, align 8\r\n  store ptr null, ptr %pin.{0}"
+  },
+  {
+    "name": "ProcedureDepth",
+    "text": "  %depth.initial = load i64, ptr %depth.ptr\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store i64 28, ptr %err\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store i64 %depth.entered, ptr %depth.ptr"
+  },
+  {
+    "name": "FailureDispatchLabel",
+    "text": "failure.dispatch:"
+  },
+  {
+    "name": "FailureHandlerDispatch",
+    "text": "  %dispatch.active = load i1, ptr %handler.active\r\n  %dispatch.target = load i32, ptr %handler.target\r\n  %dispatch.site = load i32, ptr %failure.site\r\n  %dispatch.enabled = icmp ne i32 %dispatch.target, 0\r\n  %dispatch.inactive = xor i1 %dispatch.active, true\r\n  %dispatch.eligible = and i1 %dispatch.enabled, %dispatch.inactive\r\n  br i1 %dispatch.eligible, label %handler.enter, label %failure.skip\r\nhandler.enter:\r\n  store i1 true, ptr %handler.active\r\n  store i32 %dispatch.site, ptr %handler.resume\r\n  switch i32 %dispatch.target, label %failure.skip ["
+  },
+  {
+    "name": "SwitchCase",
+    "text": "    i32 {0}, label %b{1}"
+  },
+  {
+    "name": "SwitchEnd",
+    "text": "  ]"
+  },
+  {
+    "name": "FailureSkipDispatch",
+    "text": "failure.skip:\r\n  switch i32 %dispatch.site, label %return.fail ["
+  },
+  {
+    "name": "ReturnFailureLabel",
+    "text": "return.fail:"
+  },
+  {
+    "name": "ReturnDepthSuccess",
+    "text": "  %return.depth.ok = load i64, ptr %depth.ptr\r\n  %return.less.ok = sub i64 %return.depth.ok, 1\r\n  store i64 %return.less.ok, ptr %depth.ptr"
+  },
+  {
+    "name": "ReturnDepthFailure",
+    "text": "  %return.depth.fail = load i64, ptr %depth.ptr\r\n  %return.less.fail = sub i64 %return.depth.fail, 1\r\n  store i64 %return.less.fail, ptr %depth.ptr"
+  },
+  {
+    "name": "LoadResult",
+    "text": "  %v{0} = load i64, ptr %slot.{1}"
+  },
+  {
+    "name": "ReturnSuccessValue",
+    "text": "  %v{0} = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %v{1}, 1\r\n  ret { i1, i64 } %v{0}"
+  },
+  {
+    "name": "ReturnFailedValue",
+    "text": "  ret { i1, i64 } { i1 false, i64 0 }"
+  },
+  {
+    "name": "ModuleEnsureDefinition",
+    "text": "define internal i1 @ube.module.ensure.{0}(ptr %ctx) {\r\nentry:\r\n  %state.ptr = getelementptr %ube.context, ptr %ctx, i32 0, i32 2, i64 {0}\r\n  %state = load i64, ptr %state.ptr\r\n  %needed = icmp eq i64 %state, 0\r\n  br i1 %needed, label %initialize, label %done\r\ninitialize:\r\n  store i64 1, ptr %state.ptr\r\n  %result = call { i1, i64 } @ube.module.initialize.{0}(ptr %ctx)\r\n  store i64 2, ptr %state.ptr\r\n  br label %done\r\ndone:\r\n  ret i1 true\r\n}"
+  },
+  {
+    "name": "SourceLocation",
+    "text": "; module {0}, node {1}, line {2}, column {3}"
+  },
+  {
+    "name": "TargetHeader",
+    "text": "target triple = \"x86_64-pc-windows-msvc\""
+  }
+]

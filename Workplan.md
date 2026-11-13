@@ -202,6 +202,11 @@ product baseline.
   in UBE before lowering, under bootstrap/SEMANTIC-STORAGE.md. Native acceptance
   passes 50 cases at O0/O2 plus 110 allocation/depth checks across both passes;
   exact evidence and the native-lowering handoff are in compiler/Progress.md.
+- [x] Implement and qualify native lowering from the checked UBE frontend facts,
+  retaining the complete admitted profile, failure/ownership semantics and
+  guarded publication. Scope: bootstrap/UBE-LOWERING.md; current work and exact
+  evidence: compiler/Progress.md. Whole-program O0/O2, actual compiler-source
+  generation and 160 injected-failure cases pass. Self-hosting remains next.
 - [ ] Expand compiler and UBE libraries toward the frozen language contract,
   with source-level debugging and thread-safe compilation.
 - [ ] Deliver the native IDE, accepted samples and complete offline manual

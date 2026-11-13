@@ -670,7 +670,7 @@ Failed:
 End Function
 
 ' Finds the initializer following a declaration's optional rank-one shape.
-Private Function InitializerNode(ByRef N() As SourceParser.SyntaxNode, ByVal Node As Long) As Long
+Public Function InitializerNode(ByRef N() As SourceParser.SyntaxNode, ByVal Node As Long) As Long
     Dim Child As Long
     On Error GoTo Failed
     Child = N(Node - 1).FirstChild

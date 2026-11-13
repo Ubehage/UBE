@@ -4,6 +4,22 @@ UBECore provides ordinary language-support algorithms as UBE source, with a
 narrow compiler intrinsic and platform boundary. [UBECore.UBE](UBECore.UBE)
 contains its current portable counted-buffer, file-I/O and UTF-8 modules.
 
+`ByteText.TryAppendInteger` appends exact signed decimal ASCII, including the
+LongLong minimum, into a zero-based destination with a caller-owned Used count.
+It uses a private 20-byte scratch span and publishes Used only after the final
+copy. False preserves the destination and Used; negative Used records Err 5,
+insufficient capacity or invalid bounds records Err 9, and success preserves Err.
+It does not allocate managed String storage or grow the destination.
+
+`FileBytes.TryWriteByteRange` writes a validated logical Start/Count span in
+requests of at most 65,536 bytes, accepts confirmed partial progress and rejects
+zero progress. It neither flushes nor closes. Invalid spans report Failure 1
+and Err 5 before writing; zero progress reports Failure 15 and Err 57. A failed
+write may leave confirmed bytes in the file. The caller retains the owner.
+`TryWriteAllBytes` delegates to this helper and flushes after success. The
+focused [text-output gate](../bootstrap/tests/byte-text/check.ps1) checks exact
+decimal text, publication, progress, file contents and resource ownership.
+
 `Utf8.TrySequenceWidth` validates one Unicode scalar encoding in zero-based
 counted bytes and returns its byte and UTF-16 widths without allocating a
 String. Invalid encodings or spans return False with zero widths; successful

@@ -297,6 +297,29 @@ The allocation companion must qualify both public passes separately at O0/O2,
 including each observed allocation, previous-output preservation and depth
 refusal. These checks do not replace frame/lowering or concurrency acceptance.
 
+## UBE-written native lowering gate
+
+The complete admitted bootstrap profile must pass `../bootstrap/tests/native-lowering/check.ps1`.
+The native driver reads original modules at runtime and calls NativeLowering;
+its output must contain UBE-generated procedures, module initialization and
+primitive wrappers, without inserting host-generated user procedure bodies.
+Compile and execute independent integer, control/error, record/array/alias and
+file observations at O0/O2. Check deterministic IR, exact changed-input rejection,
+executable entry, initializer ordering and guarded recursion. Lower the actual
+compiler/library sources and check the resulting native objects as well.
+
+`allocation-check.ps1` faults every observed allocation and retry, malformed
+retained input/assets, file write/flush and depth boundaries. Require a fresh
+diagnostic, rejected private stage, balanced ownership and independent recovery.
+The caller owns stage closing and final publication; partial output is never a
+usable artifact. Earlier public output must survive failed emission/builds.
+
+Focused planning, scalar, template, writer, context and intrinsic gates support
+these whole-program checks; none alone qualifies the complete lowering path.
+`../bootstrap/UBE-LOWERING.md` specifies the public boundary and limits. Current
+qualification status and exact evidence are recorded in Progress.md. These gates
+do not establish self-hosting, concurrent execution or source-level debugging.
+
 ## Final compiler concurrency gate
 
 This gate applies to the UBE-written compiler, not the sequential VB6 bootstrap.

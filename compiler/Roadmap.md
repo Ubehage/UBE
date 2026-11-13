@@ -85,11 +85,16 @@ and shared-state rules are in the development plan's concurrency requirement.
   bootstrap/SEMANTIC-STORAGE.md and Progress.md. Names alone grant no authority;
   finite layout rejects recursive storage without rejecting nominal graph
   identities in the earlier declaration pass.
-  Next implement native lowering from these checked UBE facts under the existing
-  bootstrap lowering/runtime contracts. Measure concrete source dependencies
-  before extending the same host. Qualify generated programs, frame/temporary
-  planning and error/ownership behavior before claiming UBE-written generation.
+  UBE-written native lowering now generates the complete admitted profile from
+  freshly checked facts. Whole-program O0/O2 execution, deterministic IR, actual
+  compiler/library code generation and 160 failure-injection cases pass; see
+  bootstrap/UBE-LOWERING.md and the evidence in Progress.md. The same VB6 host
+  gained per-scope emission indexes after a measured work-budget regression;
+  no language subset or resource bound was weakened.
 - [ ] Compile the UBE-written compiler and rebuild it with its own output.
+  Connect its existing frontend/lowering passes through the project/command
+  driver and guarded native backend needed for a runnable compiler. Measure
+  missing source/library dependencies before extending the same bootstrap.
   Compare deterministic generated artifacts and run the same conformance
   corpus with both generations before claiming self-hosting.
 - [ ] Implement and qualify concurrent compilation in the UBE-written compiler:

@@ -35,6 +35,10 @@ Private Type EmissionState
     ModuleDependencies() As Byte
     PinSlot() As Long
     PinCount() As Long
+    FirstScopeSymbol() As Long
+    NextScopeSymbol() As Long
+    FirstTemporary() As Long
+    NextTemporary() As Long
 End Type
 
 ' Reports a controlled emission diagnostic at a retained source span.
@@ -315,6 +319,33 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     ReDim State.PinCount(1 To Bound.SymbolCount)
     ReDim StatementPins(1 To Parsed.NodeCount)
     ReDim State.FieldIndex(1 To Bound.SymbolCount)
+    ReDim State.FirstScopeSymbol(1 To Bound.SymbolCount)
+    ReDim State.NextScopeSymbol(1 To Bound.SymbolCount)
+    ReDim State.FirstTemporary(1 To Bound.SymbolCount)
+    ReDim State.NextTemporary(1 To Parsed.NodeCount)
+    ' Reverse insertion retains the previous increasing-symbol/node emission order.
+    For Symbol = Bound.SymbolCount To 1 Step -1
+        If Not EmissionWork(State) Then
+            CheckEmissionProfile = EmissionError(Project, Parsed, Bound.Symbols(Symbol).DeclarationNode, Diagnostic, "E_LIMIT", "native scope indexing work limit exceeded")
+            Exit Function
+        End If
+        Scope = Bound.Symbols(Symbol).ScopeSymbol
+        If Scope > 0 Then
+            State.NextScopeSymbol(Symbol) = State.FirstScopeSymbol(Scope)
+            State.FirstScopeSymbol(Scope) = Symbol
+        End If
+    Next Symbol
+    For Node = Parsed.NodeCount To 1 Step -1
+        If Not EmissionWork(State) Then
+            CheckEmissionProfile = EmissionError(Project, Parsed, Node, Diagnostic, "E_LIMIT", "native scope indexing work limit exceeded")
+            Exit Function
+        End If
+        If Bound.Nodes(Node).ArgumentMode = "temp" Then
+            Scope = Bound.Nodes(Node).ScopeSymbol
+            State.NextTemporary(Node) = State.FirstTemporary(Scope)
+            State.FirstTemporary(Scope) = Node
+        End If
+    Next Node
     For Symbol = 1 To Bound.SymbolCount
         Kind = Bound.Symbols(Symbol).Kind
         State.FieldIndex(Symbol) = -1
@@ -519,12 +550,14 @@ End Sub
 Private Sub ReleaseLocalArrays(ByRef Bound As BoundProject, ByRef State As EmissionState)
     Dim Symbol As Long, Collected As String
     If Not State.CountedDepth Then Exit Sub
-    For Symbol = 1 To Bound.SymbolCount
+    Symbol = State.FirstScopeSymbol(State.CurrentSymbol)
+    Do While Symbol <> 0
         If Not EmissionWork(State) Then Exit Sub
         If Bound.Symbols(Symbol).ScopeSymbol = State.CurrentSymbol And Bound.Symbols(Symbol).Kind = "variable" And Bound.Symbols(Symbol).ArrayRank = 1 Then
             Call AddLine(State, "  call void @ube.array.clear(ptr %slot." & CStr(Symbol) & ")")
         End If
-    Next Symbol
+        Symbol = State.NextScopeSymbol(Symbol)
+    Loop
     Collected = ValueName(State)
     Call AddLine(State, "  " & Collected & " = call i1 @ube.memory.collect(ptr %ctx)")
 End Sub
@@ -1025,12 +1058,14 @@ Private Sub EmitFailureDispatch(ByRef Parsed As ParsedProject, ByRef Bound As Bo
     Call AddLine(State, "  store i1 true, ptr %handler.active")
     Call AddLine(State, "  store i32 " & Site & ", ptr %handler.resume")
     Call AddLine(State, "  switch i32 " & Target & ", label %failure.skip [")
-    For Index = 1 To Bound.SymbolCount
+    Index = State.FirstScopeSymbol(State.CurrentSymbol)
+    Do While Index <> 0
         If Not EmissionWork(State) Then Exit Sub
         If Bound.Symbols(Index).Kind = "label" And Bound.Symbols(Index).ScopeSymbol = State.CurrentSymbol Then
             Call AddLine(State, "    i32 " & CStr(Index) & ", label %" & StatementLabel(Bound.Symbols(Index).DeclarationNode))
         End If
-    Next Index
+        Index = State.NextScopeSymbol(Index)
+    Loop
     Call AddLine(State, "  ]")
     Call AddLine(State, "failure.skip:")
     Call AddLine(State, "  switch i32 " & Site & ", label %return.fail [")
@@ -1055,7 +1090,8 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
     Call AddLine(State, "  store i1 false, ptr %handler.active")
     Call AddLine(State, "  store i32 0, ptr %failure.site")
     Call AddLine(State, "  store i32 0, ptr %handler.resume")
-    For Index = 1 To Bound.SymbolCount
+    Index = State.FirstScopeSymbol(State.CurrentSymbol)
+    Do While Index <> 0
         If Not EmissionWork(State) Then Exit Sub
         If Bound.Symbols(Index).ScopeSymbol = State.CurrentSymbol Then
             Kind = Bound.Symbols(Index).Kind
@@ -1074,13 +1110,16 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
                 End If
             End If
         End If
-    Next Index
-    For Index = 1 To Parsed.NodeCount
+        Index = State.NextScopeSymbol(Index)
+    Loop
+    Index = State.FirstTemporary(State.CurrentSymbol)
+    Do While Index <> 0
         If Not EmissionWork(State) Then Exit Sub
         If Bound.Nodes(Index).ScopeSymbol = State.CurrentSymbol And Bound.Nodes(Index).ArgumentMode = "temp" Then
             Call AddLine(State, "  %temp." & CStr(Index) & " = alloca i64, align 8")
         End If
-    Next Index
+        Index = State.NextTemporary(Index)
+    Loop
     For Index = 1 To State.PinCount(State.CurrentSymbol)
         Call AddLine(State, "  %pin." & CStr(Index) & " = alloca ptr, align 8")
         Call AddLine(State, "  store ptr null, ptr %pin." & CStr(Index))

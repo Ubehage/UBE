@@ -12,3 +12,8 @@ compiler/UBE_Compiler_v3/tests/parser/cli/diagnostic-oom/before-*.json -text
 # VB6's source/project importer requires Windows line endings.
 bootstrap/UBE-Bootstrap.vbp text eol=crlf
 bootstrap/src/*.bas text eol=crlf
+
+# Native LLVM assets have counted byte offsets and exact source-parity checks.
+compiler/llvm/templates.bin binary
+compiler/llvm/windows-runtime.ll -text whitespace=cr-at-eol
+compiler/src/LLVMTemplates.bas text eol=crlf

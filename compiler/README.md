@@ -20,8 +20,18 @@ may invoke core operations; [AggregateLayout](src/AggregateLayout.bas) computes
 bounded record and array storage facts. Their separate
 [contract](../bootstrap/SEMANTIC-STORAGE.md) and
 [native gate](../bootstrap/tests/semantic-storage/README.md) preserve the
-authority/layout boundary. Native lowering from these facts remains ahead;
-this is not self-hosting.
+authority/layout boundary.
+
+The UBE-written [native lowering implementation](src/NativeLowering.bas) now
+connects these passes to LLVM output. Its [contract](../bootstrap/UBE-LOWERING.md)
+describes private planning, ordered expression/control emission, invocation-local
+frames, primitive wrappers and streamed output. The implementation generates
+project-specific IR from current source facts and uses reviewed
+[LLVM text assets](llvm/README.md) for fixed target support and formatting.
+The [whole-program and failure gates](../bootstrap/tests/native-lowering/README.md)
+pass at O0/O2, including native code generation for the compiler/library source,
+deterministic output, exact negative controls and 160 injected-failure cases.
+Rebuilding the compiler through its own executable remains a separate step.
 
 The final compiler will be written in UBE and use LLVM to produce native
 64-bit programs. The owner selected VB6 as the bootstrap host if feasible.

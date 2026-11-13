@@ -1,6 +1,87 @@
 # Compiler development handoff
 
-## Current handoff: intrinsic authority and finite aggregate layout completed
+## Completed: UBE-written native lowering
+
+NativeLowering now privately revalidates the ordered project and emits the full
+admitted bootstrap profile: checked scalar values, calls and ByRef modes,
+invocation-local error flow, records/arrays/pins, primitive wrappers, module
+initialization, contexts and executable entry. Output streams to a caller-owned
+private stage under the existing byte/line/work limits. The caller closes or
+discards that stage and uses guarded backend publication; the emitter never
+publishes a destination. Contracts: ../bootstrap/UBE-LOWERING.md.
+
+The final whole-program gate reads original source files at native runtime.
+At both O0/O2 it passes 18 existing source checks, an independently checked
+256-byte file roundtrip, exact changed-input exit 101, executable exit 42,
+initializer dependencies and failures, depth-256 refusal/recovery, identical IR
+and exact source coordinates. Actual compiler/library bodies are lowered by UBE
+and compiled by LLVM at both levels; objects contain only the ten reviewed
+Windows imports, with no hidden CRT or stack-probe helper dependencies.
+
+The companion gate passes 160 fault cases and two baselines: all 64 observed
+allocation sites plus failed retries, five malformed-input/asset cases, two I/O
+failures and nine depth settings at each optimization level. Successful LLVM
+compiles; every recovered emission matches its baseline hash. Diagnostics are
+fresh and all native owners are released. Scope and exact assertions are in
+../bootstrap/tests/native-lowering/README.md.
+
+Final commands (2026-11-13):
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-lowering/check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube emission scopes 6d5a8c9e-4fb3-4bfd-9f36-88882244ddca\build\UBE-Bootstrap.exe"
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-lowering/allocation-check.ps1 -BootstrapExe "C:\Users\Ubehage\AppData\Local\Temp\ube emission scopes 6d5a8c9e-4fb3-4bfd-9f36-88882244ddca\build\UBE-Bootstrap.exe"
+rtk proxy powershell -NoProfile -File bootstrap/tools/runtime-text.ps1
+rtk proxy powershell -NoProfile -File bootstrap/tools/llvm-templates.ps1
+```
+
+Evidence directories under C:\Users\Ubehage\AppData\Local\Temp:
+- Main gate: `ube native lowering 2f0ff2cf-a03a-4576-83af-0bdf3d39cc10`.
+- Fault gate: `ube lowering failures 2adbba20-0fae-4f23-b5c6-4c5cb1e7ae0b`.
+- Final 114-template exact-output/generator gate:
+  `ube llvm format 16636bb2-302f-4762-9553-d7cb74fb52a3`.
+
+Two measured implementation fixes were necessary. The VB6 host repeatedly
+scanned all symbols/nodes for each procedure; per-scope indexes remove those
+scans without increasing its ten-million-step budget. The 400-procedure
+regression passes O0/O2, deterministic output and exact negative controls,
+with unchanged IR for three complex corpora. The UBE emitter initially carried
+constant operands and direct frame addresses across calls, causing a 10,680-byte
+O0 frame in the unchanged integration bridge. Scheduling pure constants after
+module ensure and stable scalar frame addresses after RHS evaluation removes
+that regression. Dynamic arguments, indexed/global lvalues and pins retain
+their original evaluation order. No test shim or reduced fixture was used.
+
+Focused byte-text, LLVM writer/format, planning, scalar, context and intrinsic
+gates also passed; their test READMEs retain the exact scope and commands.
+The indexed host passed these existing regressions:
+
+| Gate | Result | Evidence directory |
+|---|---:|---|
+| integer-types | 46 groups | `ube integer types 205c50f9-ac87-49a0-8bdb-30c8e92d1fd9` |
+| aggregate-storage | 35 groups | `ube aggregate storage a179a448-b6a4-44cf-8a20-a7d144e54c11` |
+| dynamic-storage | 41 groups | `ube dynamic storage 669a3029-2461-4c0c-9ab8-c18c2c5ac6f6` |
+| native-compilation | 26 groups | `ube native compilation 4ffb63f9-4dbd-4425-9054-7b9abf2ec607` |
+| file-io | 56 groups | `ube file io d5b4e1ab-3b11-4579-9aee-05ef9bb1b62b` |
+| counted-buffers | 25 groups | `ube counted buffers b5027ffc-775c-40fe-8a9c-2b7316426f49` |
+
+The first native-compilation regression attempt could not execute its copied
+LLVM helper under the sandbox. The unchanged gate passed outside the sandbox,
+including the expected missing-Clang and failed-publication cases.
+
+## Next handoff: a runnable self-hosting compiler
+
+Connect the existing UBE frontend and native lowering through the project/command
+driver and guarded native backend required by the next roadmap item. Preserve
+ordered multi-module loading, source diagnostics, private staging and prior
+outputs on failure. Measure missing source/library dependencies before extending
+the same VB6 host. Then rebuild through the UBE-generated compiler, compare
+deterministic artifacts and run the same conformance corpus.
+
+Generating compiler objects is not yet a self-build. Concurrent execution and
+full source-level debugging also remain separate acceptance gates. The final
+compiler's state remains caller-owned; sequential tests do not prove concurrency.
+
+## Previous handoff: intrinsic authority and finite aggregate layout completed
 
 PrimitiveRoles now validates all eleven admitted intrinsic signatures, metadata
 targets, empty bodies and nominal array-copy identity, publishing role IDs only

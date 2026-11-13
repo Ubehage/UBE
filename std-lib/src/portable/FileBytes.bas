@@ -52,24 +52,49 @@ Failed:
     Exit Function
 End Function
 
-' Advances only by confirmed writes, rejects zero progress, and flushes the explicit owner.
-Public Function TryWriteAllBytes(ByVal Token As Long, ByRef Source() As Byte, ByRef Failure As Long) As Boolean
+' Writes a validated logical span through bounded requests without flushing or releasing its owner.
+Public Function TryWriteByteRange(ByVal Token As Long, ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByRef Failure As Long) As Boolean
     Dim Status As Boolean
     Dim Length As Long
     Dim Offset As Long
     Dim Progress As Long
     Dim Request As Long
+    On Error GoTo RuntimeFailure
     Length = BufferPrimitives.ByteStorageLength(Source)
     Failure = 0
+    If Start < 0 Or Count < 0 Or Start > Length Then GoTo InvalidRequest
+    If Count > Length - Start Then GoTo InvalidRequest
+    If Count = 0 Then
+        TryWriteByteRange = FilePrimitives.TryWrite(Token, Source, Start, 0, Progress, Failure)
+        Exit Function
+    End If
 WriteNext:
-    If Offset = Length Then GoTo FlushOutput
-    Request = Length - Offset
+    If Offset = Count Then TryWriteByteRange = True: Exit Function
+    Request = Count - Offset
     If Request > 65536 Then Request = 65536
-    Status = FilePrimitives.TryWrite(Token, Source, Offset, Request, Progress, Failure)
-    If Status = False Then TryWriteAllBytes = False: Exit Function
-    If Progress = 0 Then Failure = 15: TryWriteAllBytes = FilePrimitives.SetError(57): Exit Function
+    Status = FilePrimitives.TryWrite(Token, Source, Start + Offset, Request, Progress, Failure)
+    If Status = False Then TryWriteByteRange = False: Exit Function
+    If Progress <= 0 Or Progress > Request Then Failure = 15: TryWriteByteRange = FilePrimitives.SetError(57): Exit Function
     Offset = Offset + Progress
     GoTo WriteNext
-FlushOutput:
+InvalidRequest:
+    Failure = 1
+    TryWriteByteRange = FilePrimitives.SetError(5)
+    Exit Function
+RuntimeFailure:
+    Failure = 1
+    TryWriteByteRange = False
+End Function
+
+' Writes the complete counted array and flushes only after every byte succeeds.
+Public Function TryWriteAllBytes(ByVal Token As Long, ByRef Source() As Byte, ByRef Failure As Long) As Boolean
+    Dim Length As Long
+    On Error GoTo RuntimeFailure
+    Length = BufferPrimitives.ByteStorageLength(Source)
+    If TryWriteByteRange(Token, Source, 0, Length, Failure) = False Then TryWriteAllBytes = False: Exit Function
     TryWriteAllBytes = FilePrimitives.TryFlush(Token, Failure)
+    Exit Function
+RuntimeFailure:
+    Failure = 1
+    TryWriteAllBytes = False
 End Function
