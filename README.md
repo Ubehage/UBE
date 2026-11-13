@@ -28,7 +28,7 @@ The long-term goal is a complete native development system:
 
 
 ## Project status
-**UBE is in early development and is not ready for production use.**
+*UBE is in early development and is not ready for production use.*
 
 **The compiler now builds itself.** The VB6 bootstrap builds the UBE-written compiler, which has completed two successive self-builds as a native 64-bit Windows executable.
 
