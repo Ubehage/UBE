@@ -10,6 +10,53 @@ Private Sub InvalidRequest(ByRef State As NativeEmission.EmissionState)
     State.ErrorNode = State.CurrentNode
 End Sub
 
+' Guards division before executing LLVM instructions with undefined invalid operands.
+Public Function CheckedDivision(ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Continuations() As Long, ByVal LeftValue As Long, ByVal RightValue As Long, ByVal TypeCode As Long, ByVal Remainder As Boolean) As Long
+    Dim Zero As Long
+    Dim Low As Long
+    Dim NegativeOne As Long
+    Dim Test As Long
+    Dim AtMinimum As Long
+    Dim AtNegativeOne As Long
+    Dim Exceptional As Long
+    Dim Divisor As Long
+    Dim Result As Long
+    Dim Template As Long
+    On Error GoTo Failed
+    If State.Text.Failed Then Exit Function
+    If LeftValue < 1 Or RightValue < 1 Or ConstantValues.IntegerWidth(TypeCode) < 16 Then InvalidRequest State: Exit Function
+    Zero = NativeEmission.Literal(State, Buffer, Token, Catalog, 0)
+    Test = NativeEmission.NewValue(State)
+    If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.CompareEqual, Test, RightValue, Zero, 0) Then Exit Function
+    If Not NativeEmission.GuardError(State, Buffer, Token, Catalog, Seen, Continuations, Test, 11) Then Exit Function
+    Low = NativeEmission.Literal(State, Buffer, Token, Catalog, ConstantValues.Minimum(TypeCode))
+    NegativeOne = NativeEmission.Literal(State, Buffer, Token, Catalog, -1)
+    AtMinimum = NativeEmission.NewValue(State)
+    AtNegativeOne = NativeEmission.NewValue(State)
+    Exceptional = NativeEmission.NewValue(State)
+    If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.CompareEqual, AtMinimum, LeftValue, Low, 0) Then Exit Function
+    If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.CompareEqual, AtNegativeOne, RightValue, NegativeOne, 0) Then Exit Function
+    If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.BothConditions, Exceptional, AtMinimum, AtNegativeOne, 0) Then Exit Function
+    Divisor = RightValue
+    Template = LLVMTemplates.DivisionValue
+    If Remainder Then
+        Divisor = NativeEmission.NewValue(State)
+        If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.SafeRemainderDivisor, Divisor, Exceptional, RightValue, 0) Then Exit Function
+        Template = LLVMTemplates.RemainderValue
+    Else
+        If Not NativeEmission.GuardError(State, Buffer, Token, Catalog, Seen, Continuations, Exceptional, 6) Then Exit Function
+    End If
+    Result = NativeEmission.NewValue(State)
+    If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, Template, Result, LeftValue, Divisor, 0) Then Exit Function
+    CheckedDivision = Result
+    Exit Function
+Failed:
+    State.Text.Failed = True
+    State.Text.Failure = 1
+    State.Text.ErrorNumber = Err.Number
+    State.ErrorNode = State.CurrentNode
+End Function
+
 ' Tests whole-domain conversion safety; Boolean True is -1 and cannot become Byte.
 Private Function ConversionMayFail(ByVal SourceType As Long, ByVal DestinationType As Long) As Boolean
     On Error GoTo Failed
@@ -67,6 +114,19 @@ End Function
 
 ' Performs signed arithmetic at the already-bound promoted width, checking fresh overflow before extraction.
 Public Function CheckedArithmetic(ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Continuations() As Long, ByVal LeftValue As Long, ByVal RightValue As Long, ByVal TypeCode As Long, ByVal Subtract As Boolean) As Long
+    Dim Operator As Long
+    Operator = SyntaxTokens.SymPlus
+    If Subtract Then Operator = SyntaxTokens.SymMinus
+    CheckedArithmetic = EmitArithmetic(State, Buffer, Token, Catalog, Seen, Continuations, LeftValue, RightValue, TypeCode, Operator)
+End Function
+
+' Uses the same promoted-width overflow path for multiplication.
+Public Function CheckedProduct(ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Continuations() As Long, ByVal LeftValue As Long, ByVal RightValue As Long, ByVal TypeCode As Long) As Long
+    CheckedProduct = EmitArithmetic(State, Buffer, Token, Catalog, Seen, Continuations, LeftValue, RightValue, TypeCode, SyntaxTokens.SymStar)
+End Function
+
+' Shares operand narrowing, overflow guarding and canonical result extension.
+Private Function EmitArithmetic(ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Continuations() As Long, ByVal LeftValue As Long, ByVal RightValue As Long, ByVal TypeCode As Long, ByVal Operator As Long) As Long
     Dim BitWidth As Long
     Dim Template As Long
     Dim LeftOperand As Long
@@ -79,9 +139,14 @@ Public Function CheckedArithmetic(ByRef State As NativeEmission.EmissionState, B
     If State.Text.Failed Then Exit Function
     BitWidth = ConstantValues.IntegerWidth(TypeCode)
     If LeftValue < 1 Or RightValue < 1 Or BitWidth < 16 Then InvalidRequest State: Exit Function
-    If BitWidth = 16 Then Template = LLVMTemplates.ArithmeticAdd16: If Subtract Then Template = LLVMTemplates.ArithmeticSubtract16
-    If BitWidth = 32 Then Template = LLVMTemplates.ArithmeticAdd32: If Subtract Then Template = LLVMTemplates.ArithmeticSubtract32
-    If BitWidth = 64 Then Template = LLVMTemplates.ArithmeticAdd64: If Subtract Then Template = LLVMTemplates.ArithmeticSubtract64
+    If BitWidth = 16 Then Template = LLVMTemplates.ArithmeticAdd16: If Operator = SyntaxTokens.SymMinus Then Template = LLVMTemplates.ArithmeticSubtract16
+    If BitWidth = 32 Then Template = LLVMTemplates.ArithmeticAdd32: If Operator = SyntaxTokens.SymMinus Then Template = LLVMTemplates.ArithmeticSubtract32
+    If BitWidth = 64 Then Template = LLVMTemplates.ArithmeticAdd64: If Operator = SyntaxTokens.SymMinus Then Template = LLVMTemplates.ArithmeticSubtract64
+    If Operator = SyntaxTokens.SymStar Then
+        If BitWidth = 16 Then Template = LLVMTemplates.ArithmeticMultiply16
+        If BitWidth = 32 Then Template = LLVMTemplates.ArithmeticMultiply32
+        If BitWidth = 64 Then Template = LLVMTemplates.ArithmeticMultiply64
+    End If
     LeftOperand = LeftValue
     RightOperand = RightValue
     If BitWidth <> 64 Then
@@ -102,7 +167,7 @@ Public Function CheckedArithmetic(ByRef State As NativeEmission.EmissionState, B
         Result = NativeEmission.NewValue(State)
         If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.SignExtendValue, Result, Narrow, BitWidth, 0) Then Exit Function
     End If
-    CheckedArithmetic = Result
+    EmitArithmetic = Result
     Exit Function
 Failed:
     State.Text.Failed = True

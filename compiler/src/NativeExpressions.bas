@@ -347,6 +347,10 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         Operator = N(Node - 1).Value
         If Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
             Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.SymMinus)
+        ElseIf Operator = SyntaxTokens.SymStar Then
+            Result = NativeValues.CheckedProduct(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode)
+        ElseIf Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+            Result = NativeValues.CheckedDivision(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.KwMod)
         ElseIf Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then
             Template = LLVMTemplates.IntegerAnd
             If Operator = SyntaxTokens.KwOr Then Template = LLVMTemplates.IntegerOr

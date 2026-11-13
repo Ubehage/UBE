@@ -560,7 +560,7 @@ Private Function BindBinary(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     LeftNode = N(Node - 1).FirstChild
     RightNode = N(LeftNode - 1).NextSibling
     Operator = N(Node - 1).Value
-    If Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Or Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then Context = Destination
+    If Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Or Operator = SyntaxTokens.SymStar Or Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Or Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then Context = Destination
     If BindExpression(B, T, N, M, C, P, A, F, H, L, U, K, S, D, LeftNode, Required, Context) = False Then Exit Function
     If BindExpression(B, T, N, M, C, P, A, F, H, L, U, K, S, D, RightNode, Required, Context) = False Then Exit Function
     If Aggregate(F, LeftNode) Or Aggregate(F, RightNode) Then
@@ -574,9 +574,14 @@ Private Function BindBinary(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Selected = ConstantValues.BinaryType(F(LeftNode - 1).TypeCode, F(RightNode - 1).TypeCode)
     If Selected = 0 Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
     Comparison = Operator = SyntaxTokens.SymEqual Or Operator = SyntaxTokens.SymNotEqual Or Operator = SyntaxTokens.SymLess Or Operator = SyntaxTokens.SymGreater Or Operator = SyntaxTokens.SymLessEqual Or Operator = SyntaxTokens.SymGreaterEqual
-    If Comparison = False And Operator <> SyntaxTokens.SymPlus And Operator <> SyntaxTokens.SymMinus And Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+    If Comparison = False And Operator <> SyntaxTokens.SymPlus And Operator <> SyntaxTokens.SymMinus And Operator <> SyntaxTokens.SymStar And Operator <> SyntaxTokens.SymBackslash And Operator <> SyntaxTokens.KwMod And Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
     If Selected = SyntaxTokens.KwBoolean Then
         If Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr And Operator <> SyntaxTokens.SymEqual And Operator <> SyntaxTokens.SymNotEqual Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+    End If
+    If Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+        If F(RightNode - 1).ConstantKnown Then
+            If F(RightNode - 1).ConstantValue = 0 Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
+        End If
     End If
     F(Node - 1).TypeCode = Selected
     If Comparison Then F(Node - 1).TypeCode = SyntaxTokens.KwBoolean

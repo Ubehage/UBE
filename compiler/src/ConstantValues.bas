@@ -38,7 +38,7 @@ Failed:
 End Function
 
 ' Returns the minimum admitted numeric representation for a known scalar type.
-Private Function Minimum(ByVal TypeCode As Long) As LongLong
+Public Function Minimum(ByVal TypeCode As Long) As LongLong
     If TypeCode = SyntaxTokens.KwBoolean Then Minimum = -1
     If TypeCode = SyntaxTokens.KwInteger Then Minimum = -32768
     If TypeCode = SyntaxTokens.KwLong Then Minimum = -2147483648
@@ -242,6 +242,31 @@ Public Function TryBinary(ByVal Operator As Long, ByVal LeftValue As LongLong, B
             If LeftValue > High + RightValue Then Exit Function
         End If
         Candidate = LeftValue - RightValue
+    ElseIf Operator = SyntaxTokens.SymStar Then
+        If LeftValue > 0 Then
+            If RightValue > 0 Then
+                If LeftValue > High \ RightValue Then Exit Function
+            ElseIf RightValue < 0 Then
+                If RightValue < Low \ LeftValue Then Exit Function
+            End If
+        ElseIf LeftValue < 0 Then
+            If RightValue > 0 Then
+                If LeftValue < Low \ RightValue Then Exit Function
+            ElseIf RightValue < 0 Then
+                If LeftValue < High \ RightValue Then Exit Function
+            End If
+        End If
+        Candidate = LeftValue * RightValue
+    ElseIf Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+        If RightValue = 0 Then Reason = 4: Exit Function
+        If LeftValue = Low And RightValue = -1 Then
+            If Operator = SyntaxTokens.SymBackslash Then Exit Function
+            Candidate = 0
+        ElseIf Operator = SyntaxTokens.SymBackslash Then
+            Candidate = LeftValue \ RightValue
+        Else
+            Candidate = LeftValue Mod RightValue
+        End If
     ElseIf Operator = SyntaxTokens.KwAnd Then
         Candidate = LeftValue And RightValue
     ElseIf Operator = SyntaxTokens.KwOr Then

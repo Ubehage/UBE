@@ -25,7 +25,21 @@ bootstrap may remain sequential. The concrete architecture requirement is in
 `project-docs/Development-Plan.md`; its concurrency gate is in
 `compiler/ACCEPTANCE.md`. This requirement is independent of the later IDE.
 
-### Concurrent compiler checkpoint — 2026-11-13
+### Language/library checkpoint — 2026-11-13
+
+- [x] Add checked integer multiplication, integer division and Mod to both
+  compiler paths and use them in portable UBECore UTF-8 scalar codecs.
+  Independent O0/O2 gates cover arithmetic boundaries, error/evaluation order,
+  malformed syntax, all 1,112,064 Unicode scalars and exact expected bytes.
+  Successive self-builds, expanded common conformance and concurrency regressions
+  pass. Exact commands and limitations are in `compiler/Progress.md`.
+
+The next dependency candidate is managed String support with the specified
+precise memory model. `compiler/TEXT-SUPPORT.md` records its proposed scope and
+approval boundary; this completed increment does not authorize a runtime
+architecture change or claim String/GC implementation.
+
+### Earlier concurrent compiler checkpoint — 2026-11-13
 
 - [x] Qualify independent project work and simultaneous requests in the
   UBE-written compiler. The bounded one/two-worker gate passed deterministic

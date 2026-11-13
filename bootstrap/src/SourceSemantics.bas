@@ -1413,10 +1413,11 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
     Dim Comparison As Boolean
     Dim Truth As Boolean
     Dim OperandContext As String
+    Dim ProductLimit As Variant
     LeftNode = Parsed.Nodes(Node).FirstChild
     RightNode = Parsed.Nodes(LeftNode).NextSibling
     Operator = Parsed.Nodes(Node).Text
-    If Operator = "+" Or Operator = "-" Or Operator = "and" Or Operator = "or" Then OperandContext = DestinationType
+    If Operator = "+" Or Operator = "-" Or Operator = "*" Or Operator = "\" Or Operator = "mod" Or Operator = "and" Or Operator = "or" Then OperandContext = DestinationType
     If Not BindExpression(Project, Parsed, Bound, State, LeftNode, Required, Diagnostic, OperandContext) Then Exit Function
     If Not BindExpression(Project, Parsed, Bound, State, RightNode, Required, Diagnostic, OperandContext) Then Exit Function
     LeftType = Bound.Nodes(LeftNode).TypeName
@@ -1459,6 +1460,14 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
     ' Operand promotions are retained independently from any enclosing destination conversion.
     Bound.Nodes(LeftNode).ConvertedType = SelectedType
     Bound.Nodes(RightNode).ConvertedType = SelectedType
+    If Operator = "\" Or Operator = "mod" Then
+        If Bound.Nodes(RightNode).ConstantKnown Then
+            If Bound.Nodes(RightNode).ConstantValue = CDec(0) Then
+                BindBinary = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "constant divisor is zero")
+                Exit Function
+            End If
+        End If
+    End If
     If Bound.Nodes(LeftNode).ConstantKnown And Bound.Nodes(RightNode).ConstantKnown Then
         LeftValue = Bound.Nodes(LeftNode).ConstantValue
         RightValue = Bound.Nodes(RightNode).ConstantValue
@@ -1467,6 +1476,21 @@ Private Function BindBinary(ByRef Project As ProjectContext, ByRef Parsed As Par
             Result = LeftValue + RightValue
         Case "-"
             Result = LeftValue - RightValue
+        Case "*"
+            ProductLimit = CDec(IntegerMaximumText(SelectedType))
+            If (LeftValue < CDec(0)) <> (RightValue < CDec(0)) Then ProductLimit = -CDec(IntegerMinimumText(SelectedType))
+            ' Reject before multiplying: two LongLong magnitudes can exceed Decimal itself.
+            If RightValue <> CDec(0) Then
+                If Abs(LeftValue) > Fix(ProductLimit / Abs(RightValue)) Then
+                    BindBinary = BindingError(Project, Parsed, Node, Diagnostic, "E_CONSTANT", "constant operation overflows selected " & SelectedType & " arithmetic")
+                    Exit Function
+                End If
+            End If
+            Result = LeftValue * RightValue
+        Case "\"
+            Result = Fix(LeftValue / RightValue)
+        Case "mod"
+            Result = LeftValue - Fix(LeftValue / RightValue) * RightValue
         Case "or"
             If SelectedType = "Boolean" Then
                 If LeftValue <> CDec(0) Or RightValue <> CDec(0) Then Result = CDec(-1) Else Result = CDec(0)

@@ -74,6 +74,8 @@ $corpus=@(
  @{Name='Arrays';Sources=@($buffer,(Join-Path $fixture 'Arrays.bas'))},
  @{Name='File';Sources=@($buffer,$file,(Join-Path $fixture 'File.bas'))},
  @{Name='Values';Sources=@($buffer,(Join-Path $fixture 'Values.bas'))},
+ @{Name='IntegerOperations';Expected=0;Sources=@((Join-Path $root 'bootstrap/tests/integer-operations/Probe.bas'))},
+ @{Name='UnicodeScalars';Expected=0;Sources=@($buffer,$file,(Join-Path $root 'std-lib/src/portable/FileBytes.bas'),(Join-Path $root 'std-lib/src/portable/Utf8.bas'),(Join-Path $root 'std-lib/tests/unicode-scalars/Probe.bas'))},
  @{Name='CallNew';Expected=0;Sources=@((Join-Path $root 'runtime/tests/callnew/Workers.bas'),(Join-Path $root 'runtime/tests/callnew/CaptureProbe.bas'),(Join-Path $root 'runtime/tests/callnew/Capacity.bas'),(Join-Path $root 'runtime/tests/callnew/Acceptance.bas'),(Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas'))}
 )
 if($ValuesOnly){$corpus=@($corpus|Where-Object{$_.Name -eq 'Values'});Write-Output 'Focused values corpus only; reuse separately recorded full CLI and negative results.'}

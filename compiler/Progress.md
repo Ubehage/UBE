@@ -1,5 +1,120 @@
 # Compiler development handoff
 
+## Completed: checked integer operations and Unicode scalar codecs
+
+Owner requested the next language/library increment, its qualification, root
+README update and GitHub main publication. The dependency audit found ordinary
+String requires the separate precise managed-memory architecture; byte-oriented
+UTF-8 validation existed, but reusable scalar decoding/encoding and checked
+integer `*`, `\`, `Mod` were missing. These foundational operations now pass
+qualification under Roadmap.md's complete-language item. Managed String design is
+recorded in TEXT-SUPPORT.md, not approved or claimed implemented by this task.
+
+Concrete scope: both compiler paths admit/fold/lower the three integer operators
+with the frozen EBNF precedence and existing promotion, error and evaluation
+rules. `*` binds less tightly than `\`, which binds less tightly than `Mod`.
+Zero division/remainder reports Err 11; overflow reports Err 6; minimum signed
+value Mod -1 is successful zero, while its integer division overflows.
+`/` and `^` still require floating-point support and remain rejected.
+
+The library deliverable is `Utf8.TryDecodeScalar` and `Utf8.TryEncodeScalar`,
+ordinary UBE algorithms over existing counted Byte storage. Exact declarations,
+failure/publication and threading contracts are in ../std-lib/UNICODE-SCALARS.md.
+No new runtime ownership architecture, generic built-in function semantics or
+third-party dependency is introduced. Existing UTF-8 validation is reused.
+
+Completed evidence: narrow original rejection; independent O0/O2 integer oracles
+and negative/failure tests; exact UTF-8 vectors and exhaustive valid scalar
+round trips plus independent encoding oracle, malformed inputs, bounds and
+unchanged outputs; both bootstrap and actual UBE paths; prior UTF-8/scanner
+regressions, actual lowering/import checks, successive self-build/conformance
+and concurrent compilation. The next dependency candidate is managed String;
+TEXT-SUPPORT.md records the required design/approval work, not a new active
+implementation commitment.
+
+Work ownership: production arithmetic in compiler/src and templates; bootstrap
+parity in bootstrap/src; independent arithmetic gate in
+bootstrap/tests/integer-operations; library/codecs and integration with root.
+
+### Verification checkpoint
+
+The final seed is `%TEMP%\ube source semantics cf7c9be7-1c06-4b32-8910-5fb75d3b6825\build\UBE-Bootstrap.exe`;
+the initial final UBE compiler is `%TEMP%\ube integer codec compiler final\UBE.exe`.
+Runtime parity remains 152116 bytes and 42 reviewed imports. The expanded
+catalog has 177 templates / 24032 bytes / checksum 1886443.
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/integer-operations/check.ps1 -CompilerExe <compiler>`
+passed at O0/O2 with both final seed and actual UBE compiler. Evidence:
+`ube integer operations 645ccce3-c497-4764-8be9-bc1df83a562c` and
+`ube integer operations b5b11006-35b7-4caf-b0e3-17f5ffc660e8`.
+The gate checks all integer widths, promotion and intermediate/narrowing
+overflow, signs/extrema, constant/runtime agreement, exact evaluation and
+failure order, handler/default continuation, changed-input rejection and
+recovery. Sixteen numerical/Mod-spacing negatives preserve prior IR and EXE.
+Pre-change actual UBE rejection plus an accepted addition control is retained
+in `4ff6605a-5478-4ea5-a785-78a161bb7b86`; the independently reproduced spacing
+bug is `fca7b2fa` (full IDs in the gate README).
+
+`rtk proxy powershell -NoProfile -File std-lib/tests/unicode-scalars/check.ps1 -CompilerExe <compiler>`
+passed for the same seed and UBE compiler in
+`ube unicode scalars f621e0e5-196e-4e61-9ac2-adfa0456a7da` and
+`ube unicode scalars 93bbd1ea-ca54-4058-9257-dd3572c2800e`.
+Each checks 35 boundary/malformed/span/publication groups, all 1,112,064 valid
+scalar round trips and exact independent .NET UTF-8 bytes at O0/O2, plus a
+changed-scalar negative control. The helper algorithms contain no shared
+mutable state and add no dynamic allocation or new runtime ownership model.
+
+Regressions on seed 79867c1f (before the sole final malformed-Mod spacing fix):
+source-scanning/check.ps1 passed 86 groups (`52807993-ee25-4923-920e-6bf977bc1822`),
+source-scanning/utf8-check.ps1 passed 37 cases at O0/O2 plus changed input
+(`1b5da3f6-95c8-4b1a-b7a0-8cf139bf5daa`), native-values/check.ps1 passed 38
+UBE fragments / 119 vectors and negative control
+(`6c29a3fd-d77a-48f1-b607-b8a3bc65d9d7`), llvm-format/check.ps1 passed 177
+exact templates and malformed/negative controls (`6600acb3-7797-4820-b217-0545f6347408`).
+Full native-lowering/check.ps1 passed
+(`211577be-a565-43c8-bbe7-ba5349776c36`), including actual O0/O2 compiler objects,
+reviewed imports, language/system behavior, 11 CallNew fault sites and all 54
+dynamic-storage groups. The full concurrent-compilation/check.ps1 passed
+(`de75a800`, full ID in the integer gate README), including isolated native
+backend timeout followed by recovery. No idle performance result is claimed
+for these concurrently executed regressions. All commands used `-BootstrapExe
+<79867c1f host>` and the normal RTK PowerShell prefix.
+
+After the spacing correction, source-semantics/check.ps1 passed 76 cases on
+the final seed; source-scanning/syntax-check.ps1 passed 13 cases
+(`fbb735c0-8a79-4d0d-86d2-3887b41d7fb6`). Final successive self-builds and common
+conformance passed with the frozen corrected sources. The common corpus now
+includes nine families, adding the arithmetic and Unicode fixtures.
+
+Final commands from the repository root:
+
+```powershell
+$seed = 'C:\Users\Ubehage\AppData\Local\Temp\ube source semantics cf7c9be7-1c06-4b32-8910-5fb75d3b6825\build\UBE-Bootstrap.exe'
+$initial = 'C:\Users\Ubehage\AppData\Local\Temp\ube integer codec compiler final'
+$rebuilt = 'C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild 30c8f236-462a-4e4f-a55d-7cf29fe9b408'
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe $seed -Destination $initial
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "$initial\UBE.exe"
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "$rebuilt\generation-2\UBE.exe" -BootstrapExe $seed
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe "$rebuilt\generation-1\UBE.exe" -BootstrapExe $seed -CompilerOnly
+```
+
+Every command exited zero. Host build took 17200 ms; successive actual
+self-builds took 16563/16597 ms (observations, not an idle comparison).
+Verified source ledgers and all native assets match repository bytes.
+Both generations emitted exact LLVM SHA256
+`32A09DCAE7FFD77A2947C31CA960EC138569186F940FBF42B029FB1BBC99C044`.
+Their native images differ only in the documented four-byte COFF timestamp at
+offset 128; normalization of that field alone yields exact bytes.
+Final common conformance passed 1004 assertions for seed/generation 2 in
+`ube compiler conformance a86e5700-daba-48f3-972d-f638c16dd0e3`, plus 518 for
+generation 1 in `ube compiler conformance b96072e6-6af5-4ca1-9812-d8c99fef8ebf`.
+These cover O0/O2 native behavior, repeated exact IR, malformed source,
+identity guards, failed backend output preservation and recovery, including
+the real timeout policy. No new runtime or third-party dependency was added.
+
+The following records are earlier completed increments; their next-step
+statements describe the handoff at that time.
+
 ## Completed qualification: concurrent compilation — 2026-11-13
 
 The final Windows x64 one/two-worker implementation passes the concurrency

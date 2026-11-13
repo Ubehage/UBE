@@ -856,9 +856,8 @@ Private Function EmitRecordComparison(ByRef Parsed As ParsedProject, ByRef Bound
 End Function
 
 ' Emits one eager arithmetic operation with checked overflow in the selected integer width.
-Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue As String, ByVal RightValue As String, ByVal TypeName As String, ByVal Subtract As Boolean) As String
+Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue As String, ByVal RightValue As String, ByVal TypeName As String, ByVal Operation As String) As String
     Dim Width As String
-    Dim Operation As String
     Dim LeftOperand As String
     Dim RightOperand As String
     Dim Pair As String
@@ -866,8 +865,6 @@ Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue
     Dim NarrowResult As String
     Dim Result As String
     Width = "i" & CStr(IntegerWidth(TypeName))
-    Operation = "sadd"
-    If Subtract Then Operation = "ssub"
     LeftOperand = LeftValue
     RightOperand = RightValue
     If Width <> "i64" Then
@@ -889,6 +886,38 @@ Private Function CheckedArithmetic(ByRef State As EmissionState, ByVal LeftValue
         Call AddLine(State, "  " & Result & " = sext " & Width & " " & NarrowResult & " to i64")
     End If
     CheckedArithmetic = Result
+End Function
+
+' Guards division before LLVM can observe a zero divisor or a signed overflow pair.
+Private Function CheckedDivision(ByRef State As EmissionState, ByVal LeftValue As String, ByVal RightValue As String, ByVal TypeName As String, ByVal Remainder As Boolean) As String
+    Dim Zero As String
+    Dim Minimum As String
+    Dim NegativeOne As String
+    Dim Overflow As String
+    Dim Divisor As String
+    Dim Result As String
+    Dim Operation As String
+    Zero = ValueName(State)
+    Call AddLine(State, "  " & Zero & " = icmp eq i64 " & RightValue & ", 0")
+    Call GuardError(State, Zero, 11)
+    Minimum = ValueName(State)
+    NegativeOne = ValueName(State)
+    Overflow = ValueName(State)
+    Call AddLine(State, "  " & Minimum & " = icmp eq i64 " & LeftValue & ", " & IntegerMinimumText(TypeName))
+    Call AddLine(State, "  " & NegativeOne & " = icmp eq i64 " & RightValue & ", -1")
+    Call AddLine(State, "  " & Overflow & " = and i1 " & Minimum & ", " & NegativeOne)
+    Divisor = RightValue
+    Operation = "sdiv"
+    If Remainder Then
+        Operation = "srem"
+        Divisor = ValueName(State)
+        Call AddLine(State, "  " & Divisor & " = select i1 " & Overflow & ", i64 1, i64 " & RightValue)
+    Else
+        Call GuardError(State, Overflow, 6)
+    End If
+    Result = ValueName(State)
+    Call AddLine(State, "  " & Result & " = " & Operation & " i64 " & LeftValue & ", " & Divisor)
+    CheckedDivision = Result
 End Function
 
 ' Complements a logical value or the exact bound integral width, retaining canonical cell extension.
@@ -1122,7 +1151,7 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         LeftValue = EmitExpression(Parsed, Bound, State, Child)
         LeftValue = ConvertNative(State, LeftValue, Bound.Nodes(Child).TypeName, Bound.Nodes(Child).ConvertedType)
         If Parsed.Nodes(Node).Text = "-" Then
-            Result = CheckedArithmetic(State, "0", LeftValue, Bound.Nodes(Node).TypeName, True)
+            Result = CheckedArithmetic(State, "0", LeftValue, Bound.Nodes(Node).TypeName, "ssub")
         ElseIf Parsed.Nodes(Node).Text = "not" Then
             Result = ComplementNative(State, LeftValue, Bound.Nodes(Node).TypeName)
         Else
@@ -1142,9 +1171,13 @@ Private Function EmitExpression(ByRef Parsed As ParsedProject, ByRef Bound As Bo
         RightValue = EmitExpression(Parsed, Bound, State, RightNode)
         RightValue = ConvertNative(State, RightValue, Bound.Nodes(RightNode).TypeName, Bound.Nodes(RightNode).ConvertedType)
         If Parsed.Nodes(Node).Text = "+" Then
-            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, False)
+            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, "sadd")
         ElseIf Parsed.Nodes(Node).Text = "-" Then
-            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, True)
+            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, "ssub")
+        ElseIf Parsed.Nodes(Node).Text = "*" Then
+            Result = CheckedArithmetic(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, "smul")
+        ElseIf Parsed.Nodes(Node).Text = "\" Or Parsed.Nodes(Node).Text = "mod" Then
+            Result = CheckedDivision(State, LeftValue, RightValue, Bound.Nodes(Node).TypeName, Parsed.Nodes(Node).Text = "mod")
         ElseIf Parsed.Nodes(Node).Text = "and" Or Parsed.Nodes(Node).Text = "or" Then
             Result = ValueName(State)
             ' Canonical signed extension makes i64 And equal the selected integral-width result.
@@ -2474,6 +2507,9 @@ Private Sub EmitContext(ByRef Parsed As ParsedProject, ByRef Bound As BoundProje
     Call AddLine(State, "declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)")
     Call AddLine(State, "declare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)")
+    Call AddLine(State, "declare { i16, i1 } @llvm.smul.with.overflow.i16(i16, i16)")
+    Call AddLine(State, "declare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)")
+    Call AddLine(State, "declare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)")
     Call AddLine(State, "declare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)")
     Call AddLine(State, "declare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)")
     Call AddLine(State, "declare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)")

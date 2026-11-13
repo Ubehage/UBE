@@ -5,6 +5,9 @@
 %ube.program = type { [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [{0} x ptr], ptr, i64, i64, [65 x [8 x i64]] }
 %ube.context = type { i64, i64, ptr, ptr, %ube.program }
 
+declare { i16, i1 } @llvm.smul.with.overflow.i16(i16, i16)
+declare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)
+declare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)
 declare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)
 declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)
 declare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)
@@ -411,4 +414,4 @@ owner.ready.{0}:  %box.address.{0} = load ptr, ptr %box.{1}
 entry:
   %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0  %v{0} = getelementptr i64, ptr %capture, i64 {1}  %v{0} = load ptr, ptr %v{1}  %v{0} = icmp eq i1 {1}, 1  ret i1 %v{0}
 }
-  %v{0} = call ptr @ube.memory.new(ptr %ctx, i64 {1}, i64 {2})
+  %v{0} = call ptr @ube.memory.new(ptr %ctx, i64 {1}, i64 {2})  %v{0} = call { i16, i1 } @llvm.smul.with.overflow.i16(i16 %v{1}, i16 %v{2})  %v{0} = call { i32, i1 } @llvm.smul.with.overflow.i32(i32 %v{1}, i32 %v{2})  %v{0} = call { i64, i1 } @llvm.smul.with.overflow.i64(i64 %v{1}, i64 %v{2})  %v{0} = and i1 %v{1}, %v{2}  %v{0} = select i1 %v{1}, i64 1, i64 %v{2}  %v{0} = sdiv i64 %v{1}, %v{2}  %v{0} = srem i64 %v{1}, %v{2}

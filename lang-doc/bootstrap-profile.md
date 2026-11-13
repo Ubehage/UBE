@@ -5,6 +5,18 @@ on Windows x64. This file does not grant exceptions to language semantics.
 The dynamic-storage extension below passed its separate 41-group native gate;
 exact results and regression evidence are recorded in compiler/Progress.md.
 
+The checked integer-operation extension now admits `*`, integer `\` and `Mod`
+for the existing integer types, with Byte promotion, compile-time diagnostics,
+runtime overflow/zero-divisor FAIL and unchanged failed assignment destinations.
+Precedence follows the frozen grammar: Mod binds more tightly than `\`, which
+binds more tightly than `*`; Mod requires whitespace on both sides.
+The minimum signed value Mod -1 succeeds with zero, while its division by -1
+overflows. The shared O0/O2 gate is
+`../bootstrap/tests/integer-operations/check.ps1`, with independent host/UBE
+evidence in its README. `/`, `^` and nonintegral numeric families remain outside
+this admission. Ordinary UBE UTF-8 scalar codecs use these operations; their
+exhaustive byte oracle is `../std-lib/tests/unicode-scalars/check.ps1`.
+
 Project loading is implemented separately from source compilation. On
 2026-11-10, `bootstrap/tests/project-loading/check.ps1` built the VB6 loader and
 passed 54 cases for ordered multi-module `.UBE` input, native source envelopes,

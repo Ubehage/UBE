@@ -107,8 +107,13 @@ and shared-state rules are in the development plan's concurrency requirement.
 
 ## Complete language and product support
 
-- [ ] Implement the frozen grammar and semantic contracts, with ordinary
+- [~] Implement the frozen grammar and semantic contracts, with ordinary
   algorithms in UBE libraries and only irreducible operations as intrinsics.
+  Completed increment: checked integer multiplication, integer division and Mod,
+  supporting portable UTF-8 scalar encoding/decoding in UBECore. Both compiler
+  paths pass O0/O2 arithmetic and exhaustive scalar-codec gates, with renewed
+  self-hosting, common conformance and concurrency regression evidence. Managed String
+  remains a later dependency requiring its specified precise memory model.
 - [ ] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
 - [ ] Deliver source-level debug information and compiler services for the

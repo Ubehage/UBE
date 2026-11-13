@@ -464,7 +464,7 @@ Private Function ParsePrimary(ByRef P As ParsedProject, ByRef S As ParserState, 
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
             Child = ParseExpression(P, S, 3, Diagnostic)
         Else
-            Child = ParseExpression(P, S, 6, Diagnostic)
+            Child = ParseExpression(P, S, 9, Diagnostic)
         End If
         If Child = 0 Then Exit Function
         Call AddChild(P, Node, Child)
@@ -537,6 +537,12 @@ Private Function OperatorRank(ByRef P As ParsedProject, ByRef S As ParserState) 
         OperatorRank = 4
     ElseIf AtToken(P, S, "+") Or AtToken(P, S, "-") Then
         OperatorRank = 5
+    ElseIf AtToken(P, S, "*") Then
+        OperatorRank = 6
+    ElseIf AtToken(P, S, "\") Then
+        OperatorRank = 7
+    ElseIf AtToken(P, S, "mod") Then
+        OperatorRank = 8
     End If
 End Function
 
@@ -566,11 +572,11 @@ Private Function ParseExpression(ByRef P As ParsedProject, ByRef S As ParserStat
             ComparisonSeen = True
         End If
         Operator = FoldAscii(P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Text)
-        If Rank <= 2 Then
+        If Rank <= 2 Or Operator = "mod" Then
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         End If
         S.Position = S.Position + 1
-        If Rank <= 2 Then
+        If Rank <= 2 Or Operator = "mod" Then
             If Not RequireSpace(P, S, Diagnostic) Then Exit Function
         End If
         RightNode = ParseExpression(P, S, Rank + 1, Diagnostic)

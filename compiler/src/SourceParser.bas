@@ -471,6 +471,9 @@ Private Function OperatorRank(ByVal Code As Long) As Long
     If Code = SyntaxTokens.KwAnd Then OperatorRank = 2
     If Code = SyntaxTokens.SymEqual Or Code = SyntaxTokens.SymNotEqual Or Code = SyntaxTokens.SymLess Or Code = SyntaxTokens.SymGreater Or Code = SyntaxTokens.SymLessEqual Or Code = SyntaxTokens.SymGreaterEqual Then OperatorRank = 4
     If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 5
+    If Code = SyntaxTokens.SymStar Then OperatorRank = 6
+    If Code = SyntaxTokens.SymBackslash Then OperatorRank = 7
+    If Code = SyntaxTokens.KwMod Then OperatorRank = 8
 End Function
 
 ' Parses literal, grouped and unary primaries with retained source spelling.
@@ -493,7 +496,7 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         Node = NewNode(T, N, S, D, UnaryNode, Start)
         If Node = 0 Then Exit Function
         N(Node - 1).Value = Code
-        Minimum = 6
+        Minimum = 9
         If Code = SyntaxTokens.KwNot Then
             Minimum = 3
             If RequireSpace(T, S, D) = False Then Exit Function
@@ -560,11 +563,11 @@ Private Function ParseExpression(ByRef B() As Byte, ByRef T() As SourceScanner.S
             If ComparisonSeen Then Reject T, S, D, 2, 13: Exit Function
             ComparisonSeen = True
         End If
-        If Rank <= 2 Then
+        If Rank <= 2 Or Code = SyntaxTokens.KwMod Then
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
         S.Position = S.Position + 1
-        If Rank <= 2 Then
+        If Rank <= 2 Or Code = SyntaxTokens.KwMod Then
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
         RightNode = ParseExpression(B, T, N, S, D, Rank + 1)

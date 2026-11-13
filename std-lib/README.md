@@ -4,6 +4,17 @@ UBECore provides ordinary language-support algorithms as UBE source, with a
 narrow compiler intrinsic and platform boundary. [UBECore.UBE](UBECore.UBE)
 contains its current portable counted-buffer, file-I/O and UTF-8 modules.
 
+`Utf8.TryDecodeScalar` and `Utf8.TryEncodeScalar` convert one Unicode scalar
+to or from counted UTF-8 bytes without allocating a String. They accept U+0000,
+supplementary values and noncharacters, reject malformed encodings and surrogate
+values, and preserve output arguments/destination bytes on failure. These
+ordinary UBE routines use the compiler's checked integer multiplication,
+division and remainder support. The [scalar codec gate](tests/unicode-scalars/README.md)
+checks every valid Unicode scalar against independent expected UTF-8 bytes at
+O0/O2 through both compilers. Exact bounds, Boolean status and Err behavior are
+in [UNICODE-SCALARS.md](UNICODE-SCALARS.md). This does not yet implement builtin
+String storage or the broader string-function inventory.
+
 `ByteText.TryAppendInteger` appends exact signed decimal ASCII, including the
 LongLong minimum, into a zero-based destination with a caller-owned Used count.
 It uses a private 20-byte scratch span and publishes Used only after the final
