@@ -42,6 +42,11 @@ Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRe
     Dim Test As Long
     Dim Combined As Long
     Dim Result As Long
+    Dim Snapshot As Long
+    Dim ReferenceIndex As Long
+    Dim ReferenceOffset As Long = -1
+    Dim Comparison As Long
+    Dim ZeroValue As Long
     On Error GoTo Failed
     LeftNode = N(Node - 1).FirstChild
     RightNode = N(LeftNode - 1).NextSibling
@@ -50,14 +55,35 @@ Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRe
     Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, LeftNode, Terminated)
     If Address = 0 Or Terminated Then Exit Function
     If NativeStorage.SnapshotCells(S, B, Token, Catalog, Address, Count, LeftValues) = False Then Exit Function
+    If L(LeftNode - 1).ManagedReferences <> 0 Then
+        Snapshot = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, LeftNode)
+        If Not NativeStorage.StoreTypedCells(A, L, E(LeftNode - 1).TypeCode, E(LeftNode - 1).TypeSymbol, L(LeftNode - 1).ManagedReferences, S, B, Token, Catalog, Snapshot, LeftValues) Then Exit Function
+    End If
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, LeftNode) = False Then Exit Function
     Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, Terminated)
     If Address = 0 Or Terminated Then Exit Function
     If NativeStorage.SnapshotCells(S, B, Token, Catalog, Address, Count, RightValues) = False Then Exit Function
+    If L(RightNode - 1).ManagedReferences <> 0 Then
+        Snapshot = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, RightNode)
+        If Not NativeStorage.StoreTypedCells(A, L, E(RightNode - 1).TypeCode, E(RightNode - 1).TypeSymbol, L(RightNode - 1).ManagedReferences, S, B, Token, Catalog, Snapshot, RightValues) Then Exit Function
+        If Not ManagedLayouts.TryReferenceOffset(A, L, E(LeftNode - 1).TypeCode, E(LeftNode - 1).TypeSymbol, 0, ReferenceOffset) Then InvalidRequest S: Exit Function
+        ZeroValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
+    End If
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, RightNode) = False Then Exit Function
     Do While Index < Count
         Test = NativeEmission.NewValue(S)
-        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, LeftValues(Index), RightValues(Index), 0) = False Then Exit Function
+        If Index = ReferenceOffset Then
+            Comparison = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.CompareBinarySymbol, Node, 2, LeftValues(Index), RightValues(Index), 0, False, False)
+            If Comparison = 0 Then Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, Comparison, ZeroValue, 0) Then Exit Function
+            ReferenceIndex = ReferenceIndex + 1
+            ReferenceOffset = -1
+            If ReferenceIndex < L(LeftNode - 1).ManagedReferences Then
+                If Not ManagedLayouts.TryReferenceOffset(A, L, E(LeftNode - 1).TypeCode, E(LeftNode - 1).TypeSymbol, ReferenceIndex, ReferenceOffset) Then InvalidRequest S: Exit Function
+            End If
+        Else
+            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, LeftValues(Index), RightValues(Index), 0) = False Then Exit Function
+        End If
         If Index = 0 Then
             Equal = Test
         Else
@@ -99,11 +125,11 @@ Private Function PrepareAggregateArgument(ByRef N() As SourceParser.SyntaxNode, 
     If Destination = 0 Then Exit Function
     If E(Node - 1).ArrayRank <> 0 Then
         Copied = NativeEmission.NewValue(S)
-        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Copied, Destination, SourceAddress, L(Node - 1).ElementCells) = False Then Exit Function
+        If Not NativeStorage.CopyArray(A, L, S, B, Token, Catalog, Copied, Destination, SourceAddress, L(Node - 1).ElementCells, L(Node - 1).ManagedReferences, E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) Then Exit Function
         If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Copied) = False Then Exit Function
     Else
         If NativeStorage.SnapshotCells(S, B, Token, Catalog, SourceAddress, L(Node - 1).StorageCells, Values) = False Then Exit Function
-        If NativeStorage.StoreCells(S, B, Token, Catalog, Destination, Values) = False Then Exit Function
+        If Not NativeStorage.StoreTypedCells(A, L, E(Node - 1).TypeCode, E(Node - 1).TypeSymbol, L(Node - 1).ManagedReferences, S, B, Token, Catalog, Destination, Values) Then Exit Function
     End If
     PrepareAggregateArgument = Destination
     Exit Function
@@ -135,7 +161,7 @@ Private Function TryPrepareArguments(ByRef N() As SourceParser.SyntaxNode, ByRef
         ElseIf E(Argument - 1).ArgumentMode = 1 And (E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0) Then
             Value = PrepareAggregateArgument(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
             If Value = 0 Or Terminated Then Exit Function
-        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 And N(Node - 1).Kind <> SourceParser.ThreadStartNode Then
+        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 And N(Node - 1).Kind <> SourceParser.ThreadStartNode And E(Argument - 1).TypeCode <> SyntaxTokens.KwString And E(Argument - 1).ConvertedType <> SyntaxTokens.KwString Then
             ' A checked pure constant can be materialized after module initialization without spanning its call.
             Value = 0
         Else
@@ -147,7 +173,7 @@ Private Function TryPrepareArguments(ByRef N() As SourceParser.SyntaxNode, ByRef
                 End If
                 Address = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Argument)
                 If Address = 0 Then Exit Function
-                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
+                If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Address, Value, E(Argument - 1).ConvertedType) Then Exit Function
                 Value = Address
             End If
         End If
@@ -207,6 +233,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
         Exit Function
     End If
     If Symbol < 1 Then InvalidRequest S: Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
     If NativeStorage.EnsureModule(S, B, Token, Catalog, A(Symbol - 1).ModuleIndex) = False Then Exit Function
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
@@ -236,11 +263,18 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
         Argument = N(Argument - 1).NextSibling
     Loop
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallEnd, 0, 0, 0, 0) = False Then Exit Function
+    If E(Node - 1).TypeCode = SyntaxTokens.KwString Then
+        Result = NativeText.TakeResult(S, B, Token, Catalog, Node)
+        If Result = 0 Then Exit Function
+    End If
     If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, Node) = False Then Exit Function
     If NativeFrames.TryReleaseArgumentArrays(N, E, P, Escapes, S, B, Token, Catalog, Node) = False Then Exit Function
     If NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) = False Then Exit Function
-    Result = NativeEmission.NewValue(S)
-    If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Result, Pair, 0, 0) = False Then Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
+    If E(Node - 1).TypeCode <> SyntaxTokens.KwString Then
+        Result = NativeEmission.NewValue(S)
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Result, Pair, 0, 0) = False Then Exit Function
+    End If
     EmitCall = Result
     Exit Function
 Failed:
@@ -258,6 +292,12 @@ Public Function EmitConvertedExpression(ByRef N() As SourceParser.SyntaxNode, By
     On Error GoTo Failed
     If S.Text.Failed Or Terminated Then Exit Function
     If DestinationType = 0 Then DestinationType = E(Node - 1).TypeCode
+    If E(Node - 1).TypeCode = SyntaxTokens.KwString Or DestinationType = SyntaxTokens.KwString Then
+        Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        EmitConvertedExpression = NativeText.ConvertValue(A, S, B, Token, Catalog, Seen, Nexts, Node, Value, E(Node - 1).TypeCode, DestinationType)
+        Exit Function
+    End If
     If E(Node - 1).ConstantKnown Then
         If Not NativeEmission.Charge(S) Then Exit Function
         If Not ConstantValues.TryConvert(E(Node - 1).ConstantValue, E(Node - 1).TypeCode, DestinationType, Converted, Reason) Then InvalidRequest S: Exit Function
@@ -291,14 +331,20 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
     If Terminated Then Exit Function
     If NativeEmission.Charge(S) = False Then Exit Function
     If E(Node - 1).ConstantKnown Then
-        EmitExpression = NativeEmission.Literal(S, B, Token, Catalog, E(Node - 1).ConstantValue)
+        If E(Node - 1).TypeCode = SyntaxTokens.KwString Then
+            EmitExpression = NativeText.Literal(A, E, S, B, Token, Catalog, Seen, Nexts, Node)
+        Else
+            EmitExpression = NativeEmission.Literal(S, B, Token, Catalog, E(Node - 1).ConstantValue)
+        End If
         Exit Function
     End If
     If E(Node - 1).AccessKind = 1 Or E(Node - 1).AccessKind = 2 Then
         Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         If Address = 0 Or Terminated Then Exit Function
         Result = NativeEmission.NewValue(S)
-        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Result, Address, 0, 0) = False Then Exit Function
+        Template = LLVMTemplates.LoadValue
+        If E(Node - 1).TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.TextRootLoad
+        If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, Address, Node, 0) = False Then Exit Function
         If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, Node) = False Then Exit Function
         EmitExpression = Result
         Exit Function
@@ -312,7 +358,9 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
             Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, E(Node - 1).SymbolIndex)
             If Address = 0 Then Exit Function
             Result = NativeEmission.NewValue(S)
-            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Result, Address, 0, 0) = False Then Exit Function
+            Template = LLVMTemplates.LoadValue
+            If E(Node - 1).TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.TextRootLoad
+            If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, Address, Node, 0) = False Then Exit Function
         End If
     ElseIf Kind = SourceParser.GroupNode Then
         Result = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
@@ -345,7 +393,23 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
         If RightValue = 0 Or Terminated Then Exit Function
         Operator = N(Node - 1).Value
-        If Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
+        If Operator = SyntaxTokens.SymAmpersand Then
+            Result = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ConcatSymbol, Node, 2, LeftValue, RightValue, 0, False, True)
+        ElseIf E(Child - 1).ConvertedType = SyntaxTokens.KwString Then
+            LeftValue = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.CompareBinarySymbol, Node, 2, LeftValue, RightValue, 0, False, False)
+            RightValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
+            If Operator = SyntaxTokens.SymEqual Then Template = LLVMTemplates.CompareEqual
+            If Operator = SyntaxTokens.SymNotEqual Then Template = LLVMTemplates.DifferentValues
+            If Operator = SyntaxTokens.SymLess Then Template = LLVMTemplates.BelowBound
+            If Operator = SyntaxTokens.SymGreater Then Template = LLVMTemplates.AboveBound
+            If Operator = SyntaxTokens.SymLessEqual Then Template = LLVMTemplates.CompareLessEqual
+            If Operator = SyntaxTokens.SymGreaterEqual Then Template = LLVMTemplates.CompareGreaterEqual
+            If Template = 0 Then InvalidRequest S: Exit Function
+            Test = NativeEmission.NewValue(S)
+            Result = NativeEmission.NewValue(S)
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Test, LeftValue, RightValue, 0) Then Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) Then Exit Function
+        ElseIf Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
             Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.SymMinus)
         ElseIf Operator = SyntaxTokens.SymStar Then
             Result = NativeValues.CheckedProduct(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode)
@@ -373,6 +437,9 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         InvalidRequest S: Exit Function
     End If
     If S.Text.Failed Or Terminated Then Exit Function
+    If E(Node - 1).TypeCode = SyntaxTokens.KwString Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TextRootStore, Node, Result, 0, 0) Then Exit Function
+    End If
     EmitExpression = Result
     Exit Function
 Failed:

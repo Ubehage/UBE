@@ -5,6 +5,20 @@ on Windows x64. This file does not grant exceptions to language semantics.
 The dynamic-storage extension below passed its separate 41-group native gate;
 exact results and regression evidence are recorded in compiler/Progress.md.
 
+The UBE-written compiler additionally admits variable-length String values,
+quoted literals, `&`, binary comparisons and conversions with the admitted
+Boolean/integer types. String locals, globals, parameters, results, finite
+record fields, array elements and worker captures use precise managed roots.
+Ordinary UBECore text and collection algorithms are linked automatically;
+allocation pressure collects and retries once. Exact scope, errors and
+remaining exclusions are in [TEXT.md](../std-lib/TEXT.md). Actual O0/O2 source,
+fault, collection and worker gates are listed in
+[the managed-text tests](../runtime/tests/managed-text/README.md).
+This extends the UBE compiler; it does not claim String source admission in
+the VB6 bootstrap. Variant, fixed-length String, further numeric families,
+text-folding/Like and broad-input compatibility functions remain outside this
+increment.
+
 The checked integer-operation extension now admits `*`, integer `\` and `Mod`
 for the existing integer types, with Byte promotion, compile-time diagnostics,
 runtime overflow/zero-divisor FAIL and unchanged failed assignment destinations.
@@ -91,8 +105,8 @@ diagnostics. Separate gates passed 42 allocation/depth checks, 37 UTF-8 cases
 at O0/O2 plus a changed-input control, and 13 syntax/binding cases. Its input
 limit is 1,048,576 bytes, with at most 65,536 tokens. Individual tokens retain
 the 4,096 UTF-16-unit bound and identifiers the 128-unit bound. This is the
-current ASCII identifier profile; managed String storage and full Unicode
-identifiers remain deferred. Exact contracts and evidence are in
+current ASCII identifier profile; full Unicode identifiers remain deferred.
+Managed String admission is described above. Exact scanning contracts are in
 [SOURCE-SCANNING.md](../bootstrap/SOURCE-SCANNING.md) and compiler/Progress.md.
 
 The UBE-written module parser now retains caller-owned indexed trees for this
@@ -196,7 +210,8 @@ Add and prove these only as compiler-source needs demand them:
 - broader aggregate storage; finite scalar-field records and fixed rank-one arrays
   are qualified by the aggregate gate, while growing arrays and general bound-adopting
   copies are covered by the dynamic-storage acceptance gate described above;
-- strings and precise managed-storage lifetimes if used by the compiler;
+- strings and precise managed-storage lifetimes are now qualified in the UBE
+  compiler; the compiler's own source still uses counted byte storage;
 - broader loop forms, additional operators and further UBECore procedures;
   ordinary calls into the counted-buffer UBECore source are now qualified;
 - further cross-module resolution features beyond the initial scalar package;

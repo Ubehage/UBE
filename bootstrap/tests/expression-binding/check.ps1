@@ -88,7 +88,7 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
     $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
     $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,$stackProbe) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
-    $result = Invoke-BoundedProcess $Clang $arguments 60000
+    $result = Invoke-BoundedProcess $Clang $arguments 180000
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -192,7 +192,7 @@ function Start-Project([string]$Name='BindingFixture') {
 }
 
 # Reads one actual source path through the UBE file/scanner/parser/project pipeline.
-function Append-Source([string]$Path) {
+function Append-Source([string]$Path,[int]$Domain=0) {
     $bytes = $utf8.GetBytes($Path)
     $value = Call-Probe 'ConfigurePath' @($bytes.Length)
     Check-Value $value 0 'path allocation'
@@ -200,7 +200,7 @@ function Append-Source([string]$Path) {
         $value = Call-Probe 'SetPathByte' @($index,$bytes[$index])
         Check-Value $value 0 'path byte'
     }
-    $value = Call-Probe 'AppendFile'
+    $value = Call-Probe 'AppendFileInDomain' @($Domain)
     Check-Value $value 0 "append source $Path"
 }
 
@@ -242,8 +242,8 @@ function Constant-Equals([string]$Node,[string]$Expected,[string]$Description) {
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','NativeEscapes.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','NativeEscapes.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'ExpressionProbe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -403,6 +403,12 @@ Binding-Equals $call 0 $addSymbol 'deterministic repeated selected declaration'
 $script:passed++
 
 $negative=@(
+    @('malformed text conversion','Const Bad As Long = "1e+"',11),
+    @('text range overflow','Const Bad As Byte = "255.5"',11),
+    @('invalid Boolean spelling','Const Bad As Boolean = "truex"',11),
+    @('String addition is not concatenation','Const Bad As String = "a" + "b"',8),
+    @('mixed text comparison unsupported without numeric domain','Const Bad As Boolean = "1.5" < 2',8),
+    @('direct ByRef String mismatch',"Sub Take(ByRef Value As String)`r`nEnd Sub`r`nSub Run()`r`nDim Number As Long`r`nTake Number`r`nEnd Sub",10),
     @('semantic left-chain depth',("Sub Run()`r`nDim Value As Long`r`nValue = "+((@('1')*160)-join ' + ')+"`r`nEnd Sub"),6),
     @('undeclared name',"Sub Run()`r`nDim Value As Long = Missing`r`nEnd Sub",2),
     @('wrong argument count',"Sub Take(ByVal Value As Long)`r`nEnd Sub`r`nSub Run()`r`nTake`r`nEnd Sub",10),
@@ -816,6 +822,138 @@ foreach ($span in @('A = B','A <> B')) {
     Binding-Equals $node 8 0 'record comparison is not an invented scalar constant'
 }
 $script:passed++
+Start-Project
+# Text constants retain their own exact byte spans; numeric conversions use the runtime's byte algorithms.
+$textConstants=Module-Source 'TextConstants' @'
+Public Const EmptyText As String = ""
+Public Const Quoted As String = "Az""Z"
+Public Const Joined As String = Quoted & ":" & 42 & True
+Public Const Minimum As LongLong = "-9223372036854775808"
+Public Const RoundedEven As Long = "2.5"
+Public Const RoundedOdd As Long = "3.5"
+Public Const Tiny As Boolean = "1e-99999999999999999999999"
+Public Const Hex As Long = "+&H2a"
+Public Const Ordered As Boolean = "AZ" < "az"
+Public Const Same As Boolean = "az" = "az"
+Public Const Different As Boolean = "AZ" = "az"
+Public Function Echo$(ByVal Value As String)
+    Echo = Value & False
+End Function
+Public Sub Fill(ByRef Value As String)
+    Value = "case"
+End Sub
+Public Function ReturnText(ByVal Depth As Long) As String
+    Call Fill(ReturnText)
+    If Depth > 0 Then ReturnText = ReturnText(Depth - 1)
+    ReturnText = ReturnText & "!"
+End Function
+Public Sub Use()
+    Dim Value As String
+    Dim Number As Long
+    Value = "literal"
+    Value = 42
+    Number = "2.5"
+    Value = Echo("AB")
+End Sub
+'@
+$textPath=Join-Path $artifacts 'text-constants.bas'
+Write-Text $textPath $textConstants
+Append-Source $textPath
+$value=Call-Probe 'Bind' @(0)
+Check-Value $value 0 'String constants, conversions, parameters, result and concatenation bind'
+$node=Find-Expression $textConstants 'ReturnText' 13 0 1
+Binding-Equals $node 6 2 'own Function result passed as ordinary direct ByRef argument'
+Binding-Equals $node 7 -1 'own Function result is writable storage'
+$node=Find-Expression $textConstants 'ReturnText(Depth - 1)' 15
+Binding-Equals $node 2 163 'parenthesized recursive own Function call retains callable lookup'
+$node=Find-Expression $textConstants 'Number = "2.5"' 21
+Constant-Equals $node 2 'constant String assignment keeps rounded destination value'
+$node=Find-Expression $textConstants 'Value = 42' 21
+$value=Call-Probe 'TextLength' @($node);Check-Value $value 2 'constant integer assignment publishes String span'
+$value=Call-Probe 'TextByte' @($node,0);Check-Value $value 52 'assigned String keeps first formatted digit'
+$value=Call-Probe 'TextByte' @($node,1);Check-Value $value 50 'assigned String keeps second formatted digit'
+foreach($expected in @(@('EmptyText As String = ""',''),@('Quoted As String = "Az""Z"','Az"Z'),@('Joined As String = Quoted & ":" & 42 & True','Az"Z:42True'))) {
+    $node=Find-Expression $textConstants $expected[0] 4
+    Binding-Equals $node 2 163 'String has its own type domain'
+    Binding-Equals $node 8 -1 'constant text value is known'
+    $bytes=$utf8.GetBytes($expected[1])
+    $value=Call-Probe 'TextLength' @($node)
+    Check-Value $value $bytes.Length 'exact constant byte length'
+    for($index=0;$index -lt $bytes.Length;$index++) {
+        $value=Call-Probe 'TextByte' @($node,$index)
+        Check-Value $value $bytes[$index] 'exact constant byte without case folding'
+    }
+}
+foreach($expected in @(@('Minimum As LongLong = "-9223372036854775808"','-9223372036854775808'),@('RoundedEven As Long = "2.5"','2'),@('RoundedOdd As Long = "3.5"','4'),@('Tiny As Boolean = "1e-99999999999999999999999"','-1'),@('Hex As Long = "+&H2a"','42'),@('Ordered As Boolean = "AZ" < "az"','-1'),@('Same As Boolean = "az" = "az"','-1'),@('Different As Boolean = "AZ" = "az"','0'))) {
+    $node=Find-Expression $textConstants $expected[0] 4
+    Constant-Equals $node $expected[1] 'exact invariant text conversion or binary comparison'
+}
+$script:passed++
+Start-Project
+# Installed support and project declarations may deliberately share spellings without visibility leaks.
+$domainProject=Module-Source 'Shared' @'
+Public Type Value
+    Number As Long
+End Type
+Public Function Pick() As Long
+    Pick = 11
+End Function
+Public Function Main() As Long
+    Dim Item As Shared.Value
+    Main = Shared.Pick()
+End Function
+'@
+$domainSupport=Module-Source 'Shared' @'
+Public Type Value
+    Other As Long
+End Type
+Public Function Pick() As Long
+    Pick = 22
+End Function
+Public Function Main() As Long
+    Dim Item As Shared.Value
+    Main = Shared.Pick()
+End Function
+'@
+$domainProjectPath=Join-Path $artifacts 'domain-project.bas'
+$domainSupportPath=Join-Path $artifacts 'domain-support.bas'
+Write-Text $domainProjectPath $domainProject
+Write-Text $domainSupportPath $domainSupport
+Append-Source $domainProjectPath
+Append-Source $domainSupportPath 1
+$value=Call-Probe 'Bind' @(-1)
+Check-Value $value 0 'same module, type and procedure names isolated by origin domain'
+$value=Call-Probe 'EntryDomain'
+Check-Value $value 0 'support Main cannot become or conflict with executable entry'
+foreach($domain in @(0,1)) {
+    $text=$domainProject
+    if($domain -eq 1){$text=$domainSupport}
+    $symbol=Find-Declaration $text 'Public Function Pick' 'Pick' 8 $domain
+    $node=Find-Expression $text 'Shared.Pick()' 15 $domain
+    Binding-Equals $node 0 $symbol 'qualified call selects same-domain declaration identity'
+}
+$script:passed++
+foreach($case in @(
+    @{Name='project cannot name support module';Domain=0;Body="Sub Run()`r`nHidden.Pick`r`nEnd Sub";HiddenDomain=1;Hidden="Public Sub Pick()`r`nEnd Sub"},
+    @{Name='support cannot name project module';Domain=1;Body="Sub Run()`r`nHidden.Pick`r`nEnd Sub";HiddenDomain=0;Hidden="Public Sub Pick()`r`nEnd Sub"},
+    @{Name='project cannot use unqualified support procedure';Domain=0;Body="Sub Run()`r`nPick`r`nEnd Sub";HiddenDomain=1;Hidden="Public Sub Pick()`r`nEnd Sub"},
+    @{Name='support cannot use unqualified project procedure';Domain=1;Body="Sub Run()`r`nPick`r`nEnd Sub";HiddenDomain=0;Hidden="Public Sub Pick()`r`nEnd Sub"},
+    @{Name='project cannot name support type';Domain=0;Body='Dim Item As Hidden.Value';HiddenDomain=1;Hidden="Public Type Value`r`nNumber As Long`r`nEnd Type"},
+    @{Name='support cannot use unqualified project type';Domain=1;Body='Dim Item As Value';HiddenDomain=0;Hidden="Public Type Value`r`nNumber As Long`r`nEnd Type"}
+)) {
+    Start-Project
+    $caller=Join-Path $artifacts ($case.Name+'-caller.bas')
+    $hidden=Join-Path $artifacts ($case.Name+'-hidden.bas')
+    Write-Text $caller (Module-Source 'Caller' $case.Body)
+    Write-Text $hidden (Module-Source 'Hidden' $case.Hidden)
+    Append-Source $caller $case.Domain
+    Append-Source $hidden $case.HiddenDomain
+    $value=Call-Probe 'Bind' @(0)
+    Check-Value $value 1 $case.Name
+    $value=Call-Probe 'DiagnosticField' @(0)
+    Check-Value $value 2 'cross-domain lookup reports missing name'
+    $script:passed++
+}
 Start-Project
 $path=Join-Path $artifacts 'bounded-depth.bas'
 Write-Text $path (Module-Source 'DepthCase' ("Sub Run()`r`nDim Value As Long`r`nValue = "+((@('1')*24)-join ' + ')+"`r`nEnd Sub"))

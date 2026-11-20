@@ -1,6 +1,15 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Probe"
 ' Drives independent compiler requests in one process with retained structured outcomes.
+
+' Test injection uses real field binding so added state fields cannot redirect the quota oracle.
+Public Function SeedQuota(ByRef State As NativeEmission.EmissionState, ByVal Field As Long, ByVal Remaining As Long) As Boolean
+    If Field = 1 Then State.Work = NativeEmission.MaximumWork - Remaining
+    If Field = 2 Then State.Text.TotalBytes = LLVMWriter.MaximumBytes - Remaining
+    If Field = 3 Then State.Text.LineCount = LLVMWriter.MaximumLines - Remaining
+    SeedQuota = True
+End Function
+
 Private ManifestA() As Byte
 Private ManifestB() As Byte
 Private OutputA() As Byte

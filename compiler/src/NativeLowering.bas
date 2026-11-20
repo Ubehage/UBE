@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 152116
-Private Const RuntimeByteSum As Long = 12376447
+Private Const RuntimeLength As Long = 225602
+Private Const RuntimeByteSum As Long = 18378661
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -101,9 +101,11 @@ End Function
 
 ' Derives every authoritative fact from raw retained sources in the existing diagnostic order.
 ' Results are request-owned scratch until True; only then may immutable snapshots reach range workers.
-Public Function TryPrepare(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef SymbolCount As Long, ByRef EntrySymbol As Long, ByRef Expressions() As ExpressionBinder.BoundExpression, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Roles() As Long, ByRef Dependencies() As Byte, ByRef Summary As NativePlanning.NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+Public Function TryPrepare(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef SymbolCount As Long, ByRef EntrySymbol As Long, ByRef Expressions() As ExpressionBinder.BoundExpression, ByRef TextArena() As Byte, ByRef TextUsed As Long, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Roles() As Long, ByRef Dependencies() As Byte, ByRef Summary As NativePlanning.NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim FactCount As Long
     Dim EmptySummary As NativePlanning.NativePlanSummary
+    Dim CandidateRoles As ManagedSupport.RolePlan
+    Dim BadSupportModule As Long
     On Error GoTo Failed
     SymbolCount = 0
     EntrySymbol = 0
@@ -118,10 +120,19 @@ Public Function TryPrepare(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
     Diagnostic.Line = 1
     Diagnostic.Column = 1
     If DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic) = False Then GoTo Rejected
-    If ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, FactCount, Diagnostic) = False Then GoTo Rejected
+    If ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, FactCount, TextArena, TextUsed, Diagnostic) = False Then GoTo Rejected
     If PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Roles, FactCount, Diagnostic) = False Then GoTo Rejected
-    If AggregateLayout.TryLayout(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Layouts, FactCount, Diagnostic) = False Then GoTo Rejected
+    If AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Counts.NodeCount, Layouts, FactCount, Diagnostic) = False Then GoTo Rejected
+    If Not ManagedSourceAssets.ValidateProject(Bytes, Modules, Counts, BadSupportModule) Then
+        Diagnostic.Code = 8
+        Diagnostic.Reason = 84
+        Diagnostic.ModuleIndex = BadSupportModule
+        If BadSupportModule >= 0 Then Diagnostic.Node = Modules(BadSupportModule).RootNode
+        GoTo Rejected
+    End If
+    If Not ManagedSupport.TryResolve(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, CandidateRoles, Diagnostic) Then GoTo Rejected
     If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layouts, Roles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
+    Summary.ManagedRoles = CandidateRoles
     TryPrepare = True
     Exit Function
 Rejected:
@@ -162,10 +173,12 @@ End Function
 Public Function TryBegin(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Roles() As Long, ByRef Summary As NativePlanning.NativePlanSummary, ByVal NodeCount As Long, ByRef Catalog() As Byte, ByRef RuntimeText() As Byte, ByVal Token As Long, ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long) As Boolean
     On Error GoTo Failed
     If State.Text.Failed Then Exit Function
+    State.ManagedRoles = Summary.ManagedRoles
     If TryInitializeTraversal(NodeCount, Seen, Nexts, State) = False Then GoTo Rejected
     If LLVMFormat.TryLine(State.Text, Buffer, Token, Catalog, LLVMTemplates.TargetHeader, 0, 0, 0, 0) = False Then GoTo Rejected
     If NativeContext.TryEmitContext(Symbols, Plans, Summary, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
     If LLVMWriter.TryAppendSpan(State.Text, Buffer, Token, RuntimeText, 0, RuntimeLength) = False Then GoTo Rejected
+    If Not NativeManagedLayout.TryEmit(Symbols, Layouts, Plans, Summary, State.Text, Buffer, Token, Catalog) Then GoTo Rejected
     If NativeIntrinsics.TryEmit(Symbols, SymbolCount, Layouts, Roles, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
     TryBegin = True
     Exit Function
@@ -266,6 +279,8 @@ End Function
 Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Catalog() As Byte, ByRef RuntimeText() As Byte, ByVal Token As Long, ByRef State As NativeEmission.EmissionState, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Symbols() As DeclarationBinder.BoundSymbol
     Dim Expressions() As ExpressionBinder.BoundExpression
+    Dim TextArena() As Byte
+    Dim TextUsed As Long
     Dim Layouts() As AggregateLayout.StorageFact
     Dim Plans() As NativePlanning.NativeSymbolPlan
     Dim Pins() As Long
@@ -289,8 +304,9 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
     Diagnostic.Line = 1
     Diagnostic.Column = 1
     If TryInitialize(Catalog, RuntimeText, State, Buffer) = False Then GoTo Rejected
-    If TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
+    If TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, TextArena, TextUsed, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
     If TryBegin(Symbols, SymbolCount, Layouts, Plans, Roles, Summary, Counts.NodeCount, Catalog, RuntimeText, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
+    If Not NativeText.TryEmitLiterals(Expressions, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
     If TryEmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, 1, SymbolCount, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
     If TryEnd(IsExecutable, EntrySymbol, Catalog, Token, State, Buffer) = False Then GoTo Rejected
     TryEmit = True

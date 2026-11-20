@@ -1,5 +1,15 @@
 # Native intrinsic wrapper acceptance
 
+Current-source qualification passed with fresh seed
+`ube native intrinsics f844bb77-293e-4c69-af9f-cdb03f67bbb6/build/UBE-Bootstrap.exe`:
+nineteen wrappers, six thread roles, O0/O2 native results, independent file
+bytes, changed-payload rejection and host/UBE signature negatives. Evidence:
+`ube native intrinsics f5fc0cdd-69ea-481c-9b3e-9a1acd666a1c`.
+The synthetic assertion main uses the existing semantic-storage test-only
+Windows stack-page helper when optimization combines native stack arrays.
+The fixture resolves its probe module by identity and uses the current
+thread/context layout; these are harness changes, not production dependencies.
+
 ```powershell
 rtk proxy powershell -NoProfile -File bootstrap/tests/native-intrinsics/check.ps1 -BootstrapExe <bootstrap-executable>
 ```

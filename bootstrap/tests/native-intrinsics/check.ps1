@@ -87,13 +87,21 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
 # Compiles the same generated library+harness IR at a selected optimization level.
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
     $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
-    $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
+    $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,$stackProbe) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
     $result = Invoke-BoundedProcess $Clang $arguments
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
 
 # Retains original module text while making a manifest for checked-in fixtures.
+$stackProbe = Join-Path $artifacts 'stack-probe.s'
+# The synthetic assertion main can inline several native stack arrays at O2.
+# Reuse the reviewed test-only guard-page probe from the semantic-storage harness.
+$storageHarness=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../semantic-storage/check.ps1'),$utf8)
+$stackMatch=[regex]::Match($storageHarness,"(?s)Write-Text \u0024stackProbe @'\r?\n(.*?)\r?\n'@")
+Require $stackMatch.Success 'Missing reviewed test stack-page probe'
+Write-Text $stackProbe $stackMatch.Groups[1].Value
+
 function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [string]$Kind = 'Exe') {
     $folder = Join-Path $artifacts $Name
     $lines = @('UBE-Project 1', 'Name = "NativeFixture"', ('Kind = "' + $Kind + '"'), ('Optimization = "' + $Level + '"'))
@@ -111,8 +119,8 @@ function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [s
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
-$files=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
-$files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeIntrinsics') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
+$files=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+$files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ExpressionBinder','AggregateLayout','ManagedLayouts','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeIntrinsics') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
 $catalog=Join-Path $artifacts 'templates.bin'
@@ -122,10 +130,17 @@ $null=Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $bound=Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$manifest)
 Require ($bound.ExitCode -eq 0) 'Emitter binding failed'
 $symbols=@{}
+$probeModule=-1
 foreach($line in ($bound.Stdout -split '\r?\n')) {
     if($line -notmatch '^SYMBOL ') {continue}
     $f=$line.Substring(7).Split('|')
-    if($f[5] -eq '18' -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
+    if($f[1] -eq 'module' -and $f[2] -eq 'IntrinsicProbe') {$probeModule=[int]$f[5]}
+}
+Require ($probeModule -ge 0) 'Missing intrinsic probe module'
+foreach($line in ($bound.Stdout -split '\r?\n')) {
+    if($line -notmatch '^SYMBOL ') {continue}
+    $f=$line.Substring(7).Split('|')
+    if([int]$f[5] -eq $probeModule -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
 }
 $emitted=[IO.File]::ReadAllText($library,$utf8)
 $runtime=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/windows-runtime.ll'),$utf8)
@@ -194,9 +209,9 @@ foreach($level in @('O0','O2')) {
     $filePath=Join-Path $artifacts ('roundtrip-'+$level+'.bin')
     $pathBytes=$utf8.GetBytes($filePath)
     $pathCells=($pathBytes | ForEach-Object {'i64 '+$_}) -join ', '
-    $prefix="%ube.resource = type { i64, ptr, ptr, i64, i64 }`r`n%ube.thread = type { i64, i64, ptr, ptr }`r`n%ube.program = type { [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [0 x ptr], ptr, i64, i64, [65 x [8 x i64]] }`r`n%ube.context = type { i64, i64, ptr, ptr, %ube.program }`r`n"
+    $prefix="%ube.resource = type { i64, ptr, ptr, i64, i64 }`r`n%ube.thread = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64 }`r`n%ube.program = type { [0 x i64], [0 x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [0 x ptr], ptr, i64, i64, [65 x [8 x i64]], ptr, ptr }`r`n%ube.context = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64, %ube.program }`r`n"
     $globals="@ctx = private global %ube.context zeroinitializer, align 8`r`n@a = private global [4 x i64] zeroinitializer`r`n@b = private global [4 x i64] zeroinitializer`r`n@r = private global [4 x i64] zeroinitializer`r`n@s = private global [4 x i64] zeroinitializer`r`n@seed = private global i64 65`r`n@path.data = private global ["+$pathBytes.Length+" x i64] ["+$pathCells+"]`r`n@path = private global { i64, i64, ptr, ptr } { i64 0, i64 "+($pathBytes.Length-1)+", ptr @path.data, ptr null }`r`n"
-    $body="define i32 @main() {`r`nentry:`r`n  %program = getelementptr %ube.context, ptr @ctx, i32 0, i32 4`r`n  call void @ube.thread.init(ptr @ctx, ptr %program, ptr null)`r`n  %token = alloca i64`r`n  %failure = alloca i64`r`n  %progress = alloca i64`r`n  %length = alloca i64`r`n  store i64 0, ptr %token`r`n"
+    $body="define i32 @main() {`r`nentry:`r`n  %program = getelementptr %ube.context, ptr @ctx, i32 0, i32 9`r`n  call void @ube.thread.init(ptr @ctx, ptr %program, ptr null)`r`n  %token = alloca i64`r`n  %failure = alloca i64`r`n  %progress = alloca i64`r`n  %length = alloca i64`r`n  store i64 0, ptr %token`r`n"
     $script:assertion=0
     $body+='  %set = call { i1, i64 } '+$proc[11]+"(ptr @ctx, i64 57)`r`n"+(Check-Result '%set' '0')
     $body+='  %resize = call { i1, i64 } '+$proc[3]+"(ptr @ctx, ptr @a, i64 5, i64 0)`r`n"+(Check-Result '%resize' '-1')

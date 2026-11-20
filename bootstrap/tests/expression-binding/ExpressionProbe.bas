@@ -13,6 +13,8 @@ Private PackageName() As Byte
 Private Symbols() As DeclarationBinder.BoundSymbol
 Private SymbolCount As Long
 Private EntrySymbol As Long
+Private TextArena() As Byte
+Private TextUsed As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 Private Bindings() As ExpressionBinder.BoundExpression
 Private BindingCount As Long
@@ -75,6 +77,11 @@ End Function
 
 ' Reads and appends one complete module through the production storage pipeline.
 Public Function AppendFile() As Long
+    AppendFile = AppendFileInDomain(0)
+End Function
+
+' Models only the loader's trusted origin assignment; source text cannot choose this field.
+Public Function AppendFileInDomain(ByVal LookupDomain As Long) As Long
     Dim Status As Boolean
     Dim Token As Long
     Dim Failure As Long
@@ -82,27 +89,43 @@ Public Function AppendFile() As Long
     Status = FileBytes.TryReadAllBytes(InputPath, 1048576, Source, Token, Failure)
     If Status = False Then
         Status = FilePrimitives.TryClose(Token, Failure)
-        AppendFile = 1
+        AppendFileInDomain = 1
         Exit Function
     End If
-    Status = ProjectSyntax.TryAppendModule(Source, Bytes, Tokens, Nodes, Modules, Counts, ProjectError)
-    If Status = False Then AppendFile = 2 Else AppendFile = 0
+    Status = ProjectSyntax.TryAppendModuleInDomain(Source, LookupDomain, Bytes, Tokens, Nodes, Modules, Counts, ProjectError)
+    If Status = False Then AppendFileInDomain = 2 Else AppendFileInDomain = 0
     Exit Function
 Failed:
-    AppendFile = 3
+    AppendFileInDomain = 3
+End Function
+
+' Exposes executable entry ownership independently of expression selection.
+Public Function EntryDomain() As Long
+    EntryDomain = -1
+    If EntrySymbol > 0 Then EntryDomain = Symbols(EntrySymbol - 1).LookupDomain
 End Function
 
 ' Runs actual expression binding and separately exposes the deterministic declaration identities.
 Public Function Bind(ByVal IsExecutable As Boolean) As Long
     Dim Status As Boolean
     Status = DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic)
-    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Bindings, BindingCount, Diagnostic)
+    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Bindings, BindingCount, TextArena, TextUsed, Diagnostic)
     If Status = False Then Bind = 1 Else Bind = 0
 End Function
 
 ' Exposes the published logical expression count independently of retained backing storage.
 Public Function CountBindings() As Long
     CountBindings = BindingCount
+End Function
+
+' Observes exact constant bytes independently of the unused arena capacity.
+Public Function TextLength(ByVal Identity As Long) As Long
+    TextLength = Bindings(Identity - 1).ConstantTextLength
+End Function
+
+Public Function TextByte(ByVal Identity As Long, ByVal Offset As Long) As Long
+    If Offset < 0 Or Offset >= Bindings(Identity - 1).ConstantTextLength Then TextByte = -1: Exit Function
+    TextByte = TextArena(Bindings(Identity - 1).ConstantTextStart + Offset)
 End Function
 
 ' Measures older expression output even when a failed candidate publishes no new count.

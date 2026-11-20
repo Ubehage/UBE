@@ -46,7 +46,7 @@ Public Function Minimum(ByVal TypeCode As Long) As LongLong
 End Function
 
 ' Returns the maximum admitted numeric representation for a known scalar type.
-Private Function Maximum(ByVal TypeCode As Long) As LongLong
+Public Function Maximum(ByVal TypeCode As Long) As LongLong
     If TypeCode = SyntaxTokens.KwByte Then Maximum = 255
     If TypeCode = SyntaxTokens.KwInteger Then Maximum = 32767
     If TypeCode = SyntaxTokens.KwLong Then Maximum = 2147483647

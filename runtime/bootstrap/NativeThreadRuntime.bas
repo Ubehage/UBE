@@ -15,7 +15,7 @@ End Function
 Private Function NativeThreadTargets() As String
     Dim Text As String
     Text = Text & "; Native thread mechanics. Generated source entry thunks own typed capture cleanup." & vbCrLf
-    Text = Text & "%ube.worker = type { ptr, i64, ptr, i64, i64, i64, ptr, ptr, %ube.thread, i64, i64, i64 }" & vbCrLf
+    Text = Text & "%ube.worker = type { ptr, i64, ptr, i64, i64, i64, ptr, ptr, %ube.thread, i64, i64, i64, %ube.rootframe }" & vbCrLf
     Text = Text & "@ube.thread.next = internal global i64 1" & vbCrLf
     Text = Text & "declare dllimport ptr @CreateThread(ptr, i64, ptr, ptr, i32, ptr)" & vbCrLf
     Text = Text & "define ptr @ube.target.thread.start(ptr %procedure, ptr %argument) {" & vbCrLf
@@ -85,7 +85,7 @@ Private Function NativeThreadTargets() As String
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal ptr @ube.thread.record.new(ptr %ctx) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 16, i64 1)" & vbCrLf
+    Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 25, i64 1)" & vbCrLf
     Text = Text & "  %ok = icmp ne ptr %block, null" & vbCrLf
     Text = Text & "  br i1 %ok, label %done, label %failed" & vbCrLf
     Text = Text & "done:" & vbCrLf
@@ -227,13 +227,18 @@ Private Function NativeThreadExecution() As String
     Text = Text & "  %procedure = load ptr, ptr %entry.ptr, align 8" & vbCrLf
     Text = Text & "  %capture = load ptr, ptr %capture.ptr, align 8" & vbCrLf
     Text = Text & "  %payload = getelementptr %ube.block, ptr %capture, i64 1" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %success = call i1 %procedure(ptr %ctx, ptr %payload)" & vbCrLf
     Text = Text & "  %error = load i64, ptr %ctx, align 8" & vbCrLf
     Text = Text & "  %saved = select i1 %success, i64 0, i64 %error" & vbCrLf
     Text = Text & "  %error.ptr = getelementptr %ube.worker, ptr %record, i32 0, i32 4" & vbCrLf
     Text = Text & "  store i64 %saved, ptr %error.ptr, align 8" & vbCrLf
+    Text = Text & "  %capture.root = getelementptr %ube.worker, ptr %record, i32 0, i32 12" & vbCrLf
+    Text = Text & "  call void @ube.managed.root.restore(ptr %ctx, ptr %capture.root)" & vbCrLf
     Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %capture)" & vbCrLf
     Text = Text & "  store ptr null, ptr %capture.ptr, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.discard(ptr %ctx)" & vbCrLf
+    Text = Text & "  call void @ube.managed.thread.unregister(ptr %ctx)" & vbCrLf
     Text = Text & "  store i64 0, ptr %ctx, align 8" & vbCrLf
     Text = Text & "  %program = call ptr @ube.thread.program(ptr %ctx)" & vbCrLf
     Text = Text & "  %active = getelementptr %ube.program, ptr %program, i32 0, i32 7" & vbCrLf
@@ -282,7 +287,11 @@ Private Function NativeThreadExecution() As String
     Text = Text & "  store ptr %capture, ptr %capture.ptr, align 8" & vbCrLf
     Text = Text & "  store ptr %procedure, ptr %entry.ptr, align 8" & vbCrLf
     Text = Text & "  call void @ube.thread.init(ptr %thread, ptr %program, ptr %record)" & vbCrLf
+    Text = Text & "  %capture.root = getelementptr %ube.worker, ptr %record, i32 0, i32 12" & vbCrLf
+    Text = Text & "  call void @ube.managed.owner.root(ptr %thread, ptr %capture.root, ptr %capture)" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %handle = call ptr @ube.target.thread.start(ptr @ube.thread.entry, ptr %record)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %created = icmp ne ptr %handle, null" & vbCrLf
     Text = Text & "  br i1 %created, label %publish, label %unreserve" & vbCrLf
     Text = Text & "publish:" & vbCrLf
@@ -296,6 +305,8 @@ Private Function NativeThreadExecution() As String
     Text = Text & "  %result = call { i1, i64 } @ube.thread.value(i64 %id)" & vbCrLf
     Text = Text & "  ret { i1, i64 } %result" & vbCrLf
     Text = Text & "unreserve:" & vbCrLf
+    Text = Text & "  call void @ube.managed.root.restore(ptr %thread, ptr %capture.root)" & vbCrLf
+    Text = Text & "  call void @ube.managed.thread.unregister(ptr %thread)" & vbCrLf
     Text = Text & "  %previous = atomicrmw sub ptr %active.ptr, i64 1 acq_rel" & vbCrLf
     Text = Text & "  call void @ube.thread.record.drop(ptr %ctx, ptr %record)" & vbCrLf
     Text = Text & "  %failure = call { i1, i64 } @ube.thread.failure(ptr %ctx, i64 57)" & vbCrLf
@@ -346,7 +357,9 @@ Private Function NativeThreadWaitOwners() As String
     Text = Text & "claim:" & vbCrLf
     Text = Text & "  store i64 1, ptr %closing, align 8" & vbCrLf
     Text = Text & "  call void @ube.thread.registry.unlock(ptr %program)" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %ok = call i1 @ube.target.thread.close(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.thread.registry.lock(ptr %program)" & vbCrLf
     Text = Text & "  %retained = select i1 %ok, ptr null, ptr %handle" & vbCrLf
     Text = Text & "  store ptr %retained, ptr %handle.ptr, align 8" & vbCrLf
@@ -425,7 +438,9 @@ Private Function NativeThreadWaiting() As String
     Text = Text & "poll:" & vbCrLf
     Text = Text & "  br i1 %borrow, label %native.poll, label %root.poll" & vbCrLf
     Text = Text & "native.poll:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %status = call i32 @ube.target.thread.wait(ptr %handle, i32 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %joined = icmp eq i32 %status, 0" & vbCrLf
     Text = Text & "  br i1 %joined, label %release.joined, label %native.status" & vbCrLf
     Text = Text & "native.status:" & vbCrLf
@@ -446,7 +461,9 @@ Private Function NativeThreadWaiting() As String
     Text = Text & "  %interrupted = or i1 %stop, %expired" & vbCrLf
     Text = Text & "  br i1 %interrupted, label %interrupted.wait, label %pause" & vbCrLf
     Text = Text & "pause:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @Sleep(i32 1)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %poll" & vbCrLf
     Text = Text & "interrupted.wait:" & vbCrLf
     Text = Text & "  br i1 %borrow, label %release.timeout, label %zero" & vbCrLf
@@ -595,14 +612,18 @@ Private Function NativeThreadShutdown() As String
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "again:" & vbCrLf
     Text = Text & "  call void @ube.thread.registry.unlock(ptr %program)" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @Sleep(i32 1)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %round" & vbCrLf
     Text = Text & "retained:" & vbCrLf
     Text = Text & "  %remaining = load atomic i64, ptr %active.ptr acquire, align 8" & vbCrLf
     Text = Text & "  %workers.live = icmp ne i64 %remaining, 0" & vbCrLf
     Text = Text & "  br i1 %workers.live, label %retry.observation, label %failed" & vbCrLf
     Text = Text & "retry.observation:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @Sleep(i32 1)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %round" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  store i64 %saved.error, ptr %ctx, align 8" & vbCrLf
@@ -652,7 +673,9 @@ Private Function NativeThreadShutdown() As String
     Text = Text & "  %has.handle = icmp ne ptr %native, null" & vbCrLf
     Text = Text & "  br i1 %has.handle, label %close.handle, label %released" & vbCrLf
     Text = Text & "close.handle:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %closed = call i1 @ube.target.thread.close(ptr %native)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %closed, label %clear, label %failed" & vbCrLf
     Text = Text & "clear:" & vbCrLf
     Text = Text & "  store ptr null, ptr %handle.ptr, align 8" & vbCrLf

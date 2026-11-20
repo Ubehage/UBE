@@ -214,9 +214,9 @@ project:
   %b = call ptr @ube.storage.address(ptr @ctx.b, i64 0)
   %scalar = call ptr @ube.storage.address(ptr @ctx.a, i64 4)
   store i64 123, ptr %scalar
-  %allocated.a = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %a, i64 2, i64 0, i64 1)
-  %allocated.other = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %other, i64 3, i64 0, i64 1)
-  %allocated.b = call i1 @ube.array.tryresize(ptr @ctx.b, ptr %b, i64 4, i64 0, i64 1)
+  %allocated.a = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %a, i64 2, i64 0, i64 1, ptr null)
+  %allocated.other = call i1 @ube.array.tryresize(ptr @ctx.a, ptr %other, i64 3, i64 0, i64 1, ptr null)
+  %allocated.b = call i1 @ube.array.tryresize(ptr @ctx.b, ptr %b, i64 4, i64 0, i64 1, ptr null)
   %both = and i1 %allocated.a, %allocated.other
   %all = and i1 %both, %allocated.b
 '@ + "`r`n" + (Assert-IR '%all' 4) + @'

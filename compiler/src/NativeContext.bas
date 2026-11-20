@@ -10,7 +10,7 @@ Public Function TryEmitContext(ByRef Symbols() As DeclarationBinder.BoundSymbol,
     Dim Index As Long
     On Error GoTo Failed
     If State.Failed Then Exit Function
-    Words = 853 + Summary.ModuleCount + Summary.ModuleCount + Summary.ContextCells
+    Words = 860 + Summary.ModuleCount + Summary.ModuleCount + Summary.ContextCells
     Bytes = Words + Words
     Bytes = Bytes + Bytes
     Bytes = Bytes + Bytes
@@ -22,6 +22,9 @@ Public Function TryEmitContext(ByRef Symbols() As DeclarationBinder.BoundSymbol,
         Index = Index + 1
     Loop
     If LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.ContextMiddle, 0, 0, 0, 0) = False Then Exit Function
+    If Summary.ManagedRoles.CollectSymbol <> 0 Then
+        If Not LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.ManagedProjectInitialize, Summary.ManagedRoles.CollectSymbol, 0, 0, 0) Then Exit Function
+    End If
     Index = 0
     Do While Index < Summary.ModuleCount
         If LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.EnsureModule, Index, 0, 0, 0) = False Then Exit Function

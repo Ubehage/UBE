@@ -15,12 +15,14 @@ if(-not [IO.File]::Exists($CompilerExe)){throw "Source compiler is missing: $Com
 & (Join-Path $PSScriptRoot 'runtime-text.ps1')
 & (Join-Path $PSScriptRoot 'llvm-templates.ps1')
 & (Join-Path $PSScriptRoot 'native-imports.ps1')
+& (Join-Path $root 'runtime/managed-source-identities.ps1')
 $package=& (Join-Path $PSScriptRoot 'self-host-sources.ps1') -Destination $Destination -Kind Exe -Optimization $Optimization
 $assets=Join-Path $package.Destination 'llvm'
 $null=New-Item -ItemType Directory -Path $assets
 foreach($name in @('templates.bin','windows-runtime.ll','kernel32.def')){
  Copy-Item -LiteralPath (Join-Path $root ('compiler/llvm/'+$name)) -Destination (Join-Path $assets $name)
 }
+$null = & (Join-Path $root 'runtime/package-managed-support.ps1') -Destination (Join-Path $package.Destination 'support')
 $executable=Join-Path $package.Destination 'UBE.exe'
 $stdout=Join-Path $package.Destination 'build.stdout'
 $stderr=Join-Path $package.Destination 'build.stderr'

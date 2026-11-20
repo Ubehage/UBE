@@ -40,6 +40,66 @@ Public Const ThreadWait As Long = 33
 Public Const ThreadRequestStop As Long = 34
 Public Const ThreadStopRequested As Long = 35
 Public Const ThreadYield As Long = 36
+Public Const ArrayMove As Long = 37
+Public Const ManagedBeginCollection As Long = 38
+Public Const ManagedEndCollection As Long = 39
+Public Const ManagedSnapshotCounts As Long = 40
+Public Const ManagedAllocationAt As Long = 41
+Public Const ManagedRootAt As Long = 42
+Public Const ManagedMark As Long = 43
+Public Const ManagedMarked As Long = 44
+Public Const ManagedEdgeCount As Long = 45
+Public Const ManagedEdgeAt As Long = 46
+Public Const ManagedSealCollection As Long = 47
+Public Const ManagedReclaim As Long = 48
+Public Const TextByteLength As Long = 49
+Public Const TextScalarLength As Long = 50
+Public Const TextReadByte As Long = 51
+Public Const TextCreate As Long = 52
+Public Const TextWriteByte As Long = 53
+Public Const TextPublish As Long = 54
+Public Const TextAbandon As Long = 55
+Public Const MemoryCollect As Long = 56
+Public Const ManagedWorkspace As Long = 57
+
+Private Function CollectionRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    CollectionRoleCharacter = -1
+    If Role = MemoryCollect Then
+        If Position = 0 Then CollectionRoleCharacter = 109: Exit Function
+        If Position = 1 Then CollectionRoleCharacter = 101: Exit Function
+        If Position = 2 Then CollectionRoleCharacter = 109: Exit Function
+        If Position = 3 Then CollectionRoleCharacter = 111: Exit Function
+        If Position = 4 Then CollectionRoleCharacter = 114: Exit Function
+        If Position = 5 Then CollectionRoleCharacter = 121: Exit Function
+        If Position = 6 Then CollectionRoleCharacter = 46: Exit Function
+        If Position = 7 Then CollectionRoleCharacter = 99: Exit Function
+        If Position = 8 Then CollectionRoleCharacter = 111: Exit Function
+        If Position = 9 Then CollectionRoleCharacter = 108: Exit Function
+        If Position = 10 Then CollectionRoleCharacter = 108: Exit Function
+        If Position = 11 Then CollectionRoleCharacter = 101: Exit Function
+        If Position = 12 Then CollectionRoleCharacter = 99: Exit Function
+        If Position = 13 Then CollectionRoleCharacter = 116: Exit Function
+    End If
+    If Role = ManagedWorkspace Then
+        If Position = 0 Then CollectionRoleCharacter = 109: Exit Function
+        If Position = 1 Then CollectionRoleCharacter = 97: Exit Function
+        If Position = 2 Then CollectionRoleCharacter = 110: Exit Function
+        If Position = 3 Then CollectionRoleCharacter = 97: Exit Function
+        If Position = 4 Then CollectionRoleCharacter = 103: Exit Function
+        If Position = 5 Then CollectionRoleCharacter = 101: Exit Function
+        If Position = 6 Then CollectionRoleCharacter = 100: Exit Function
+        If Position = 7 Then CollectionRoleCharacter = 46: Exit Function
+        If Position = 8 Then CollectionRoleCharacter = 119: Exit Function
+        If Position = 9 Then CollectionRoleCharacter = 111: Exit Function
+        If Position = 10 Then CollectionRoleCharacter = 114: Exit Function
+        If Position = 11 Then CollectionRoleCharacter = 107: Exit Function
+        If Position = 12 Then CollectionRoleCharacter = 115: Exit Function
+        If Position = 13 Then CollectionRoleCharacter = 112: Exit Function
+        If Position = 14 Then CollectionRoleCharacter = 97: Exit Function
+        If Position = 15 Then CollectionRoleCharacter = 99: Exit Function
+        If Position = 16 Then CollectionRoleCharacter = 101: Exit Function
+    End If
+End Function
 
 
 ' Allocates a private zero-filled role map before atomic publication.
@@ -49,6 +109,10 @@ End Function
 
 ' Supplies the reviewed ASCII spelling table; source text is decoded only by SyntaxTokens.
 Private Function RoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role = MemoryCollect Or Role = ManagedWorkspace Then RoleCharacter = CollectionRoleCharacter(Role, Position): Exit Function
+    If Role >= ManagedBeginCollection And Role <= ManagedReclaim Then RoleCharacter = ManagedRoleCharacter(Role, Position): Exit Function
+    If Role >= TextByteLength And Role <= TextAbandon Then RoleCharacter = TextRoleCharacter(Role, Position): Exit Function
+    If Role = ArrayMove Then RoleCharacter = MoveRoleCharacter(Position): Exit Function
     If Role >= 31 And Role <= 36 Then RoleCharacter = ThreadRoleCharacter(Role, Position): Exit Function
     RoleCharacter = -1
     If Role = 1 Or Role = 2 Or Role = 3 Or Role = 4 Or Role = 11 Then
@@ -75,6 +139,339 @@ Private Function RoleCharacter(ByVal Role As Long, ByVal Position As Long) As Lo
         RoleCharacter = DirectoryRoleCharacter(Role, Position)
         Exit Function
     End If
+End Function
+
+' Supplies exact attributed storage-role spelling without a language String dependency.
+Private Function ManagedRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    ManagedRoleCharacter = -1
+    If Position = 0 Then ManagedRoleCharacter = 109: Exit Function
+    If Position = 1 Then ManagedRoleCharacter = 97: Exit Function
+    If Position = 2 Then ManagedRoleCharacter = 110: Exit Function
+    If Position = 3 Then ManagedRoleCharacter = 97: Exit Function
+    If Position = 4 Then ManagedRoleCharacter = 103: Exit Function
+    If Position = 5 Then ManagedRoleCharacter = 101: Exit Function
+    If Position = 6 Then ManagedRoleCharacter = 100: Exit Function
+    If Position = 7 Then ManagedRoleCharacter = 46: Exit Function
+    If Role = ManagedBeginCollection Then
+        If Position = 8 Then ManagedRoleCharacter = 98: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 103: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 17 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 18 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 19 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 20 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 21 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 22 Then ManagedRoleCharacter = 110: Exit Function
+    End If
+    If Role = ManagedEndCollection Then
+        If Position = 8 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 100: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 17 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 18 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 19 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 20 Then ManagedRoleCharacter = 110: Exit Function
+    End If
+    If Role = ManagedSnapshotCounts Then
+        If Position = 8 Then ManagedRoleCharacter = 115: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 112: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 115: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 104: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 17 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 18 Then ManagedRoleCharacter = 117: Exit Function
+        If Position = 19 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 20 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 21 Then ManagedRoleCharacter = 115: Exit Function
+    End If
+    If Role = ManagedAllocationAt Then
+        If Position = 8 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 17 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 18 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 19 Then ManagedRoleCharacter = 116: Exit Function
+    End If
+    If Role = ManagedRootAt Then
+        If Position = 8 Then ManagedRoleCharacter = 114: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 116: Exit Function
+    End If
+    If Role = ManagedMark Then
+        If Position = 8 Then ManagedRoleCharacter = 109: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 114: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 107: Exit Function
+    End If
+    If Role = ManagedMarked Then
+        If Position = 8 Then ManagedRoleCharacter = 109: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 114: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 107: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 100: Exit Function
+    End If
+    If Role = ManagedEdgeCount Then
+        If Position = 8 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 100: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 103: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 117: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 110: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 116: Exit Function
+    End If
+    If Role = ManagedEdgeAt Then
+        If Position = 8 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 100: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 103: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 116: Exit Function
+    End If
+    If Role = ManagedSealCollection Then
+        If Position = 8 Then ManagedRoleCharacter = 115: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 15 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 16 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 17 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 18 Then ManagedRoleCharacter = 116: Exit Function
+        If Position = 19 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 20 Then ManagedRoleCharacter = 111: Exit Function
+        If Position = 21 Then ManagedRoleCharacter = 110: Exit Function
+    End If
+    If Role = ManagedReclaim Then
+        If Position = 8 Then ManagedRoleCharacter = 114: Exit Function
+        If Position = 9 Then ManagedRoleCharacter = 101: Exit Function
+        If Position = 10 Then ManagedRoleCharacter = 99: Exit Function
+        If Position = 11 Then ManagedRoleCharacter = 108: Exit Function
+        If Position = 12 Then ManagedRoleCharacter = 97: Exit Function
+        If Position = 13 Then ManagedRoleCharacter = 105: Exit Function
+        If Position = 14 Then ManagedRoleCharacter = 109: Exit Function
+    End If
+End Function
+
+' Supplies exact attributed storage-role spelling without a language String dependency.
+Private Function TextRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    TextRoleCharacter = -1
+    If Position = 0 Then TextRoleCharacter = 116: Exit Function
+    If Position = 1 Then TextRoleCharacter = 101: Exit Function
+    If Position = 2 Then TextRoleCharacter = 120: Exit Function
+    If Position = 3 Then TextRoleCharacter = 116: Exit Function
+    If Position = 4 Then TextRoleCharacter = 46: Exit Function
+    If Role = TextByteLength Then
+        If Position = 5 Then TextRoleCharacter = 98: Exit Function
+        If Position = 6 Then TextRoleCharacter = 121: Exit Function
+        If Position = 7 Then TextRoleCharacter = 116: Exit Function
+        If Position = 8 Then TextRoleCharacter = 101: Exit Function
+        If Position = 9 Then TextRoleCharacter = 108: Exit Function
+        If Position = 10 Then TextRoleCharacter = 101: Exit Function
+        If Position = 11 Then TextRoleCharacter = 110: Exit Function
+        If Position = 12 Then TextRoleCharacter = 103: Exit Function
+        If Position = 13 Then TextRoleCharacter = 116: Exit Function
+        If Position = 14 Then TextRoleCharacter = 104: Exit Function
+    End If
+    If Role = TextScalarLength Then
+        If Position = 5 Then TextRoleCharacter = 115: Exit Function
+        If Position = 6 Then TextRoleCharacter = 99: Exit Function
+        If Position = 7 Then TextRoleCharacter = 97: Exit Function
+        If Position = 8 Then TextRoleCharacter = 108: Exit Function
+        If Position = 9 Then TextRoleCharacter = 97: Exit Function
+        If Position = 10 Then TextRoleCharacter = 114: Exit Function
+        If Position = 11 Then TextRoleCharacter = 108: Exit Function
+        If Position = 12 Then TextRoleCharacter = 101: Exit Function
+        If Position = 13 Then TextRoleCharacter = 110: Exit Function
+        If Position = 14 Then TextRoleCharacter = 103: Exit Function
+        If Position = 15 Then TextRoleCharacter = 116: Exit Function
+        If Position = 16 Then TextRoleCharacter = 104: Exit Function
+    End If
+    If Role = TextReadByte Then
+        If Position = 5 Then TextRoleCharacter = 114: Exit Function
+        If Position = 6 Then TextRoleCharacter = 101: Exit Function
+        If Position = 7 Then TextRoleCharacter = 97: Exit Function
+        If Position = 8 Then TextRoleCharacter = 100: Exit Function
+        If Position = 9 Then TextRoleCharacter = 98: Exit Function
+        If Position = 10 Then TextRoleCharacter = 121: Exit Function
+        If Position = 11 Then TextRoleCharacter = 116: Exit Function
+        If Position = 12 Then TextRoleCharacter = 101: Exit Function
+    End If
+    If Role = TextCreate Then
+        If Position = 5 Then TextRoleCharacter = 99: Exit Function
+        If Position = 6 Then TextRoleCharacter = 114: Exit Function
+        If Position = 7 Then TextRoleCharacter = 101: Exit Function
+        If Position = 8 Then TextRoleCharacter = 97: Exit Function
+        If Position = 9 Then TextRoleCharacter = 116: Exit Function
+        If Position = 10 Then TextRoleCharacter = 101: Exit Function
+    End If
+    If Role = TextWriteByte Then
+        If Position = 5 Then TextRoleCharacter = 119: Exit Function
+        If Position = 6 Then TextRoleCharacter = 114: Exit Function
+        If Position = 7 Then TextRoleCharacter = 105: Exit Function
+        If Position = 8 Then TextRoleCharacter = 116: Exit Function
+        If Position = 9 Then TextRoleCharacter = 101: Exit Function
+        If Position = 10 Then TextRoleCharacter = 98: Exit Function
+        If Position = 11 Then TextRoleCharacter = 121: Exit Function
+        If Position = 12 Then TextRoleCharacter = 116: Exit Function
+        If Position = 13 Then TextRoleCharacter = 101: Exit Function
+    End If
+    If Role = TextPublish Then
+        If Position = 5 Then TextRoleCharacter = 112: Exit Function
+        If Position = 6 Then TextRoleCharacter = 117: Exit Function
+        If Position = 7 Then TextRoleCharacter = 98: Exit Function
+        If Position = 8 Then TextRoleCharacter = 108: Exit Function
+        If Position = 9 Then TextRoleCharacter = 105: Exit Function
+        If Position = 10 Then TextRoleCharacter = 115: Exit Function
+        If Position = 11 Then TextRoleCharacter = 104: Exit Function
+    End If
+    If Role = TextAbandon Then
+        If Position = 5 Then TextRoleCharacter = 97: Exit Function
+        If Position = 6 Then TextRoleCharacter = 98: Exit Function
+        If Position = 7 Then TextRoleCharacter = 97: Exit Function
+        If Position = 8 Then TextRoleCharacter = 110: Exit Function
+        If Position = 9 Then TextRoleCharacter = 100: Exit Function
+        If Position = 10 Then TextRoleCharacter = 111: Exit Function
+        If Position = 11 Then TextRoleCharacter = 110: Exit Function
+    End If
+End Function
+
+' Exact arities for managed metadata and packed-text storage roles.
+Private Function ManagedParameterCount(ByVal Role As Long) As Long
+    If Role = ManagedBeginCollection Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedEndCollection Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedSnapshotCounts Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedAllocationAt Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedRootAt Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedMark Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedMarked Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedEdgeCount Then ManagedParameterCount = 2: Exit Function
+    If Role = ManagedEdgeAt Then ManagedParameterCount = 3: Exit Function
+    If Role = ManagedSealCollection Then ManagedParameterCount = 0: Exit Function
+    If Role = ManagedReclaim Then ManagedParameterCount = 1: Exit Function
+    If Role = TextByteLength Then ManagedParameterCount = 1: Exit Function
+    If Role = TextScalarLength Then ManagedParameterCount = 1: Exit Function
+    If Role = TextReadByte Then ManagedParameterCount = 3: Exit Function
+    If Role = TextCreate Then ManagedParameterCount = 3: Exit Function
+    If Role = TextWriteByte Then ManagedParameterCount = 3: Exit Function
+    If Role = TextPublish Then ManagedParameterCount = 2: Exit Function
+    If Role = TextAbandon Then ManagedParameterCount = 1: Exit Function
+End Function
+
+' Uses the shared exact scalar/mode signature shapes.
+Private Function ManagedParameterShape(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role = ManagedBeginCollection Then
+        If Position = 1 Then ManagedParameterShape = 4: Exit Function
+        If Position = 2 Then ManagedParameterShape = 4: Exit Function
+    End If
+    If Role = ManagedEndCollection Then
+        If Position = 1 Then ManagedParameterShape = 3: Exit Function
+        If Position = 2 Then ManagedParameterShape = 3: Exit Function
+    End If
+    If Role = ManagedSnapshotCounts Then
+        If Position = 1 Then ManagedParameterShape = 4: Exit Function
+        If Position = 2 Then ManagedParameterShape = 4: Exit Function
+    End If
+    If Role = ManagedAllocationAt Then
+        If Position = 1 Then ManagedParameterShape = 3: Exit Function
+        If Position = 2 Then ManagedParameterShape = 6: Exit Function
+    End If
+    If Role = ManagedRootAt Then
+        If Position = 1 Then ManagedParameterShape = 3: Exit Function
+        If Position = 2 Then ManagedParameterShape = 6: Exit Function
+    End If
+    If Role = ManagedMark Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 8: Exit Function
+    End If
+    If Role = ManagedMarked Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 8: Exit Function
+    End If
+    If Role = ManagedEdgeCount Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 4: Exit Function
+    End If
+    If Role = ManagedEdgeAt Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 3: Exit Function
+        If Position = 3 Then ManagedParameterShape = 6: Exit Function
+    End If
+    If Role = ManagedReclaim Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+    End If
+    If Role = TextByteLength Then
+        If Position = 1 Then ManagedParameterShape = 9: Exit Function
+    End If
+    If Role = TextScalarLength Then
+        If Position = 1 Then ManagedParameterShape = 9: Exit Function
+    End If
+    If Role = TextReadByte Then
+        If Position = 1 Then ManagedParameterShape = 9: Exit Function
+        If Position = 2 Then ManagedParameterShape = 7: Exit Function
+        If Position = 3 Then ManagedParameterShape = 10: Exit Function
+    End If
+    If Role = TextCreate Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 7: Exit Function
+        If Position = 3 Then ManagedParameterShape = 6: Exit Function
+    End If
+    If Role = TextWriteByte Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+        If Position = 2 Then ManagedParameterShape = 7: Exit Function
+        If Position = 3 Then ManagedParameterShape = 11: Exit Function
+    End If
+    If Role = TextPublish Then
+        If Position = 1 Then ManagedParameterShape = 9: Exit Function
+        If Position = 2 Then ManagedParameterShape = 7: Exit Function
+    End If
+    If Role = TextAbandon Then
+        If Position = 1 Then ManagedParameterShape = 7: Exit Function
+    End If
+End Function
+
+' Supplies the exact stable ownership-transfer role spelling.
+Private Function MoveRoleCharacter(ByVal Position As Long) As Long
+    MoveRoleCharacter = -1
+    If Position = 0 Then MoveRoleCharacter = 97
+    If Position = 1 Then MoveRoleCharacter = 114
+    If Position = 2 Then MoveRoleCharacter = 114
+    If Position = 3 Then MoveRoleCharacter = 97
+    If Position = 4 Then MoveRoleCharacter = 121
+    If Position = 5 Then MoveRoleCharacter = 46
+    If Position = 6 Then MoveRoleCharacter = 109
+    If Position = 7 Then MoveRoleCharacter = 111
+    If Position = 8 Then MoveRoleCharacter = 118
+    If Position = 9 Then MoveRoleCharacter = 101
 End Function
 
 ' Supplies exact characters for the storage primitive namespace within a bounded native procedure.
@@ -819,7 +1216,7 @@ Private Function ReadRole(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Actual As Long
     On Error GoTo Failed
     Role = 1
-    Do While Role <= 36
+    Do While Role <= ManagedWorkspace
         Position = 0
         Do
             Expected = RoleCharacter(Role, Position)
@@ -854,6 +1251,9 @@ End Function
 
 ' Returns exact arity for each reviewed primitive role.
 Private Function ParameterCount(ByVal Role As Long) As Long
+    If Role = MemoryCollect Then ParameterCount = 0: Exit Function
+    If Role = ManagedWorkspace Then ParameterCount = 3: Exit Function
+    If Role >= ManagedBeginCollection And Role <= TextAbandon Then ParameterCount = ManagedParameterCount(Role): Exit Function
     If Role = ThreadCurrentId Or Role = ThreadStopRequested Or Role = ThreadYield Then ParameterCount = 0: Exit Function
     If Role = ThreadIsAlive Or Role = ThreadRequestStop Then ParameterCount = 1: Exit Function
     If Role = ThreadWait Then ParameterCount = 2: Exit Function
@@ -872,7 +1272,7 @@ Private Function ParameterCount(ByVal Role As Long) As Long
     If Role = ProcessTerminate Then ParameterCount = 2: Exit Function
     If Role = ProcessClose Then ParameterCount = 2: Exit Function
     If Role = ArrayLength Or Role = ErrorSet Then ParameterCount = 1: Exit Function
-    If Role = ArrayTryCopy Or Role = FileTryClose Or Role = FileTryFlush Then ParameterCount = 2: Exit Function
+    If Role = ArrayTryCopy Or Role = ArrayMove Or Role = FileTryClose Or Role = FileTryFlush Then ParameterCount = 2: Exit Function
     If Role = ArrayTryResize Or Role = FileTryCreateNew Or Role = SystemReadCommandLine Then ParameterCount = 3: Exit Function
     If Role = MemoryCopyBytes Or Role = FileTryOpen Then ParameterCount = 5: Exit Function
     If Role = FileFinalPath Or Role = PathFullPath Or Role = PathCompareOrdinal Then ParameterCount = 4: Exit Function
@@ -881,6 +1281,12 @@ End Function
 
 ' Classifies each formal as generic array, byte array, value Long, reference Long, or value Boolean.
 Private Function ParameterShape(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role = ManagedWorkspace Then
+        If Position = 1 Then ParameterShape = 12: Exit Function
+        If Position = 2 Then ParameterShape = 3: Exit Function
+        If Position = 3 Then ParameterShape = 5: Exit Function
+    End If
+    If Role >= ManagedBeginCollection And Role <= TextAbandon Then ParameterShape = ManagedParameterShape(Role, Position): Exit Function
     If Role >= ThreadCurrentId And Role <= ThreadYield Then ParameterShape = 7: Exit Function
     ParameterShape = 3
     If Role = DirectoryCreate Then
@@ -966,7 +1372,7 @@ Private Function ParameterShape(ByVal Role As Long, ByVal Position As Long) As L
         If Position = 2 Then ParameterShape = 4
         Exit Function
     End If
-    If Role = ArrayLength Or Role = ArrayTryCopy Then ParameterShape = 1: Exit Function
+    If Role = ArrayLength Or Role = ArrayTryCopy Or Role = ArrayMove Then ParameterShape = 1: Exit Function
     If Role = ArrayTryResize Then
         If Position = 1 Then ParameterShape = 1
         If Position = 3 Then ParameterShape = 5
@@ -1011,7 +1417,7 @@ Private Function MatchesParameter(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     Dim ExpectedType As Long
     Dim ExpectedMode As Long
     On Error GoTo Failed
-    If Shape = 1 Or Shape = 2 Then
+    If Shape = 1 Or Shape = 2 Or Shape = 12 Then
         If A(Symbol - 1).PassingMode <> SyntaxTokens.KwByref Then Exit Function
         If A(Symbol - 1).ArrayRank <> 1 Then Exit Function
         Child = N(A(Symbol - 1).DeclarationNode - 1).FirstChild
@@ -1020,6 +1426,9 @@ Private Function MatchesParameter(ByRef N() As SourceParser.SyntaxNode, ByRef A(
         If N(Child - 1).FirstChild <> 0 Or N(Child - 1).LastChild <> 0 Then Exit Function
         If Shape = 2 Then
             If A(Symbol - 1).TypeCode <> SyntaxTokens.KwByte Or A(Symbol - 1).TypeSymbol <> 0 Then Exit Function
+        End If
+        If Shape = 12 Then
+            If A(Symbol - 1).TypeCode <> SyntaxTokens.KwLonglong Or A(Symbol - 1).TypeSymbol <> 0 Then Exit Function
         End If
         MatchesParameter = True
         Exit Function
@@ -1031,6 +1440,10 @@ Private Function MatchesParameter(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If Shape = 7 Then ExpectedType = SyntaxTokens.KwLonglong
     If Shape = 5 Then ExpectedType = SyntaxTokens.KwBoolean
     If Shape = 6 Then ExpectedType = SyntaxTokens.KwLonglong: ExpectedMode = SyntaxTokens.KwByref
+    If Shape = 8 Then ExpectedType = SyntaxTokens.KwBoolean: ExpectedMode = SyntaxTokens.KwByref
+    If Shape = 9 Then ExpectedType = SyntaxTokens.KwString: ExpectedMode = SyntaxTokens.KwByref
+    If Shape = 10 Then ExpectedType = SyntaxTokens.KwByte: ExpectedMode = SyntaxTokens.KwByref
+    If Shape = 11 Then ExpectedType = SyntaxTokens.KwByte
     MatchesParameter = A(Symbol - 1).TypeCode = ExpectedType And A(Symbol - 1).PassingMode = ExpectedMode
     Exit Function
 Failed:
@@ -1046,6 +1459,8 @@ Private Function MatchesSignature(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If A(Symbol - 1).Kind <> SourceParser.FunctionNode Then Exit Function
     If A(Symbol - 1).TypeSymbol <> 0 Or A(Symbol - 1).ArrayRank <> 0 Then Exit Function
     ExpectedType = SyntaxTokens.KwBoolean
+    If Role = MemoryCollect Then ExpectedType = SyntaxTokens.KwLong
+    If Role = TextByteLength Or Role = TextScalarLength Then ExpectedType = SyntaxTokens.KwLonglong
     If Role = ThreadCurrentId Then ExpectedType = SyntaxTokens.KwLonglong
     If Role = ThreadWait Or Role = ThreadRequestStop Then ExpectedType = SyntaxTokens.KwLong
     If Role = ArrayLength Then ExpectedType = SyntaxTokens.KwLong
@@ -1104,7 +1519,7 @@ Private Function BindProcedure(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     Role = ReadRole(B, T, C.TokenCount, N(AttributeNode - 1).NameToken)
     If Role = 0 Then BindProcedure = Reject(N, M, D, ModuleIndex, AttributeNode, 8, 1): Exit Function
     If MatchesSignature(N, A, Symbol, Role) = False Then BindProcedure = Reject(N, M, D, ModuleIndex, Node, 3, 5): Exit Function
-    If Role = ArrayTryCopy Then
+    If Role = ArrayTryCopy Or Role = ArrayMove Then
         First = A(Symbol - 1).FirstParameter
         Second = A(First - 1).NextParameter
         If A(First - 1).TypeCode <> A(Second - 1).TypeCode Or A(First - 1).TypeSymbol <> A(Second - 1).TypeSymbol Then BindProcedure = Reject(N, M, D, ModuleIndex, Node, 3, 6): Exit Function

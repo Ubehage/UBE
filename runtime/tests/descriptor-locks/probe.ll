@@ -130,7 +130,7 @@ reuse:
  %reset = load atomic i64, ptr %base.lock acquire, align 8
  %zero = icmp eq i64 %reset, 0
  %size = call i64 @ube.context.size()
- %size.ok = icmp eq i64 %size, 6848
+ %size.ok = icmp eq i64 %size, 6904
  %ok = and i1 %zero, %size.ok
  br i1 %ok, label %done, label %fail5
 done:

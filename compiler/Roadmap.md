@@ -112,10 +112,16 @@ and shared-state rules are in the development plan's concurrency requirement.
   Completed increment: checked integer multiplication, integer division and Mod,
   supporting portable UTF-8 scalar encoding/decoding in UBECore. Both compiler
   paths pass O0/O2 arithmetic and exhaustive scalar-codec gates, with renewed
-  self-hosting, common conformance and concurrency regression evidence. Managed String
-  remains a later dependency requiring its specified precise memory model.
-- [ ] Prove managed memory, checked arithmetic, conversions, native threads,
+  self-hosting, common conformance and concurrency regression evidence.
+  Managed String and the typed UBECore text library now pass native O0/O2
+  value/conversion/failure tests with precise tracing, allocation retry,
+  deep cycles, worker roots and retained array payloads. Final self-builds,
+  common conformance and concurrent compilation pass; scope is in
+  `../std-lib/TEXT.md`, with exact evidence in Progress.md.
+- [~] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
+  The admitted String/scalar/finite-aggregate profile is qualified; objects,
+  events, finalizers and broader foreign boundaries remain separate clients.
 - [ ] Deliver source-level debug information and compiler services for the
   native IDE, using the compiler's required thread-safe parallel implementation.
 - [ ] Qualify optimization, diagnostics, malformed-input recovery and target

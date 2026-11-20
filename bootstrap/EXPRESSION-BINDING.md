@@ -38,8 +38,11 @@ Expression binding obtains declarations through the existing declaration pass,
 then reuses its exact-region name index. It does not trust caller-forged symbols
 or duplicate lexical decoding/hash implementations. Input syntax remains owned
 by the caller; work indexes and candidates are per-request values with no mutable
-global project state. A single per-node binding array publishes only after
-successful analysis. Failure preserves the old array and resets the public count.
+global project state. The per-node binding array and immutable constant-text byte
+arena publish together after successful analysis. Private owned candidates move
+to the outputs through the nonallocating `Array.Move` contract. Failure preserves
+both old arrays and resets both public counts; publication makes no fallible
+ordinary source call between the two transfers.
 
 Constant helpers return controlled invalid/unsupported/overflow status without
 using a floating approximation. Ordinary invalid source must not accidentally
@@ -50,18 +53,20 @@ in effect unless a focused measured dependency justifies changing them.
 ## Retained interface
 
 `ExpressionBinder.TryBindExpressions(Bytes(), Tokens(), Nodes(), Modules(),
-Counts, PackageName(), IsExecutable, Bindings(), BindingCount, Diagnostic)`
+Counts, PackageName(), IsExecutable, Bindings(), BindingCount, TextArena(),
+TextUsed, Diagnostic)`
 derives private declarations and returns Boolean status. IsExecutable is ByVal;
 the other arguments are ByRef. Input pools and package identity follow the
 ProjectSyntax contract. The inputs and output variables must be independent.
 Success publishes one fact for each syntax node and preserves sticky Err.
-Failure resets BindingCount and preserves the previous binding array; callers
-must save its old count separately if they intend to retain the old result.
+Failure resets BindingCount/TextUsed and preserves both previous arrays; callers
+must save their old counts separately if they intend to retain the old result.
 Entry refusal follows ordinary language FAIL before the body can reset outputs.
 
 BoundExpression has SymbolIndex, ScopeSymbol, TypeCode, TypeSymbol, ArrayRank,
 ConvertedType, ArgumentMode, Writable, ConstantKnown, ConstantValue, AccessKind,
-TrustedRole, HasBounds, LowerBound and UpperBound. ConstantValue and bounds are
+TrustedRole, HasBounds, LowerBound, UpperBound, ConstantTextStart and
+ConstantTextLength. ConstantValue and bounds are
 LongLong; Writable/ConstantKnown/HasBounds are Boolean; other fields are Long.
 Fact storage index is global syntax-node ID minus one. Source symbol IDs match
 the deterministic declaration pass over the same immutable inputs. Scope and
@@ -80,6 +85,18 @@ value. A directly negated magnitude token is not advertised as a standalone
 positive constant. Mutable declaration initializer facts never make later reads
 of the variable constant. Grouped ByRef arguments retain their source type and
 an explicit destination conversion; their writes affect a temporary.
+
+String uses its own type code, never an integer-width promotion. Known String
+values occupy exact UTF-8 spans in TextArena; their numeric ConstantValue is zero.
+Quoted bytes retain case and collapse doubled quotes. `&` and binary comparisons
+fold in the String domain. Text/integer/Boolean conversions reuse the ordinary
+UBE numeric byte algorithms, including exact ties-to-even decimal conversion.
+Unadmitted mixed numeric/String operator domains remain controlled diagnostics.
+String semantic acceptance does not imply native managed-lifetime admission.
+
+The declaration index includes the loader-assigned lookup domain. Project source
+and private installed support cannot resolve each other's ordinary source names;
+the final shared symbol IDs remain stable for validated compiler support roles.
 
 Declaration/shape nodes retain declared fixed bounds. Reference nodes carry
 HasBounds only while that proof remains valid. Whole-array assignment, an array

@@ -53,9 +53,11 @@ foreach ($line in ($body -split '\r?\n')) {
 }
 $process = [IO.File]::ReadAllText((Join-Path $root 'bootstrap/src/NativeProcessRuntime.bas'), $encoding)
 $threads = [IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap/NativeThreadRuntime.bas'), $encoding)
+$managed = [IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap/NativeManagedRuntime.bas'), $encoding)
 $packages = @(
     @{Source=$files; Entry='NativeFileIR'; Parts='FileTargetsAndRegistryIR,FileAcquisitionIR,FileTransferAndReleaseIR,SystemOperationsIR,PathOperationsIR,FileMetadataIR,SystemIntrospectionIR,NamespaceOperationsIR'},
     @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease'},
+    @{Source=$managed; Entry='NativeManagedIR'; Parts='ManagedMetadataIR,ManagedSnapshotIR,ManagedPublicationIR,ManagedThreadsIR,ManagedInstallationIR,ManagedTextIR,ManagedOwnersIR,ManagedLayoutsIR,ManagedRootsIR,ManagedCollectionIR,ManagedReclamationIR,ManagedCallbackIR,ManagedWorkspaceIR,ManagedShutdownIR'},
     @{Source=$threads; Entry='NativeThreadIR'; Parts='NativeThreadTargets,NativeThreadIdentity,NativeThreadExecution,NativeThreadWaitOwners,NativeThreadWaiting,NativeThreadControl,NativeThreadShutdown'}
 )
 foreach ($package in $packages) {

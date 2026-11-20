@@ -1,5 +1,23 @@
 # UBE semantic storage acceptance
 
+The managed layout update passed **78 cases and 25,365 assertions at O0/O2**,
+both production stack checks and the changed-role control. New assertions cover
+nested String records, fixed/dynamic array element metadata, exact flattened
+managed offsets, numeric non-roots and invalid reference indexes. Evidence:
+`ube semantic storage 1f33e690-f99a-4df2-8b63-6171164fbdee`, using the seed from
+`ube native intrinsics bafe0549-2503-4339-8ff6-a8aa704cd21d/build`.
+This verifies layout facts; native collector integration has separate gates.
+
+The prepared-layout integration passed the same 78 cases and 25,365 external
+assertions at O0/O2, with additional native checks comparing every prepared
+fact to standalone layout. Corrupt expression counts, declaration nodes, type
+links and lookup domains are rejected without replacing prior output, followed
+by successful recovery. Evidence: `ube semantic storage
+76ff2298-69fb-4701-b970-538d1fdd0a35`. The layout allocation companion passed
+all 29 observed allocation sites and retries, depth boundaries and owner cleanup
+(76 fault/depth checks): `ube semantic allocation
+0ab4a40b-5637-4fea-95dc-6c3c48e010cb`.
+
 Run `rtk proxy powershell -NoProfile -File bootstrap/tests/semantic-storage/check.ps1 -BootstrapExe <executable>`.
 The host builds actual UBE PrimitiveRoles and AggregateLayout with their syntax,
 declaration, expression and UBECore dependencies. Runtime files provide the test

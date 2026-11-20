@@ -14,6 +14,8 @@ Private Roles() As Long
 Private RoleCount As Long
 Private Layout() As AggregateLayout.StorageFact
 Private LayoutCount As Long
+Private TextArena() As Byte
+Private TextUsed As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 Private Symbols() As DeclarationBinder.BoundSymbol
 Private SymbolCount As Long
@@ -30,7 +32,7 @@ Private Summary As NativePlanning.NativePlanSummary
 Public Function Bind(ByVal IsExecutable As Boolean) As Long
     On Error GoTo Failed
     If Not DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic) Then Bind = 101: Exit Function
-    If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, Diagnostic) Then Bind = 102: Exit Function
+    If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, TextArena, TextUsed, Diagnostic) Then Bind = 102: Exit Function
     If Not AggregateLayout.TryLayout(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Layout, LayoutCount, Diagnostic) Then Bind = 103: Exit Function
     If Not PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Roles, RoleCount, Diagnostic) Then Bind = 104: Exit Function
     If Not NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layout, Roles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then Bind = 1
@@ -75,6 +77,35 @@ Public Function PlanField(ByVal Symbol As Long, ByVal Field As Long) As Long
     If Field = 3 Then PlanField = Plans(Symbol - 1).ResultSymbol
     If Field = 4 And Plans(Symbol - 1).StorageEscapes Then PlanField = 1
     If Field = 5 Then PlanField = Plans(Symbol - 1).TemporaryOwnerCount
+    If Field = 6 Then PlanField = Plans(Symbol - 1).TemporaryTextCount
+End Function
+
+' Checks publication claims against the actual bound type and layout facts.
+Public Function Publication(ByVal Symbol As Long, ByVal Cells As Long, ByVal References As Long) As Boolean
+    Publication = ManagedLayouts.ValidPublication(Symbols, Layout, Symbols(Symbol - 1).TypeCode, Symbols(Symbol - 1).TypeSymbol, Cells, References)
+End Function
+
+Public Function PublicationType(ByVal Symbol As Long, ByVal TypeCode As Long, ByVal Cells As Long, ByVal References As Long) As Boolean
+    PublicationType = ManagedLayouts.ValidPublication(Symbols, Layout, TypeCode, Symbols(Symbol - 1).TypeSymbol, Cells, References)
+End Function
+
+' Corrupts one retained String field offset only for the duration of this negative assertion.
+Public Function PublicationOffset(ByVal Symbol As Long, ByVal Offset As Long) As Boolean
+    Dim Field As Long
+    Dim Node As Long
+    Dim Prior As Long
+    On Error GoTo Failed
+    Field = Symbols(Symbols(Symbol - 1).TypeSymbol - 1).FirstField
+    Field = Symbols(Field - 1).NextField
+    Node = Symbols(Field - 1).DeclarationNode
+    Prior = Layout(Node - 1).FieldOffset
+    Layout(Node - 1).FieldOffset = Offset
+    PublicationOffset = Publication(Symbol, 2, 1)
+    Layout(Node - 1).FieldOffset = Prior
+    Exit Function
+Failed:
+    If Node > 0 Then Layout(Node - 1).FieldOffset = Prior
+    Err.Raise Err.Number
 End Function
 
 ' Checks each scope chain against an independent ascending scan of validated declaration ownership.

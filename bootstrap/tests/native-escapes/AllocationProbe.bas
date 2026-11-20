@@ -14,6 +14,8 @@ Private Expressions() As ExpressionBinder.BoundExpression
 Private ExpressionCount As Long
 Private Facts() As NativeEscapes.EscapeFact
 Private FactCount As Long
+Private TextArena() As Byte
+Private TextUsed As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 
 Private Intrinsic Function ResizeFacts(ByRef Values() As NativeEscapes.EscapeFact, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
@@ -36,7 +38,7 @@ Public Function Prepare(ByRef Data() As Byte) As Long
     PackageName(4) = 108
     PackageName(5) = 101
     If DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Symbols, SymbolCount, EntrySymbol, Diagnostic) = False Then Prepare = 3: Exit Function
-    If ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Expressions, ExpressionCount, Diagnostic) = False Then Prepare = 4: Exit Function
+    If ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Expressions, ExpressionCount, TextArena, TextUsed, Diagnostic) = False Then Prepare = 4: Exit Function
     If ResizeFacts(Facts, 1, False) = False Then Prepare = 5: Exit Function
     Facts(0).StorageEscapes = True
     Facts(0).NeedsOwner = True

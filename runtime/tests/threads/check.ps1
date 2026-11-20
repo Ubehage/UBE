@@ -18,7 +18,7 @@ function Run([string]$File,[string[]]$Arguments){
 }
 $templates=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/templates.json'),$utf8)|ConvertFrom-Json
 $prefix=($templates|Where-Object{$_.name -eq 'ContextPrefix'}).text
-$prefix=$prefix.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6848').Replace('{3}','856')
+$prefix=$prefix.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6904').Replace('{3}','863')
 $prefix=$prefix.Substring(0,$prefix.IndexOf('define i1 @ube.context.dispose'))
 $runtime=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/windows-runtime.ll'),$utf8)
 $threads=''
@@ -144,7 +144,7 @@ foreach($level in @('0','2')){foreach($negative in @($false,$true)){
  Write-Output "PASS coordination O${level} negative${negative}: simultaneous waiters, Err0 fresh FAIL, stop-wait wakeup, disposal refusal, nested ignored worker drain and empty heap"
 }}
 $context=($templates|Where-Object{$_.name -eq 'ContextPrefix'}).text
-$context=$context.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6848').Replace('{3}','856')
+$context=$context.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6904').Replace('{3}','863')
 $context+=($templates|Where-Object{$_.name -eq 'ContextMiddle'}).text
 $context+=($templates|Where-Object{$_.name -eq 'ContextSuffix'}).text
 $entry=($templates|Where-Object{$_.name -eq 'Entry'}).text.Replace('{0}','17').Replace('@main()','@entry.generated()')

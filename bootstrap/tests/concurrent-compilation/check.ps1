@@ -126,7 +126,7 @@ foreach($line in ($bound.Stdout -split '\r?\n')) {
         if($f[1] -eq 'parameter'){$parameters[$f[6]+'/'+$f[2]]=[int]$f[0]}
     }
 }
-foreach($name in @('ConfigurePath','ConfigureMode','SetPathByte','Run','Observe','WriteObservation')) {Require ($symbols.ContainsKey($name)) "Missing probe $name"}
+foreach($name in @('ConfigurePath','ConfigureMode','SetPathByte','Run','Observe','WriteObservation','SeedQuota')) {Require ($symbols.ContainsKey($name)) "Missing probe $name"}
 foreach($line in ($bound.Stdout -split '\r?\n')) {
     if($line.StartsWith('SYMBOL ')) {
         $f=$line.Substring(7).Split('|')
@@ -340,13 +340,12 @@ function Run-Requests([string]$Name,[int]$Mode,[string]$First,[string]$Second,[s
     $ir=Join-Path $artifacts ($Name+'.ll');$exe=Join-Path $artifacts ($Name+'.exe')
     $observedText=$emitted
     if($QuotaField -gt 0) {
-        # Seed only existing request counters after the real header; production bounds and algorithms remain unchanged.
-        $offset=7;if($QuotaField -eq 2){$offset=1};if($QuotaField -eq 3){$offset=2}
+        # Give real counters measured headroom using the compiled UBE constants and named fields.
         Require ($QuotaField -le 3 -and $QuotaValue -ge 0 -and $stateSymbol -gt 0 -and $beginSymbol -gt 0) 'Invalid quota seed'
         $method=[regex]::Match($observedText,('(?ms)^define \{ i1, i64 \} @ube\.proc\.'+$compilationSymbol+'\([^\r\n]*\) \{(.*?)^\}'))
         $begin=[regex]::Match($method.Groups[1].Value,('(?m)^  %v[0-9]+ = call \{ i1, i64 \} @ube\.proc\.'+$beginSymbol+'\([^\r\n]*\)\r?\n'))
         Require ($begin.Success) 'Missing unique coordinator header call for quota seed'
-        $injection="  %test.quota = getelementptr i64, ptr %arg.$stateSymbol, i64 $offset`r`n  store atomic i64 $QuotaValue, ptr %test.quota monotonic, align 8`r`n"
+        $injection="  %test.quota = call { i1, i64 } @ube.proc.$($symbols['SeedQuota'])(ptr %ctx, ptr %arg.$stateSymbol, i64 $QuotaField, i64 $QuotaValue)`r`n"
         $observedText=$observedText.Insert($method.Groups[1].Index+$begin.Index+$begin.Length,$injection)
     }
     if($ObserveOverlap) {
@@ -463,7 +462,7 @@ hold:
 done:
   ret void
 }
-define i1 @test.catalog.copy(ptr %ctx, ptr %destination, ptr %source, i64 %stride) noinline {
+define i1 @test.catalog.copy(ptr %ctx, ptr %destination, ptr %source, i64 %stride, ptr %layout) noinline {
 entry:
   %enabled = load atomic i64, ptr @test.failure.enabled monotonic, align 8
   %armed = icmp ne i64 %enabled, 0
@@ -479,7 +478,7 @@ fail:
   store atomic i64 1, ptr @test.catalog.failed release, align 8
   ret i1 false
 copy:
-  %copied = call i1 @ube.array.trycopy(ptr %ctx, ptr %destination, ptr %source, i64 %stride)
+  %copied = call i1 @ube.array.trycopy(ptr %ctx, ptr %destination, ptr %source, i64 %stride, ptr %layout)
   ret i1 %copied
 }
 '@
@@ -677,7 +676,7 @@ foreach($level in @('O0','O2')) {
 }
 Run-Requests -Name 'worker failure alongside successful request' -Mode 3 -First $first -Second $second -OutputA $simultaneousA -OutputB $simultaneousB -ExpectedA 0 -ExpectedB 1 -WorkerFailure $true -FaultNodeCount ([int]$parallelMetrics[16])
 Require ((Get-FileHash $simultaneousA).Hash -eq $preserved -and (Get-FileHash $simultaneousB).Hash -eq (Get-FileHash $secondBaseline).Hash) 'Worker failure contaminated publication of either concurrent request'
-$workSeed=10000000-[int]$parallelMetrics[9]
+$workSeed=[int]$parallelMetrics[9]
 Run-Requests 'work quota boundary single worker' 1 $first $second $simultaneousA $simultaneousB 0 1 0 'O0' $false $true 73 $false 1 $workSeed
 $quotaBaseline=($script:lastReport -split '\r?\n')
 Run-Requests 'work quota boundary two workers' 2 $first $second $simultaneousA $simultaneousB 0 1 0 'O0' $false $true 73 $false 1 $workSeed
@@ -698,8 +697,8 @@ Run-Requests 'executable emission quota reference' 2 $nativeFirst $nativeSecond 
 $footerMetrics=($script:lastReport -split '\r?\n')[0].Split(',')
 $footerPreserved=(Get-FileHash -LiteralPath $footerOutput).Hash
 foreach($quota in @(2,3)) {
-    $quotaSeed=16777216-[int]$footerMetrics[11]-[int]$footerMetrics[12]
-    if($quota -eq 3){$quotaSeed=500000-[int]$footerMetrics[13]-[int]$footerMetrics[14]}
+    $quotaSeed=[int]$footerMetrics[11]+[int]$footerMetrics[12]
+    if($quota -eq 3){$quotaSeed=[int]$footerMetrics[13]+[int]$footerMetrics[14]}
     Run-Requests -Name ('footer quota '+$quota+' single worker') -Mode 1 -First $nativeFirst -Second $nativeSecond -OutputA $footerOutput -OutputB $simultaneousB -ExpectedA 0 -QuotaField $quota -QuotaValue $quotaSeed
     $footerSingle=$script:lastReport -split '\r?\n'
     Run-Requests -Name ('footer quota '+$quota+' two workers') -Mode 2 -First $nativeFirst -Second $nativeSecond -OutputA $footerOutput -OutputB $simultaneousB -ExpectedA 0 -QuotaField $quota -QuotaValue $quotaSeed

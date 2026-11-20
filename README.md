@@ -30,17 +30,13 @@ The long-term goal is a complete native development system:
 ## Project status
 *UBE is in early development and is not ready for production use.*
 
-**The compiler now builds itself and compiles in parallel.** The VB6 bootstrap builds the UBE-written compiler, which has completed two successive self-builds as a native 64-bit Windows executable. The latest self-builds took approximately 16.6 seconds each on the development machine.
+**The compiler builds itself and compiles in parallel.** Two successive native 64-bit Windows self-builds took about 20 seconds each on the development machine. They produce identical LLVM and matching executables apart from the build timestamp.
 
-Both self-built compilers generate byte-identical LLVM. Their native executables match after normalizing only the PE timestamp. The bootstrap and both self-built compilers pass the same tests for supported language features, errors and recovery, with optimization both off and on. Failed builds preserve earlier output files.
+**String values and the typed text library now work.** UBE supports Unicode text, UTF-8 import/export, concatenation, comparisons and integer/Boolean conversions, including text in records, arrays and worker captures. Precise garbage collection manages memory automatically, with no separate runtime installation. Text and collection algorithms are written in UBE.
 
-The compiler uses two native workers for independent code emission, with a single-worker comparison mode. Tests cover overlapping work, simultaneous independent requests, deterministic output, failure isolation, cancellation and recovery. During concurrency qualification, a fixed 51-module source-to-LLVM workload averaged 3.549 seconds with two workers versus 3.927 seconds with one: 9.63% faster on the tested machine. That measurement excludes the native backend.
+Tests cover optimized and unoptimized builds, memory exhaustion and recovery, concurrent workers, deterministic output and preservation of earlier files after failed builds. The broader language and library, source-level debugging and IDE remain under development.
 
-The current language subset includes multiple modules, records, arrays, checked arithmetic, error handling, explicit file operations and native `CallNew` workers. The full language, source-level debugging and IDE remain under development.
-
-The latest increment adds checked integer multiplication, integer division and `Mod`, together with portable UTF-8 scalar encoding and decoding in UBECore. Tests cover all 1,112,064 valid Unicode scalars against independently expected bytes, plus malformed input and failure preservation. This builds the text-library foundation; builtin `String` storage and its managed-memory support remain ahead.
-
-See the [self-hosting results](compiler/Progress.md) for commands and test evidence, and the [development plan](project-docs/Development-Plan.md) for upcoming work.
+See the [text-library scope](std-lib/TEXT.md), [test evidence and self-build results](compiler/Progress.md), and [development plan](project-docs/Development-Plan.md).
 
 
 ## Frequently Asked Questions

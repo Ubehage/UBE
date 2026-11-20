@@ -34,9 +34,10 @@ function Write-NewBytes([string]$Path, [byte[]]$Bytes) {
 }
 
 Assert-PlainAncestors $target
-$core = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives','ThreadPrimitives')
+$core = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives','ThreadPrimitives')
 $windows = @('WindowsArguments','WindowsPaths','WindowsImages')
-$compiler = @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering','ProjectManifest','ProjectLoader','CommandOptions','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages','NativeCompilation','CompilationRequest','CompilerCommand')
+$compiler = @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering','ProjectManifest','ProjectLoader','CommandOptions','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages','NativeCompilation','CompilationRequest','CompilerCommand')
+$compiler += @('ManagedSupport','ManagedSourceAssets','ManagedLayouts','NativeManagedLayout','NativeText')
 $paths = @($core | ForEach-Object { Join-Path $root ('std-lib/src/portable/' + $_ + '.bas') })
 $paths += @($windows | ForEach-Object { Join-Path $root ('std-lib/src/win-lib/' + $_ + '.bas') })
 $paths += @($compiler | ForEach-Object { Join-Path $root ('compiler/src/' + $_ + '.bas') })

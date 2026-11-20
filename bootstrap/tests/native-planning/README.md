@@ -1,5 +1,21 @@
 # Native planning acceptance gate
 
+The managed metadata integration passed 26 cases, 12,255 assertions and the
+changed-frame control at O0/O2 using the seed in
+`ube native intrinsics bafe0549-2503-4339-8ff6-a8aa704cd21d/build`.
+Evidence: `ube native planning 90cddc3c-5393-4622-a8d3-93321893efeb`.
+The new source-planner cases check String local roots, expression-only managed
+conversion, charged retirement table storage and unused folded child spills.
+Twelve completed String assignments reuse slots; a later concatenation retains
+distinct slots for its simultaneously live operands and result within 25 cells.
+CallNew-to-String conversion retains its scalar alias. Publication checks reject
+wrong cell/reference counts, invalid field offsets and conflicting type facts;
+valid scalar and mixed-record layouts remain accepted after negative controls.
+The same expectations pass with scalar and aggregate managed accounting in
+separate bounded planner procedures.
+The historical seed builds the probe; it does not admit these String fixtures.
+This run does not qualify native String execution or collector behavior.
+
 Run from the repository root:
 
 ```powershell

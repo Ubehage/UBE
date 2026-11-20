@@ -2,6 +2,43 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ByteTextProbe"
 ' Observes exact formatter output and failure publication independently of its implementation.
 
+Public Function CheckBoolean(ByVal Value As Boolean, ByRef Expected() As Byte) As Long
+    Dim Buffer(0 To 6) As Byte
+    Dim Used As Long = 1
+    Dim Index As Long
+    Dim Count As Long
+    Dim Status As Boolean
+    On Error GoTo Failed
+    Buffer(0) = 33
+    Buffer(6) = 77
+    Status = FilePrimitives.SetError(71)
+    If Not ByteText.TryAppendBoolean(Buffer, Used, Value) Then CheckBoolean = 1: Exit Function
+    Count = BufferPrimitives.ByteStorageLength(Expected)
+    If Used <> Count + 1 Or Err.Number <> 71 Then CheckBoolean = 2: Exit Function
+    If Buffer(0) <> 33 Or Buffer(6) <> 77 Then CheckBoolean = 3: Exit Function
+    Do While Index < Count
+        If Buffer(Index + 1) <> Expected(Index) Then CheckBoolean = 4: Exit Function
+        Index = Index + 1
+    Loop
+    ' The remaining capacity cannot hold either word; all earlier bytes stay intact.
+    If ByteText.TryAppendBoolean(Buffer, Used, Value) Then CheckBoolean = 5: Exit Function
+    If Used <> Count + 1 Or Err.Number <> 9 Then CheckBoolean = 6: Exit Function
+    Index = 0
+    Do While Index < Count
+        If Buffer(Index + 1) <> Expected(Index) Then CheckBoolean = 7: Exit Function
+        Index = Index + 1
+    Loop
+    Used = -1
+    If ByteText.TryAppendBoolean(Buffer, Used, Value) Then CheckBoolean = 8: Exit Function
+    If Used <> -1 Or Err.Number <> 5 Then CheckBoolean = 9: Exit Function
+    Used = 8
+    If ByteText.TryAppendBoolean(Buffer, Used, Value) Then CheckBoolean = 10: Exit Function
+    If Used <> 8 Or Err.Number <> 9 Then CheckBoolean = 11: Exit Function
+    Exit Function
+Failed:
+    CheckBoolean = 12
+End Function
+
 ' Compares the runtime value against independently supplied expected ASCII bytes.
 Public Function CheckInteger(ByVal Value As LongLong, ByRef Expected() As Byte) As Long
     Dim Buffer(0 To 23) As Byte

@@ -46,14 +46,14 @@ Public Function Run(ByVal Mode As Long, ByVal Seed As Long) As Long
         If Err.Number <> 5 Or State.Failed Then Result = 18: GoTo Cleanup
     ElseIf Mode = 1 Then
         Index = 0
-        Do While Index < 256
+        Do While Index < LLVMWriter.MaximumBytes \ 65536
             If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 65536) = False Then Result = 20: GoTo Cleanup
             Index = Index + 1
         Loop
         If LLVMWriter.TryFinish(State, Buffer, Token) = False Then Result = 21: GoTo Cleanup
-        If State.TotalBytes <> 16777216 Or State.Used <> 0 Then Result = 22: GoTo Cleanup
+        If State.TotalBytes <> LLVMWriter.MaximumBytes Or State.Used <> 0 Then Result = 22: GoTo Cleanup
         If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 0, 1) Then Result = 23: GoTo Cleanup
-        If State.Failure <> 2 Or State.TotalBytes <> 16777216 Then Result = 24: GoTo Cleanup
+        If State.Failure <> 2 Or State.TotalBytes <> LLVMWriter.MaximumBytes Then Result = 24: GoTo Cleanup
         If LLVMWriter.TryFinish(State, Buffer, Token) Then Result = 25: GoTo Cleanup
     ElseIf Mode = 2 Then
         Index = 0

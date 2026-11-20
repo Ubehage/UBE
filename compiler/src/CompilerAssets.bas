@@ -2,6 +2,31 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "CompilerAssets"
 ' Loads reviewed target support beside the running compiler, independently of the working directory.
 
+' The installed ordinary manifest describes private compiler support, never a source import.
+Private Function ManagedPathText(ByRef Result() As Byte) As Boolean
+    If Not BufferPrimitives.TryResizeBytes(Result, 19, False) Then Exit Function
+    Result(0) = 115
+    Result(1) = 117
+    Result(2) = 112
+    Result(3) = 112
+    Result(4) = 111
+    Result(5) = 114
+    Result(6) = 116
+    Result(7) = 47
+    Result(8) = 77
+    Result(9) = 97
+    Result(10) = 110
+    Result(11) = 97
+    Result(12) = 103
+    Result(13) = 101
+    Result(14) = 100
+    Result(15) = 46
+    Result(16) = 85
+    Result(17) = 66
+    Result(18) = 69
+    ManagedPathText = True
+End Function
+
 ' Supplies the exact installed relative path for llvm/templates.bin.
 Private Function TemplatePathText(ByRef Result() As Byte) As Boolean
     If Not BufferPrimitives.TryResizeBytes(Result, 18, False) Then Exit Function
@@ -88,6 +113,8 @@ Private Function RelativePath(ByVal Kind As Long, ByRef Relative() As Byte, ByRe
         If Not RuntimePathText(Relative) Then Exit Function
     ElseIf Kind = 3 Then
         If Not ImportPathText(Relative) Then Exit Function
+    ElseIf Kind = 4 Then
+        If Not ManagedPathText(Relative) Then Exit Function
     Else
         Failure = 1
         RelativePath = FilePrimitives.SetError(5)
@@ -131,7 +158,7 @@ Failed:
     Failure = 1
 End Function
 
-' Returns one protected support input: zero is this executable, one through three are its assets.
+' Returns one protected support input: executable, native assets, or managed source manifest.
 Public Function TrySupportPath(ByVal Kind As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean
     Dim Executable() As Byte
     Dim Parent() As Byte

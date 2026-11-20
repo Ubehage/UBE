@@ -197,9 +197,16 @@ Private Sub PrepareReplay(ByRef Source As RangeResult, ByRef Replay As RangeResu
 End Sub
 
 ' Prepares facts once, joins all writers, checks cumulative charges and assembles only in symbol order.
+Private Sub CopyEmissionState(ByRef Destination As NativeEmission.EmissionState, ByRef Source As NativeEmission.EmissionState)
+    Destination = Source
+End Sub
+
+' Keeps completed/replayed state snapshots in a small independently bounded frame.
 Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Catalog() As Byte, ByRef RuntimeText() As Byte, ByRef Stage() As Byte, ByVal WorkerCount As Long, ByVal Token As Long, ByRef Ranges() As RangeResult, ByRef State As NativeEmission.EmissionState, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Symbols() As DeclarationBinder.BoundSymbol
     Dim Expressions() As ExpressionBinder.BoundExpression
+    Dim TextArena() As Byte
+    Dim TextUsed As Long
     Dim Layouts() As AggregateLayout.StorageFact
     Dim Plans() As NativePlanning.NativeSymbolPlan
     Dim Pins() As Long
@@ -219,14 +226,16 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
     On Error GoTo Failed
     If WorkerCount < 1 Or WorkerCount > MaximumWorkers Then GoTo Rejected
     If Not NativeLowering.TryInitialize(Catalog, RuntimeText, State, Buffer) Then GoTo Rejected
-    If Not NativeLowering.TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) Then GoTo Rejected
+    If Not NativeLowering.TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, TextArena, TextUsed, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) Then GoTo Rejected
     If Not TryPartition(Expressions, Counts.NodeCount, SymbolCount, WorkerCount, Ranges) Then GoTo Rejected
     If Not NativeLowering.TryBegin(Symbols, SymbolCount, Layouts, Plans, Roles, Summary, Counts.NodeCount, Catalog, RuntimeText, Token, State, Buffer, Seen, Nexts) Then GoTo Rejected
+    If Not NativeText.TryEmitLiterals(Expressions, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
     If Not LLVMWriter.TryFinish(State.Text, Buffer, Token) Then GoTo Rejected
     If Not ResizeWeights(Seen, 0, False) Then GoTo Rejected
     If Not ResizeWeights(Nexts, 0, False) Then GoTo Rejected
     Do While Index < WorkerCount
         If ThreadPrimitives.StopRequested() Then GoTo Rejected
+        Ranges(Index).State.ManagedRoles = Summary.ManagedRoles
         If WorkerCount = 1 Then
             Call EmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, Stage, Index, Ranges(Index), 0, 0, 0)
         Else
@@ -251,11 +260,11 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
         If Ranges(Index).State.Text.Failure = 2 Or (Ranges(Index).State.FailureCode = 6 And Ranges(Index).State.FailureReason = 56) Or Ranges(Index).State.Work > NativeEmission.MaximumWork - State.Work Or Ranges(Index).State.Text.TotalBytes > LLVMWriter.MaximumBytes - State.Text.TotalBytes Or Ranges(Index).State.Text.LineCount > LLVMWriter.MaximumLines - State.Text.LineCount Then
             Call PrepareReplay(Ranges(Index), Ranges(MaximumWorkers), State)
             Call EmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, Stage, MaximumWorkers, Ranges(MaximumWorkers), State.Work, State.Text.TotalBytes, State.Text.LineCount)
-            State = Ranges(MaximumWorkers).State
+            Call CopyEmissionState(State, Ranges(MaximumWorkers).State)
             GoTo Rejected
         End If
         If Not Ranges(Index).Completed Then
-            State = Ranges(Index).State
+            Call CopyEmissionState(State, Ranges(Index).State)
             If State.Text.Failure = 0 Then State.Text.Failure = Ranges(Index).Failure
             GoTo Rejected
         End If

@@ -36,6 +36,48 @@ Failed:
     Failure = 1
 End Function
 
+' Protects an optional source asset when installed, without requiring it for numeric-only programs.
+Private Function ProtectOptional(ByRef Path() As Byte, ByRef Output() As Byte, ByRef Token As Long, ByRef Kind As Long, ByRef Failure As Long) As Boolean
+    Dim Same As Boolean
+    If Not WindowsPaths.TrySamePath(Path, Output, Same, Failure) Then Exit Function
+    If Same Then Failure = 1: Exit Function
+    If Not PathPrimitives.TryKind(Path, Kind, Failure) Then Exit Function
+    If Kind = 0 Then ProtectOptional = True: Exit Function
+    If Kind <> 1 Then Failure = 1: Exit Function
+    ProtectOptional = OutputPublication.TryProtectPath(Path, Output, Token, Failure)
+End Function
+
+' Enumerates the installed manifest solely for protection; no source declarations enter lookup here.
+Private Function ProtectManaged(ByRef Output() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim ManifestPath() As Byte
+    Dim PackageName() As Byte
+    Dim Root() As Byte
+    Dim Manifest() As Byte
+    Dim Relative() As Byte
+    Dim Path() As Byte
+    Dim Spans() As ProjectManifest.ValueSpan
+    Dim Info As ProjectManifest.ManifestInfo
+    Dim Diagnostic As ProjectLoader.LoadDiagnostic
+    Dim Kind As Long
+    Dim Index As Long
+    On Error GoTo Failed
+    If Not CompilerAssets.TrySupportPath(4, ManifestPath, Failure) Then Exit Function
+    If Not ProtectOptional(ManifestPath, Output, Token, Kind, Failure) Then Exit Function
+    If Kind = 0 Then ProtectManaged = True: Exit Function
+    If Not ProjectLoader.TryLoadManifest(ManifestPath, PackageName, Root, Manifest, Spans, Info, Diagnostic, Token) Then Failure = Diagnostic.Code: Exit Function
+    If Info.IsExecutable Then Failure = 1: Exit Function
+    Do While Index < Info.SourceCount
+        If Not ProjectManifest.TryCopyValue(Manifest, Spans(Index).Start, Spans(Index).Length, Relative) Then Failure = 8: Exit Function
+        If Not WindowsPaths.TryResolveSource(Root, Relative, Path, Failure) Then Exit Function
+        If Not ProtectOptional(Path, Output, Token, Kind, Failure) Then Exit Function
+        Index = Index + 1
+    Loop
+    ProtectManaged = True
+    Exit Function
+Failed:
+    Failure = 1
+End Function
+
 ' Protects compiler assets and selected tool executables as well as project inputs.
 Private Function ProtectSupport(ByRef Output() As Byte, ByRef Clang() As Byte, ByVal Mode As Long, ByRef Token As Long, ByRef Failure As Long) As Boolean
     Dim Path() As Byte
@@ -46,6 +88,7 @@ Private Function ProtectSupport(ByRef Output() As Byte, ByRef Clang() As Byte, B
         If Not OutputPublication.TryProtectPath(Path, Output, Token, Failure) Then Exit Function
         Index = Index + 1
     Loop
+    If Not ProtectManaged(Output, Token, Failure) Then Exit Function
     If Mode = 2 Then
         If Not OutputPublication.TryProtectPath(Clang, Output, Token, Failure) Then Exit Function
         If Not NativeBackend.TryImportTool(Clang, Path, Failure) Then Exit Function
@@ -87,6 +130,7 @@ Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput()
     Dim Paths() As ProjectLoader.SourcePath
     Dim PathBytes() As Byte
     Dim PackageName() As Byte
+    Dim SupportPath() As Byte
     Dim Catalog() As Byte
     Dim RuntimeText() As Byte
     Dim ImportDefinition() As Byte
@@ -129,6 +173,19 @@ Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput()
     If Mode = 2 And Not Info.IsExecutable Then Code = 1: Reason = 1: GoTo Report
     Kind = CompilerMessages.AssetError
     If Not CompilerAssets.TryLoad(Catalog, RuntimeText, ImportDefinition, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If ManagedSupport.NeedsSource(Bytes, Tokens, Nodes, Counts) Then
+        If Not CompilerAssets.TrySupportPath(4, SupportPath, Failure) Then GoTo FailedOperation
+        If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, SupportPath) Then Failure = 8: GoTo FailedOperation
+        If Not ProjectLoader.TryAppendSupport(SupportPath, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, LoadError, Resources.FileToken) Then
+            Operation = LoadError.Stage
+            Code = LoadError.Code
+            Reason = LoadError.Reason
+            SourceLine = LoadError.Line
+            SourceColumn = LoadError.Column
+            If LoadError.PathLength > 0 Then Status = ProjectLoader.TryCopyPathSpan(PathBytes, LoadError.PathStart, LoadError.PathLength, DiagnosticPath)
+            GoTo Report
+        End If
+    End If
     Kind = CompilerMessages.OutputError
     If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, RequestedOutput) Then Code = 8: GoTo Report
     If Not OutputPublication.TryPrepare(RequestedOutput, ManifestPath, PathBytes, Paths, Counts.ModuleCount, Output, Stage, Resources.StageOwned, Resources.FileToken, Failure) Then GoTo FailedOperation

@@ -19,7 +19,9 @@ The complete driver/compiler package has 44 modules. It requires 74,893 syntax
 nodes, with a largest module of 7,748 nodes. Its bootstrap-generated IR measures
 9,810,828 bytes and 269,156 lines. These measured requirements prompted focused
 increases to 131,072 cumulative project nodes and 500,000 output lines. The
-65,536 per-module node limit and 16 MiB output byte limit remain unchanged.
+65,536 per-module node limit remained unchanged. Managed support later grew the
+compiler beyond the former 16 MiB emitted-file bound; the general bound is now
+32 MiB in both compilers and the bootstrap backend.
 Other independent frame, allocation and work bounds still apply.
 
 Source paths must stay inside their manifest tree. Project-reference support

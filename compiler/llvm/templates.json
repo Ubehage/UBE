@@ -1,4 +1,6 @@
 [
+{"name":"IntrinsicMemoryCollect","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx) {\r\nentry:\r\n  %result = call { i1, i64 } @ube.managed.collect(ptr %ctx, i64 -1)\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedWorkspace","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.workspace(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
   {
     "name": "Branch",
     "text": "  br label %b{0}"
@@ -25,7 +27,7 @@
   },
   {
     "name": "ContextType",
-    "text": "%ube.thread = type { i64, i64, ptr, ptr }\r\n%ube.program = type { [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [{0} x ptr], ptr, i64, i64, [65 x [8 x i64]] }\r\n%ube.context = type { i64, i64, ptr, ptr, %ube.program }"
+    "text": "%ube.thread = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64 }\r\n%ube.program = type { [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [{0} x ptr], ptr, i64, i64, [65 x [8 x i64]], ptr, ptr }\r\n%ube.context = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64, %ube.program }"
   },
   {
     "name": "ProcedureStart",
@@ -53,7 +55,7 @@
   },
   {
     "name": "ContextPrefix",
-    "text": "%ube.resource = type { i64, ptr, ptr, i64, i64 }\r\n%ube.thread = type { i64, i64, ptr, ptr }\r\n%ube.program = type { [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [{0} x ptr], ptr, i64, i64, [65 x [8 x i64]] }\r\n%ube.context = type { i64, i64, ptr, ptr, %ube.program }\r\n\r\ndeclare { i16, i1 } @llvm.smul.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)\r\n\r\ndefine i64 @ube.context.size() {\r\nentry:\r\n  ret i64 {2}\r\n}\r\ndefine void @ube.context.init(ptr %ctx) {\r\nentry:\r\n  br label %zero\r\nzero:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %zero ]\r\n  %slot = getelementptr i64, ptr %ctx, i64 %index\r\n  store atomic volatile i64 0, ptr %slot monotonic, align 8\r\n  %next = add i64 %index, 1\r\n  %more = icmp ult i64 %next, {3}\r\n  br i1 %more, label %zero, label %done\r\ndone:\r\n  %program = getelementptr %ube.context, ptr %ctx, i32 0, i32 4\r\n  call void @ube.thread.init(ptr %ctx, ptr %program, ptr null)\r\n  ret void\r\n}\r\ndefine i1 @ube.context.dispose(ptr %ctx) {\r\nentry:\r\n  %depth.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 1\r\n  %depth = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.active = icmp ne i64 %depth, 0\r\n  %files.empty = call i1 @ube.resource.empty(ptr %ctx)\r\n  %files.live = xor i1 %files.empty, true\r\n  %program = call ptr @ube.thread.program(ptr %ctx)\r\n  %workers.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 7\r\n  %workers = load atomic i64, ptr %workers.ptr acquire, align 8\r\n  %workers.live = icmp ne i64 %workers, 0\r\n  %owners.active = or i1 %depth.active, %files.live\r\n  %active = or i1 %owners.active, %workers.live\r\n  br i1 %active, label %busy, label %threads\r\nbusy:\r\n  ret i1 false\r\nthreads:\r\n  %threads.disposed = call i1 @ube.thread.program.dispose(ptr %ctx)\r\n  br i1 %threads.disposed, label %release, label %busy\r\nrelease:\r\n"
+    "text": "%ube.resource = type { i64, ptr, ptr, i64, i64 }\r\n%ube.thread = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64 }\r\n%ube.program = type { [{0} x i64], [{1} x i64], ptr, i64, i64, [64 x %ube.resource], i64, i64, i64, [{0} x ptr], ptr, i64, i64, [65 x [8 x i64]], ptr, ptr }\r\n%ube.context = type { i64, i64, ptr, ptr, ptr, ptr, ptr, i64, i64, %ube.program }\r\n\r\ndeclare { i16, i1 } @llvm.smul.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.sadd.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)\r\ndeclare { i16, i1 } @llvm.ssub.with.overflow.i16(i16, i16)\r\ndeclare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)\r\ndeclare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)\r\n\r\ndefine i64 @ube.context.size() {\r\nentry:\r\n  ret i64 {2}\r\n}\r\ndefine void @ube.context.init(ptr %ctx) {\r\nentry:\r\n  br label %zero\r\nzero:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %zero ]\r\n  %slot = getelementptr i64, ptr %ctx, i64 %index\r\n  store atomic volatile i64 0, ptr %slot monotonic, align 8\r\n  %next = add i64 %index, 1\r\n  %more = icmp ult i64 %next, {3}\r\n  br i1 %more, label %zero, label %done\r\ndone:\r\n  %program = getelementptr %ube.context, ptr %ctx, i32 0, i32 9\r\n  call void @ube.thread.init(ptr %ctx, ptr %program, ptr null)\r\n  ret void\r\n}\r\ndefine i1 @ube.context.dispose(ptr %ctx) {\r\nentry:\r\n  %depth.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 1\r\n  %depth = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.active = icmp ne i64 %depth, 0\r\n  %files.empty = call i1 @ube.resource.empty(ptr %ctx)\r\n  %files.live = xor i1 %files.empty, true\r\n  %program = call ptr @ube.thread.program(ptr %ctx)\r\n  %workers.ptr = getelementptr %ube.program, ptr %program, i32 0, i32 7\r\n  %workers = load atomic i64, ptr %workers.ptr acquire, align 8\r\n  %workers.live = icmp ne i64 %workers, 0\r\n  %owners.active = or i1 %depth.active, %files.live\r\n  %active = or i1 %owners.active, %workers.live\r\n  br i1 %active, label %busy, label %threads\r\nbusy:\r\n  ret i1 false\r\nthreads:\r\n  %threads.disposed = call i1 @ube.thread.program.dispose(ptr %ctx)\r\n  br i1 %threads.disposed, label %release, label %busy\r\nrelease:\r\n"
   },
   {
     "name": "ContextArrayRelease",
@@ -61,7 +63,7 @@
   },
   {
     "name": "ContextMiddle",
-    "text": "  %collected = call i1 @ube.memory.collect(ptr %ctx)\r\n  %head.ptr = call ptr @ube.memory.head(ptr %ctx)\r\n  %head = load ptr, ptr %head.ptr\r\n  %empty = icmp eq ptr %head, null\r\n  ret i1 %empty\r\n}\r\ndefine i1 @ube.project.init(ptr %ctx) {\r\nentry:\r\n"
+    "text": "  %managed.closed = call i1 @ube.managed.shutdown(ptr %ctx)\r\n  br i1 %managed.closed, label %retire.native, label %busy\r\nretire.native:\r\n  %collected = call i1 @ube.memory.collect(ptr %ctx)\r\n  %head.ptr = call ptr @ube.memory.head(ptr %ctx)\r\n  %head = load ptr, ptr %head.ptr\r\n  %empty = icmp eq ptr %head, null\r\n  ret i1 %empty\r\n}\r\ndefine i1 @ube.project.init(ptr %ctx) {\r\nentry:\r\n"
   },
   {
     "name": "EnsureModule",
@@ -189,11 +191,11 @@
   },
   {
     "name": "IntrinsicArrayResize",
-    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.array.tryresize(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2, i64 {1})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.array.tryresize(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2, i64 {1}, ptr null)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
   },
   {
     "name": "IntrinsicArrayCopy",
-    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr %arg.0, ptr %arg.1, i64 {1})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr %arg.0, ptr %arg.1, i64 {1}, ptr null)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"
   },
   {
     "name": "ContextAddress",
@@ -237,11 +239,11 @@
   },
   {
     "name": "PinBlock",
-    "text": "  store ptr %v{0}, ptr %pin.{1}"
+    "text": "  store atomic ptr %v{0}, ptr %pin.{1} release, align 8"
   },
   {
     "name": "ReleasePin",
-    "text": "  %v{0} = load ptr, ptr %pin.{1}\r\n  store ptr null, ptr %pin.{1}\r\n  call void @ube.block.drop(ptr %ctx, ptr %v{0})"
+    "text": "  %v{0} = load atomic ptr, ptr %pin.{1} acquire, align 8\r\n  store atomic ptr null, ptr %pin.{1} release, align 8\r\n  call void @ube.block.drop(ptr %ctx, ptr %v{0})"
   },
   {
     "name": "CollectMemory",
@@ -305,7 +307,7 @@
   },
   {
     "name": "ControlArrayCopy",
-    "text": "  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3})"
+    "text": "  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3}, ptr null)"
   },
   {
     "name": "CompareEqual",
@@ -565,7 +567,7 @@
   },
   {
     "name": "IntrinsicThreadYield",
-    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx) {\r\nentry:\r\n  call void @Sleep(i32 0)\r\n  %result = call { i1, i64 } @ube.thread.value(i64 -1)\r\n  ret { i1, i64 } %result\r\n}\r\n"
+    "text": "define { i1, i64 } @ube.proc.{0}(ptr %ctx) {\r\nentry:\r\n  call void @ube.managed.safe(ptr %ctx)\r\n  call void @Sleep(i32 0)\r\n  call void @ube.managed.enter(ptr %ctx)\r\n  %result = call { i1, i64 } @ube.thread.value(i64 -1)\r\n  ret { i1, i64 } %result\r\n}\r\n"
   }
 ,
   {"name":"NullOwner","text":"  %v{0} = getelementptr i8, ptr null, i64 0"},
@@ -576,7 +578,7 @@
   {"name":"NewOwner","text":"  %v{0} = call ptr @ube.memory.new(ptr %ctx, i64 {1}, i64 1)"},
   {"name":"OwnerAllocated","text":"  %v{0} = icmp ne ptr %v{1}, null\r\n  br i1 %v{0}, label %owner.check.{0}, label %owner.failed.{0}\r\nowner.failed.{0}:\r\n  store atomic i64 7, ptr %err monotonic, align 8\r\n  br label %owner.check.{0}\r\nowner.check.{0}:"},
   {"name":"SetTemporaryOwner","text":"  store ptr %v{1}, ptr %temp.owner.{0}"},
-  {"name":"OwnerPayload","text":"  %v{0} = getelementptr i64, ptr %v{1}, i64 3"},
+  {"name":"OwnerPayload","text":"  %v{0} = getelementptr %ube.block, ptr %v{1}, i64 1"},
   {"name":"DropOwner","text":"  call void @ube.box.drop(ptr %ctx, ptr %v{0}, i1 {1})"},
   {"name":"ClearTemporaryOwner","text":"  store ptr null, ptr %temp.owner.{0}"},
   {"name":"AllocateLocalOwner","text":"  %box.{0} = alloca ptr, align 8\r\n  store ptr null, ptr %box.{0}"},
@@ -584,8 +586,8 @@
   {"name":"SetLocalOwner","text":"  store ptr %v{1}, ptr %box.{0}"},
   {"name":"OwnerParameter","text":", ptr %owner.{0}"},
   {"name":"OwnerEntryGuard","text":"  br i1 %v{0}, label %owner.ready.{0}, label %return.fail\r\nowner.ready.{0}:"},
-  {"name":"BoxAddress","text":"  %box.address.{0} = load ptr, ptr %box.{1}\r\n  %v{0} = getelementptr i64, ptr %box.address.{0}, i64 3"},
-  {"name":"BoxTemporaryAddress","text":"  %temp.address.{0} = load ptr, ptr %temp.owner.{1}\r\n  %v{0} = getelementptr i64, ptr %temp.address.{0}, i64 3"}
+  {"name":"BoxAddress","text":"  %box.address.{0} = load ptr, ptr %box.{1}\r\n  %v{0} = getelementptr %ube.block, ptr %box.address.{0}, i64 1"},
+  {"name":"BoxTemporaryAddress","text":"  %temp.address.{0} = load ptr, ptr %temp.owner.{1}\r\n  %v{0} = getelementptr %ube.block, ptr %temp.address.{0}, i64 1"}
 ,
 {"name":"InstallOwnedArray","text":"  call void @ube.array.install(ptr %ctx, ptr %v{0}, ptr %v{1}, i64 {2}, i64 {3})"},
 {"name":"StoreBoxParameter","text":"  store atomic i64 %arg.{0}, ptr %v{1} monotonic, align 8"}
@@ -606,5 +608,85 @@
 {"name":"BothConditions","text":"  %v{0} = and i1 %v{1}, %v{2}"},
 {"name":"SafeRemainderDivisor","text":"  %v{0} = select i1 %v{1}, i64 1, i64 %v{2}"},
 {"name":"DivisionValue","text":"  %v{0} = sdiv i64 %v{1}, %v{2}"},
-{"name":"RemainderValue","text":"  %v{0} = srem i64 %v{1}, %v{2}"}
+{"name":"RemainderValue","text":"  %v{0} = srem i64 %v{1}, %v{2}"},
+{"name":"IntrinsicArrayMove","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.move(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"}
+,
+{"name":"TextLiteralStart","text":"@ube.text.bytes.{0} = private constant [{1} x i64] ["},
+{"name":"TextLiteralByte","text":"i64 {0}, "},
+{"name":"TextLiteralLastByte","text":"i64 {0}"},
+{"name":"TextLiteralEnd","text":"]\r\n@ube.text.literal.{0} = private constant { i64, i64, ptr, ptr } { i64 0, i64 {1}, ptr @ube.text.bytes.{0}, ptr null }, align 8"},
+{"name":"TextLiteralAddress","text":"  %v{0} = getelementptr i8, ptr @ube.text.literal.{1}, i64 0"}
+,
+{"name":"TextRootLoad","text":"  %v{0} = call i64 @ube.managed.load(ptr %ctx, ptr %v{1}, ptr %text{2})"},
+{"name":"TextRootStore","text":"  call void @ube.managed.store(ptr %ctx, ptr %text{0}, i64 %v{1})"},
+{"name":"TextRootTake","text":"  %v{0} = call i64 @ube.managed.take(ptr %ctx, ptr %text{1})"},
+{"name":"ManagedEntryFrame","text":"  %root.entry = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %root.entry, ptr null, ptr null, i64 0)"},
+{"name":"ManagedTextSlots","text":"  %managed.text = alloca [{0} x i64], align 8\r\n  store [{0} x i64] zeroinitializer, ptr %managed.text, align 8\r\n  %managed.text.root = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %managed.text.root, ptr %managed.text, ptr @ube.managed.layout.0, i64 {0})"},
+{"name":"ManagedTextAlias","text":"  %text{0} = getelementptr i64, ptr %managed.text, i64 {1}"},
+{"name":"ManagedSymbolRoot","text":"  %symbol.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
+{"name":"ManagedArraySymbolRoot","text":"  %symbol.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
+{"name":"ManagedTemporaryRoot","text":"  %temporary.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
+{"name":"ManagedArrayTemporaryRoot","text":"  %temporary.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
+{"name":"ManagedRestoreRoots","text":"  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)"},
+{"name":"ManagedReturnValue","text":"  call void @ube.managed.return(ptr %ctx, i64 %v{0})"},
+{"name":"ManagedDiscardReturn","text":"  call void @ube.managed.discard(ptr %ctx)"},
+{"name":"ManagedOffsetsStart","text":"@ube.managed.offsets.{0} = private constant [{1} x i64] ["},
+{"name":"ManagedOffsetsEnd","text":"]"},
+{"name":"ManagedValueLayout","text":"@ube.managed.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.managed.offsets.{0}, i64 0, ptr null, i64 0, ptr null }\r\n@ube.managed.arrayentry.{0} = private constant %ube.managed.array { i64 0, ptr @ube.managed.layout.{0} }\r\n@ube.managed.arraylayout.{0} = private constant %ube.managed.layout { i64 4, i64 0, ptr null, i64 1, ptr @ube.managed.arrayentry.{0}, i64 0, ptr null }"}
+,
+{"name":"ManagedStoreValue","text":"  call void @ube.managed.store(ptr %ctx, ptr %v{1}, i64 %v{0})"},
+{"name":"ManagedGlobalOffsetsStart","text":"@ube.managed.globalsoffsets = private constant [{0} x i64] ["},
+{"name":"ManagedGlobalArraysStart","text":"@ube.managed.globalsarrays = private constant [{0} x %ube.managed.array] ["},
+{"name":"ManagedGlobalArrayEntry","text":"%ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }, "},
+{"name":"ManagedGlobalArrayLastEntry","text":"%ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }"},
+{"name":"ManagedGlobalLayout","text":"@ube.managed.globals.layout = private constant %ube.managed.layout { i64 {0}, i64 {1}, ptr @ube.managed.globalsoffsets, i64 {2}, ptr @ube.managed.globalsarrays, i64 0, ptr null }"},
+{"name":"ManagedProcedureDepth","text":"  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store atomic i64 28, ptr %err monotonic, align 8\r\n  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store atomic i64 %depth.entered, ptr %depth.ptr monotonic, align 8"}
+,
+{"name":"ManagedProjectInitialize","text":"  %managed.installed = call i1 @ube.managed.install(ptr %ctx, ptr @ube.proc.{0})\r\n  br i1 %managed.installed, label %managed.ready, label %managed.refused\r\nmanaged.refused:\r\n  ret i1 false\r\nmanaged.ready:\r\n  call void @ube.managed.globals(ptr %ctx, ptr @ube.managed.globals.layout)\r\n"}
+,
+{"name":"ManagedOwnerLayout","text":"@ube.managed.owner.root.layout = private constant %ube.managed.layout { i64 1, i64 0, ptr null, i64 0, ptr null, i64 1, ptr @ube.managed.offsets.0 }"},
+{"name":"ManagedLocalOwnerRoot","text":"  %box.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %box.root{0}, ptr %box.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedTemporaryOwnerRoot","text":"  %temporary.owner.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.owner.root{0}, ptr %temp.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedIncomingOwnerRoot","text":"  %incoming.owner.{0} = alloca ptr, align 8\r\n  store ptr %owner.{0}, ptr %incoming.owner.{0}, align 8\r\n  %incoming.owner.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %incoming.owner.root{0}, ptr %incoming.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedPinRoot","text":"  %pin.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %pin.root{0}, ptr %pin.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"AttachManagedOwner","text":"  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.layout.{1}, i64 {2})"},
+{"name":"AttachManagedArrayOwner","text":"  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.arraylayout.{1}, i64 1)"}
+,
+{"name":"IntrinsicManagedBeginCollection","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.begin(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedEndCollection","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.end(ptr %ctx, i64 %arg.0, i64 %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedSnapshotCounts","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.snapshot.counts(ptr %ctx, ptr %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedAllocationAt","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.allocation.at(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedRootAt","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.root.at(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedMark","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.mark(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedMarked","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.marked(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedEdgeCount","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.edge.count(ptr %ctx, i64 %arg.0, ptr %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedEdgeAt","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.edge.at(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedSealCollection","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.seal(ptr %ctx)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicManagedReclaim","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.reclaim(ptr %ctx, i64 %arg.0)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextByteLength","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0) {\r\nentry:\r\n  %result = call { i1, i64 } @ube.text.length(ptr %ctx, ptr %arg.0, i1 false)\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextScalarLength","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0) {\r\nentry:\r\n  %result = call { i1, i64 } @ube.text.length(ptr %ctx, ptr %arg.0, i1 true)\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextReadByte","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.text.read(ptr %ctx, ptr %arg.0, i64 %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextCreate","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.text.create(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextWriteByte","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.text.write(ptr %ctx, i64 %arg.0, i64 %arg.1, i64 %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextPublish","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.text.publish(ptr %ctx, ptr %arg.0, i64 %arg.1)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicTextAbandon","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0) {\r\nentry:\r\n  %accepted = call i1 @ube.text.abandon(ptr %ctx, i64 %arg.0)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"}
+,
+{"name":"ManagedCaptureOffsetsStart","text":"@ube.managed.capture.offsets.{0} = private constant [{1} x i64] ["},
+{"name":"ManagedCaptureOwnersStart","text":"@ube.managed.capture.owners.{0} = private constant [{1} x i64] ["},
+{"name":"ManagedCaptureLayout","text":"@ube.managed.capture.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.managed.capture.offsets.{0}, i64 0, ptr null, i64 {3}, ptr @ube.managed.capture.owners.{0} }"},
+{"name":"AttachManagedCapture","text":"  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.capture.layout.{1}, i64 1)"},
+{"name":"CapturePayloadAddress","text":"  %v{0} = getelementptr i8, ptr %capture, i64 0"},
+{"name":"ClearCapturedOwner","text":"  store atomic ptr null, ptr %v{0} release, align 8"}
+,
+{"name":"ManagedSafepoint","text":"  call void @ube.managed.enter(ptr %ctx)"},
+{"name":"ManagedTemporaryTable","text":"  %managed.temps = alloca ptr, i64 {0}, align 8"},
+{"name":"ManagedTextTableEntry","text":"  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}\r\n  %v{2} = getelementptr i64, ptr %managed.text, i64 {1}\r\n  store ptr %v{2}, ptr %v{0}, align 8"},
+{"name":"ManagedTemporaryTableEntry","text":"  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}\r\n  store ptr %v{2}, ptr %v{0}, align 8"},
+{"name":"ManagedRetireTemporaries","text":"  call void @ube.managed.temps.clear(ptr %ctx, ptr %managed.temps, i64 {0})"},
+{"name":"ManagedRetireDefinition","text":"define internal void @ube.managed.temps.clear(ptr %ctx, ptr %table, i64 %count) {\r\nentry:\r\n  br label %check\r\ncheck:\r\n  %index = phi i64 [ 0, %entry ], [ %next, %body ]\r\n  %more = icmp ult i64 %index, %count\r\n  br i1 %more, label %body, label %done\r\nbody:\r\n  %entry.ptr = getelementptr ptr, ptr %table, i64 %index\r\n  %slot = load ptr, ptr %entry.ptr, align 8\r\n  call void @ube.managed.store(ptr %ctx, ptr %slot, i64 0)\r\n  %next = add i64 %index, 1\r\n  br label %check\r\ndone:\r\n  ret void\r\n}\r\n"}
+,
+{"name":"IntrinsicArrayResizeManaged","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.array.tryresize(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2, i64 {1}, ptr @ube.managed.layout.{2})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"IntrinsicArrayCopyManaged","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr %arg.0, ptr %arg.1, i64 {1}, ptr @ube.managed.layout.{2})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
+{"name":"ControlManagedArrayCopyStart","text":"  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3}"},
+{"name":"ManagedLayoutCallEnd","text":", ptr @ube.managed.layout.{0})"}
 ]

@@ -34,10 +34,18 @@ bootstrap may remain sequential. The concrete architecture requirement is in
   Successive self-builds, expanded common conformance and concurrency regressions
   pass. Exact commands and limitations are in `compiler/Progress.md`.
 
-The next dependency candidate is managed String support with the specified
-precise memory model. `compiler/TEXT-SUPPORT.md` records its proposed scope and
-approval boundary; this completed increment does not authorize a runtime
-architecture change or claim String/GC implementation.
+### Managed text checkpoint
+
+- [x] Implement managed String and the typed text library with the specified
+  precise tracing memory model. The owner approved conforming implementation
+  decisions on 2026-11-13, with established UBE definitions taking precedence
+  over known VB6 behavior. Scope and acceptance gates are in
+  `compiler/TEXT-SUPPORT.md`; resumable evidence is in `compiler/Progress.md`.
+  Actual O0/O2 String, conversion, failure/recovery, precise collection and
+  worker-lifetime gates pass. The final fresh bootstrap and self-built compiler
+  pass common conformance; two self-builds reach a fixed point and the renewed
+  concurrent compilation gate passes. Scope and exclusions are in
+  `std-lib/TEXT.md`; detailed evidence is in `compiler/Progress.md`.
 
 ### Earlier concurrent compiler checkpoint — 2026-11-13
 

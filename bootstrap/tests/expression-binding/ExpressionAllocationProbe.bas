@@ -9,6 +9,8 @@ Private Counts As ProjectSyntax.ProjectCounts
 Private PackageName() As Byte
 Private Bindings() As ExpressionBinder.BoundExpression
 Private BindingCount As Long
+Private TextArena() As Byte
+Private TextUsed As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
 
 Private Intrinsic Function ResizeBindings(ByRef Values() As ExpressionBinder.BoundExpression, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
@@ -50,6 +52,12 @@ Public Function Prepare(ByRef Data() As Byte) As Long
     Bindings(0).HasBounds = True
     Bindings(0).LowerBound = -9223372036854775808
     Bindings(0).UpperBound = 9223372036854775807
+    Bindings(0).ConstantTextStart = 101
+    Bindings(0).ConstantTextLength = 102
+    If Not BufferPrimitives.TryResizeBytes(TextArena, 2, False) Then Prepare = 4: Exit Function
+    TextArena(0) = 81
+    TextArena(1) = 82
+    TextUsed = 555
     BindingCount = 777
     Err.Clear
     Prepare = 0
@@ -76,6 +84,9 @@ Private Function OldOutput() As Boolean
     If Bindings(0).HasBounds <> True Then OldOutput = False: Exit Function
     If Bindings(0).LowerBound <> -9223372036854775808 Then OldOutput = False: Exit Function
     If Bindings(0).UpperBound <> 9223372036854775807 Then OldOutput = False: Exit Function
+    If Bindings(0).ConstantTextStart <> 101 Or Bindings(0).ConstantTextLength <> 102 Then Exit Function
+    If BufferPrimitives.ByteStorageLength(TextArena) <> 2 Then Exit Function
+    If TextArena(0) <> 81 Or TextArena(1) <> 82 Then Exit Function
     OldOutput = True
     Exit Function
 Failed:
@@ -85,9 +96,10 @@ End Function
 Public Function RejectAllocation() As Long
     Dim Status As Boolean
     On Error GoTo Failed
-    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, Diagnostic)
+    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, TextArena, TextUsed, Diagnostic)
     If Status Then RejectAllocation = 1: Exit Function
     If BindingCount <> 0 Then RejectAllocation = 2: Exit Function
+    If TextUsed <> 0 Then RejectAllocation = 6: Exit Function
     If Diagnostic.Code <> 7 Then RejectAllocation = 3: Exit Function
     If Err.Number <> 7 Then RejectAllocation = 4: Exit Function
     If OldOutput() = False Then RejectAllocation = 5: Exit Function
@@ -101,10 +113,11 @@ End Function
 Public Function RetryBind(ByVal ExpectedError As Long) As Long
     Dim Status As Boolean
     On Error GoTo Failed
-    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, Diagnostic)
+    Status = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, TextArena, TextUsed, Diagnostic)
     If Status = False Then RetryBind = 1: Exit Function
     If BindingCount <> Counts.NodeCount Then RetryBind = 2: Exit Function
     If BindingLength(Bindings) <> Counts.NodeCount Then RetryBind = 3: Exit Function
+    If TextUsed < 1 Then RetryBind = 4: Exit Function
     If Diagnostic.Code <> 0 Or Err.Number <> ExpectedError Then RetryBind = 5: Exit Function
     RetryBind = 0
     Exit Function
@@ -114,7 +127,7 @@ End Function
 
 Public Function DepthAttempt() As Boolean
     On Error GoTo Failed
-    DepthAttempt = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, Diagnostic)
+    DepthAttempt = ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Bindings, BindingCount, TextArena, TextUsed, Diagnostic)
     Exit Function
 Failed:
     DepthAttempt = False
@@ -124,6 +137,7 @@ Public Function CheckDepth(ByVal Success As Boolean) As Long
     On Error GoTo Failed
     If Success Then
         If BindingCount <> Counts.NodeCount Then CheckDepth = 1: Exit Function
+        If TextUsed < 1 Then CheckDepth = 8: Exit Function
         If BindingLength(Bindings) <> Counts.NodeCount Or Diagnostic.Code <> 0 Then CheckDepth = 2: Exit Function
     Else
         If Err.Number <> 28 Then CheckDepth = 3: Exit Function

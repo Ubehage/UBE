@@ -17,7 +17,7 @@ function Run([string]$File,[string[]]$Arguments) {
 }
 $templates=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/templates.json'))|ConvertFrom-Json
 $prefix=($templates|Where-Object{$_.name -eq 'ContextPrefix'}).text
-$prefix=$prefix.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6848').Replace('{3}','856')
+$prefix=$prefix.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6904').Replace('{3}','863')
 $prefix=$prefix.Substring(0,$prefix.IndexOf('define i1 @ube.context.dispose'))
 $runtime=[IO.File]::ReadAllText((Join-Path $root 'compiler/llvm/windows-runtime.ll'))
 $runtime=$runtime.Replace('define i1 @ube.target.release(', 'define i1 @ube.target.release.real(')

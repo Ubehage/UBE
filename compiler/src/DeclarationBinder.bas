@@ -24,6 +24,7 @@ Public Type BoundSymbol
     ParameterCount As Long
     FirstField As Long
     NextField As Long
+    LookupDomain As Long
 End Type
 
 Public Type BindingDiagnostic
@@ -113,12 +114,12 @@ Failed:
 End Function
 
 ' Hashes decoded ASCII names together with scope and namespace using bounded integer arithmetic.
-Private Function NameHash(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByVal Token As Long, ByVal Scope As Long, ByVal Region As Long) As Long
+Private Function NameHash(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByVal Token As Long, ByVal Scope As Long, ByVal Region As Long, ByVal LookupDomain As Long) As Long
     Dim Hash As Long
     Dim Position As Long
     Dim Character As Long
     On Error GoTo Failed
-    Hash = Scope + Region
+    Hash = Scope + Region + LookupDomain
     Position = LabelStart(B, T, Token, Count, Region)
     Character = SyntaxTokens.SpellingByte(B, T, Token, Count, Position)
     Do While Character >= 0
@@ -158,14 +159,14 @@ Failed:
 End Function
 
 ' Searches one selected declaration region without retrying another namespace on a wrong kind.
-Public Function FindSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByVal Scope As Long, ByVal Region As Long, ByVal Token As Long) As Long
+Public Function FindSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByVal Scope As Long, ByVal Region As Long, ByVal Token As Long, ByVal LookupDomain As Long) As Long
     Dim Index As Long
     On Error GoTo Failed
     If Charge(S) = False Then Exit Function
-    Index = Buckets(NameHash(B, T, Count, Token, Scope, Region))
+    Index = Buckets(NameHash(B, T, Count, Token, Scope, Region, LookupDomain))
     Do While Index <> 0
         If Charge(S) = False Then Exit Function
-        If A(Index - 1).ScopeSymbol = Scope And A(Index - 1).Region = Region Then
+        If A(Index - 1).ScopeSymbol = Scope And A(Index - 1).Region = Region And A(Index - 1).LookupDomain = LookupDomain Then
             If EqualName(B, T, Count, A(Index - 1).NameToken, Token, Region) Then FindSymbol = Index: Exit Function
         End If
         Index = Links(Index - 1)
@@ -182,7 +183,7 @@ Private Function DeclareSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     Dim Bucket As Long
     Dim Index As Long
     On Error GoTo Failed
-    Existing = FindSymbol(B, T, TokenCount, A, Buckets, Links, S, Item.ScopeSymbol, Item.Region, Item.NameToken)
+    Existing = FindSymbol(B, T, TokenCount, A, Buckets, Links, S, Item.ScopeSymbol, Item.Region, Item.NameToken, Item.LookupDomain)
     If S.Work >= 4000000 Then Reject T, N, D, 6, 2, Item.ModuleIndex, Item.DeclarationNode: Exit Function
     If Existing <> 0 Then Reject T, N, D, 1, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
     If S.Count >= 16384 Then Reject T, N, D, 6, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
@@ -196,7 +197,7 @@ Private Function DeclareSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     Index = S.Count
     A(Index) = Item
     S.Count = S.Count + 1
-    Bucket = NameHash(B, T, TokenCount, Item.NameToken, Item.ScopeSymbol, Item.Region)
+    Bucket = NameHash(B, T, TokenCount, Item.NameToken, Item.ScopeSymbol, Item.Region, Item.LookupDomain)
     Links(Index) = Buckets(Bucket)
     Buckets(Bucket) = Index + 1
     DeclareSymbol = Index + 1
@@ -245,7 +246,7 @@ Failed:
 End Function
 
 ' Declares a syntax-backed symbol in its explicit namespace and records source visibility.
-Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByVal TokenCount As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByRef D As BindingDiagnostic, ByVal ModuleIndex As Long, ByVal Node As Long, ByVal Scope As Long, ByVal Region As Long, ByVal Kind As Long) As Long
+Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByVal TokenCount As Long, ByRef A() As BoundSymbol, ByRef Buckets() As Long, ByRef Links() As Long, ByRef S As BindingState, ByRef D As BindingDiagnostic, ByVal ModuleIndex As Long, ByVal Node As Long, ByVal Scope As Long, ByVal Region As Long, ByVal Kind As Long, ByVal ModuleDomain As Long) As Long
     Dim Item As BoundSymbol
     Dim ParentKind As Long
     On Error GoTo Failed
@@ -254,6 +255,8 @@ Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.So
     Item.ScopeSymbol = Scope
     Item.Region = Region
     Item.Kind = Kind
+    Item.LookupDomain = ModuleDomain
+    If Scope <> 0 Then Item.LookupDomain = A(Scope - 1).LookupDomain
     If DeclarationFacts(N, Item) = False Then Exit Function
     If Item.NameToken < 0 Or Item.NameToken >= TokenCount Then Reject T, N, D, 9, 1, ModuleIndex, Node: Exit Function
     If Kind = SourceParser.ModuleNode Then
@@ -288,7 +291,7 @@ Private Function CollectTop(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     On Error GoTo Failed
     Do While Index < C.ModuleCount
         Node = M(Index).RootNode
-        Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, Index, Node, 0, ModuleRegion, SourceParser.ModuleNode)
+        Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, Index, Node, 0, ModuleRegion, SourceParser.ModuleNode, M(Index).LookupDomain)
         If Symbol = 0 Then Exit Function
         ModuleSymbols(Index) = Symbol
         NodeSymbols(Node - 1) = Symbol
@@ -301,7 +304,7 @@ Private Function CollectTop(ByRef B() As Byte, ByRef T() As SourceScanner.Source
             If Charge(S) = False Then CollectTop = Reject(T, N, D, 6, 2, Index, Node): Exit Function
             Kind = N(Node - 1).Kind
             If Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Or Kind = SourceParser.TypeNode Or Kind = SourceParser.VariableNode Or Kind = SourceParser.ConstantNode Then
-                Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, Index, Node, ModuleSymbols(Index), ValueRegion, Kind)
+                Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, Index, Node, ModuleSymbols(Index), ValueRegion, Kind, 0)
                 If Symbol = 0 Then Exit Function
                 NodeSymbols(Node - 1) = Symbol
             End If
@@ -332,7 +335,7 @@ Private Function CollectMembers(ByRef B() As Byte, ByRef T() As SourceScanner.So
         Node = A(Index).DeclarationNode
         ModuleIndex = A(Index).ModuleIndex
         If Kind = SourceParser.FunctionNode Then
-            Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Node, Index + 1, ResultRegion, ResultSymbol)
+            Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Node, Index + 1, ResultRegion, ResultSymbol, 0)
             If Symbol = 0 Then Exit Function
         End If
         If Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Or Kind = SourceParser.TypeNode Then
@@ -341,7 +344,7 @@ Private Function CollectMembers(ByRef B() As Byte, ByRef T() As SourceScanner.So
             Do While Child <> 0
                 If Charge(S) = False Then CollectMembers = Reject(T, N, D, 6, 2, ModuleIndex, Child): Exit Function
                 If N(Child - 1).Kind = SourceParser.ParameterNode Or N(Child - 1).Kind = SourceParser.FieldNode Then
-                    Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Child, Index + 1, ValueRegion, N(Child - 1).Kind)
+                    Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Child, Index + 1, ValueRegion, N(Child - 1).Kind, 0)
                     If Symbol = 0 Then Exit Function
                     NodeSymbols(Child - 1) = Symbol
                     If Kind = SourceParser.TypeNode Then
@@ -386,7 +389,7 @@ Private Function CollectLocals(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
                 If A(Scope - 1).Kind <> SourceParser.FunctionNode And A(Scope - 1).Kind <> SourceParser.SubNode Then CollectLocals = Reject(T, N, D, 9, 2, ModuleIndex, Node): Exit Function
                 Region = ValueRegion
                 If Kind = SourceParser.LabelNode Then Region = LabelRegion
-                Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Node, Scope, Region, Kind)
+                Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, ModuleIndex, Node, Scope, Region, Kind, 0)
                 If Symbol = 0 Then Exit Function
                 NodeSymbols(Node - 1) = Symbol
             End If
@@ -435,10 +438,10 @@ Private Function ResolveType(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     First = N(Node - 1).TypeFirstToken
     Last = N(Node - 1).TypeLastToken
     If Last = First Then
-        Selected = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbols(ModuleIndex), ValueRegion, First)
+        Selected = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbols(ModuleIndex), ValueRegion, First, A(Symbol - 1).LookupDomain)
         If Selected = 0 Then
             Do While Index < C.ModuleCount
-                Candidate = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbols(Index), ValueRegion, First)
+                Candidate = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbols(Index), ValueRegion, First, A(Symbol - 1).LookupDomain)
                 If Candidate <> 0 Then
                     If A(Candidate - 1).Visibility = SyntaxTokens.KwPublic Or A(Candidate - 1).Visibility = SyntaxTokens.KwFriend Then
                         If Selected <> 0 Then Reject T, N, D, 4, 1, ModuleIndex, Node: Exit Function
@@ -451,12 +454,12 @@ Private Function ResolveType(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     ElseIf Last - First = 2 Or Last - First = 4 Then
         If Last - First = 4 Then
             If PackageMatches(B, T, C.TokenCount, First, PackageName) = False Then Reject T, N, D, 2, 2, ModuleIndex, Node: Exit Function
-            Candidate = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, 0, ModuleRegion, First)
+            Candidate = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, 0, ModuleRegion, First, A(Symbol - 1).LookupDomain)
             If Candidate <> 0 Then Reject T, N, D, 8, 1, ModuleIndex, Node: Exit Function
             First = First + 2
         End If
-        ModuleSymbol = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, 0, ModuleRegion, First)
-        If ModuleSymbol <> 0 Then Selected = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbol, ValueRegion, First + 2)
+        ModuleSymbol = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, 0, ModuleRegion, First, A(Symbol - 1).LookupDomain)
+        If ModuleSymbol <> 0 Then Selected = FindSymbol(B, T, C.TokenCount, A, Buckets, Links, S, ModuleSymbol, ValueRegion, First + 2, A(Symbol - 1).LookupDomain)
     End If
     If S.Work >= 4000000 Then Reject T, N, D, 6, 2, ModuleIndex, Node: Exit Function
     If Selected = 0 Then Reject T, N, D, 2, 1, ModuleIndex, Node: Exit Function
@@ -489,7 +492,7 @@ Private Function ResolveSignatures(ByRef B() As Byte, ByRef T() As SourceScanner
             Code = N(Node - 1).Suffix
             First = N(Node - 1).TypeFirstToken
             If First >= 0 Then Code = SyntaxTokens.TokenCode(B, T, First, C.TokenCount)
-            If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Then
+            If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwString Then
                 If First >= 0 Then
                     If N(Node - 1).TypeLastToken <> First Then ResolveSignatures = Reject(T, N, D, 3, 5, A(Index).ModuleIndex, Node): Exit Function
                 End If
@@ -531,7 +534,7 @@ Private Function SelectEntry(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If IsExecutable = False Then SelectEntry = True: Exit Function
     Do While Index < S.Count
         Kind = A(Index).Kind
-        If Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
+        If (Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode) And A(Index).LookupDomain = 0 Then
             If IsMain(B, T, C.TokenCount, A(Index).NameToken) Then
                 Node = A(Index).DeclarationNode
                 If N(Node - 1).IsIntrinsic Then SelectEntry = Reject(T, N, D, 3, 6, A(Index).ModuleIndex, Node): Exit Function
@@ -657,13 +660,17 @@ Public Function TryBuildIndex(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If Node < 1 Or Node > C.NodeCount Or ModuleIndex < 0 Or ModuleIndex >= C.ModuleCount Then Exit Function
         If A(Index).NameToken < 0 Or A(Index).NameToken >= C.TokenCount Then Exit Function
         If A(Index).ScopeSymbol < 0 Or A(Index).ScopeSymbol > SymbolCount Then Exit Function
+        If A(Index).LookupDomain < 0 Or A(Index).LookupDomain > 1 Then Exit Function
+        If A(Index).ScopeSymbol <> 0 Then
+            If A(A(Index).ScopeSymbol - 1).LookupDomain <> A(Index).LookupDomain Then Exit Function
+        End If
         If A(Index).Kind = ResultSymbol Then
             If N(Node - 1).Kind <> SourceParser.FunctionNode Then Exit Function
         Else
             If N(Node - 1).Kind <> A(Index).Kind Then Exit Function
         End If
         If N(Node - 1).NameToken <> A(Index).NameToken Then Exit Function
-        Bucket = NameHash(B, T, C.TokenCount, A(Index).NameToken, A(Index).ScopeSymbol, A(Index).Region)
+        Bucket = NameHash(B, T, C.TokenCount, A(Index).NameToken, A(Index).ScopeSymbol, A(Index).Region, A(Index).LookupDomain)
         Links(Index) = Buckets(Bucket)
         Buckets(Bucket) = Index + 1
         If A(Index).Kind <> ResultSymbol Then
@@ -679,6 +686,11 @@ Public Function TryBuildIndex(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Index = 0
     Do While Index < C.ModuleCount
         If ModuleSymbols(Index) = 0 Then Exit Function
+        Index = Index + 1
+    Loop
+    Index = 0
+    Do While Index < SymbolCount
+        If A(ModuleSymbols(A(Index).ModuleIndex) - 1).LookupDomain <> A(Index).LookupDomain Then Exit Function
         Index = Index + 1
     Loop
     State.Count = SymbolCount

@@ -825,7 +825,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                 Role = FoldAscii(Parsed.Nodes(AttributeNode).Text)
                 HostSignature = HostPrimitiveSignature(Role)
                 ThreadResult = ThreadPrimitiveResult(Role)
-                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" And Len(HostSignature) = 0 And Len(ThreadResult) = 0 Then
+                If Role <> "array.length" And Role <> "memory.copybytes" And Role <> "array.tryresize" And Role <> "array.trycopy" And Role <> "array.move" And Len(HostSignature) = 0 And Len(ThreadResult) = 0 Then
                     ValidateIntrinsicDeclarations = BindingError(Project, Parsed, AttributeNode, Diagnostic, "E_UNSUPPORTED", "unknown or unsupported primitive role " & Parsed.Nodes(AttributeNode).Text)
                     Exit Function
                 End If
@@ -842,7 +842,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Long" And Bound.Symbols(Symbol).ParameterCount = 1
                 ElseIf Role = "array.tryresize" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 3
-                ElseIf Role = "array.trycopy" Then
+                ElseIf Role = "array.trycopy" Or Role = "array.move" Then
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 2
                 Else
                     SignatureMatches = SignatureMatches And Bound.Symbols(Symbol).TypeName = "Boolean" And Bound.Symbols(Symbol).ParameterCount = 5
@@ -853,7 +853,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     ArrayParameter = IntrinsicArrayParameter(Parsed, Bound, Parameter)
                     If Len(HostSignature) > 0 Then
                         SignatureMatches = SignatureMatches And HostPrimitiveParameter(Parsed, Bound, Parameter, Mid$(HostSignature, Position, 1))
-                    ElseIf Role = "array.length" Or Role = "array.trycopy" Or Position = 1 Or (Role = "memory.copybytes" And Position = 3) Then
+                    ElseIf Role = "array.length" Or Role = "array.trycopy" Or Role = "array.move" Or Position = 1 Or (Role = "memory.copybytes" And Position = 3) Then
                         SignatureMatches = SignatureMatches And ArrayParameter And Bound.Symbols(Parameter).PassingMode = "ByRef"
                         If Role = "memory.copybytes" Then SignatureMatches = SignatureMatches And Bound.Symbols(Parameter).TypeName = "Byte"
                     ElseIf Role = "array.tryresize" And Position = 3 Then
@@ -869,7 +869,7 @@ Private Function ValidateIntrinsicDeclarations(ByRef Project As ProjectContext, 
                     Exit Function
                 End If
                 Bound.Symbols(Symbol).BindingId = Role
-                If Role = "array.tryresize" Or Role = "array.trycopy" Then Bound.ArrayBoundsMayChange = True
+                If Role = "array.tryresize" Or Role = "array.trycopy" Or Role = "array.move" Then Bound.ArrayBoundsMayChange = True
             End If
         End If
     Next Symbol
@@ -971,7 +971,7 @@ Private Function PrepareArrayEffects(ByRef Project As ProjectContext, ByRef Pars
     Dim Target As Long
     Dim Receiver As Long
     For Symbol = 1 To Bound.SymbolCount
-        If Bound.Symbols(Symbol).BindingId = "array.trycopy" Then
+        If Bound.Symbols(Symbol).BindingId = "array.trycopy" Or Bound.Symbols(Symbol).BindingId = "array.move" Then
             First = Bound.Symbols(Symbol).FirstParameter
             Second = Bound.Symbols(First).NextParameter
             If Bound.Symbols(First).TypeSymbol <> Bound.Symbols(Second).TypeSymbol Or Bound.Symbols(First).TypeName <> Bound.Symbols(Second).TypeName Then

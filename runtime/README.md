@@ -9,6 +9,42 @@ The bootstrap project includes that module directly. `bootstrap/tools/runtime-te
 extracts its reviewed text into the production `compiler/llvm/windows-runtime.ll`
 asset alongside the existing memory, file and process runtime definitions.
 
+Precise-root metadata mechanics are now authored in
+[bootstrap/NativeManagedRuntime.bas](bootstrap/NativeManagedRuntime.bas) and
+included by the same extraction tool. The exact primitive and layout
+boundary is [managed-memory.md](managed-memory.md). Frame registration,
+rooted identity transfers, thread registration and snapshot-mark metadata
+access, rendezvous, typed edge enumeration, packed text candidates, allocation
+retry and orderly disposal are implemented. Graph traversal and sweep selection
+remain ordinary UBE in `std-lib/src/portable/ManagedMemory.bas`.
+
+`tests/managed-text/metadata-check.ps1` checks the canonical managed mechanics
+at O0/O2 with an isolated metadata harness: exact snapshot counts/identities,
+invalid-output preservation, first versus repeated marking, seal rejection,
+frame/candidate cleanup, rooted transfer, consumed return handoff, registration
+and native-safe reentry, packed text lifecycle and idempotent shutdown. Missing
+metadata lists produce controlled rejection; removing the guard reproduces the
+access violation. A changed first-mark result is rejected. Evidence
+`d4e1f0c4-5bb9-4566-9950-06776655953b` passed; this gate alone does not establish
+stop-the-world collection or actual UBE String execution.
+
+`tests/managed-text/fault-check.ps1 -ProgramIR <positive emitted program.ll>`
+links assertions to the actual compiler-emitted UBE collector and requires the
+current runtime asset verbatim. Test-only allocation, workspace and release
+hooks exercise one callback/one retry, preserved Err and exhausted source depth,
+failed workspace and partial marking without sweep, retained charges after release failure, subsequent
+recovery, startup refusal and zero owned blocks after disposal. `-Rendezvous`
+forces two callers to own/join one round, checks independent Err values and a
+String rooted only by the worker capsule. `-Graph` constructs exact native
+metadata for a 3000-record cycle and checks integer lookalikes are not roots,
+reachable cycles survive and unreachable cycles are reclaimed. These do not
+substitute another traversal algorithm. All three suites passed O0/O2 with
+changed-oracle controls against the final rebuilt compiler's positive
+`Collector.ll`: `b1c128e1-3921-4bcd-972c-45f57ed80bbe`,
+`afbc26b8-341c-4190-8c44-3db782e9baf4`, and
+`51be44cd-6f31-44ea-9db7-3fd1c55f4914`, respectively. The input is retained in
+`ube managed text a6271c60-763d-4b23-be3e-6ea3562f19ec`.
+
 Run `powershell -NoProfile -File runtime/tests/threads/check.ps1` for the native
 lifecycle gate. It exercises the production asset at O0/O2 with real workers,
 simultaneous waiters, per-thread failures including Err zero, cooperative

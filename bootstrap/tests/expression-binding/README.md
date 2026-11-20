@@ -1,5 +1,19 @@
 # UBE expression binding acceptance
 
+The managed-text binding update passed **84 cases and 33,511 assertions at O0/O2**,
+both production stack checks and the changed-expression control. It includes
+exact String constants/concatenation/comparisons/conversions, invalid text and
+range diagnostics, and isolated project/support lookup domains. Evidence:
+`ube expression binding 59a2733c-ded1-4317-823b-3dec8e732849`.
+It also checks writable own-Function result arguments, distinct recursive-call
+lookup, and exact constant String assignment/conversion facts.
+The two-output publication companion passed all 15 measured allocation failures
+and nine depth settings at both levels (48 checks), preserving prior fact and
+text arrays, recovering and disposing every owner:
+`ube expression allocation f5891242-b8b5-40c2-ae85-f7f8c2982f9d`.
+Both used the seed from `ube native intrinsics bafe0549-2503-4339-8ff6-a8aa704cd21d/build`.
+These checks qualify semantic facts, not managed String runtime behavior.
+
 The 2026-11-13 CallNew binding and escape qualification passed 70 cases and 26,561
 assertions at both O0 and O2; the changed-expression control failed at assertion
 759 as expected. Evidence:
@@ -46,7 +60,7 @@ Boolean expressions without making a runtime-layout claim.
 Evidence: `ube expression binding 47b8d878-83be-4ba2-b731-6c066df3c009`.
 The command above used `UBE-Bootstrap.exe` from the temporary directory
 `ube project loading 4512f340-a4e4-4aaf-98c4-de2e5192b324/build`.
-The large native assertion driver has a 60-second compilation deadline;
+The large native assertion driver has a 180-second compilation deadline;
 native executions are also bounded at 60 seconds. A prior 30-second harness
 compilation deadline expired during O2 compilation and was increased only for
 this test driver; production limits were unchanged.

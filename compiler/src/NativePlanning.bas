@@ -4,6 +4,8 @@ Attribute UBE_Name = "NativePlanning"
 Public Type NativeSymbolPlan
     ContextOffset As Long
     FrameCells As Long
+    TemporaryTextCount As Long
+    TextSlotCount As Long
     PinCount As Long
     ResultSymbol As Long
     FirstScopeSymbol As Long
@@ -14,6 +16,7 @@ Public Type NativeSymbolPlan
 End Type
 
 Public Type NativePlanSummary
+    ManagedRoles As ManagedSupport.RolePlan
     SymbolCount As Long
     NodeCount As Long
     ModuleCount As Long
@@ -133,7 +136,7 @@ Failed:
 End Function
 
 ' Assigns module offsets, owned storage, borrowed parameter cells and procedure result identities.
-Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef ContextCells As Long, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef ContextCells As Long, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal ManagedRequired As Boolean) As Boolean
     Dim Index As Long
     Dim Kind As Long
     Dim Node As Long
@@ -143,7 +146,10 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Do While Index < Count
         Plans(Index).ContextOffset = -1
         Kind = A(Index).Kind
-        If Kind = SourceParser.ModuleNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then Plans(Index).FrameCells = 4
+        If Kind = SourceParser.ModuleNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
+            Plans(Index).FrameCells = 4
+            If ManagedRequired Then Plans(Index).FrameCells = 8
+        End If
         Index = Index + 1
     Loop
     ' Prepending in reverse identity order creates ascending per-scope lists without repeated global scans.
@@ -179,6 +185,11 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                     End If
                 End If
                 If Cells < 1 Then Cells = 1
+                ' Escaping owned boxes use one pointer cell; borrowed pointers plus their owner use two.
+                If L(Node - 1).ManagedReferences > 0 Then
+                    If Not Plans(Index).StorageEscapes Or Cells = 2 Then Cells = Cells + 4
+                End If
+                If ManagedRequired And Plans(Index).StorageEscapes Then Cells = Cells + 4
                 If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
                 If Kind = DeclarationBinder.ResultSymbol Then Plans(Scope - 1).ResultSymbol = Index + 1
             End If
@@ -191,8 +202,66 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Accounts the maximum live scalar String slots in each statement independently of other storage.
+Private Function PlanTextSlots(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim StatementText() As Long
+    Dim Node As Long = 1
+    Dim Scope As Long
+    Dim Statement As Long
+    Dim Cells As Long
+    On Error GoTo Failed
+    If Not ResizeNumbers(StatementText, C.NodeCount, False) Then GoTo Failed
+    Do While Node <= C.NodeCount
+        If ManagedLayouts.NeedsTextSlot(N, E, Node) Then
+            Scope = E(Node - 1).ScopeSymbol
+            Statement = ManagedLayouts.StatementOf(N, Node)
+            If Statement = 0 Then PlanTextSlots = Reject(N, M, C, D, Node, 6, 55): Exit Function
+            StatementText(Statement - 1) = StatementText(Statement - 1) + 1
+            If StatementText(Statement - 1) > Plans(Scope - 1).TextSlotCount Then
+                Cells = 2
+                If Plans(Scope - 1).TextSlotCount = 0 Then Cells = Cells + 4
+                If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
+                Plans(Scope - 1).TextSlotCount = StatementText(Statement - 1)
+                Plans(Scope - 1).TemporaryTextCount = Plans(Scope - 1).TemporaryTextCount + 1
+            End If
+        End If
+        Node = Node + 1
+    Loop
+    PlanTextSlots = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Charges grouped argument temporaries, reusable statement pins and record snapshots before emission.
-Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+Private Function PlanManagedTemporaries(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Node As Long = 1
+    Dim Scope As Long
+    Dim Cells As Long
+    On Error GoTo Failed
+    Do While Node <= C.NodeCount
+        Scope = E(Node - 1).ScopeSymbol
+        Cells = ManagedLayouts.TemporaryReferences(N, E, L, Node, Escapes(Node - 1).NeedsOwner)
+        If Cells <> 0 Then
+            If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
+            Plans(Scope - 1).TemporaryTextCount = Plans(Scope - 1).TemporaryTextCount + Cells
+        End If
+        If ManagedLayouts.NeedsRecordSnapshot(N, E, L, Node) Then
+            If Not AddCells(N, M, C, Plans, D, Scope, L(Node - 1).StorageCells + 4, Node) Then Exit Function
+        End If
+        If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
+            If Not AddCells(N, M, C, Plans, D, Scope, 4, Node) Then Exit Function
+        End If
+        Node = Node + 1
+    Loop
+    PlanManagedTemporaries = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Charges ordinary temporary values, statement pins and record evaluation snapshots.
+Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal ManagedRequired As Boolean) As Boolean
     Dim StatementPins() As Long
     Dim Node As Long = 1
     Dim Scope As Long
@@ -209,6 +278,9 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
         Kind = N(Node - 1).Kind
         If E(Node - 1).ArgumentMode = 3 Then
             If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+            If E(Node - 1).ConvertedType = SyntaxTokens.KwString And Not Escapes(Node - 1).NeedsOwner Then
+                If Not AddCells(N, M, C, Plans, D, Scope, 4, Node) Then Exit Function
+            End If
         ElseIf E(Node - 1).ArgumentMode = 1 Then
             Cells = 0
             If E(Node - 1).ArrayRank <> 0 Then
@@ -220,6 +292,7 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
                 If Escapes(Node - 1).NeedsOwner Then Cells = 1 + L(Node - 1).StorageCells
             End If
             If Cells <> 0 Then
+                If L(Node - 1).ManagedReferences > 0 And Not Escapes(Node - 1).NeedsOwner Then Cells = Cells + 4
                 If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
             End If
         End If
@@ -237,7 +310,9 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
             StatementPins(Statement - 1) = StatementPins(Statement - 1) + 1
             Pins(Node - 1) = StatementPins(Statement - 1)
             If Pins(Node - 1) > Plans(Scope - 1).PinCount Then
-                If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+                Cells = 1
+                If ManagedRequired Then Cells = 5
+                If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
                 Plans(Scope - 1).PinCount = Pins(Node - 1)
             End If
         End If
@@ -386,11 +461,14 @@ End Function
 
 ' Prepares scratch maps from fresh matching semantic facts; summary counts commit only on complete success.
 Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Dependencies() As Byte, ByRef Summary As NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim EmptyRoles As ManagedSupport.RolePlan
     Dim ContextCells As Long
     Dim FactCount As Long
+    Dim ManagedRequired As Boolean
     Dim Symbol As Long
     Dim Node As Long
     On Error GoTo StorageFailure
+    Summary.ManagedRoles = EmptyRoles
     Summary.SymbolCount = 0
     Summary.NodeCount = 0
     Summary.ModuleCount = 0
@@ -398,6 +476,17 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Summary.EntrySymbol = 0
     Diagnostic.Code = 0
     If SymbolCount < 1 Or SymbolCount > 16384 Or C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
+    ' Any managed expression requires precise roots, including implicit text conversions.
+    Symbol = 1
+    Do While Symbol <= SymbolCount
+        If A(Symbol - 1).TypeCode = SyntaxTokens.KwString Then ManagedRequired = True
+        Symbol = Symbol + 1
+    Loop
+    Node = 1
+    Do While Node <= C.NodeCount
+        If E(Node - 1).TypeCode = SyntaxTokens.KwString Or E(Node - 1).ConvertedType = SyntaxTokens.KwString Then ManagedRequired = True
+        Node = Node + 1
+    Loop
     If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeNumbers(Pins, C.NodeCount, False) Then GoTo StorageFailure
     If Not NativeEscapes.TryAnalyzeEscapes(N, A, E, C.NodeCount, SymbolCount, Escapes, FactCount, Diagnostic) Then Exit Function
@@ -406,8 +495,12 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         Plans(Symbol - 1).StorageEscapes = Escapes(A(Symbol - 1).DeclarationNode - 1).StorageEscapes
         Symbol = Symbol + 1
     Loop
-    If Not PlanSymbols(B, T, N, M, C, A, SymbolCount, L, Plans, ContextCells, Diagnostic) Then Exit Function
-    If Not PlanNodes(N, M, C, E, L, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Diagnostic) Then Exit Function
+    If Not PlanSymbols(B, T, N, M, C, A, SymbolCount, L, Plans, ContextCells, Diagnostic, ManagedRequired) Then Exit Function
+    If ManagedRequired Then
+        If Not PlanTextSlots(N, M, C, E, Plans, Diagnostic) Then Exit Function
+        If Not PlanManagedTemporaries(N, M, C, E, L, Plans, Escapes, Diagnostic) Then Exit Function
+    End If
+    If Not PlanNodes(N, M, C, E, L, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Diagnostic, ManagedRequired) Then Exit Function
     If Not InitializerDependencies(N, M, C, A, SymbolCount, E, Dependencies, Diagnostic) Then Exit Function
     Node = 1
     Do While Node <= C.NodeCount

@@ -5,6 +5,7 @@ Public Type StorageFact
     ElementCells As Long
     StorageCells As Long
     FieldOffset As Long
+    ManagedReferences As Long
 End Type
 
 ' Allocates private layout facts before independent publication.
@@ -15,6 +16,18 @@ End Function
 ' Allocates per-type visitation state for bounded recursive layout.
 Private Intrinsic Function ResizeStates(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeStates.UBE_Primitive = "Array.TryResize"
+End Function
+
+Private Intrinsic Function SymbolLength(ByRef Values() As DeclarationBinder.BoundSymbol) As Long
+Attribute SymbolLength.UBE_Primitive = "Array.Length"
+End Function
+
+Private Intrinsic Function ExpressionLength(ByRef Values() As ExpressionBinder.BoundExpression) As Long
+Attribute ExpressionLength.UBE_Primitive = "Array.Length"
+End Function
+
+Private Intrinsic Function MoveFacts(ByRef Destination() As StorageFact, ByRef Source() As StorageFact) As Boolean
+Attribute MoveFacts.UBE_Primitive = "Array.Move"
 End Function
 
 ' Reports a located layout rejection using source-local coordinates and retained global identities.
@@ -44,6 +57,7 @@ Private Function LayoutRecord(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
     Dim Field As Long
     Dim Cells As Long
     Dim Count As Long
+    Dim Managed As Long
     On Error GoTo Failed
     If State(Symbol - 1) = 2 Then LayoutRecord = True: Exit Function
     If State(Symbol - 1) = 1 Then LayoutRecord = Reject(N, M, A, D, Symbol, 8, 40): Exit Function
@@ -60,12 +74,17 @@ Private Function LayoutRecord(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
         F(Field - 1).FieldOffset = Count
         F(Field - 1).ElementCells = Cells
         F(Field - 1).StorageCells = Cells
+        F(Field - 1).ManagedReferences = 0
+        If A(Field - 1).TypeCode = SyntaxTokens.KwString Then F(Field - 1).ManagedReferences = 1
+        If A(Field - 1).TypeSymbol <> 0 Then F(Field - 1).ManagedReferences = F(A(Field - 1).TypeSymbol - 1).ManagedReferences
+        Managed = Managed + F(Field - 1).ManagedReferences
         Count = Count + Cells
         Field = A(Field - 1).NextField
     Loop
     If Count = 0 Then LayoutRecord = Reject(N, M, A, D, Symbol, 3, 44): Exit Function
     F(Symbol - 1).ElementCells = Count
     F(Symbol - 1).StorageCells = Count
+    F(Symbol - 1).ManagedReferences = Managed
     State(Symbol - 1) = 2
     LayoutRecord = True
     Exit Function
@@ -145,10 +164,12 @@ Private Function LayoutValues(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
         Node = A(Index).DeclarationNode
         If Kind <> SourceParser.TypeNode And Kind <> SourceParser.FieldNode Then
             Cells = 0
-            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or ConstantValues.IntegerWidth(A(Index).TypeCode) <> 0 Then Cells = 1
+            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or A(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IntegerWidth(A(Index).TypeCode) <> 0 Then Cells = 1
             If A(Index).TypeSymbol <> 0 Then Cells = F(A(Index).TypeSymbol - 1).StorageCells
             F(Index).ElementCells = Cells
             F(Index).StorageCells = Cells
+            If A(Index).TypeCode = SyntaxTokens.KwString Then F(Index).ManagedReferences = 1
+            If A(Index).TypeSymbol <> 0 Then F(Index).ManagedReferences = F(A(Index).TypeSymbol - 1).ManagedReferences
             If A(Index).ArrayRank <> 0 Then
                 If Kind = SourceParser.ParameterNode Then
                     F(Index).StorageCells = 0
@@ -188,10 +209,12 @@ Private Sub ProjectFacts(ByRef N() As SourceParser.SyntaxNode, ByRef C As Projec
             Candidate(Index) = SymbolFacts(Symbol - 1)
         Else
             Cells = 0
-            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or ConstantValues.IntegerWidth(E(Index).TypeCode) <> 0 Then Cells = 1
+            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or E(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IntegerWidth(E(Index).TypeCode) <> 0 Then Cells = 1
             If E(Index).TypeSymbol <> 0 Then Cells = SymbolFacts(E(Index).TypeSymbol - 1).StorageCells
             Candidate(Index).ElementCells = Cells
             Candidate(Index).StorageCells = Cells
+            If E(Index).TypeCode = SyntaxTokens.KwString Then Candidate(Index).ManagedReferences = 1
+            If E(Index).TypeSymbol <> 0 Then Candidate(Index).ManagedReferences = SymbolFacts(E(Index).TypeSymbol - 1).ManagedReferences
             If E(Index).ArrayRank <> 0 Then Candidate(Index).StorageCells = 0
         End If
         Index = Index + 1
@@ -211,18 +234,76 @@ End Sub
 Public Function TryLayout(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Layout() As StorageFact, ByRef LayoutCount As Long, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Symbols() As DeclarationBinder.BoundSymbol
     Dim Expressions() As ExpressionBinder.BoundExpression
-    Dim SymbolFacts() As StorageFact
-    Dim Candidate() As StorageFact
-    Dim States() As Long
+    Dim TextArena() As Byte
+    Dim TextUsed As Long
     Dim SymbolCount As Long
     Dim ExpressionCount As Long
     Dim EntrySymbol As Long
-    Dim Index As Long
     On Error GoTo StorageFailure
     LayoutCount = 0
     If Not DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic) Then Exit Function
     If Not ValidArrayShapes(Nodes, Modules, Symbols, SymbolCount, Diagnostic) Then Exit Function
-    If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, Diagnostic) Then Exit Function
+    If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, TextArena, TextUsed, Diagnostic) Then Exit Function
+    TryLayout = TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Layout, LayoutCount, Diagnostic)
+    Exit Function
+StorageFailure:
+    LayoutCount = 0
+    Diagnostic.Code = 7
+    Diagnostic.Reason = 1
+    Diagnostic.ModuleIndex = -1
+    Diagnostic.Node = 0
+    Diagnostic.TokenIndex = -1
+    Diagnostic.ByteOffset = 0
+    Diagnostic.Utf16Offset = 1
+    Diagnostic.Line = 1
+    Diagnostic.Column = 1
+End Function
+
+' Consumes the matching immutable declaration/expression facts already checked by this request.
+' Rechecks structural provenance before using layout-driving fields; standalone TryLayout still binds source.
+Public Function TryLayoutPrepared(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Expressions() As ExpressionBinder.BoundExpression, ByVal ExpressionCount As Long, ByRef Layout() As StorageFact, ByRef LayoutCount As Long, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim SymbolFacts() As StorageFact
+    Dim Candidate() As StorageFact
+    Dim States() As Long
+    Dim Buckets() As Long
+    Dim Links() As Long
+    Dim NodeSymbols() As Long
+    Dim ModuleSymbols() As Long
+    Dim Lookup As DeclarationBinder.BindingState
+    Dim Index As Long
+    Dim Selected As Long
+    Dim Moved As Boolean
+    On Error GoTo StorageFailure
+    LayoutCount = 0
+    If Not ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then GoTo InvalidFacts
+    If SymbolCount < 1 Or SymbolCount > SymbolLength(Symbols) Or ExpressionCount <> Counts.NodeCount Or ExpressionCount > ExpressionLength(Expressions) Then GoTo InvalidFacts
+    If Not DeclarationBinder.TryBuildIndex(Bytes, Tokens, Nodes, Counts, Symbols, SymbolCount, Buckets, Links, NodeSymbols, ModuleSymbols, Lookup) Then
+        If Err.Number = 7 Then GoTo StorageFailure
+        GoTo InvalidFacts
+    End If
+    If Not ValidArrayShapes(Nodes, Modules, Symbols, SymbolCount, Diagnostic) Then Exit Function
+    Do While Index < SymbolCount
+        If Symbols(Index).LookupDomain <> Modules(Symbols(Index).ModuleIndex).LookupDomain Then GoTo InvalidFacts
+        Selected = Symbols(Index).TypeSymbol
+        If Selected < 0 Or Selected > SymbolCount Then GoTo InvalidFacts
+        If Selected > 0 Then
+            If Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Symbols(Index).TypeCode <> 0 Then GoTo InvalidFacts
+        End If
+        Index = Index + 1
+    Loop
+    Index = 0
+    Do While Index < ExpressionCount
+        Selected = Expressions(Index).SymbolIndex
+        If Selected < 0 Or Selected > SymbolCount Then GoTo InvalidFacts
+        Selected = Expressions(Index).TypeSymbol
+        If Selected < 0 Or Selected > SymbolCount Then GoTo InvalidFacts
+        If Selected > 0 Then
+            If Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Expressions(Index).TypeCode <> 0 Then GoTo InvalidFacts
+        End If
+        If Expressions(Index).ArrayRank < 0 Or Expressions(Index).ArrayRank > 1 Then GoTo InvalidFacts
+        Index = Index + 1
+    Loop
+    Index = 0
     If Not ResizeFacts(SymbolFacts, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeStates(States, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeFacts(Candidate, Counts.NodeCount, False) Then GoTo StorageFailure
@@ -234,9 +315,13 @@ Public Function TryLayout(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner
     Loop
     If Not LayoutValues(Nodes, Modules, Symbols, SymbolCount, Expressions, SymbolFacts, Diagnostic) Then Exit Function
     ProjectFacts Nodes, Counts, Symbols, SymbolCount, Expressions, SymbolFacts, Candidate
-    Layout = Candidate
+    Moved = MoveFacts(Layout, Candidate)
     LayoutCount = Counts.NodeCount
-    TryLayout = True
+    TryLayoutPrepared = True
+    Exit Function
+InvalidFacts:
+    Diagnostic.Code = 9
+    Diagnostic.Reason = 47
     Exit Function
 StorageFailure:
     LayoutCount = 0

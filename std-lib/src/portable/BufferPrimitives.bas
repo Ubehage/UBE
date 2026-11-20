@@ -7,6 +7,11 @@ Public Intrinsic Function ByteStorageLength(ByRef Values() As Byte) As Long
 Attribute ByteStorageLength.UBE_Primitive = "Array.Length"
 End Function
 
+' Transfers an owned candidate without allocation and leaves its source empty.
+Public Intrinsic Function TryMoveBytes(ByRef Destination() As Byte, ByRef Source() As Byte) As Boolean
+Attribute TryMoveBytes.UBE_Primitive = "Array.Move"
+End Function
+
 ' Replaces storage with a zero-based count, preserving the index intersection when requested.
 Public Intrinsic Function TryResizeBytes(ByRef Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute TryResizeBytes.UBE_Primitive = "Array.TryResize"

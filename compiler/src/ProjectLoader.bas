@@ -27,6 +27,74 @@ Private Intrinsic Function ResizePaths(ByRef Values() As SourcePath, ByVal Count
 Attribute ResizePaths.UBE_Primitive = "Array.TryResize"
 End Function
 
+' Appends the compiler-selected source closure without publishing partial counts.
+' The caller obtains ManifestPath only through CompilerAssets; it is not a source Reference.
+' Path records stay aligned with combined module indices, including failed-source diagnostics.
+Public Function TryAppendSupport(ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+    TryAppendSupport = TryAppendLibraryCore(ManifestPath, True, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
+End Function
+
+' General syntax loading for a caller-selected private library; this does not grant installed support identity.
+Public Function TryAppendLibrarySources(ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+    TryAppendLibrarySources = TryAppendLibraryCore(ManifestPath, False, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
+End Function
+
+Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Reviewed As Boolean, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+    Dim Manifest() As Byte
+    Dim Root() As Byte
+    Dim Relative() As Byte
+    Dim PackageName() As Byte
+    Dim Spans() As ProjectManifest.ValueSpan
+    Dim Info As ProjectManifest.ManifestInfo
+    Dim CandidateCounts As ProjectSyntax.ProjectCounts
+    Dim EmptyDiagnostic As LoadDiagnostic
+    Dim Index As Long
+    Dim PathUsed As Long
+    Dim SourceIdentity As Long
+    On Error GoTo RuntimeFailure
+    Diagnostic = EmptyDiagnostic
+    Diagnostic.Stage = 1
+    Diagnostic.Code = 1
+    Diagnostic.ModuleIndex = -1
+    Diagnostic.Line = 1
+    Diagnostic.Column = 1
+    Diagnostic.Utf16Offset = 1
+    If Token <> 0 Then Exit Function
+    If Not ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then Exit Function
+    If Not IsManifestPath(ManifestPath) Then Exit Function
+    If Not TryLoadManifest(ManifestPath, PackageName, Root, Manifest, Spans, Info, Diagnostic, Token) Then Exit Function
+    Diagnostic.Stage = 4
+    Diagnostic.Code = 11
+    Diagnostic.Reason = 2
+    If Info.IsExecutable Then Exit Function
+    Diagnostic.Reason = 3
+    If Reviewed And Info.SourceCount <> ManagedSourceAssets.SourceCount Then Exit Function
+    Diagnostic.Code = 4
+    If Info.SourceCount > 128 - Counts.ModuleCount Then Exit Function
+    Diagnostic.Stage = 9
+    Diagnostic.Code = 8
+    Diagnostic.Reason = 0
+    If Not ResizePaths(Paths, Counts.ModuleCount + Info.SourceCount, True) Then Exit Function
+    PathUsed = BufferPrimitives.ByteStorageLength(PathBytes)
+    CandidateCounts = Counts
+    Do While Index < Info.SourceCount
+        Diagnostic.PathStart = 0
+        Diagnostic.PathLength = 0
+        If Not ProjectManifest.TryCopyValue(Manifest, Spans(Index).Start, Spans(Index).Length, Relative) Then Exit Function
+        SourceIdentity = -1
+        If Reviewed Then SourceIdentity = Index
+        If Not TryLoadSource(Root, Relative, Spans(Index).Line, CandidateCounts.ModuleCount, 1, SourceIdentity, PathBytes, Paths, PathUsed, Bytes, Tokens, Nodes, Modules, CandidateCounts, Diagnostic, Token) Then Exit Function
+        Index = Index + 1
+    Loop
+    Counts = CandidateCounts
+    Diagnostic = EmptyDiagnostic
+    Diagnostic.ModuleIndex = -1
+    TryAppendLibraryCore = True
+    Exit Function
+RuntimeFailure:
+    Diagnostic.Code = 12
+End Function
+
 ' Copies one checked byte span into independent exact-sized scratch storage.
 Public Function TryCopyPathSpan(ByRef Bytes() As Byte, ByVal Start As Long, ByVal Length As Long, ByRef Result() As Byte) As Boolean
     Dim Candidate() As Byte
@@ -95,7 +163,7 @@ Failed:
 End Function
 
 ' Reads and validates manifest metadata before any source is opened.
-Private Function TryLoadManifest(ByRef ManifestPath() As Byte, ByRef PackageName() As Byte, ByRef Root() As Byte, ByRef Manifest() As Byte, ByRef Spans() As ProjectManifest.ValueSpan, ByRef Info As ProjectManifest.ManifestInfo, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+Public Function TryLoadManifest(ByRef ManifestPath() As Byte, ByRef PackageName() As Byte, ByRef Root() As Byte, ByRef Manifest() As Byte, ByRef Spans() As ProjectManifest.ValueSpan, ByRef Info As ProjectManifest.ManifestInfo, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
     Dim Canonical() As Byte
     Dim ManifestError As ProjectManifest.ManifestDiagnostic
     Dim Length As Long
@@ -136,7 +204,7 @@ RuntimeFailure:
 End Function
 
 ' Verifies one physical input, closes its owner and retains syntax in source order.
-Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, ByVal ManifestLine As Long, ByVal Index As Long, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef PathUsed As Long, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, ByVal ManifestLine As Long, ByVal Index As Long, ByVal LookupDomain As Long, ByVal SourceIdentity As Long, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef PathUsed As Long, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
     Dim Resolved() As Byte
     Dim Canonical() As Byte
     Dim Previous() As Byte
@@ -170,7 +238,7 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
         Failure = 8
         If TryCopyPathSpan(PathBytes, Paths(Prior).Start, Paths(Prior).Length, Previous) = False Then GoTo IOFailed
         If WindowsPaths.TrySamePath(Previous, Canonical, Same, Failure) = False Then GoTo IOFailed
-        If Same Then Diagnostic.Code = 3: Diagnostic.Reason = 2: GoTo Rejected
+        If Same And Modules(Prior).LookupDomain = LookupDomain Then Diagnostic.Code = 3: Diagnostic.Reason = 2: GoTo Rejected
         Prior = Prior + 1
     Loop
     Diagnostic.Stage = 9
@@ -179,8 +247,14 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
     Diagnostic.Stage = 7
     If FileBytes.TryReadOpenBytes(Token, Length, Source, Failure) = False Then GoTo IOFailed
     If CloseOwner(Token, Failure) = False Then Diagnostic.Code = Failure: Exit Function
+    If SourceIdentity >= 0 Then
+        Diagnostic.Stage = 9
+        Diagnostic.Code = 11
+        Diagnostic.Reason = 3
+        If Not ManagedSourceAssets.Validate(Source, SourceIdentity) Then Exit Function
+    End If
     Diagnostic.Stage = 8
-    If ProjectSyntax.TryAppendModule(Source, Bytes, Tokens, Nodes, Modules, Counts, SourceError) = False Then
+    If ProjectSyntax.TryAppendModuleInDomain(Source, LookupDomain, Bytes, Tokens, Nodes, Modules, Counts, SourceError) = False Then
         Diagnostic.Code = SourceError.Code
         Diagnostic.Reason = SourceError.Reason
         Diagnostic.SourceStage = SourceError.Stage
@@ -245,7 +319,7 @@ Public Function TryLoad(ByRef ManifestPath() As Byte, ByRef PackageName() As Byt
         Diagnostic.PathStart = 0
         Diagnostic.PathLength = 0
         If ProjectManifest.TryCopyValue(Manifest, Spans(Index).Start, Spans(Index).Length, Relative) = False Then Exit Function
-        If TryLoadSource(Root, Relative, Spans(Index).Line, Index, PathBytes, Paths, PathUsed, Bytes, Tokens, Nodes, Modules, NextCounts, Diagnostic, Token) = False Then Exit Function
+        If TryLoadSource(Root, Relative, Spans(Index).Line, Index, 0, -1, PathBytes, Paths, PathUsed, Bytes, Tokens, Nodes, Modules, NextCounts, Diagnostic, Token) = False Then Exit Function
         Index = Index + 1
     Loop
     Counts = NextCounts

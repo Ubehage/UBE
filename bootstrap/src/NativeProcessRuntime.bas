@@ -403,7 +403,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %log.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 4" & vbCrLf
     Text = Text & "  %started.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 7" & vbCrLf
     Text = Text & "  %attached.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %job = call ptr @ube.target.process.job()" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  store ptr %job, ptr %state" & vbCrLf
     Text = Text & "  %job.failed = icmp eq ptr %job, null" & vbCrLf
     Text = Text & "  br i1 %job.failed, label %io.fail, label %job.limit" & vbCrLf
@@ -411,10 +413,14 @@ Private Function NativeProcessStart() As String
     Text = Text & "  call void @ube.process.zero(ptr %job.information, i64 144)" & vbCrLf
     Text = Text & "  %limit.flags = getelementptr i8, ptr %job.information, i64 16" & vbCrLf
     Text = Text & "  store i32 8192, ptr %limit.flags" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %limited = call i1 @ube.target.process.limit(ptr %job, ptr %job.information)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %limited, label %input, label %io.fail" & vbCrLf
     Text = Text & "input:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %input.handle = call ptr @ube.target.process.nullinput()" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %invalid.input = icmp eq ptr %input.handle, inttoptr (i64 -1 to ptr)" & vbCrLf
     Text = Text & "  %null.input = icmp eq ptr %input.handle, null" & vbCrLf
     Text = Text & "  %bad.input = or i1 %invalid.input, %null.input" & vbCrLf
@@ -436,12 +442,16 @@ Private Function NativeProcessStart() As String
     Text = Text & "duplicate:" & vbCrLf
     Text = Text & "  %log.handle.ptr = getelementptr %ube.resource, ptr %log.slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %log.handle = load ptr, ptr %log.handle.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %duplicated = call i1 @ube.target.process.duplicate(ptr %log.handle, ptr %log.ptr)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %log.slot)" & vbCrLf
     Text = Text & "  br i1 %duplicated, label %attribute.measure, label %io.fail" & vbCrLf
     Text = Text & "attribute.measure:" & vbCrLf
     Text = Text & "  store atomic i64 0, ptr %attribute.size monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %measurement = call i1 @ube.target.process.attributes(ptr null, ptr %attribute.size)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %size = load atomic i64, ptr %attribute.size monotonic, align 8" & vbCrLf
     Text = Text & "  %positive = icmp ugt i64 %size, 0" & vbCrLf
     Text = Text & "  %bounded = icmp ule i64 %size, 4096" & vbCrLf
@@ -450,7 +460,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %measured = and i1 %valid.size, %expected.failure" & vbCrLf
     Text = Text & "  br i1 %measured, label %attribute.initialize, label %io.fail" & vbCrLf
     Text = Text & "attribute.initialize:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %initialized = call i1 @ube.target.process.attributes(ptr %attributes, ptr %attribute.size)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %initialized, label %attribute.values, label %io.fail" & vbCrLf
     Text = Text & "attribute.values:" & vbCrLf
     Text = Text & "  store i1 true, ptr %attribute.live" & vbCrLf
@@ -458,7 +470,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %second.handle = getelementptr ptr, ptr %inherited, i64 1" & vbCrLf
     Text = Text & "  store ptr %input.handle, ptr %inherited" & vbCrLf
     Text = Text & "  store ptr %private.log, ptr %second.handle" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %listed = call i1 @ube.target.process.handles(ptr %attributes, ptr %inherited)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %listed, label %startup.prepare, label %io.fail" & vbCrLf
     Text = Text & "startup.prepare:" & vbCrLf
     Text = Text & "  call void @ube.process.zero(ptr %startup, i64 112)" & vbCrLf
@@ -474,7 +488,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  store ptr %private.log, ptr %stdout" & vbCrLf
     Text = Text & "  store ptr %private.log, ptr %stderr" & vbCrLf
     Text = Text & "  store ptr %attributes, ptr %list" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %created = call i1 @ube.target.process.create(ptr %wide.app, ptr %wide.command, ptr %wide.directory, ptr %startup, ptr %information)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %created, label %created.owned, label %io.fail" & vbCrLf
     Text = Text & "created.owned:" & vbCrLf
     Text = Text & "  %native.process = load ptr, ptr %information" & vbCrLf
@@ -482,15 +498,21 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %native.thread = load ptr, ptr %native.thread.ptr" & vbCrLf
     Text = Text & "  store ptr %native.process, ptr %process.ptr" & vbCrLf
     Text = Text & "  store ptr %native.thread, ptr %thread.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %assigned = call i1 @ube.target.process.assign(ptr %job, ptr %native.process)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %assigned, label %contained, label %io.fail" & vbCrLf
     Text = Text & "contained:" & vbCrLf
     Text = Text & "  store atomic i64 1, ptr %attached.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %resumed = call i1 @ube.target.process.resume(ptr %native.thread)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %resumed, label %started, label %io.fail" & vbCrLf
     Text = Text & "started:" & vbCrLf
     Text = Text & "  store atomic i64 1, ptr %started.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.target.process.deleteattributes(ptr %attributes)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  store i1 false, ptr %attribute.live" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
@@ -501,7 +523,9 @@ Private Function NativeProcessStart() As String
     Text = Text & "  %live = load i1, ptr %attribute.live" & vbCrLf
     Text = Text & "  br i1 %live, label %delete.attributes, label %unlock" & vbCrLf
     Text = Text & "delete.attributes:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.target.process.deleteattributes(ptr %attributes)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %unlock" & vbCrLf
     Text = Text & "unlock:" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
@@ -595,7 +619,9 @@ Private Function NativeProcessWait() As String
     Text = Text & "observe:" & vbCrLf
     Text = Text & "  %state = call ptr @ube.process.state(ptr %slot)" & vbCrLf
     Text = Text & "  %timeout = trunc i64 %milliseconds to i32" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %observation = call i32 @ube.process.observe(ptr %state, i32 %timeout)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %bad.observation = icmp slt i32 %observation, 0" & vbCrLf
     Text = Text & "  br i1 %bad.observation, label %io.fail, label %publish" & vbCrLf
     Text = Text & "publish:" & vbCrLf
@@ -635,7 +661,9 @@ Private Function NativeProcessWait() As String
     Text = Text & "  br i1 %missing, label %failed, label %inspect" & vbCrLf
     Text = Text & "inspect:" & vbCrLf
     Text = Text & "  %state = call ptr @ube.process.state(ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %observation = call i32 @ube.process.observe(ptr %state, i32 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %complete = icmp eq i32 %observation, 1" & vbCrLf
     Text = Text & "  br i1 %complete, label %success, label %kind" & vbCrLf
     Text = Text & "kind:" & vbCrLf
@@ -645,7 +673,9 @@ Private Function NativeProcessWait() As String
     Text = Text & "  br i1 %contained, label %job, label %process" & vbCrLf
     Text = Text & "job:" & vbCrLf
     Text = Text & "  %job.handle = load ptr, ptr %state" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %job.stopped = call i1 @ube.target.process.terminatejob(ptr %job.handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %job.stopped, label %success, label %io.fail" & vbCrLf
     Text = Text & "process:" & vbCrLf
     Text = Text & "  %process.ptr = getelementptr %ube.process, ptr %state, i32 0, i32 1" & vbCrLf
@@ -653,7 +683,9 @@ Private Function NativeProcessWait() As String
     Text = Text & "  %exists = icmp ne ptr %process.handle, null" & vbCrLf
     Text = Text & "  br i1 %exists, label %stop, label %success" & vbCrLf
     Text = Text & "stop:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %stopped = call i1 @ube.target.process.terminate(ptr %process.handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %stopped, label %success, label %io.fail" & vbCrLf
     Text = Text & "success:" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
@@ -693,7 +725,9 @@ Private Function NativeProcessRelease() As String
     Text = Text & "  br i1 %missing, label %failed, label %observe" & vbCrLf
     Text = Text & "observe:" & vbCrLf
     Text = Text & "  %state = call ptr @ube.process.state(ptr %slot)" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %observation = call i32 @ube.process.observe(ptr %state, i32 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %bad.observation = icmp slt i32 %observation, 0" & vbCrLf
     Text = Text & "  br i1 %bad.observation, label %io.fail, label %ready" & vbCrLf
     Text = Text & "ready:" & vbCrLf
@@ -709,7 +743,9 @@ Private Function NativeProcessRelease() As String
     Text = Text & "  %present = icmp ne ptr %handle, null" & vbCrLf
     Text = Text & "  br i1 %present, label %close, label %advance" & vbCrLf
     Text = Text & "close:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %closed = call i1 @ube.target.process.close(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %closed, label %clear, label %advance" & vbCrLf
     Text = Text & "clear:" & vbCrLf
     Text = Text & "  store ptr null, ptr %handle.ptr" & vbCrLf

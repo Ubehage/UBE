@@ -69,6 +69,8 @@ Public Function TryAllocateTemporary(ByRef E() As ExpressionBinder.BoundExpressi
     Dim Block As Long
     Dim Accepted As Long
     Dim Address As Long
+    Dim Template As Long
+    Dim Managed As Boolean
     On Error GoTo Failed
     Cells = 1
     If E(Node - 1).TypeSymbol <> 0 Then Cells = L(Node - 1).StorageCells
@@ -79,6 +81,17 @@ Public Function TryAllocateTemporary(ByRef E() As ExpressionBinder.BoundExpressi
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerAllocated, Accepted, Block, 0, 0) = False Then Exit Function
     If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Accepted) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SetTemporaryOwner, Node, Block, 0, 0) = False Then Exit Function
+    If S.ManagedRoles.CollectSymbol <> 0 Then
+        Managed = L(Node - 1).ManagedReferences > 0
+        ' A grouped ByRef box stores the converted parameter type.
+        ' A numeric conversion must not retain the source String's root layout.
+        If E(Node - 1).ArgumentMode = 3 Then Managed = E(Node - 1).ConvertedType = SyntaxTokens.KwString
+        If Managed Then
+            Template = LLVMTemplates.AttachManagedOwner
+            If E(Node - 1).ArrayRank <> 0 Then Template = LLVMTemplates.AttachManagedArrayOwner
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Block, E(Node - 1).TypeSymbol, 1, 0) Then Exit Function
+        End If
+    End If
     If E(Node - 1).ArrayRank <> 0 Then
         Address = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerPayload, Address, Block, 0, 0) = False Then Exit Function
@@ -129,6 +142,9 @@ Public Function TryResetFixedArray(ByRef A() As DeclarationBinder.BoundSymbol, B
     Else
         If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Accepted) = False Then Exit Function
     End If
+    If S.ManagedRoles.CollectSymbol <> 0 And L(Node - 1).ManagedReferences > 0 Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AttachManagedOwner, Block, A(Symbol - 1).TypeSymbol, Cells, 0) Then Exit Function
+    End If
     TryResetFixedArray = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.InstallOwnedArray, Address, Block, E(Node - 1).LowerBound, E(Node - 1).UpperBound)
     Exit Function
 Failed:
@@ -148,6 +164,7 @@ Public Function TryInitializeLocals(ByRef A() As DeclarationBinder.BoundSymbol, 
     Dim Address As Long
     Dim Seen() As Long
     Dim Nexts() As Long
+    Dim Template As Long
     On Error GoTo Failed
     Symbol = P(S.CurrentSymbol - 1).FirstScopeSymbol
     Do While Symbol <> 0
@@ -164,6 +181,11 @@ Public Function TryInitializeLocals(ByRef A() As DeclarationBinder.BoundSymbol, 
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerAllocated, Accepted, Block, 0, 0) = False Then Exit Function
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerEntryGuard, Accepted, 0, 0, 0) = False Then Exit Function
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerPayload, Address, Block, 0, 0) = False Then Exit Function
+            If S.ManagedRoles.CollectSymbol <> 0 And L(Node - 1).ManagedReferences > 0 Then
+                Template = LLVMTemplates.AttachManagedOwner
+                If A(Symbol - 1).ArrayRank <> 0 Then Template = LLVMTemplates.AttachManagedArrayOwner
+                If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Block, A(Symbol - 1).TypeSymbol, 1, 0) Then Exit Function
+            End If
             If A(Symbol - 1).ArrayRank <> 0 Then
                 If NativeStorage.TryInitializeEmptyArray(S, B, Token, Catalog, Address) = False Then Exit Function
                 If E(Node - 1).HasBounds Then

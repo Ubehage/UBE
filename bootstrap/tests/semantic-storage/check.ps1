@@ -88,7 +88,7 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
     $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
     $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,$stackProbe) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
-    $result = Invoke-BoundedProcess $Clang $arguments 60000
+    $result = Invoke-BoundedProcess $Clang $arguments 180000
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -240,8 +240,8 @@ function Primitive-Source([string]$Name,[string]$Parameters,[string]$Result,[str
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','ManagedLayouts.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -330,7 +330,7 @@ $roleNegatives.Add(@('missing attribute',"Public Intrinsic Function Wrong(ByRef 
 $roleNegatives.Add(@('duplicate attribute',((Primitive-Source 'Wrong' $roles[0][1] 'Long' 'Array.Length').Replace('End Function',('Attribute Wrong.UBE_Primitive = "Array.Length"'+"`r`nEnd Function"))),3,2,0))
 $roleNegatives.Add(@('wrong target',((Primitive-Source 'Wrong' $roles[0][1] 'Long' 'Array.Length').Replace('Attribute Wrong.','Attribute Other.')),3,3,0))
 $roleNegatives.Add(@('ordinary attribute',((Primitive-Source 'Wrong' $roles[0][1] 'Long' 'Array.Length').Replace('Public Intrinsic Function','Public Function')),3,1,0))
-$roleNegatives.Add(@('unknown role',(Primitive-Source 'Wrong' $roles[0][1] 'Long' 'Memory.Collect'),8,1,0))
+$roleNegatives.Add(@('unknown role',(Primitive-Source 'Wrong' $roles[0][1] 'Long' 'Memory.Unknown'),8,1,0))
 $roleNegatives.Add(@('whitespace role not normalized',(Primitive-Source 'Wrong' $roles[0][1] 'Long' ' Array.Length'),8,1,0))
 $roleNegatives.Add(@('array by value',(Primitive-Source 'Wrong' 'ByVal Values() As Byte' 'Long' 'Array.Length'),3,5,0))
 $roleNegatives.Add(@('file output by value',(Primitive-Source 'Wrong' 'ByVal Token As Long, ByRef Failure As Long' 'Boolean' 'File.TryClose'),3,5,0))
@@ -579,6 +579,46 @@ foreach($excess in @(0,1)) {
     }
     $script:passed++
 }
+Start-Project
+$managed=Module-Source 'ManagedValues' @'
+Public Type Inner
+    Number As LongLong
+    Caption As String
+    Flag As Boolean
+End Type
+Public Type Outer
+    Prefix As Byte
+    First As Inner
+    Note As String
+    Last As Inner
+End Type
+Public Value As Outer
+Public Items(-2 To 1) As Outer
+Public Texts() As String
+Public Plain As LongLong
+'@
+$managedPath=Join-Path $artifacts 'managed-layout.bas'
+Write-Text $managedPath $managed
+Append-Source $managedPath
+$value=Call-Probe 'Bind' @(1,0);Check-Value $value 0 'managed finite aggregate layout'
+$inner=Find-Declaration $managed 'Type Inner' 'Inner' 5
+$outer=Find-Declaration $managed 'Type Outer' 'Outer' 5
+$items=Find-Declaration $managed 'Items(-2 To 1)' 'Items' 3
+$texts=Find-Declaration $managed 'Texts()' 'Texts' 3
+$plain=Find-Declaration $managed 'Plain As LongLong' 'Plain' 3
+Layout-Equals $inner 1 3 'record includes String as one opaque value cell'
+Layout-Equals $inner 3 1 'inner has exactly one managed reference'
+Layout-Equals $outer 1 8 'nested record cells preserve field order'
+Layout-Equals $outer 3 3 'nested record exact managed count'
+Layout-Equals $items 0 8 'array element stride retains complete record'
+Layout-Equals $items 1 36 'fixed managed array descriptor plus four elements'
+Layout-Equals $items 3 3 'array metadata describes one element, not descriptor integers'
+Layout-Equals $texts 3 1 'dynamic String array element has one managed reference'
+Layout-Equals $plain 3 0 'numeric cell never a conservative reference'
+foreach($case in @(@($inner,0,1),@($outer,0,2),@($outer,1,4),@($outer,2,6),@($outer,3,-1),@($outer,-1,-1),@($items,1,4),@($texts,0,0),@($plain,0,-1))) {
+    $value=Call-Probe 'ReferenceOffset' @($case[0],$case[1]);Check-Value $value $case[2] 'precise flattened managed offset or bounded invalid-index refusal'
+}
+$script:passed++
 Start-Project 'CompilerSources'
 foreach($file in $files){Append-Source $file}
 foreach($mode in @(0,1)) {

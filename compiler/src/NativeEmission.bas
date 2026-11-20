@@ -3,6 +3,7 @@ Attribute UBE_Name = "NativeEmission"
 ' Holds request-owned LLVM numbering and failure edges; source operations remain checked by the frontend.
 Public Const MaximumWork As Long = 10000000
 Public Type EmissionState
+    ManagedRoles As ManagedSupport.RolePlan
     Text As LLVMWriter.WriterState
     Work As Long
     NodeCount As Long
@@ -33,6 +34,13 @@ Public Function Charge(ByRef State As EmissionState) As Boolean
     End If
     State.Work = State.Work + 1
     Charge = True
+End Function
+
+' Parks only at boundaries where every live managed value already has an exact root.
+Public Function Safepoint(ByRef State As EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
+    If State.Text.Failed Then Exit Function
+    If State.ManagedRoles.CollectSymbol = 0 Then Safepoint = True: Exit Function
+    Safepoint = TryLine(State, Buffer, Token, Catalog, LLVMTemplates.ManagedSafepoint, 0, 0, 0, 0)
 End Function
 
 ' Source-node labels occupy 1..NodeCount, b0 returns success, and auxiliary labels follow them.

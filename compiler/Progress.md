@@ -1,5 +1,241 @@
 # Compiler development handoff
 
+## Completed: managed String and text-library support
+
+Owner requested the next planned step, qualification, concise root README
+status and GitHub main publication. Goal scope is compiler/TEXT-SUPPORT.md's
+String/text increment, including its required precise managed-memory foundation;
+do not substitute another arithmetic/helper task for this work.
+
+Implementation and integration qualification are complete. Actual UBE String, UTF-8,
+conversion, collection-pressure, retained-allocation exhaustion and worker
+payload tests now pass at O0/O2. Native tests additionally exercise allocation
+retry, failed collection without sweep, deep cycles and simultaneous collectors.
+The final self-build fixed point, common conformance and concurrent compiler
+regression gates pass. On 2026-11-13 the
+owner approved following the established UBE rules and delegated implementation
+decisions that respect UBE definitions first and known VB6 behavior second.
+This closes the architectural approval question; do not request it again.
+
+The implementation uses immutable UTF-8 text backing, opaque
+String identity, exact root/layout maps, rooted result/capture handoff, typed
+publication barriers, a general program-owned nonmoving tracing collector,
+and explicit wait/OS-call safe-state transitions. Algorithms remain in UBE;
+no added runtime installation is required. Detailed contracts and evidence
+below distinguish each passing gate from the language features still deferred.
+
+### Final integrated acceptance
+
+Final compiler: `%TEMP%\ube compiler rebuild 2a484f43-e11e-4490-8436-686fe60cb92a\generation-2\UBE.exe`.
+The fresh VB6 seed is in `%TEMP%\ube native intrinsics f844bb77-293e-4c69-af9f-cdb03f67bbb6\build\UBE-Bootstrap.exe`.
+Runtime asset: 225602 bytes, byte sum 18378661. The exact commands and expanded
+evidence for self-hosting, common conformance and concurrency are recorded
+below and in their gate READMEs.
+
+Using that final compiler, the command
+`rtk proxy powershell -NoProfile -File runtime/tests/managed-text/text-check.ps1 -CompilerExe <final compiler>`
+passed O0/O2 with its changed-result negative control in
+`ube managed text 299a500f-fb4c-41fe-a5fa-3af04a7db266`. This includes Unicode,
+values, conversions, failure ordering, 5000 allocations requiring collection,
+retained-value quota exhaustion, unchanged failed destinations and recovery.
+The same command with these switches also passed O0/O2 and negative controls:
+
+| Switch | Assertions | Evidence suffix |
+| --- | --- | --- |
+| `-Simple` | Literal, ByVal, result handoff and comparison | `a6271c60-763d-4b23-be3e-6ea3562f19ec` |
+| `-Conditions` | String If/Do conditions, array indexes and invalid conversions | `b972f7b8-435f-47ef-b9ae-bca740ce12b7` |
+| `-Threads` | Retained old array payloads, simultaneous allocating workers, grouped ByRef conversions in both directions | `7144e855-6f8c-4e4e-833e-dfb92f84ce2b` |
+
+The grouped String-to-number capture regression first failed in `c75f79e6`:
+its box incorrectly retained the source String layout after numeric conversion.
+NativeOwnership now uses the converted parameter type for grouped ByRef boxes;
+the final worker gate checks that numeric data is not interpreted as a root.
+
+`rtk proxy powershell -NoProfile -File runtime/tests/managed-text/fault-check.ps1 -ProgramIR <final emitted Collector.ll>`
+passed O0/O2 and its negative control in `ube managed faults b1c128e1-3921-4bcd-972c-45f57ed80bbe`.
+The same command with `-Rendezvous` passed in `afbc26b8-341c-4190-8c44-3db782e9baf4`,
+and with `-Graph` in `51be44cd-6f31-44ea-9db7-3fd1c55f4914`.
+The IR was emitted by the final compiler from the positive SimpleString client
+and retained as `%TEMP%\ube managed text a6271c60-763d-4b23-be3e-6ea3562f19ec\Collector.ll`.
+These gates execute the real ordinary UBE collector with test-only fault/graph
+construction hooks: one retry, failed workspace/marking without sweep, release
+failure and recovery, per-thread Err, owner/joiner coordination, a 3000-record
+cycle, integer nonroots and empty final disposal.
+
+The final self-builds took 19633/20167 ms and emitted identical 18,788,096-byte
+LLVM; native images differed only in the COFF timestamp. The canonical common
+CLI gate passed 1004 assertions (`d5054852-f940-4786-aa2d-c6f43fd1834e`), and
+the renewed concurrent gate passed (`a97c54ed-1eb3-4731-b6c5-7cc61e5eb347`).
+The emitted-file bound is now 32 MiB, with exact overflow tests. The 64 MiB
+program heap and 128-cell source frame bounds were not enlarged. Prepared
+layout reuses validated expression facts to avoid a redundant allocation;
+small planning helpers avoid an unintended native stack-probe dependency.
+
+The remaining language/library work stays in Roadmap.md's existing complete-
+language item. This increment does not claim objects, events, finalizers,
+foreign callbacks, Variant or the broad-input compatibility library.
+
+Baseline command:
+`rtk proxy powershell -NoProfile -File runtime/tests/managed-text/admission-check.ps1 -CompilerExe <30c8f236 generation-2 UBE.exe>`.
+It passed in `%TEMP%\ube managed text admission e8f82468-c9c5-468a-91b9-1fb69cc716c8`:
+numeric control builds/runs with exit 42; String local/result declarations
+reject with exact E_LOAD 8/3/4, literal expression with 8/3/11; failed emission
+and build preserve prior real IR/EXE hashes, and numeric recovery reproduces IR.
+This establishes the missing feature and failure baseline, not String support.
+
+Keep README status short and accessible, with detailed contracts and evidence
+linked separately, as the owner requested. Do not push or mark implementation
+complete until the selected String/memory and regression gates pass.
+
+### Resumed implementation checkpoint — 2026-11-20
+
+At the start of this checkpoint, runtime managed primitives and collection
+were not implemented. String parser changes were present; executable String
+binding/lowering was not qualified. The automatic linked
+support must remain isolated from user name lookup while using the same final
+program identities and layout planning. Its concrete interface is being
+reviewed against the existing target-support and managed-memory contracts.
+
+The ordinary UBE `InvariantNumbers` module is included in UBECore. Repeated
+command:
+`rtk proxy powershell -NoProfile -File std-lib/tests/invariant-numbers/check.ps1 -CompilerExe <30c8f236 generation-2 UBE.exe>`
+passed 163 exact conversion cases at O0 and O2, including the changed expected
+numeric result negative control at both optimization levels. Evidence:
+`%TEMP%\ube invariant numbers 9182211a-4310-4404-87a5-196c380836ac`.
+The gate covers exact rational rounding, ranges, whitespace, unchanged failed
+outputs and sticky Err. This proves the counted-byte conversion helper only;
+compiler String conversions still require integration and their own tests.
+
+`std-lib/src/portable/ManagedMemory.bas` now implements ordinary UBE iterative
+marking and selection of unreachable allocations. It queues each first
+discovery once and reuses that workspace for sweep candidates only after all
+roots/edges and allocation metadata have been read successfully. The native
+boundary is specified in `runtime/managed-memory.md`; its implementation is
+still in progress.
+
+`rtk proxy powershell -NoProfile -File runtime/tests/managed-text/collector-check.ps1 -CompilerExe <30c8f236 generation-2 UBE.exe>`
+passed O0/O2 traversal, failure/recovery and changed-release-count negative
+controls in `ube collector algorithm 23f188b9-40f6-4e17-beea-8c041ac38600`,
+including owned opportunistic failure and invalid-edge rejection before sweep.
+This runs production collector source against a deterministic test adapter;
+it does not qualify native GC. Exact checks and limits are recorded in
+`runtime/tests/managed-text/COLLECTOR.md`.
+
+The same collector command passed again after adding explicit workspace
+retirement before releasing each owned snapshot, including failure exits:
+`ube collector algorithm 80fbfd8d-4336-4e4d-9c25-13201e10ec4d`.
+The deterministic adapter now rejects EndCollection while workspace remains
+leased. Removing the retirement call makes the added negative control fail
+as expected at O0/O2. This remains algorithm evidence, not native pressure
+or thread-coordination qualification.
+
+The ordinary `Text.bas` library algorithms are now written against the recorded
+`TextPrimitives.bas` storage interface: scalar length, strict counted UTF-8
+import/export, concatenation, binary comparison and admitted integer/Boolean
+conversions. Import copies input bytes before validating them; export snapshots
+the input String and moves a completed owned byte array into its output.
+Construction cleanup and explicit handlers preserve fresh FAIL propagation.
+`runtime/tests/managed-text/TextProbe.bas` is an actual String acceptance client
+prepared for native integration; it has not passed yet. These source additions
+are not a claim of working managed String support.
+Its runner is `runtime/tests/managed-text/text-check.ps1 -CompilerExe <UBE.exe>`;
+only PowerShell syntax validation has passed for that runner so far. The source
+client and negative scalar-count control must execute at O0/O2 once native
+String binding, storage, support linkage and roots are connected.
+
+The first actual integrated run using `ube managed collection compiler stable`
+reached the frame limit in TextProbe's concatenation expression
+(`ube managed text 440bd8fb-eb51-4d08-94dc-9f903673b867`, diagnostic 0/6/50).
+Statement-based scalar String spill reuse addresses this without enlarging
+the frame budget; its planning tests pass, but native execution still awaits
+a rebuilt compiler. The smaller `text-check.ps1 -Simple` isolated a collision
+between the native owner-layout function and metadata constant. The constant
+and its root references are now named `@ube.managed.owner.root.layout`.
+Diagnostic IR with that exact name correction compiled and executed the
+String body successfully, but normal shutdown returned failure; bypassing
+only the shutdown status in a separate diagnostic returned zero. This isolates
+pending disposal work and is explicitly not acceptance evidence. Diagnostic
+files are in `ube managed text 9c63d22d-90da-4fbc-bdd9-db81957b595c`.
+
+After compact slots, metadata naming and shutdown cleanup were integrated,
+`rtk proxy powershell -NoProfile -File runtime/tests/managed-text/text-check.ps1 -CompilerExe <ube managed shutdown compiler stable/UBE.exe>`
+passed the actual full String client at O0/O2 with its changed scalar-count
+negative control (`93763d75-bbc9-4726-8930-ffe635f24e58`). The same command
+with `-Simple` passed its literal/ByVal/result/comparison client and changed
+comparison control (`d81255d8-1be2-4864-857d-c1b6ba80716d`). The full client
+includes 5,000 short-lived allocations, surviving roots, sticky Err 42,
+explicit collection returning 1 then 0, aggregate copies and worker captures.
+These passes do not qualify all required native allocation-fault, concurrency
+or final self-host gates.
+
+The separate `-Conditions` client reproduced String `False` branching as a
+nonzero handle (exit 1, `3928f605-7d43-473a-8023-192766398d0b`) and String
+array-index lowering rejection (0/9/61, `09bef8a4-7196-4e9d-8edd-d0e0755ac28d`).
+NativeControl now uses the existing Boolean conversion path for If/Do;
+NativeStorage uses the existing LongLong conversion path for array indexes.
+Both preserve normal failure handling and rooted operands. Their executable
+regressions await the next coherent compiler snapshot.
+
+The condition/index runner subsequently passed O0/O2 and its changed-condition
+control on `ube managed publication compiler stable/UBE.exe`
+(`8ba47f04-c0cb-409d-86ea-ed12c6371521`). It checks If, pre/post-test Do
+While/Until, invalid Boolean text, String array reads/writes and invalid-index
+text preserving the prior array element. The full text runner on that compiler
+also passed after adding retained-String exhaustion and recovery
+(`6243b605-423d-429f-aca2-f27623a78d93`): a rooted array fills the allocation
+quota, the failed assignment leaves its element empty and older text alive,
+dropping the array permits collection, and subsequent text allocation succeeds
+with sticky Err preserved. Both optimization levels and the existing negative
+control passed. Native fault and expanded simultaneous-worker checks remain
+separate gates.
+
+Boolean formatting is shared with compiler constant conversion through
+`ByteText.TryAppendBoolean`, rather than duplicating its spelling algorithm.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/byte-text/check.ps1 -BootstrapExe <bafe0549 UBE-Bootstrap.exe> -CompilerExe <ube managed runtime compiler/UBE.exe>`
+passed at O0/O2 in `ube byte text 21f890b0-c1d9-4da2-8cee-a407822aa306`:
+16 integer vectors, exact Boolean bytes, sticky Err, unchanged failed output,
+bounds, changed Boolean inputs, the integer negative control, and the existing
+seven file-range cases with exact progress and balanced resource checks.
+The optional CompilerExe path additionally builds and executes an ordinary UBE
+Boolean formatter client through the actual production compiler at O0/O2,
+including a changed-input negative at each level. The low-level file-range
+observations still use bootstrap symbol discovery; they do not pretend that
+the production compiler implements the bootstrap's `--dump-bound` command.
+
+### Native integration checkpoint
+
+`NativeText` now emits immutable counted-byte literal inputs and calls validated
+ordinary text-support identities. Scalar loads acquire a rooted snapshot;
+String call results consume the return handoff before cleanup or further calls.
+String conversions, concatenation and binary comparison use the same ordinary
+library algorithms. Record snapshots retain managed fields and compare their
+text contents; typed stores use managed barriers. These changes remain pending
+actual managed execution and collection qualification.
+
+Native integration exposed two bounded implementation issues. Enlarged emission
+state made the orchestration procedure exceed the existing frame limit;
+`CopyEmissionState` now keeps those record snapshots in a small helper frame.
+Moving native frame allocation after a depth-admission branch introduced dynamic
+stack probes at O0. Entry-block allocation was restored, with explicit root
+cleanup on refused managed procedure entry. No quota increase or stack-probe
+dependency was added.
+
+`rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe <bafe0549 UBE-Bootstrap.exe> -Destination <TEMP/ube text emitter compiler roots>`
+completed in 16645 ms against the captured source ledger and reviewed 170926-byte
+runtime asset. This is a build result, not a self-hosting qualification.
+`rtk proxy powershell -NoProfile -File bootstrap/tests/integer-operations/check.ps1 -CompilerExe <TEMP/ube text emitter compiler roots/UBE.exe>`
+then passed the complete integer gate at O0/O2, with evaluation/fresh-FAIL,
+changed-input, exact IR recovery and all sixteen rejected-source preservation
+cases. Evidence: `ube integer operations 0b81fd8b-b692-4303-9050-82dbe731ac38`.
+The preceding failed diagnostic run `f9fd13b0` reproduced the stack-probe link
+failure; the passing run establishes the numerical regression recovery only.
+
+Private support loading/role validation and exact layout emission are connected
+to the request path. The admission guard remains until the native allocation,
+text primitives, collector, owner/capture layouts and safepoints are complete.
+Installed-source integrity checks, later managed reset barriers and subsequent
+runtime work postdate the captured compiler above and need a new build/gates.
+
 ## Completed: checked integer operations and Unicode scalar codecs
 
 Owner requested the next language/library increment, its qualification, root

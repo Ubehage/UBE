@@ -391,6 +391,34 @@ foreach ($module in @('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas')
     Node-Equals $subtract 8 $add 'first tree edge retained after parsing another module'
 }
 foreach ($module in @('Utf8.bas','BufferPrimitives.bas','FileBytes.bas')) { Accept-Source (Join-Path $coreDirectory $module) 1 20 }
+$textFixture = @'
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "TextSyntax"
+Private Names() As String
+Public Type Label
+    Caption As String
+End Type
+Public Function Join$(ByVal LeftText As String, ByRef RightText$)
+    Dim Result As String
+    Result = "a""b" & LeftText & 1 + 2
+    If Result = "" & RightText Then Result = "done"
+    Join = Result
+End Function
+'@
+$textFixture = $textFixture.Replace("`r`n","`n").Replace("`n","`r`n") + "`r`n"
+$textPath = Join-Path $artifacts 'text-syntax.bas'
+Write-Text $textPath $textFixture
+Accept-Source $textPath 1 20
+$literal = Find-Span $textFixture '"a""b"' 31 1
+$concat = Find-Span $textFixture '"a""b" & LeftText & 1 + 2' 19 1
+$firstConcat = Find-Span $textFixture '"a""b" & LeftText' 19 1
+$numeric = Find-Span $textFixture '1 + 2' 19 1
+Node-Equals $concat 8 $firstConcat 'concatenation is left associative' 1
+Node-Equals $firstConcat 8 $literal 'doubled-quote String literal remains one node' 1
+Node-Equals $firstConcat 10 $numeric 'addition binds tighter than concatenation' 1
+$comparison = Find-Span $textFixture 'Result = "" & RightText' 19 1
+$rightConcat = Find-Span $textFixture '"" & RightText' 19 1
+Node-Equals $comparison 9 $rightConcat 'concatenation binds tighter than comparison' 1
 $recursive = @'
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "RecursiveSyntax"

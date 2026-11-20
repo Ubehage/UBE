@@ -6,6 +6,74 @@ Private Intrinsic Function ResizeValues(ByRef Values() As Long, ByVal Count As L
 Attribute ResizeValues.UBE_Primitive = "Array.TryResize"
 End Function
 
+' A capsule's scalar slot holds the converted parameter value, never an unconverted source handle.
+Private Function CapturedText(ByRef E() As ExpressionBinder.BoundExpression, ByVal Node As Long) As Boolean
+    Dim TypeCode As Long
+    On Error GoTo Failed
+    If E(Node - 1).ArgumentMode <> 1 Or E(Node - 1).ArrayRank <> 0 Or E(Node - 1).TypeSymbol <> 0 Then Exit Function
+    TypeCode = E(Node - 1).ConvertedType
+    If TypeCode = 0 Then TypeCode = E(Node - 1).TypeCode
+    CapturedText = TypeCode = SyntaxTokens.KwString
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Captures name exact managed-value slots and native owner leases in separate metadata tables.
+Private Function EmitCaptureLayout(ByRef N() As SourceParser.SyntaxNode, ByRef E() As ExpressionBinder.BoundExpression, ByRef F() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long) As Boolean
+    Dim Argument As Long
+    Dim Count As Long
+    Dim References As Long
+    Dim Owners As Long
+    Dim Index As Long
+    Dim Written As Long
+    Dim Template As Long
+    On Error GoTo Failed
+    Argument = N(N(Node - 1).FirstChild - 1).NextSibling
+    Do While Argument <> 0
+        If CapturedText(E, Argument) Then References = References + 1
+        If F(Argument - 1).NeedsOwner Then Owners = Owners + 1
+        Count = Count + 1
+        Argument = N(Argument - 1).NextSibling
+    Loop
+    If Not Fragment(S, B, Token, Catalog, LLVMTemplates.ManagedCaptureOffsetsStart, Node, References) Then Exit Function
+    Argument = N(N(Node - 1).FirstChild - 1).NextSibling
+    Do While Argument <> 0
+        If CapturedText(E, Argument) Then
+            Written = Written + 1
+            Template = LLVMTemplates.TextLiteralByte
+            If Written = References Then Template = LLVMTemplates.TextLiteralLastByte
+            If Not Fragment(S, B, Token, Catalog, Template, Index + Index, 0) Then Exit Function
+        End If
+        Index = Index + 1
+        Argument = N(Argument - 1).NextSibling
+    Loop
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedOffsetsEnd, 0, 0, 0, 0) Then Exit Function
+    If Not Fragment(S, B, Token, Catalog, LLVMTemplates.ManagedCaptureOwnersStart, Node, Owners) Then Exit Function
+    Argument = N(N(Node - 1).FirstChild - 1).NextSibling
+    Index = 0
+    Written = 0
+    Do While Argument <> 0
+        If F(Argument - 1).NeedsOwner Then
+            Written = Written + 1
+            Template = LLVMTemplates.TextLiteralByte
+            If Written = Owners Then Template = LLVMTemplates.TextLiteralLastByte
+            If Not Fragment(S, B, Token, Catalog, Template, Index + Index + 1, 0) Then Exit Function
+        End If
+        Index = Index + 1
+        Argument = N(Argument - 1).NextSibling
+    Loop
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedOffsetsEnd, 0, 0, 0, 0) Then Exit Function
+    Count = Count + Count
+    If Count = 0 Then Count = 1
+    EmitCaptureLayout = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedCaptureLayout, Node, Count, References, Owners)
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+End Function
+
 ' Appends one fragment of an ordinary native call signature.
 Private Function Fragment(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Template As Long, ByVal First As Long, ByVal Second As Long) As Boolean
     On Error GoTo Failed
@@ -18,17 +86,21 @@ Failed:
 End Function
 
 ' Drops only the references acquired by this capture, never the caller's references.
-Private Function DropCaptures(ByRef N() As SourceParser.SyntaxNode, ByRef E() As ExpressionBinder.BoundExpression, ByRef F() As NativeEscapes.EscapeFact, ByRef Owners() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long) As Boolean
+Private Function DropCaptures(ByRef N() As SourceParser.SyntaxNode, ByRef E() As ExpressionBinder.BoundExpression, ByRef F() As NativeEscapes.EscapeFact, ByRef Owners() As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long, ByVal Payload As Long) As Boolean
     Dim Argument As Long
     Dim Index As Long
     Dim HasArray As Long
     Dim Released As Boolean
     Dim Collected As Long
+    Dim Pointer As Long
     On Error GoTo Failed
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
+            Pointer = NativeEmission.NewValue(S)
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Payload, Index + Index + 1, 0) Then Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ClearCapturedOwner, Pointer, 0, 0, 0) Then Exit Function
             HasArray = 0
             If E(Argument - 1).ArrayRank <> 0 Then HasArray = 1
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.DropOwner, Owners(Index), HasArray, 0, 0) = False Then Exit Function
@@ -72,6 +144,9 @@ Public Function EmitStart(ByRef N() As SourceParser.SyntaxNode, ByRef E() As Exp
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.NewOwner, Block, Cells, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerAllocated, Accepted, Block, 0, 0) = False Then Exit Function
     If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Accepted) = False Then Exit Function
+    If S.ManagedRoles.CollectSymbol <> 0 Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AttachManagedCapture, Block, Node, 0, 0) Then Exit Function
+    End If
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.OwnerPayload, Payload, Block, 0, 0) = False Then Exit Function
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0
@@ -79,6 +154,7 @@ Public Function EmitStart(ByRef N() As SourceParser.SyntaxNode, ByRef E() As Exp
         Pointer = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Payload, Index + Index, 0) = False Then Exit Function
         Template = LLVMTemplates.StoreValue
+        If CapturedText(E, Argument) Then Template = LLVMTemplates.ManagedStoreValue
         If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.StorePointer
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
@@ -98,7 +174,7 @@ Public Function EmitStart(ByRef N() As SourceParser.SyntaxNode, ByRef E() As Exp
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallSuccess, Accepted, Pair, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Accepted, DoneBlock, FailureBlock, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, FailureBlock, 0, 0, 0) = False Then Exit Function
-    If DropCaptures(N, E, F, Owners, S, B, Token, Catalog, Node) = False Then Exit Function
+    If DropCaptures(N, E, F, Owners, S, B, Token, Catalog, Node, Payload) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.DropOwner, Block, 0, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, DoneBlock, 0, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, DoneBlock, 0, 0, 0) = False Then Exit Function
@@ -128,12 +204,21 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
     Dim Pair As Long
     Dim Accepted As Long
     Dim Template As Long
+    Dim Payload As Long
     On Error GoTo Failed
     If ResizeValues(Values, 64, False) = False Then GoTo Failed
     If ResizeValues(Owners, 64, False) = False Then GoTo Failed
     S.ValueNumber = 0
     S.CurrentNode = Node
+    If S.ManagedRoles.CollectSymbol <> 0 Then
+        If Not EmitCaptureLayout(N, E, F, S, B, Token, Catalog, Node) Then Exit Function
+    End If
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ThreadThunkStart, Node, 0, 0, 0) = False Then Exit Function
+    Payload = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CapturePayloadAddress, Payload, 0, 0, 0) Then Exit Function
+    If S.ManagedRoles.CollectSymbol <> 0 Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedEntryFrame, 0, 0, 0, 0) Then Exit Function
+    End If
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
@@ -180,8 +265,14 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
         Loop
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallEnd, 0, 0, 0, 0) = False Then Exit Function
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallSuccess, Accepted, Pair, 0, 0) = False Then Exit Function
+        If A(Symbol - 1).TypeCode = SyntaxTokens.KwString Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedDiscardReturn, 0, 0, 0, 0) Then Exit Function
+        End If
     End If
-    If DropCaptures(N, E, F, Owners, S, B, Token, Catalog, Node) = False Then Exit Function
+    If DropCaptures(N, E, F, Owners, S, B, Token, Catalog, Node, Payload) = False Then Exit Function
+    If S.ManagedRoles.CollectSymbol <> 0 Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedRestoreRoots, 0, 0, 0, 0) Then Exit Function
+    End If
     TryEmitThunk = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ThreadThunkEnd, Accepted, 0, 0, 0)
     Exit Function
 Failed:

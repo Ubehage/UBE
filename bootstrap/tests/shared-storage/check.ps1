@@ -178,7 +178,7 @@ entry:
  br i1 %allocated,label %prepare,label %failed
 prepare:
  %array = getelementptr %ube.block,ptr %box,i64 1
- %resized = call i1 @ube.array.tryresize(ptr @test.first,ptr %array,i64 2,i64 0,i64 1)
+ %resized = call i1 @ube.array.tryresize(ptr @test.first,ptr %array,i64 2,i64 0,i64 1, ptr null)
  %snapshot = call {i64,i64,ptr,ptr} @ube.array.snapshot(ptr @test.first,ptr %array)
  %data = extractvalue {i64,i64,ptr,ptr} %snapshot,2
  %pin = extractvalue {i64,i64,ptr,ptr} %snapshot,3

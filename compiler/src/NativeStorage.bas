@@ -1,5 +1,90 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeStorage"
+' Supplies exact element layout before native array publication, including an empty destination.
+Public Function CopyArray(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Result As Long, ByVal Destination As Long, ByVal Source As Long, ByVal Stride As Long, ByVal ManagedReferences As Long, ByVal TypeCode As Long, ByVal TypeSymbol As Long) As Boolean
+    On Error GoTo Failed
+    If Not ManagedLayouts.ValidPublication(A, L, TypeCode, TypeSymbol, Stride, ManagedReferences) Then
+        S.Text.Failed = True
+        S.FailureCode = 9
+        S.FailureReason = 62
+        S.ErrorNode = S.CurrentNode
+        Exit Function
+    End If
+    If ManagedReferences = 0 Then
+        CopyArray = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Result, Destination, Source, Stride)
+    Else
+        If Not LLVMFormat.TryFormat(S.Text, B, Token, Catalog, LLVMTemplates.ControlManagedArrayCopyStart, Result, Destination, Source, Stride) Then Exit Function
+        CopyArray = NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedLayoutCallEnd, TypeSymbol, 0, 0, 0)
+    End If
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Copies a prepared aggregate without inserting safepoints between snapshot and publication.
+' Managed cells use the barrier; layout offsets never classify ordinary integers as roots.
+Public Function StoreTypedCells(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByVal TypeCode As Long, ByVal TypeSymbol As Long, ByVal ManagedCount As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Address As Long, ByRef Values() As Long) As Boolean
+    Dim Index As Long
+    Dim Count As Long
+    Dim ReferenceIndex As Long
+    Dim ReferenceOffset As Long = -1
+    Dim Pointer As Long
+    Dim Template As Long
+    On Error GoTo Failed
+    Count = ValueCount(Values)
+    If Not ManagedLayouts.ValidPublication(A, L, TypeCode, TypeSymbol, Count, ManagedCount) Then GoTo Invalid
+    If ManagedCount = 0 Then StoreTypedCells = StoreCells(S, B, Token, Catalog, Address, Values): Exit Function
+    If Count < 1 Or Count > 128 Or ManagedCount < 0 Or ManagedCount > Count Then GoTo Invalid
+    If Not ManagedLayouts.TryReferenceOffset(A, L, TypeCode, TypeSymbol, 0, ReferenceOffset) Then GoTo Invalid
+    Do While Index < Count
+        Pointer = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, Index, 0) Then Exit Function
+        Template = LLVMTemplates.StoreVolatileValue
+        If Index = ReferenceOffset Then
+            Template = LLVMTemplates.ManagedStoreValue
+            ReferenceIndex = ReferenceIndex + 1
+            ReferenceOffset = -1
+            If ReferenceIndex < ManagedCount Then
+                If Not ManagedLayouts.TryReferenceOffset(A, L, TypeCode, TypeSymbol, ReferenceIndex, ReferenceOffset) Then GoTo Invalid
+                If ReferenceOffset <= Index Or ReferenceOffset >= Count Then GoTo Invalid
+            End If
+        End If
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) Then Exit Function
+        Index = Index + 1
+    Loop
+    If ReferenceIndex <> ManagedCount Then GoTo Invalid
+    StoreTypedCells = True
+    Exit Function
+Invalid:
+    S.Text.Failed = True
+    S.FailureCode = 9
+    S.FailureReason = 62
+    S.ErrorNode = S.CurrentNode
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Publishes scalar identities through the managed barrier; numeric cells retain raw stores.
+Public Function StoreScalar(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Address As Long, ByVal Value As Long, ByVal TypeCode As Long) As Boolean
+    Dim Template As Long = LLVMTemplates.StoreValue
+    On Error GoTo Failed
+    If TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.ManagedStoreValue
+    StoreScalar = NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Address, 0, 0)
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
 ' Emits caller-planned storage paths, original-payload borrows and owned aggregate lifecycle operations.
 
 ' Allocates bounded compiler-side SSA snapshot identities.
@@ -121,11 +206,10 @@ Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As D
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Data, Pointer, 2, 0) Then Exit Function
         Block = NativeEmission.NewValue(S)
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SnapshotValue, Block, Pointer, 3, 0) Then Exit Function
+        ' Snapshot retains the owner without polling; publish its exact lease root before index evaluation.
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.PinBlock, Block, Pins(Node - 1), 0, 0) Then Exit Function
-        IndexValue = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, IndexNode, Terminated)
+        IndexValue = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, IndexNode, SyntaxTokens.KwLongLong, Terminated)
         If IndexValue = 0 Or Terminated Then Exit Function
-        IndexValue = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, IndexValue, E(IndexNode - 1).TypeCode, SyntaxTokens.KwLongLong)
-        If IndexValue = 0 Then Exit Function
         Below = NativeEmission.NewValue(S)
         Above = NativeEmission.NewValue(S)
         Invalid = NativeEmission.NewValue(S)
@@ -152,6 +236,7 @@ Failed:
 End Function
 
 ' Drops one prepared borrow and clears its slot before any later cleanup can repeat it.
+' The registered owner-slot root is cleared before drop; neither operation may poll or collect.
 Public Function ReleasePin(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Slot As Long) As Boolean
     Dim Block As Long
     On Error GoTo Failed
@@ -330,6 +415,11 @@ Public Function NeutralStorage(ByRef A() As DeclarationBinder.BoundSymbol, ByRef
     Dim Pointer As Long
     Dim Data As Long
     Dim Template As Long
+    Dim ZeroValue As Long
+    Dim ReferenceIndex As Long
+    Dim ReferenceOffset As Long = -1
+    Dim ElementBase As Long
+    Dim Offset As Long
     On Error GoTo Failed
     If S.Text.Failed Then Exit Function
     Node = A(Symbol - 1).DeclarationNode
@@ -366,10 +456,30 @@ Public Function NeutralStorage(ByRef A() As DeclarationBinder.BoundSymbol, ByRef
         Template = LLVMTemplates.StoreConstant
         If Count > 1 Then Template = LLVMTemplates.StoreVolatileConstant
     End If
+    If ReleaseExisting And L(Node - 1).ManagedReferences > 0 Then
+        ZeroValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
+        ElementBase = Index
+        If Not ManagedLayouts.TryReferenceOffset(A, L, A(Symbol - 1).TypeCode, A(Symbol - 1).TypeSymbol, 0, Offset) Then GoTo Failed
+        ReferenceOffset = ElementBase + Offset
+    End If
     Do While Index < Count
         Pointer = NativeEmission.NewValue(S)
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Address, Index, 0) Then Exit Function
-        If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, 0, Pointer, 0, 0) Then Exit Function
+        If Index = ReferenceOffset Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedStoreValue, ZeroValue, Pointer, 0, 0) Then Exit Function
+            ReferenceIndex = ReferenceIndex + 1
+            If ReferenceIndex = L(Node - 1).ManagedReferences Then
+                ReferenceIndex = 0
+                ElementBase = ElementBase + L(Node - 1).ElementCells
+            End If
+            ReferenceOffset = -1
+            If ElementBase < Count Then
+                If Not ManagedLayouts.TryReferenceOffset(A, L, A(Symbol - 1).TypeCode, A(Symbol - 1).TypeSymbol, ReferenceIndex, Offset) Then GoTo Failed
+                ReferenceOffset = ElementBase + Offset
+            End If
+        Else
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, 0, Pointer, 0, 0) Then Exit Function
+        End If
         Index = Index + 1
     Loop
     NeutralStorage = True

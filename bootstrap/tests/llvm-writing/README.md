@@ -20,7 +20,7 @@ system temporary directory.
 
 Seven scenarios at each optimization level cover cross-64-KiB fragments,
 nonzero span starts, signed 64-bit decimal extrema, zero and negative values,
-CRLF, final partial-buffer writes, sticky Err, exact 16-MiB output and 500,000-LF
+CRLF, final partial-buffer writes, sticky Err, exact 32-MiB output and 500,000-LF
 limits with rejected excess, whole-fragment ASCII/range validation, latched
 failure and explicit reset. Zero-length spans at the source endpoint succeed.
 Invalid-token write failure preserves occupied staging bytes and counters.
@@ -41,8 +41,15 @@ the writer itself is not provided by this gate.
 
 The full compiler required 269,156 IR lines and 9,810,828 bytes, exceeding only
 the former 250,000-line bound. Both bootstrap SourceEmitter and UBE LLVMWriter
-now admit 500,000 lines; their 16-MiB byte bound is unchanged. The updated gate
+then admitted 500,000 lines while retaining the 16-MiB byte bound. That gate
 passed all 14 scenarios and the changed-payload control with evidence
 `ube llvm writing e261ff6b-d0f4-42c6-a1cd-dc387eeb1d17`. A diagnostic copied
 bootstrap with higher bounds and the final bounded bootstrap emitted identical
 full compiler bytes (`ube IR capacity 1794537082044`).
+
+The managed-support compiler later emitted 18,788,096 LLVM bytes. Its controlled
+failure at byte 16,777,215 established the need for a 32-MiB general emitted-file
+bound in both compilers and the bootstrap backend. Runtime heap and frame limits
+remain unchanged. The current exact-bound, one-byte-overflow, state-preservation
+and reset checks passed all 14 O0/O2 scenarios plus the changed-payload control:
+`ube llvm writing bd7cbf74-b045-42fe-9735-980a4072fcbe`.

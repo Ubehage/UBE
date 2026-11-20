@@ -3,6 +3,7 @@ Attribute UBE_Name = "ProjectSyntax"
 Public Const MaximumProjectNodes As Long = 131072
 ' Retains module syntax in caller-owned flat arenas with committed logical prefixes.
 Public Type ParsedModule
+    LookupDomain As Long
     ByteBase As Long
     ByteCount As Long
     TokenBase As Long
@@ -78,6 +79,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim I As Long
     Dim Finish As Long
     On Error GoTo Failed
+    If M.LookupDomain < 0 Or M.LookupDomain > 1 Then Exit Function
     If M.ByteCount <= 0 Or M.TokenCount < 2 Or M.NodeCount < 1 Or M.NodeCount > 65536 Then Exit Function
     If M.RootNode <> M.NodeBase + 1 Then Exit Function
     If M.NameToken < M.TokenBase Or M.NameToken >= M.TokenBase + M.TokenCount Then Exit Function
@@ -101,7 +103,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     I = M.NodeBase
     Finish = I + M.NodeCount
     Do While I < Finish
-        If N(I).Kind < 1 Or N(I).Kind > SourceParser.ThreadStartNode Then Exit Function
+        If N(I).Kind < 1 Or N(I).Kind > SourceParser.StringNode Then Exit Function
         If N(I).Utf16Start < 1 Or N(I).Utf16Length < 0 Or N(I).Line < 1 Or N(I).Column < 1 Then Exit Function
         If Not SpanFits(N(I).ByteStart, N(I).ByteLength, M.ByteBase, M.ByteCount) Then Exit Function
         If N(I).FirstToken < M.TokenBase Or N(I).FirstToken >= M.TokenBase + M.TokenCount Then Exit Function
@@ -225,8 +227,14 @@ Failed:
     Err.Raise Err.Number
 End Sub
 
-' Appends a parsed module and publishes counts only after every source span and identity is retained.
+' Appends ordinary project source without granting compiler-support visibility.
 Public Function TryAppendModule(ByRef Source() As Byte, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ParsedModule, ByRef Counts As ProjectCounts, ByRef Diagnostic As ProjectDiagnostic) As Boolean
+    TryAppendModule = TryAppendModuleInDomain(Source, 0, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic)
+End Function
+
+' The compiler loader supplies provenance; source text never selects its lookup domain.
+' Counts publish only after every source span and identity has been retained.
+Public Function TryAppendModuleInDomain(ByRef Source() As Byte, ByVal LookupDomain As Long, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ParsedModule, ByRef Counts As ProjectCounts, ByRef Diagnostic As ProjectDiagnostic) As Boolean
     Dim CandidateTokens() As SourceScanner.SourceToken
     Dim CandidateNodes() As SourceParser.SyntaxNode
     Dim ScanError As SourceScanner.ScanDiagnostic
@@ -242,7 +250,9 @@ Public Function TryAppendModule(ByRef Source() As Byte, ByRef Bytes() As Byte, B
     Diagnostic.Utf16Offset = 1
     Diagnostic.Line = 1
     Diagnostic.Column = 1
+    If LookupDomain < 0 Or LookupDomain > 1 Then Exit Function
     If Not IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then Exit Function
+    Added.LookupDomain = LookupDomain
     Added.ByteCount = BufferPrimitives.ByteStorageLength(Source)
     If Not SourceScanner.TryScan(Source, CandidateTokens, Added.TokenCount, ScanError) Then
         Diagnostic.Stage = 1
@@ -267,7 +277,9 @@ Public Function TryAppendModule(ByRef Source() As Byte, ByRef Bytes() As Byte, B
     Added.NameToken = CandidateNodes(Added.RootNode - 1).NameToken
     Diagnostic.Code = 3
     Do While I < Counts.ModuleCount
-        If SameModule(Source, CandidateTokens, Added.NameToken, Bytes, Tokens, Modules(I).NameToken) Then Exit Function
+        If Modules(I).LookupDomain = LookupDomain Then
+            If SameModule(Source, CandidateTokens, Added.NameToken, Bytes, Tokens, Modules(I).NameToken) Then Exit Function
+        End If
         I = I + 1
     Loop
     Diagnostic.Code = 4
@@ -302,7 +314,7 @@ Public Function TryAppendModule(ByRef Source() As Byte, ByRef Bytes() As Byte, B
     Counts.ModuleCount = Counts.ModuleCount + 1
     Diagnostic.Code = 0
     Diagnostic.Reason = 0
-    TryAppendModule = True
+    TryAppendModuleInDomain = True
     Exit Function
 Failed:
     Diagnostic.Stage = 3

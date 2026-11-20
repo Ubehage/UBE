@@ -5,6 +5,13 @@ define the compiler/UBECore boundary before compiler implementation expands.
 
 ## Scope and evidence
 
+The implemented typed text foundation is documented in [TEXT.md](TEXT.md):
+Unicode String values, strict UTF-8 import/export, binary comparison,
+concatenation, admitted integer/Boolean conversions and precise collection.
+These ordinary UBE algorithms have actual O0/O2 source and failure/lifetime
+gates. They do not mark the broad-input VB6 compatibility functions below as
+implemented or change their approved signatures and remaining dependencies.
+
 [The name ledger](VB6-RUNTIME-INVENTORY.md) covers global runtime functions,
 their dollar spellings, runtime Subs/statements, global properties, hidden
 pointer helpers, and VB6 picture/resource globals. It retains Mac-only entries

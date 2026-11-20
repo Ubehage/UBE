@@ -31,6 +31,7 @@ Public Const GoToNode As Long = 27
 Public Const LabelNode As Long = 28
 Public Const OnErrorNode As Long = 29
 Public Const ThreadStartNode As Long = 30
+Public Const StringNode As Long = 31
 
 Public Type SyntaxNode
     Kind As Long
@@ -282,6 +283,7 @@ Private Function ScalarSuffix(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     If Code = SyntaxTokens.SymPercent Then Result = SyntaxTokens.KwInteger
     If Code = SyntaxTokens.SymAmpersand Then Result = SyntaxTokens.KwLong
     If Code = SyntaxTokens.SymCaret Then Result = SyntaxTokens.KwLongLong
+    If Code = SyntaxTokens.SymDollar Then Result = SyntaxTokens.KwString
     If Result = 0 Or S.Position < 1 Then Exit Function
     If T(S.Position - 1).ByteStart + T(S.Position - 1).ByteLength <> T(S.Position).ByteStart Then Exit Function
     S.Position = S.Position + 1
@@ -324,7 +326,7 @@ Private Function ReadType(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     If RequireSpace(T, S, D) = False Then Exit Function
     Start = S.Position
     Code = CodeAt(B, T, S, 0)
-    If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Then
+    If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwString Then
         S.Position = S.Position + 1
     Else
         NameIndex = ReadName(B, T, S, D, False)
@@ -470,10 +472,11 @@ Private Function OperatorRank(ByVal Code As Long) As Long
     If Code = SyntaxTokens.KwOr Then OperatorRank = 1
     If Code = SyntaxTokens.KwAnd Then OperatorRank = 2
     If Code = SyntaxTokens.SymEqual Or Code = SyntaxTokens.SymNotEqual Or Code = SyntaxTokens.SymLess Or Code = SyntaxTokens.SymGreater Or Code = SyntaxTokens.SymLessEqual Or Code = SyntaxTokens.SymGreaterEqual Then OperatorRank = 4
-    If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 5
-    If Code = SyntaxTokens.SymStar Then OperatorRank = 6
-    If Code = SyntaxTokens.SymBackslash Then OperatorRank = 7
-    If Code = SyntaxTokens.KwMod Then OperatorRank = 8
+    If Code = SyntaxTokens.SymAmpersand Then OperatorRank = 5
+    If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 6
+    If Code = SyntaxTokens.SymStar Then OperatorRank = 7
+    If Code = SyntaxTokens.SymBackslash Then OperatorRank = 8
+    If Code = SyntaxTokens.KwMod Then OperatorRank = 9
 End Function
 
 ' Parses literal, grouped and unary primaries with retained source spelling.
@@ -496,7 +499,7 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         Node = NewNode(T, N, S, D, UnaryNode, Start)
         If Node = 0 Then Exit Function
         N(Node - 1).Value = Code
-        Minimum = 9
+        Minimum = 10
         If Code = SyntaxTokens.KwNot Then
             Minimum = 3
             If RequireSpace(T, S, D) = False Then Exit Function
@@ -516,6 +519,11 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If SyntaxTokens.IsIntegerToken(B, T, S.Position, S.TokenCount) = False Then Reject T, S, D, 3, 10: Exit Function
         S.Position = S.Position + 1
         Node = NewNode(T, N, S, D, NumberNode, Start)
+        If Node = 0 Then Exit Function
+        N(Node - 1).NameToken = Start
+    ElseIf Kind = SourceScanner.StringToken Then
+        S.Position = S.Position + 1
+        Node = NewNode(T, N, S, D, StringNode, Start)
         If Node = 0 Then Exit Function
         N(Node - 1).NameToken = Start
     ElseIf Code = SyntaxTokens.KwTrue Or Code = SyntaxTokens.KwFalse Then

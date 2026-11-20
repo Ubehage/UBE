@@ -240,8 +240,8 @@ function Primitive-Source([string]$Name,[string]$Parameters,[string]$Result,[str
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object {Join-Path $coreDirectory $_}
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','NativeEscapes.bas','NativePlanning.bas') | ForEach-Object {Join-Path $compilerDirectory $_}
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas') | ForEach-Object {Join-Path $coreDirectory $_}
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','ManagedLayouts.bas','ManagedSupport.bas','NativeEscapes.bas','NativePlanning.bas') | ForEach-Object {Join-Path $compilerDirectory $_}
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -257,7 +257,7 @@ $lines.Add('  call void @ube.context.init(ptr %ctx)')
 $lines.Add('  %initialized = call i1 @ube.project.init(ptr %ctx)')
 
 # Creates a runtime-input project and independently compares the established host's native admission.
-function Plan-Project([string]$Name,[string[]]$Sources,[int]$Code=0,[int]$Reason=0,[bool]$Executable=$false){
+function Plan-Project([string]$Name,[string[]]$Sources,[int]$Code=0,[int]$Reason=0,[bool]$Executable=$false,[switch]$SourcePlannerOnly){
     Start-Project
     $folder=Join-Path $artifacts $Name;$null=New-Item -ItemType Directory $folder
     $kind='Library';$exeFlag=0;if($Executable){$kind='Exe';$exeFlag=-1}
@@ -266,10 +266,12 @@ function Plan-Project([string]$Name,[string[]]$Sources,[int]$Code=0,[int]$Reason
     $number=0;$paths=@()
     foreach($source in $Sources){$path=Join-Path $folder ("source-$number.bas");Write-Text $path $source;Append-Source $path;$paths+=$path;$manifestLines+='Source = "'+[IO.Path]::GetFileName($path)+'"';$number++}
     $hostProject=Join-Path $folder 'project.UBE';Write-Text $hostProject ($manifestLines-join "`r`n")
-    $hostResult=Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$hostProject,(Join-Path $folder 'host.ll'))
     $expected=0;if($Code -ne 0){$expected=1}
-    Require ($hostResult.ExitCode -eq $expected) "Host admission mismatch $Name : $($hostResult.Evidence)"
-    if($Code -ne 0){$category='E_UNSUPPORTED';if($Code -eq 6){$category='E_LIMIT'};Require ($hostResult.Stderr -match $category) "Host category mismatch $Name"}
+    if(-not $SourcePlannerOnly){
+        $hostResult=Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$hostProject,(Join-Path $folder 'host.ll'))
+        Require ($hostResult.ExitCode -eq $expected) "Host admission mismatch $Name : $($hostResult.Evidence)"
+        if($Code -ne 0){$category='E_UNSUPPORTED';if($Code -eq 6){$category='E_LIMIT'};Require ($hostResult.Stderr -match $category) "Host category mismatch $Name"}
+    }
     $value=Call-Probe 'Bind' @($exeFlag);Check-Value $value $expected "$Name native planning status"
     if($Code -eq 0){$value=Call-Probe 'SummaryField' @(0);Check-Value $value 0 "$Name valid summary" 'sgt'}else{
         $value=Call-Probe 'DiagnosticField' @(0);Check-Value $value $Code "$Name diagnostic code"
@@ -395,6 +397,66 @@ $null=Plan-Project 'boxed-record-snapshot' @($boxedTemporary)
 $work=Find-Declaration $boxedTemporary 'Sub Work' 'Work' 7
 $value=Call-Probe 'PlanField' @($work,1);Check-Value $value 9 'record capture charges owner slot and complete value snapshot'
 $value=Call-Probe 'PlanField' @($work,5);Check-Value $value 1 'record capture records required argument cleanup'
+
+# Managed values are a production planner feature; the historical seed only builds this probe.
+$managedLocal=Module-Source 'ManagedLocal' @'
+Public Function Work() As Long
+Dim TextValue As String
+Work = 1
+End Function
+'@
+$null=Plan-Project 'managed-local-root' @($managedLocal) -SourcePlannerOnly
+$work=Find-Declaration $managedLocal 'Function Work' 'Work' 8
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 14 'managed sentinel plus local String value/root and numeric result'
+$value=Call-Probe 'PlanField' @($work,6);Check-Value $value 0 'user String storage is not a retirement temporary'
+$managedExpression=Module-Source 'ManagedExpression' @'
+Public Sub Work()
+Dim Value As Long
+Value = 1 & 2
+End Sub
+'@
+$null=Plan-Project 'managed-conversion-root' @($managedExpression) -SourcePlannerOnly
+$work=Find-Declaration $managedExpression 'Sub Work' 'Work' 7
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 15 'text-only expression activates sentinel and one rooted temporary/table entry'
+$value=Call-Probe 'PlanField' @($work,6);Check-Value $value 1 'folded children do not allocate unused text roots'
+$managedReuse=Module-Source 'ManagedReuse' ("Public Sub Work()`r`nDim Value As String`r`n" + (('Value = "text"' + "`r`n") * 12) + "Value = Value & Value`r`nEnd Sub")
+$null=Plan-Project 'managed-statement-reuse' @($managedReuse) -SourcePlannerOnly
+$work=Find-Declaration $managedReuse 'Sub Work' 'Work' 7
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 25 'many completed statements reuse one root and maximum simultaneous String slots'
+$value=Call-Probe 'PlanField' @($work,6);Check-Value $value 4 'two live operands and their result retain distinct slots within one statement'
+$threadText=Module-Source 'ThreadText' @'
+Private Sub Worker()
+End Sub
+Public Sub Work()
+Dim Value As String
+Value = CallNew Worker()
+End Sub
+'@
+$null=Plan-Project 'thread-id-text-conversion' @($threadText) -SourcePlannerOnly
+$work=Find-Declaration $threadText 'Public Sub Work()' 'Work' 7
+$value=Call-Probe 'PlanField' @($work,1);Check-Value $value 21 'CallNew ID conversion charges managed result root storage'
+$value=Call-Probe 'PlanField' @($work,6);Check-Value $value 2 'CallNew converted String receives its own scalar alias'
+$publication=Module-Source 'PublicationFacts' @'
+Private Type Pair
+Number As Long
+TextValue As String
+End Type
+Private TextValue As String
+Private Number As Long
+Private RecordValue As Pair
+'@
+$null=Plan-Project 'managed-publication-facts' @($publication) -SourcePlannerOnly
+$textSymbol=Find-Declaration $publication 'Private TextValue As String' 'TextValue' 3
+$numberSymbol=Find-Declaration $publication 'Private Number As Long' 'Number' 3
+$recordSymbol=Find-Declaration $publication 'Private RecordValue As Pair' 'RecordValue' 3
+foreach($entry in @(@($textSymbol,1,1,-1),@($textSymbol,1,0,0),@($textSymbol,2,1,0),@($numberSymbol,1,0,-1),@($numberSymbol,1,1,0),@($recordSymbol,2,1,-1),@($recordSymbol,2,0,0),@($recordSymbol,2,2,0),@($recordSymbol,1,1,0))){
+    $value=Call-Probe 'Publication' @($entry[0],$entry[1],$entry[2]);Check-Value $value $entry[3] 'typed publication requires authoritative cell and managed reference counts'
+}
+foreach($offset in @(-1,2)){$value=Call-Probe 'PublicationOffset' @($recordSymbol,$offset);Check-Value $value 0 'invalid managed field offset refuses publication'}
+$value=Call-Probe 'Publication' @($recordSymbol,2,1);Check-Value $value -1 'publication facts recover after negative offset control'
+$value=Call-Probe 'PublicationType' @($recordSymbol,163,2,1);Check-Value $value 0 'nominal record cannot masquerade as scalar String offset zero'
+$value=Call-Probe 'PublicationType' @($numberSymbol,999,1,0);Check-Value $value 0 'unknown scalar type cannot select raw numeric publication'
+$value=Call-Probe 'PublicationType' @($textSymbol,0,1,0);Check-Value $value 0 'missing scalar type cannot erase String reference metadata'
 
 Start-Project 'CompilerSources'
 foreach($file in $files){Append-Source $file}

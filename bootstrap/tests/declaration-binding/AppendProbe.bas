@@ -156,4 +156,16 @@ Public Function RetryAppend() As Long
     Counts.ByteCount = Counts.ByteCount + 1
     If ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then RetryAppend = 8: Exit Function
     Counts = Before
+    If Modules(0).LookupDomain <> 0 Or Modules(1).LookupDomain <> 0 Then RetryAppend = 9: Exit Function
+    If Not ProjectSyntax.TryAppendModuleInDomain(NextSource, 1, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic) Then RetryAppend = 10: Exit Function
+    If Counts.ModuleCount <> 3 Or Modules(2).LookupDomain <> 1 Then RetryAppend = 11: Exit Function
+    Before = Counts
+    If ProjectSyntax.TryAppendModuleInDomain(NextSource, 1, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic) Then RetryAppend = 12: Exit Function
+    If Diagnostic.Code <> 3 Or Counts <> Before Then RetryAppend = 13: Exit Function
+    If ProjectSyntax.TryAppendModuleInDomain(NextSource, 2, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic) Then RetryAppend = 14: Exit Function
+    If Diagnostic.Code <> 6 Or Counts <> Before Then RetryAppend = 15: Exit Function
+    Modules(2).LookupDomain = -1
+    If ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then RetryAppend = 16: Exit Function
+    Modules(2).LookupDomain = 1
+    If Not ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then RetryAppend = 17
 End Function

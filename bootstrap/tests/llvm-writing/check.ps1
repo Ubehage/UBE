@@ -147,7 +147,7 @@ function Make-Driver([string]$Path,[int]$Mode,[int]$Seed,[bool]$FailFlush) {
 # Constructs intended file bytes independently of generated instructions.
 function Expected-Bytes([int]$Mode) {
     if ($Mode -eq 0) { return $utf8.GetBytes(('A' * 65534) + "-9223372036854775808`r`n92233720368547758070-1") }
-    if ($Mode -eq 1) { return $utf8.GetBytes('A' * 16777216) }
+    if ($Mode -eq 1) { return $utf8.GetBytes('A' * 33554432) }
     if ($Mode -eq 2) { return $utf8.GetBytes("`n" * 500000) }
     if ($Mode -eq 5) { return $utf8.GetBytes('AAA') }
     return [byte[]]@()

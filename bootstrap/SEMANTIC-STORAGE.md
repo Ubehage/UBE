@@ -14,10 +14,15 @@ authority. Call lowering must subsequently follow the resolved declaration
 identity; the role is not an alternative name lookup mechanism.
 
 `AggregateLayout.TryLayout` computes one `StorageFact` per syntax node, with
-`ElementCells`, `StorageCells` and `FieldOffset` as Long fields. It validates
+`ElementCells`, `StorageCells`, `FieldOffset` and `ManagedReferences` as Long fields. It validates
 expressions and declarations before computing layout. Primitive authority and
 layout success are independent: callers must require both checks before treating
 a program as ready for lowering. Neither pass emits native code.
+
+ManagedReferences counts exact String slots in one value or array element.
+Nested finite records accumulate their field counts; array descriptor integers
+and ordinary numeric cells do not become references. `ManagedLayouts` enumerates
+the corresponding flattened cell offsets for immutable runtime metadata.
 
 Both public entries take the existing immutable source bytes, tokens, nodes,
 modules, counts, package-name bytes and executable/library choice. They rebuild

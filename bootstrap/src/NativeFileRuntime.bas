@@ -370,7 +370,9 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  br i1 %pack.more, label %pack, label %convert" & vbCrLf
     Text = Text & "convert:" & vbCrLf
     Text = Text & "  %length32 = trunc i64 %length to i32" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %wide.length = call i32 @ube.target.file.utf8(ptr %packed, i32 %length32, ptr %wide, i32 4096)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %wide.bad = icmp sle i32 %wide.length, 0" & vbCrLf
     Text = Text & "  %wide.large = icmp sgt i32 %wide.length, 4096" & vbCrLf
     Text = Text & "  %wide.invalid = or i1 %wide.bad, %wide.large" & vbCrLf
@@ -383,10 +385,14 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  store i16 0, ptr %terminator" & vbCrLf
     Text = Text & "  br i1 %directory, label %open.directory, label %open.file" & vbCrLf
     Text = Text & "open.directory:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %directory.handle = call ptr @ube.target.directory.open(ptr %wide)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %opened" & vbCrLf
     Text = Text & "open.file:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %file.handle = call ptr @ube.target.file.open(ptr %wide, i1 %write)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %opened" & vbCrLf
     Text = Text & "opened:" & vbCrLf
     Text = Text & "  %handle = phi ptr [ %directory.handle, %open.directory ], [ %file.handle, %open.file ]" & vbCrLf
@@ -403,19 +409,25 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "  store ptr %handle, ptr %handle.ptr" & vbCrLf
     Text = Text & "  %mode.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
     Text = Text & "  store atomic i64 %mode, ptr %mode.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %kind = call i32 @ube.target.file.type(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %regular = icmp eq i32 %kind, 1" & vbCrLf
     Text = Text & "  br i1 %regular, label %mode.check, label %query.fail" & vbCrLf
     Text = Text & "mode.check:" & vbCrLf
     Text = Text & "  br i1 %directory, label %directory.check, label %file.check" & vbCrLf
     Text = Text & "directory.check:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %is.directory = call i1 @ube.target.directory.check(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %is.directory, label %success.create, label %query.fail" & vbCrLf
     Text = Text & "file.check:" & vbCrLf
     Text = Text & "  br i1 %write, label %success.create, label %query" & vbCrLf
     Text = Text & "query:" & vbCrLf
     Text = Text & "  store atomic i64 0, ptr %size.out monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %queried = call i1 @ube.target.file.size(ptr %handle, ptr %size.out)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %queried, label %size.check, label %query.fail" & vbCrLf
     Text = Text & "size.check:" & vbCrLf
     Text = Text & "  %size = load atomic i64, ptr %size.out monotonic, align 8" & vbCrLf
@@ -431,7 +443,9 @@ Private Function FileAcquisitionIR() As String
     Text = Text & "reject:" & vbCrLf
     Text = Text & "  %failure.code = phi i64 [ 3, %query.fail ], [ 4, %limit.fail ]" & vbCrLf
     Text = Text & "  %error.number = phi i64 [ 57, %query.fail ], [ 6, %limit.fail ]" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %closed = call i1 @ube.target.file.close(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %closed, label %rejected, label %retained" & vbCrLf
     Text = Text & "rejected:" & vbCrLf
     Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
@@ -546,10 +560,14 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "  %more = icmp ult i64 %next, %count" & vbCrLf
     Text = Text & "  br i1 %more, label %pack, label %native.write" & vbCrLf
     Text = Text & "native.write:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %write.ok = call i1 @ube.target.file.write(ptr %handle, ptr %scratch, i32 %count32, ptr %native.progress)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %observed" & vbCrLf
     Text = Text & "read:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %read.ok = call i1 @ube.target.file.read(ptr %handle, ptr %scratch, i32 %count32, ptr %native.progress)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %observed" & vbCrLf
     Text = Text & "observed:" & vbCrLf
     Text = Text & "  %ok = phi i1 [ %write.ok, %native.write ], [ %read.ok, %read ]" & vbCrLf
@@ -645,7 +663,9 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "close:" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %closed = call i1 @ube.target.file.close(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %closed, label %released, label %close.fail" & vbCrLf
     Text = Text & "released:" & vbCrLf
     Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
@@ -684,7 +704,9 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "flush:" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %ok = call i1 @ube.target.file.flush(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
     Text = Text & "  br i1 %ok, label %success, label %flush.fail" & vbCrLf
     Text = Text & "flush.fail:" & vbCrLf
@@ -743,7 +765,9 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  %outputs = call i1 @ube.system.outputs(ptr %ctx, ptr %array, ptr %count, ptr %failure)" & vbCrLf
     Text = Text & "  br i1 %outputs, label %acquire, label %failed" & vbCrLf
     Text = Text & "acquire:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %wide = call ptr @ube.target.system.commandline()" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %missing = icmp eq ptr %wide, null" & vbCrLf
     Text = Text & "  br i1 %missing, label %io.fail, label %scan" & vbCrLf
     Text = Text & "scan:" & vbCrLf
@@ -764,7 +788,9 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "measure:" & vbCrLf
     Text = Text & "  %units = trunc i64 %index to i32" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %size = sext i32 %size32 to i64" & vbCrLf
     Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
@@ -783,7 +809,9 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  br i1 %no.memory, label %memory.fail, label %convert" & vbCrLf
     Text = Text & "convert:" & vbCrLf
     Text = Text & "  %scratch = getelementptr %ube.block, ptr %block, i64 1" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %converted = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr %scratch, i32 131072)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %complete = icmp eq i32 %converted, %size32" & vbCrLf
     Text = Text & "  br i1 %complete, label %prepare, label %conversion.fail" & vbCrLf
     Text = Text & "prepare:" & vbCrLf
@@ -864,7 +892,9 @@ Private Function SystemOperationsIR() As String
     Text = Text & "  br i1 %past.end, label %request.fail, label %handle" & vbCrLf
     Text = Text & "handle:" & vbCrLf
     Text = Text & "  %which = select i1 %stdout, i32 -11, i32 -12" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %native.handle = call ptr @ube.target.system.standard(i32 %which)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %null = icmp eq ptr %native.handle, null" & vbCrLf
     Text = Text & "  %invalid = icmp eq ptr %native.handle, inttoptr (i64 -1 to ptr)" & vbCrLf
     Text = Text & "  %bad.handle = or i1 %null, %invalid" & vbCrLf
@@ -897,7 +927,9 @@ Private Function SystemOperationsIR() As String
     Text = Text & "write:" & vbCrLf
     Text = Text & "  store i32 0, ptr %progress" & vbCrLf
     Text = Text & "  %count32 = trunc i64 %count to i32" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %accepted = call i1 @ube.target.file.write(ptr %native.handle, ptr %scratch, i32 %count32, ptr %progress)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %done32 = load i32, ptr %progress" & vbCrLf
     Text = Text & "  %done = zext i32 %done32 to i64" & vbCrLf
     Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
@@ -1032,7 +1064,9 @@ Private Function PathOperationsIR() As String
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.path.publish(ptr %ctx, ptr %wide, i32 %units, ptr %array, ptr %count, ptr %failure, ptr %packed) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %size32 = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr null, i32 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %size = sext i32 %size32 to i64" & vbCrLf
     Text = Text & "  %lower = load atomic i64, ptr %array monotonic, align 8" & vbCrLf
     Text = Text & "  %upper.ptr = getelementptr i64, ptr %array, i64 1" & vbCrLf
@@ -1046,7 +1080,9 @@ Private Function PathOperationsIR() As String
     Text = Text & "  %bad = or i1 %invalid, %bad.bound" & vbCrLf
     Text = Text & "  br i1 %bad, label %request.fail, label %convert" & vbCrLf
     Text = Text & "convert:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %converted = call i32 @ube.target.system.utf8(ptr %wide, i32 %units, ptr %packed, i32 4096)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %complete = icmp eq i32 %converted, %size32" & vbCrLf
     Text = Text & "  br i1 %complete, label %prepare, label %io.fail" & vbCrLf
     Text = Text & "prepare:" & vbCrLf
@@ -1120,14 +1156,18 @@ Private Function PathOperationsIR() As String
     Text = Text & "physical:" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %physical.length = call i32 @ube.target.path.final(ptr %handle, ptr %wide.output, i32 4097)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %length" & vbCrLf
     Text = Text & "decode:" & vbCrLf
     Text = Text & "  %input.length = call i32 @ube.path.decode(ptr %input, ptr %scratch, ptr %wide.input)" & vbCrLf
     Text = Text & "  %input.valid = icmp sgt i32 %input.length, 0" & vbCrLf
     Text = Text & "  br i1 %input.valid, label %full, label %request.fail" & vbCrLf
     Text = Text & "full:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %full.length = call i32 @ube.target.path.full(ptr %wide.input, ptr %wide.output, i32 4097)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %length" & vbCrLf
     Text = Text & "length:" & vbCrLf
     Text = Text & "  %units = phi i32 [ %physical.length, %physical ], [ %full.length, %full ]" & vbCrLf
@@ -1215,7 +1255,9 @@ Private Function PathOperationsIR() As String
     Text = Text & "  %empty.value = select i1 %same, i64 0, i64 %different" & vbCrLf
     Text = Text & "  br label %publish" & vbCrLf
     Text = Text & "compare:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %comparison = call i32 @ube.target.path.compare(ptr %wide.first, i32 %first.length, ptr %wide.second, i32 %second.length)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %too.low = icmp slt i32 %comparison, 1" & vbCrLf
     Text = Text & "  %too.high = icmp sgt i32 %comparison, 3" & vbCrLf
     Text = Text & "  %invalid = or i1 %too.low, %too.high" & vbCrLf
@@ -1367,7 +1409,9 @@ Private Function FileMetadataIR() As String
     Text = Text & "query:" & vbCrLf
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %accepted = call i1 @ube.target.file.info(ptr %handle, ptr %information)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %accepted, label %prepare, label %io.fail" & vbCrLf
     Text = Text & "prepare:" & vbCrLf
     Text = Text & "  %data.ptr = getelementptr i64, ptr %array, i64 2" & vbCrLf
@@ -1444,7 +1488,9 @@ Private Function FileMetadataIR() As String
     Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
     Text = Text & "  %handle = load ptr, ptr %handle.ptr" & vbCrLf
     Text = Text & "  store atomic i64 0, ptr %size monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %accepted = call i1 @ube.target.file.size(ptr %handle, ptr %size)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br i1 %accepted, label %range, label %io.fail" & vbCrLf
     Text = Text & "range:" & vbCrLf
     Text = Text & "  %value = load atomic i64, ptr %size monotonic, align 8" & vbCrLf
@@ -1495,7 +1541,9 @@ Private Function SystemIntrospectionIR() As String
     Text = Text & "  %scratch = getelementptr %ube.block, ptr %block, i64 1" & vbCrLf
     Text = Text & "  %wide = getelementptr i8, ptr %scratch, i64 20480" & vbCrLf
     Text = Text & "  %packed = getelementptr i8, ptr %scratch, i64 32768" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %units = call i32 @ube.target.system.executable(ptr %wide, i32 4097)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  %empty = icmp eq i32 %units, 0" & vbCrLf
     Text = Text & "  br i1 %empty, label %io.fail, label %range" & vbCrLf
     Text = Text & "range:" & vbCrLf
@@ -1549,7 +1597,9 @@ Private Function SystemIntrospectionIR() As String
     Text = Text & "  %alias.status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "query:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %ticks = call i64 @ube.target.system.clock()" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  store atomic i64 %ticks, ptr %value monotonic, align 8" & vbCrLf
     Text = Text & "  store atomic i64 0, ptr %failure monotonic, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
@@ -1649,22 +1699,30 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %second.valid = icmp sgt i32 %second.length, 0" & vbCrLf
     Text = Text & "  br i1 %second.valid, label %move, label %request.fail" & vbCrLf
     Text = Text & "move:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %move.error = call i64 @ube.target.file.replace(ptr %wide.first, ptr %wide.second)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %result" & vbCrLf
     Text = Text & "create.check:" & vbCrLf
     Text = Text & "  %create = icmp eq i64 %operation, 1" & vbCrLf
     Text = Text & "  br i1 %create, label %create.directory, label %remove.check" & vbCrLf
     Text = Text & "create.directory:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %create.error = call i64 @ube.target.directory.create(ptr %wide.first)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %result" & vbCrLf
     Text = Text & "remove.check:" & vbCrLf
     Text = Text & "  %directory = icmp eq i64 %operation, 2" & vbCrLf
     Text = Text & "  br i1 %directory, label %remove.directory, label %delete.file" & vbCrLf
     Text = Text & "remove.directory:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %remove.error = call i64 @ube.target.directory.remove(ptr %wide.first)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %result" & vbCrLf
     Text = Text & "delete.file:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %delete.error = call i64 @ube.target.file.delete(ptr %wide.first)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  br label %result" & vbCrLf
     Text = Text & "result:" & vbCrLf
     Text = Text & "  %error = phi i64 [ %move.error, %move ], [ %create.error, %create.directory ], [ %remove.error, %remove.directory ], [ %delete.error, %delete.file ]" & vbCrLf
@@ -1756,7 +1814,9 @@ Private Function NamespaceOperationsIR() As String
     Text = Text & "  %valid = icmp sgt i32 %length, 0" & vbCrLf
     Text = Text & "  br i1 %valid, label %query, label %request.fail" & vbCrLf
     Text = Text & "query:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
     Text = Text & "  %attributes = call i64 @ube.target.path.attributes(ptr %wide)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %block)" & vbCrLf
     Text = Text & "  %negative = icmp slt i64 %attributes, 0" & vbCrLf
     Text = Text & "  br i1 %negative, label %classify, label %present" & vbCrLf

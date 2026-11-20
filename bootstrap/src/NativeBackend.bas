@@ -2,7 +2,7 @@ Attribute VB_Name = "NativeBackend"
 Option Explicit
 
 ' Publishes bounded LLVM/native artifacts through same-directory staging and direct hidden tool execution.
-Private Const MaximumIRBytes As Long = 16777216
+Private Const MaximumIRBytes As Long = 33554432
 Private Const MaximumLogBytes As Long = 65536
 Private Const MaximumNativeBytes As Long = 67108864
 

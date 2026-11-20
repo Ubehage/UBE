@@ -132,6 +132,24 @@ This final rerun used `check.ps1 -BootstrapExe` with
 including shared close-error preservation, canonical-path helpers and the enlarged
 project node capacity. All listed assertions passed again at O0/O2.
 
+The 2026-11-20 rerun also passed six private support-append cases at O0/O2:
+equal public/private module names, absent manifest/source, malformed support tail,
+same-domain duplicate and executable-manifest refusal. Every failed append
+preserves the original bytes/tokens/nodes/modules and counts, then recovers with
+correct domain and canonical diagnostic path. All owners balance. Evidence:
+`ube project source 59ecddfd-fa09-42bb-8c63-1c1f14a763ad`, using
+`check.ps1 -BootstrapExe <ube native intrinsics bafe0549-2503-4339-8ff6-a8aa704cd21d/build/UBE-Bootstrap.exe>`.
+The original 15 cases and 155 allocation sites/retries also passed again.
+Failure exits now encode `assertion * 100 + case`; the changed-byte control
+therefore expects 701 (assertion 7, case 1).
+
+The expanded rerun `ube project source 54eadedd-e949-4248-a7ff-f5c97937c6a5`
+passes nine append cases at O0/O2, adding strict installed-source validation:
+the actual nine-source closure, wrong source count, and changed source bytes.
+Checks occur before parsing the same owned byte buffer. Failed strict requests
+preserve earlier project prefixes and recover with the reviewed closure.
+The original loader cases and all 155 allocation fault/retry sites also passed.
+
 The first monolithic loader exceeded the existing temporary-frame limit.
 Separating manifest and source loading into domain-specific helpers allowed
 the same source dependency without increasing resource bounds. The gate links

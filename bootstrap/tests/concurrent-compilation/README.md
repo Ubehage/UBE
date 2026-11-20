@@ -1,5 +1,13 @@
 # Concurrent compiler acceptance
 
+The managed-support planner split and 32 MiB IR limit passed the complete request
+gate using the `f844bb77` seed:
+`ube concurrent compilation a97c54ed-1eb3-4731-b6c5-7cc61e5eb347`.
+This run includes worker isolation, cancellation, quota diagnostics, retained
+cleanup failures and native backend failure/timeout recovery. Quota injection
+uses a compiled UBE helper with named state fields and production limit constants,
+avoiding offsets invalidated by managed role metadata or stale hardcoded limits.
+
 The ordinary UBE coordinator uses one or two workers, selected explicitly by
 `CompilationRequest.TryCompile`. This is a bounded implementation, not a
 hardware-scaled scheduler. `CompilerCommand` selects two workers and renders the
@@ -16,7 +24,7 @@ After every started source worker has completed, the request checks cumulative
 work, byte and line charges, copies closed chunks in stable symbol order, writes
 the footer and leaves publication to the existing guarded publication path.
 Quota replay preserves the accepted diagnostic cursor. The unchanged request
-limits are 10000000 work charges, 16777216 LLVM bytes and 500000 lines.
+limits are 10000000 work charges, 33554432 LLVM bytes and 500000 lines.
 
 Request resources, range results and stage ownership remain with the caller for
 cleanup retry. `SourceFinished` means source execution and capture access have

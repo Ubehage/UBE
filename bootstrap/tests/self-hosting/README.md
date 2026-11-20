@@ -1,5 +1,20 @@
 # Compiler CLI conformance
 
+Managed-support rebuild qualification on 2026-11-20 passed two fresh UBE
+generations in `ube compiler rebuild 2a484f43-e11e-4490-8436-686fe60cb92a`.
+Both emitted 18,788,096 identical LLVM bytes, SHA256
+`0BA9B502C6860E4A0EBCEC47782D59F772EEADAE3688F1DDEE92E8D1DAF963C3`.
+Native images differed only at byte 128 within the four-byte COFF timestamp.
+The observed build processes took 19,633 ms and 20,167 ms; these were acceptance
+runs, not isolated performance benchmarks. The initial UBE executable was built
+from current sources with fresh VB6 seed `ube native intrinsics
+f844bb77-293e-4c69-af9f-cdb03f67bbb6/build/UBE-Bootstrap.exe`.
+The full common CLI gate then passed 1,004 assertions against that fresh seed
+and generation 2: `ube compiler conformance
+d5054852-f940-4786-aa2d-c6f43fd1834e`. This includes both optimization levels,
+deterministic output, all nine source families and backend timeout/failure
+preservation followed by recovery.
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap/tests/self-hosting/check.ps1 -CompilerExe <actual-UBE-compiler.exe> -BootstrapExe <UBE-Bootstrap.exe> -Clang 'C:\Program Files\LLVM\bin\clang.exe'
 ```

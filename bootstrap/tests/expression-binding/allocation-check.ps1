@@ -148,7 +148,7 @@ function Read-Procedures([string]$Manifest) {
 # Emits the actual declaration binder, parser, scanner, token helpers and a sentinel observer fixture.
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$analysisFiles=@((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $compilerDirectory 'ProjectSyntax.bas'),(Join-Path $compilerDirectory 'DeclarationBinder.bas'),(Join-Path $compilerDirectory 'ConstantValues.bas'),(Join-Path $compilerDirectory 'ExpressionBinder.bas'))
+$analysisFiles=@((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $compilerDirectory 'ProjectSyntax.bas'),(Join-Path $compilerDirectory 'DeclarationBinder.bas'),(Join-Path $compilerDirectory 'ConstantValues.bas'),(Join-Path $compilerDirectory 'ConstantText.bas'),(Join-Path $coreDirectory 'FilePrimitives.bas'),(Join-Path $coreDirectory 'ByteText.bas'),(Join-Path $coreDirectory 'InvariantNumbers.bas'),(Join-Path $compilerDirectory 'ExpressionBinder.bas'))
 if($Analysis -eq 'Escape'){$analysisFiles+=(Join-Path $compilerDirectory 'NativeEscapes.bas');$analysisFiles+=(Join-Path $PSScriptRoot '../native-escapes/AllocationProbe.bas')}else{$analysisFiles+=(Join-Path $PSScriptRoot 'ExpressionAllocationProbe.bas')}
 $manifest = Copy-Fixtures 'analysis allocation library' $analysisFiles '0' 'Library'
 $procedures = Read-Procedures $manifest
@@ -164,6 +164,7 @@ foreach ($name in @('allocate','release')) {
 $sourceText = "UBE SOURCE 1 MODULE`nAttribute UBE_Name = `"Example`"`nPublic Function Main() As Long`n"
 foreach ($index in 1..300) { $sourceText += "Dim Value$index As Long`n" }
 $sourceText += "Value1 = Value2 + 1`nMain = Value1`nEnd Function`n"
+if($Analysis -eq 'Expression'){$sourceText += 'Public Const Caption As String = "Az" & ":" & True & 42' + "`n"}
 if($Analysis -eq 'Escape'){$sourceText += "Sub Relay(ByRef Value As Long)`nCallNew Worker(Value)`nEnd Sub`nSub Worker(ByRef Value As Long)`nEnd Sub`n"}
 $sourceBytes = $utf8.GetBytes($sourceText)
 $sourceCells = ($sourceBytes | ForEach-Object { 'i64 ' + $_ }) -join ', '

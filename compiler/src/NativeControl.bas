@@ -69,8 +69,10 @@ Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As 
     S.ErrorNode = Node
     S.CurrentNext = Continuation
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) = False Then Exit Function
+    If Not NativeFrames.TryRetireTemporaries(P, S, B, Token, Catalog) Then Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
     If Condition <> 0 Then
-        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Condition, Terminated)
+        Value = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Condition, SyntaxTokens.KwBoolean, Terminated)
         If S.Text.Failed Then Exit Function
         If Terminated = False Then
             Test = NativeEmission.NewValue(S)
@@ -139,11 +141,11 @@ Private Function TryEmitAssignment(ByRef N() As SourceParser.SyntaxNode, ByRef A
             If Terminated = False Then
                 If E(Target - 1).ArrayRank = 1 Then
                     Test = NativeEmission.NewValue(S)
-                    If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlArrayCopy, Test, Address, SourceAddress, L(Target - 1).ElementCells) = False Then Exit Function
+                    If Not NativeStorage.CopyArray(A, L, S, B, Token, Catalog, Test, Address, SourceAddress, L(Target - 1).ElementCells, L(Target - 1).ManagedReferences, E(Target - 1).TypeCode, E(Target - 1).TypeSymbol) Then Exit Function
                     If NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Test) = False Then Exit Function
                 Else
                     If NativeStorage.SnapshotCells(S, B, Token, Catalog, SourceAddress, L(Target - 1).StorageCells, Values) = False Then Exit Function
-                    If NativeStorage.StoreCells(S, B, Token, Catalog, Address, Values) = False Then Exit Function
+                    If Not NativeStorage.StoreTypedCells(A, L, E(Target - 1).TypeCode, E(Target - 1).TypeSymbol, L(Target - 1).ManagedReferences, S, B, Token, Catalog, Address, Values) Then Exit Function
                 End If
                 If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, ValueNode) = False Then Exit Function
             End If
@@ -155,7 +157,7 @@ Private Function TryEmitAssignment(ByRef N() As SourceParser.SyntaxNode, ByRef A
                     Address = NativeStorage.StorageAddress(A, P, S, B, Token, Catalog, Symbol)
                     If S.Text.Failed Then Exit Function
                 End If
-                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreValue, Value, Address, 0, 0) = False Then Exit Function
+                If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Address, Value, E(Target - 1).TypeCode) Then Exit Function
             End If
         End If
     End If
@@ -189,6 +191,8 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SourceLocation, S.CurrentModule, Node, N(Node - 1).Line, N(Node - 1).Column) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Node, 0, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) = False Then Exit Function
+    If Not NativeFrames.TryRetireTemporaries(P, S, B, Token, Catalog) Then Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
     If Kind = SourceParser.VariableNode Or Kind = SourceParser.AssignmentNode Then
         If TryEmitAssignment(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated) = False Then Exit Function
     ElseIf Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode Then
@@ -210,7 +214,7 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
         Child = N(Node - 1).FirstChild
         ThenNode = N(Child - 1).NextSibling
         ElseNode = N(ThenNode - 1).NextSibling
-        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, Terminated)
+        Value = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, SyntaxTokens.KwBoolean, Terminated)
         If S.Text.Failed Then Exit Function
         If Terminated = False Then
             Test = NativeEmission.NewValue(S)

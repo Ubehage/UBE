@@ -2,6 +2,42 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ByteText"
 ' Formats exact scalar values into caller-owned counted ASCII bytes.
 
+' Appends invariant Boolean text with the same counted-buffer publication contract.
+Public Function TryAppendBoolean(ByRef Destination() As Byte, ByRef Used As Long, ByVal Value As Boolean) As Boolean
+    Dim Scratch(0 To 4) As Byte
+    Dim Count As Long = 5
+    Dim Capacity As Long
+    Dim Endpoint As Byte
+    On Error GoTo Failed
+    If Used < 0 Then TryAppendBoolean = FilePrimitives.SetError(5): Exit Function
+    Capacity = BufferPrimitives.ByteStorageLength(Destination)
+    If Used > Capacity Then TryAppendBoolean = FilePrimitives.SetError(9): Exit Function
+    If Capacity > 0 Then
+        Endpoint = Destination(0)
+        Endpoint = Destination(Capacity - 1)
+    End If
+    If Value Then
+        Scratch(0) = 84
+        Scratch(1) = 114
+        Scratch(2) = 117
+        Scratch(3) = 101
+        Count = 4
+    Else
+        Scratch(0) = 70
+        Scratch(1) = 97
+        Scratch(2) = 108
+        Scratch(3) = 115
+        Scratch(4) = 101
+    End If
+    If Count > Capacity - Used Then TryAppendBoolean = FilePrimitives.SetError(9): Exit Function
+    If Not BufferPrimitives.CopyByteRange(Scratch, 0, Destination, Used, Count) Then Exit Function
+    Used = Used + Count
+    TryAppendBoolean = True
+    Exit Function
+Failed:
+    TryAppendBoolean = False
+End Function
+
 ' Appends signed decimal text atomically, including the minimum LongLong value.
 Public Function TryAppendInteger(ByRef Destination() As Byte, ByRef Used As Long, ByVal Value As LongLong) As Boolean
     Dim Scratch(0 To 19) As Byte

@@ -15,6 +15,9 @@ Private RoleCount As Long
 Private Layout() As AggregateLayout.StorageFact
 Private LayoutCount As Long
 Private Diagnostic As DeclarationBinder.BindingDiagnostic
+Private Symbols() As DeclarationBinder.BoundSymbol
+Private SymbolCount As Long
+Private EntrySymbol As Long
 
 ' Measures the separately retained primitive output capacity.
 Private Intrinsic Function RoleLength(ByRef Values() As Long) As Long
@@ -82,8 +85,59 @@ Public Function Bind(ByVal Mode As Long, ByVal IsExecutable As Boolean) As Long
         Status = PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Roles, RoleCount, Diagnostic)
     Else
         Status = AggregateLayout.TryLayout(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Layout, LayoutCount, Diagnostic)
+        If Status Then Status = DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic)
     End If
     If Status = False Then Bind = 1 Else Bind = 0
+    If Status And Mode <> 0 Then
+        If Not CheckPrepared(IsExecutable) Then Bind = 4
+    End If
+End Function
+
+' Matches standalone layout and rejects malformed prepared facts without replacing prior output.
+Private Function CheckPrepared(ByVal IsExecutable As Boolean) As Boolean
+    Dim Expressions() As ExpressionBinder.BoundExpression
+    Dim TextArena() As Byte
+    Dim TextUsed As Long
+    Dim ExpressionCount As Long
+    Dim Prepared() As AggregateLayout.StorageFact
+    Dim PreparedCount As Long
+    Dim LocalDiagnostic As DeclarationBinder.BindingDiagnostic
+    Dim Saved As Long
+    Dim Index As Long
+    If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, TextArena, TextUsed, LocalDiagnostic) Then Exit Function
+    If Not AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Prepared, PreparedCount, LocalDiagnostic) Then Exit Function
+    If PreparedCount <> LayoutCount Then Exit Function
+    Do While Index < LayoutCount
+        If Prepared(Index).ElementCells <> Layout(Index).ElementCells Or Prepared(Index).StorageCells <> Layout(Index).StorageCells Or Prepared(Index).FieldOffset <> Layout(Index).FieldOffset Or Prepared(Index).ManagedReferences <> Layout(Index).ManagedReferences Then Exit Function
+        Index = Index + 1
+    Loop
+    If AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount - 1, Prepared, PreparedCount, LocalDiagnostic) Then Exit Function
+    If LocalDiagnostic.Code <> 9 Or LocalDiagnostic.Reason <> 47 Or PreparedCount <> 0 Or FactLength(Prepared) <> LayoutCount Then Exit Function
+    LocalDiagnostic.Code = 0
+    Saved = Symbols(0).DeclarationNode
+    Symbols(0).DeclarationNode = Counts.NodeCount + 1
+    If AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Prepared, PreparedCount, LocalDiagnostic) Then Exit Function
+    Symbols(0).DeclarationNode = Saved
+    If LocalDiagnostic.Code <> 9 Or LocalDiagnostic.Reason <> 47 Then Exit Function
+    LocalDiagnostic.Code = 0
+    Saved = Expressions(0).TypeSymbol
+    Expressions(0).TypeSymbol = SymbolCount + 1
+    If AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Prepared, PreparedCount, LocalDiagnostic) Then Exit Function
+    Expressions(0).TypeSymbol = Saved
+    If LocalDiagnostic.Code <> 9 Or LocalDiagnostic.Reason <> 47 Then Exit Function
+    LocalDiagnostic.Code = 0
+    Saved = Symbols(0).LookupDomain
+    Symbols(0).LookupDomain = 2
+    If AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Prepared, PreparedCount, LocalDiagnostic) Then Exit Function
+    Symbols(0).LookupDomain = Saved
+    If LocalDiagnostic.Code <> 9 Or LocalDiagnostic.Reason <> 47 Then Exit Function
+    Index = 0
+    Do While Index < LayoutCount
+        If Prepared(Index).ElementCells <> Layout(Index).ElementCells Or Prepared(Index).StorageCells <> Layout(Index).StorageCells Or Prepared(Index).FieldOffset <> Layout(Index).FieldOffset Or Prepared(Index).ManagedReferences <> Layout(Index).ManagedReferences Then Exit Function
+        Index = Index + 1
+    Loop
+    LocalDiagnostic.Code = 0
+    CheckPrepared = AggregateLayout.TryLayoutPrepared(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, ExpressionCount, Prepared, PreparedCount, LocalDiagnostic)
 End Function
 
 ' Returns the logical published count for one pass.
@@ -159,7 +213,22 @@ Public Function LayoutField(ByVal Identity As Long, ByVal Field As Long) As Long
     If Field = 0 Then LayoutField = Layout(Identity - 1).ElementCells: Exit Function
     If Field = 1 Then LayoutField = Layout(Identity - 1).StorageCells: Exit Function
     If Field = 2 Then LayoutField = Layout(Identity - 1).FieldOffset: Exit Function
+    If Field = 3 Then LayoutField = Layout(Identity - 1).ManagedReferences: Exit Function
     Err.Raise 5
+End Function
+
+' Resolves the tested source identity before asking production metadata traversal for its exact offset.
+Public Function ReferenceOffset(ByVal Identity As Long, ByVal ReferenceIndex As Long) As Long
+    Dim Index As Long
+    Dim Offset As Long = -1
+    ReferenceOffset = -1
+    Do While Index < SymbolCount
+        If Symbols(Index).DeclarationNode = Identity And Symbols(Index).Kind <> DeclarationBinder.ResultSymbol Then
+            If ManagedLayouts.TryReferenceOffset(Symbols, Layout, Symbols(Index).TypeCode, Symbols(Index).TypeSymbol, ReferenceIndex, Offset) Then ReferenceOffset = Offset
+            Exit Function
+        End If
+        Index = Index + 1
+    Loop
 End Function
 
 ' Reports the first controlled semantic failure with its original source coordinates.

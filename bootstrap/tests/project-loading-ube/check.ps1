@@ -53,6 +53,7 @@ $nl=[Environment]::NewLine
 Write-Output "Artifacts retained: $artifacts"
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $files=@('std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/FileBytes.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/PathPrimitives.bas','std-lib/src/win-lib/WindowsPaths.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ProjectSyntax.bas','compiler/src/ProjectManifest.bas','compiler/src/ProjectLoader.bas','bootstrap/tests/project-loading-ube/LoaderProbe.bas')
+$files+='compiler/src/ManagedSourceAssets.bas'
 $lines=@('UBE-Project 1','Name = "LoaderTests"','Kind = "Library"')
 foreach($file in $files){
  $leaf=[IO.Path]::GetFileName($file)
@@ -160,7 +161,7 @@ for($i=0;$i -lt $cases.Count;$i++){
  $code+=@("case$($i):",'store i64 0,ptr @test.read.calls',"store i64 $failRead,ptr @test.read.fail.at","store i32 $readMode,ptr @test.read.mode")
  $code+=@('store i64 0,ptr @test.read.bytes',"store i32 $closeFailures,ptr @test.close.failures","%p$i=call {i1,i64} @ube.proc.$($symbols['CheckLoad'])(ptr @test.context,ptr @path$i,ptr @bytes$i,ptr @first$i,ptr @last$i,i64 $($f.Count),i64 $($c.Stage),i64 $($c.Code),i64 $($c.Module),i64 $($c.Line),i64 $($c.Mode))","%fresh$i=extractvalue {i1,i64} %p$i,0","%value$i=extractvalue {i1,i64} %p$i,1","%zero$i=icmp eq i64 %value$i,0","%good$i=and i1 %fresh$i,%zero$i","%live$i=load i64,ptr @test.live","%clean$i=icmp eq i64 %live$i,0","%handles$i=load i64,ptr @test.handles","%closed$i=icmp eq i64 %handles$i,0","%a$i=and i1 %good$i,%clean$i","%b$i=and i1 %a$i,%closed$i")
  if($c.ReadBytes -ge 0){$code+=@("%read$i=load i64,ptr @test.read.bytes","%exact$i=icmp eq i64 %read$i,$($c.ReadBytes)","%all$i=and i1 %b$i,%exact$i")}else{$code+="%all$i=and i1 %b$i,true"}
- $code+=@("br i1 %all$i,label %case$($i+1),label %failed$i","failed$($i):","%dispose$i=call i1 @ube.context.dispose(ptr @test.context)","ret i32 $($i+1)")
+ $code+=@("br i1 %all$i,label %case$($i+1),label %failed$i","failed$($i):","%dispose$i=call i1 @ube.context.dispose(ptr @test.context)","%reason$i=mul i64 %value$i,100","%tag$i=add i64 %reason$i,$($i+1)","%exit$i=trunc i64 %tag$i to i32","ret i32 %exit$i")
 }
 $code+=@("case$($cases.Count):",'%disposed=call i1 @ube.context.dispose(ptr @test.context)','%exit=select i1 %disposed,i32 0,i32 254','ret i32 %exit','failed:','ret i32 255','}')
 $path=Join-Path $artifacts 'loader.ll'
@@ -225,7 +226,58 @@ Write-Text $path $negative
 $exe=Join-Path $artifacts 'negative.exe'
 Build $path $exe 'O2'
 $r=Run $exe @()
-Require ($r.ExitCode -eq 1) 'Changed expected source must fail first exact case'
+Require ($r.ExitCode -eq 701) 'Changed expected source must fail first exact case with the byte-span assertion'
 Write-Output 'PASS exact changed-source negative control'
+
+# Private support shares arenas, but equal project module names are independent identities.
+$support=Fixture 'private support' @('first.bas') @($first)
+$supportBad=Fixture 'private support bad tail' @('first.bas','bad.bas') @($first,'NotASource'+$nl)
+$supportExe=Fixture 'private support executable' @('first.bas') @($first)
+Write-Text $supportExe.Path (@('UBE-Project 1','Name="ManagedSupport"','Kind="Exe"','Startup="Main"','Source="first.bas"','') -join $nl)
+$supportCases=@(
+ @{Name='equal public/private identity';Path=$support.Path;Stage=0;Code=0},
+ @{Name='missing support manifest';Path=(Join-Path $artifacts 'absent.UBE');Stage=2;Code=3},
+ @{Name='missing support source';Path=$missing.Path;Stage=6;Code=3},
+ @{Name='bad support tail preserves project';Path=$supportBad.Path;Stage=8;Code=2},
+ @{Name='same-domain duplicate';Path=$duplicateModule.Path;Stage=8;Code=3},
+ @{Name='support cannot be executable';Path=$supportExe.Path;Stage=4;Code=11}
+)
+$reviewedEntries=@([IO.File]::ReadAllLines((Join-Path $root 'runtime/managed-support-sources.txt'),$utf8)|ForEach-Object{$_.Trim()}|Where-Object{$_ -and -not $_.StartsWith('#')})
+$reviewedNames=@($reviewedEntries|ForEach-Object{[IO.Path]::GetFileName($_)})
+$reviewedBodies=@($reviewedEntries|ForEach-Object{[IO.File]::ReadAllText((Join-Path $root $_),$utf8)})
+$reviewed=Fixture 'reviewed support' $reviewedNames $reviewedBodies
+$corrupt=Fixture 'corrupt reviewed support' $reviewedNames $reviewedBodies
+[IO.File]::AppendAllText((Join-Path $corrupt.Folder 'Text.bas'),"`r`n' altered reviewed source`r`n",$utf8)
+$supportCases+=@(
+ @{Name='reviewed complete closure';Path=$reviewed.Path;Stage=0;Code=0;Reviewed=$true},
+ @{Name='reviewed source count';Path=$support.Path;Stage=4;Code=11;Reviewed=$true},
+ @{Name='reviewed source integrity';Path=$corrupt.Path;Stage=9;Code=11;Reviewed=$true}
+)
+$supportGlobals='@test.context = private global %ube.context zeroinitializer,align 8'+$nl
+$supportGlobals+=Descriptor 'project' ($utf8.GetBytes($valid.Path))
+$supportGlobals+=Descriptor 'recovery' ($utf8.GetBytes($support.Path))
+$supportGlobals+=Descriptor 'expected' ($utf8.GetBytes($support.Last))
+$supportGlobals+=Descriptor 'reviewedRecovery' ($utf8.GetBytes($reviewed.Path))
+$supportGlobals+=Descriptor 'reviewedExpected' ($utf8.GetBytes($reviewed.Last))
+$supportCode=@('define i32 @main(){','entry:','call void @ube.context.init(ptr @test.context)','%init=call i1 @ube.project.init(ptr @test.context)','br i1 %init,label %case0,label %failed')
+for($i=0;$i -lt $supportCases.Count;$i++){
+ $c=$supportCases[$i]
+ $reviewedFlag=0;$addedCount=1;$recoveryName='recovery';$expectedName='expected'
+ if($c.ContainsKey('Reviewed')){$reviewedFlag=-1;$addedCount=$reviewedEntries.Count;$recoveryName='reviewedRecovery';$expectedName='reviewedExpected'}
+ $supportGlobals+=Descriptor "support$i" ($utf8.GetBytes($c.Path))
+ $supportCode+=@("case$($i):","%p$i=call {i1,i64} @ube.proc.$($symbols['CheckSupport'])(ptr @test.context,ptr @project,ptr @support$i,ptr @$recoveryName,ptr @$expectedName,i64 $($c.Stage),i64 $($c.Code),i64 $reviewedFlag,i64 $addedCount)","%fresh$i=extractvalue {i1,i64} %p$i,0","%value$i=extractvalue {i1,i64} %p$i,1","%zero$i=icmp eq i64 %value$i,0","%good$i=and i1 %fresh$i,%zero$i","%live$i=load i64,ptr @test.live","%clean$i=icmp eq i64 %live$i,0","%handles$i=load i64,ptr @test.handles","%closed$i=icmp eq i64 %handles$i,0","%a$i=and i1 %good$i,%clean$i","%all$i=and i1 %a$i,%closed$i","br i1 %all$i,label %case$($i+1),label %failed$i","failed$($i):","ret i32 $($i+1)")
+}
+$supportCode+=@("case$($supportCases.Count):",'%disposed=call i1 @ube.context.dispose(ptr @test.context)','%exit=select i1 %disposed,i32 0,i32 254','ret i32 %exit','failed:','ret i32 255','}')
+$supportIR=Join-Path $artifacts 'support.ll'
+$supportCombined=$production+$nl+$observer+$nl+$allocator+$nl+$supportGlobals+($supportCode -join $nl)
+Write-Text $supportIR $supportCombined
+foreach($level in @('O0','O2')){
+ $exe=Join-Path $artifacts "support-$level.exe"
+ Build $supportIR $exe $level
+ $r=Run $exe @()
+ if($r.ExitCode -gt 0 -and $r.ExitCode -le $supportCases.Count){Write-Output ('Failed support case: '+$supportCases[$r.ExitCode-1].Name)}
+ Require ($r.ExitCode -eq 0) "Support loader assertions failed $level $($r.ExitCode) $($r.Evidence)"
+ Write-Output "PASS $level : $($supportCases.Count) support append cases, exact prefix preservation, domain separation, diagnostic paths and recovery"
+}
 
 
