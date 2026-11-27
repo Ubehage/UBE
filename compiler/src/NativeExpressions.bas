@@ -250,10 +250,18 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Dim Result As Long
     Dim Template As Long
     Dim Role As Long
+    Dim ReceiverValue As Long
+    Dim ReceiverAddress As Long
     On Error GoTo Failed
     Symbol = E(Node - 1).SymbolIndex
     Role = E(Node - 1).TrustedRole
     Callee = N(Node - 1).FirstChild
+    If DeclarationBinder.IsInstanceMember(A, Symbol) Then
+        ReceiverValue = NativeObjects.CaptureReceiver(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If ReceiverValue = 0 Or Terminated Then Exit Function
+        ReceiverAddress = NativeObjects.PayloadAddress(S, B, Token, Catalog, Seen, Nexts, ReceiverValue, A(Symbol - 1).ScopeSymbol)
+        If ReceiverAddress = 0 Then Exit Function
+    End If
     If TryPrepareArguments(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated, Values, Owners, Count) = False Then Exit Function
     If N(Node - 1).Kind = SourceParser.ThreadStartNode Then
         EmitCall = NativeThreads.EmitStart(N, E, P, Escapes, Pins, Values, Owners, S, B, Token, Catalog, Seen, Nexts, Node, Count)
@@ -286,6 +294,9 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Parameter = A(Symbol - 1).FirstParameter
     Pair = NativeEmission.NewValue(S)
     If Fragment(S, B, Token, Catalog, LLVMTemplates.CallStart, Pair, Symbol) = False Then Exit Function
+    If ReceiverValue <> 0 Then
+        If Not Fragment(S, B, Token, Catalog, LLVMTemplates.CallValueArgument, ReceiverValue, 0) Then Exit Function
+    End If
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         Template = LLVMTemplates.CallValueArgument
@@ -502,7 +513,11 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         End If
         Exit Function
     End If
-    If E(Node - 1).AccessKind = 1 Or E(Node - 1).AccessKind = 2 Then
+    If E(Node - 1).IsCurrentInstance Then
+        EmitExpression = NativeObjects.CurrentInstance(S, B, Token, Catalog)
+        Exit Function
+    End If
+    If E(Node - 1).AccessKind = 1 Or E(Node - 1).AccessKind = 2 Or E(Node - 1).AccessKind = 4 Then
         Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         If Address = 0 Or Terminated Then Exit Function
         Result = NativeEmission.NewValue(S)
@@ -515,7 +530,7 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
     End If
     Kind = N(Node - 1).Kind
     If Kind = SourceParser.NewObjectNode Then
-        Result = NativeObjects.Create(A, E, S, B, Token, Catalog, Seen, Nexts, Node)
+        Result = NativeObjects.Create(A, E, L, S, B, Token, Catalog, Seen, Nexts, Node)
     ElseIf Kind = SourceParser.NothingNode Then
         Result = NativeEmission.Literal(S, B, Token, Catalog, 0)
     ElseIf Kind = SourceParser.NameNode Or Kind = SourceParser.MemberNode Then

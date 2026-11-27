@@ -23,7 +23,7 @@ Failed:
 End Function
 
 ' The result slot is already an exact expression root before allocation can collect.
-Public Function Create(ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long) As Long
+Public Function Create(ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long) As Long
     Dim Symbol As Long
     Dim Status As Long
     Dim Value As Long
@@ -32,7 +32,7 @@ Public Function Create(ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As 
     If Symbol < 1 Then GoTo Invalid
     If A(Symbol - 1).Kind <> SourceParser.ClassNode Or E(Node - 1).TypeCode <> SyntaxTokens.KwObject Then GoTo Invalid
     Status = NativeEmission.NewValue(S)
-    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ObjectCreate, Status, Symbol, Node, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ObjectCreate, Status, Symbol, Node, L(A(Symbol - 1).DeclarationNode - 1).InstanceCells * 8) Then Exit Function
     If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
     Value = NativeEmission.NewValue(S)
     If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadManagedExpression, Value, Node, 0, 0) Then Exit Function
@@ -50,6 +50,54 @@ Failed:
     S.Text.Failure = 1
     S.Text.ErrorNumber = Err.Number
     S.ErrorNode = Node
+End Function
+
+' Reads the immutable hidden receiver retained by this invocation.
+Public Function CurrentInstance(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Long
+    Dim Value As Long
+    Value = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.InstanceValue, Value, 0, 0, 0) Then Exit Function
+    CurrentInstance = Value
+End Function
+
+' Captures explicit receivers before later operands can replace their source storage.
+Public Function CaptureReceiver(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+    Dim Receiver As Long
+    Dim Value As Long
+    On Error GoTo Failed
+    Receiver = E(Node - 1).InstanceReceiver
+    If Receiver = 0 Then
+        Value = CurrentInstance(S, B, Token, Catalog)
+    Else
+        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TextRootStore, Node, Value, 0, 0) Then Exit Function
+    End If
+    CaptureReceiver = Value
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = Node
+End Function
+
+' Uses the runtime's checked nominal lookup while the caller retains the exact identity.
+Public Function PayloadAddress(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Identity As Long, ByVal ClassSymbol As Long) As Long
+    Dim Address As Long
+    Dim Accepted As Long
+    On Error GoTo Failed
+    Address = NativeEmission.NewValue(S)
+    Accepted = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ObjectAddress, Address, Identity, ClassSymbol, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ObjectAddressValid, Accepted, Address, 0, 0) Then Exit Function
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Accepted) Then Exit Function
+    PayloadAddress = Address
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
 End Function
 
 ' Only already-bound Is/IsNot operations reach this identity comparison.

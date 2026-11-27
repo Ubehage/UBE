@@ -277,7 +277,15 @@ Public Function EmitAddress(ByRef N() As SourceParser.SyntaxNode, ByRef A() As D
         EmitAddress = EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, N(Node - 1).FirstChild, Terminated)
         Exit Function
     End If
-    If E(Node - 1).AccessKind = 1 Then
+    If E(Node - 1).AccessKind = 4 Then
+        Receiver = NativeObjects.CaptureReceiver(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Receiver = 0 Or Terminated Then Exit Function
+        Symbol = E(Node - 1).SymbolIndex
+        Base = NativeObjects.PayloadAddress(S, B, Token, Catalog, Seen, Nexts, Receiver, A(Symbol - 1).ScopeSymbol)
+        If Base = 0 Then Exit Function
+        Result = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Result, Base, L(A(Symbol - 1).DeclarationNode - 1).FieldOffset, 0) Then Exit Function
+    ElseIf E(Node - 1).AccessKind = 1 Then
         Receiver = N(Node - 1).FirstChild
         Base = EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Receiver, Terminated)
         If Base = 0 Or Terminated Then Exit Function

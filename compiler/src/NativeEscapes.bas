@@ -5,6 +5,7 @@ Public Const ProgramOwner As Long = 1
 Public Const SymbolOwner As Long = 2
 Public Const TemporaryOwner As Long = 3
 Public Const PayloadOwner As Long = 4
+Public Const InstanceOwner As Long = 5
 
 Public Type EscapeFact
     StorageEscapes As Boolean
@@ -56,6 +57,12 @@ Private Function FindOwner(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Node = Argument
     Do
         If Charge(Work, D) = False Then Exit Function
+        If E(Node - 1).AccessKind = 4 Then
+            F(Argument - 1).OwnerKind = InstanceOwner
+            F(Argument - 1).OwnerIdentity = Node
+            FindOwner = True
+            Exit Function
+        End If
         If E(Node - 1).AccessKind = 2 Then
             F(Argument - 1).OwnerKind = PayloadOwner
             F(Argument - 1).OwnerIdentity = Node
@@ -188,6 +195,16 @@ Public Function TryAnalyzeEscapes(ByRef N() As SourceParser.SyntaxNode, ByRef A(
             RequireOwner N, A, E, Candidate, Marked, Queue, Tail, Argument
             Argument = Nexts(Argument - 1)
         Loop
+    Loop
+    Argument = 1
+    Do While Argument <= NodeCount
+        If Candidate(Argument - 1).NeedsOwner And Candidate(Argument - 1).OwnerKind = InstanceOwner Then
+            Diagnostic.Code = 8
+            Diagnostic.Reason = 55
+            Diagnostic.Node = Argument
+            Exit Function
+        End If
+        Argument = Argument + 1
     Loop
     If Not MoveFacts(Facts, Candidate) Then GoTo StorageFailure
     FactCount = NodeCount

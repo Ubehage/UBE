@@ -76,6 +76,10 @@ Public Function NeedsTextSlot(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Ex
     Dim Kind As Long
     Dim Parent As Long
     On Error GoTo Failed
+    Kind = Nodes(Node - 1).Kind
+    If Kind = SourceParser.NameNode Or Kind = SourceParser.MemberNode Or Kind = SourceParser.CallNode Then
+        If Expressions(Node - 1).AccessKind = 4 Or Expressions(Node - 1).InstanceReceiver <> 0 Then NeedsTextSlot = True: Exit Function
+    End If
     If Expressions(Node - 1).ArrayRank <> 0 Then Exit Function
     If IsRecordValue(Expressions(Node - 1).TypeCode, Expressions(Node - 1).TypeSymbol) And Expressions(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then Exit Function
     If Not IsManagedScalar(Expressions(Node - 1).TypeCode) And Not IsManagedScalar(Expressions(Node - 1).ConvertedType) Then Exit Function

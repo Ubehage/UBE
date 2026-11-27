@@ -721,3 +721,61 @@ Public Function IsIntegerToken(ByRef Source() As Byte, ByRef Tokens() As SourceS
 Failed:
     Err.Raise Err.Number
 End Function
+
+' Recognizes the two deferred lifecycle hooks through shared decoded identifier spelling.
+Public Function IsLifecycleName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByVal Token As Long, ByVal Instance As Boolean) As Boolean
+    Dim Position As Long
+    Dim Character As Long
+    Dim Expected As Long
+    Dim Offset As Long
+    Dim Initialize As Boolean = True
+    Dim Terminate As Boolean = True
+    On Error GoTo Failed
+    Do While Position < 18
+        Offset = Position
+        If Instance And Position >= 6 Then Offset = Position - 1
+        Character = SpellingByte(B, T, Token, Count, Offset)
+        Expected = -1
+        If Position = 0 Then Expected = 109
+        If Position = 1 Then Expected = 111
+        If Position = 2 Then Expected = 100
+        If Position = 3 Then Expected = 117
+        If Position = 4 Then Expected = 108
+        If Position = 5 Then Expected = 101
+        If Position = 6 Then Expected = 95
+        If Instance Then
+            If Position = 0 Then Expected = 99
+            If Position = 1 Then Expected = 108
+            If Position = 2 Then Expected = 97
+            If Position = 3 Or Position = 4 Then Expected = 115
+            If Position = 5 Then Expected = 95
+        End If
+        If Position < 7 Then
+            If Character <> Expected Then Exit Function
+        Else
+            Expected = -1
+            If Position = 7 Or Position = 9 Or Position = 11 Or Position = 14 Then Expected = 105
+            If Position = 8 Then Expected = 110
+            If Position = 10 Then Expected = 116
+            If Position = 12 Then Expected = 97
+            If Position = 13 Then Expected = 108
+            If Position = 15 Then Expected = 122
+            If Position = 16 Then Expected = 101
+            If Character <> Expected Then Initialize = False
+            Expected = -1
+            If Position = 7 Or Position = 14 Then Expected = 116
+            If Position = 8 Or Position = 15 Then Expected = 101
+            If Position = 9 Then Expected = 114
+            If Position = 10 Then Expected = 109
+            If Position = 11 Then Expected = 105
+            If Position = 12 Then Expected = 110
+            If Position = 13 Then Expected = 97
+            If Character <> Expected Then Terminate = False
+        End If
+        Position = Position + 1
+    Loop
+    IsLifecycleName = Initialize Or Terminate
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function

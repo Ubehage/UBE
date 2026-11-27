@@ -62,7 +62,7 @@ function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'));$nl="`r`n"
 $portable=@('InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives')
 $windows=@('WindowsArguments','WindowsPaths','WindowsImages')
-$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ConstantValues','ConstantText','ProjectSyntax','ProjectManifest','ProjectLoader','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages')
+$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ConstantValues','ConstantText','ProjectSyntax','ProjectManifest','ProjectLoader','ManagedSourceAssets','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages')
 $files=@($portable|ForEach-Object{'std-lib/src/portable/'+$_+'.bas'})+@($windows|ForEach-Object{'std-lib/src/win-lib/'+$_+'.bas'})+@($compiler|ForEach-Object{'compiler/src/'+$_+'.bas'})+@('bootstrap/tests/native-backend-ube/Probe.bas')
 $lines=@('UBE-Project 1','Name = "Backend"','Kind = "Library"')
 foreach($file in $files){$leaf=[IO.Path]::GetFileName($file);Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $artifacts $leaf);$lines+='Source = "'+$leaf+'"'}
@@ -71,12 +71,27 @@ $bound=Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$manifest);Require (
 $symbols=@{};foreach($line in ($bound.Stdout -split '\r?\n')){if($line -match '^SYMBOL (\d+)\|function\|([^|]+)\|'){$symbols[$Matches[2]]=$Matches[1]}}
 $ir=Join-Path $artifacts 'backend.ll';$emission=Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$manifest,$ir);Require ($emission.ExitCode -eq 0) "Emission failed $($emission.Evidence)"
 $production=[IO.File]::ReadAllText($ir,$utf8)
+# Seed the shared import archive from the complete runtime before smaller writer tools reuse it.
+$null=Get-NativeMemoryLinkArguments $ir $Clang $artifacts
+# The negative control compiles a private source copy with only the old deadline restored.
+$backendPath=Join-Path $artifacts 'NativeBackend.bas'
+$backendSource=[IO.File]::ReadAllText($backendPath,$utf8)
+Require ([regex]::Matches($backendSource,'Current - Started >= 60000').Count -eq 1) 'Expected unique current backend deadline'
+try {
+ Write-Text $backendPath ($backendSource.Replace('Current - Started >= 60000','Current - Started >= 30000'))
+ $oldIR=Join-Path $artifacts 'old-deadline.ll'
+ $oldEmission=Invoke-BoundedProcess $BootstrapExe @('--emit-llvm',$manifest,$oldIR)
+ Require ($oldEmission.ExitCode -eq 0) "Old-deadline control emission failed $($oldEmission.Evidence)"
+ $oldProduction=[IO.File]::ReadAllText($oldIR,$utf8)
+} finally { Write-Text $backendPath $backendSource }
 $production=$production.Replace('define i64 @ube.target.system.clock()','define i64 @test.real.clock()')
 $production=$production.Replace('define i1 @ube.target.process.close(ptr %handle)','define i1 @test.real.close(ptr %handle)')
-$production+=@'
+$oldProduction=$oldProduction.Replace('define i64 @ube.target.system.clock()','define i64 @test.real.clock()').Replace('define i1 @ube.target.process.close(ptr %handle)','define i1 @test.real.close(ptr %handle)')
+$clockSeam=@'
 
 @test.clock.step = global i64 0
 @test.clock.value = global i64 0
+@test.clock.ceiling = global i64 0
 @test.close.remaining = global i64 0
 define i1 @ube.target.process.close(ptr %handle) {
 entry:
@@ -98,7 +113,12 @@ entry:
  br i1 %fake,label %injected,label %real
 injected:
  %old = load i64,ptr @test.clock.value
- %next = add i64 %old,%step
+ %sum = add i64 %old,%step
+ %ceiling = load i64,ptr @test.clock.ceiling
+ %bounded = icmp ne i64 %ceiling,0
+ %above = icmp ugt i64 %sum,%ceiling
+ %cap = and i1 %bounded,%above
+ %next = select i1 %cap,i64 %ceiling,i64 %sum
  store i64 %next,ptr @test.clock.value
  ret i64 %old
 real:
@@ -106,6 +126,8 @@ real:
  ret i64 %actual
 }
 '@
+$production+=$clockSeam
+$oldProduction+=$clockSeam
 
 # Creates independent counted input storage for emitted UBE function calls.
 function Descriptor([string]$Name,[string]$Value){$bytes=$utf8.GetBytes($Value);$cells=($bytes|ForEach-Object{'i64 '+$_}) -join ',';return "@$Name.data = global [$($bytes.Length) x i64] [$cells]"+$nl+"@$Name = global {i64,i64,ptr,ptr} {i64 0,i64 $($bytes.Length-1),ptr @$Name.data,ptr null}"+$nl}
@@ -172,11 +194,13 @@ foreach($level in @('O0','O2')){
  }
  foreach($line in @('define i32 @main() {','entry:','call void @ube.context.init(ptr @test.context)','%init = call i1 @ube.project.init(ptr @test.context)')){$code.Add($line)}
  Check 'BuildCase' 'ptr @clang,ptr @stage,ptr @definition,i64 0'
- foreach($entry in @(@('zero',$zero,0),@('bad',$bad,102),@('flood',$flood,101),@('timeout',$spin,100))){
+ foreach($entry in @(@('zero',$zero,0),@('late',$zero,0),@('bad',$bad,102),@('flood',$flood,101),@('timeout',$spin,100))){
   $name=$entry[0];$globals+=Descriptor ($name+'.app') $entry[1];$globals+=Descriptor ($name+'.command') ('"'+$entry[1]+'"');$globals+=Descriptor ($name+'.log') (Join-Path $stage ($name+'.log'))
-  if($name -eq 'timeout'){$code.Add('store i64 30000,ptr @test.clock.step');$code.Add('store i64 0,ptr @test.clock.value')}
+  if($name -eq 'late'){$code.Add('store i64 40000,ptr @test.clock.step');$code.Add('store i64 40000,ptr @test.clock.ceiling');$code.Add('store i64 0,ptr @test.clock.value')}
+  if($name -eq 'timeout'){$code.Add('store i64 60000,ptr @test.clock.step');$code.Add('store i64 0,ptr @test.clock.value')}
   Check 'RunCase' "ptr @$name.app,ptr @$name.command,ptr @stage,ptr @$name.log,i64 $($entry[2])"
   $code.Add('store i64 0,ptr @test.clock.step')
+  $code.Add('store i64 0,ptr @test.clock.ceiling')
  }
  foreach($entry in @(@('badarchive',103),@('nooutput',3),@('badimage',16))){
   $name=$entry[0];$private=Join-Path $artifacts ($level+' '+$name);$null=New-Item -ItemType Directory -Path $private
@@ -186,7 +210,7 @@ foreach($level in @('O0','O2')){
  }
  Check 'AssetsCase' 'i64 0'
  $globals+=Descriptor 'retained.log' (Join-Path $stage 'retained.log')
- $code.Add('store i64 30000,ptr @test.clock.step');$code.Add('store i64 0,ptr @test.clock.value');$code.Add('store i64 10,ptr @test.close.remaining')
+ $code.Add('store i64 60000,ptr @test.clock.step');$code.Add('store i64 0,ptr @test.clock.value');$code.Add('store i64 10,ptr @test.close.remaining')
  Check 'RetainedCase' 'ptr @timeout.app,ptr @timeout.command,ptr @stage,ptr @retained.log'
  $code.Add('store i64 0,ptr @test.clock.step');$code.Add('store i64 0,ptr @test.close.remaining')
  Check 'RecoverCase' ''
@@ -197,6 +221,32 @@ foreach($level in @('O0','O2')){
  Require ($run.Stdout -ceq "EMIT OK`r`nBUILD OK`r`n") "$level success stream mismatch"
  Require ($run.Stderr -ceq "UBE: E_COMPILE: source compilation failed (operation/code/reason 2/3/-4) src/example.bas:12:7`r`n") "$level diagnostic stream mismatch"
  $native=Invoke-BoundedProcess (Join-Path $stage 'output.exe') @();Require ($native.ExitCode -eq 42) "$level private built executable did not exit42"
+ # The same successful child at logical 40 seconds must fail under the restored 30-second source policy.
+ $oldLog=Descriptor 'old.log' (Join-Path $stage 'old-deadline.log')
+ $oldMain=@"
+define i32 @main() {
+entry:
+ call void @ube.context.init(ptr @test.context)
+ %init = call i1 @ube.project.init(ptr @test.context)
+ store i64 40000,ptr @test.clock.step
+ store i64 40000,ptr @test.clock.ceiling
+ store i64 0,ptr @test.clock.value
+ %result = call {i1,i64} @ube.proc.$($symbols['RunCase'])(ptr @test.context,ptr @late.app,ptr @late.command,ptr @stage,ptr @old.log,i64 0)
+ %fresh = extractvalue {i1,i64} %result,0
+ %value = extractvalue {i1,i64} %result,1
+ %disposed = call i1 @ube.context.dispose(ptr @test.context)
+ %started = and i1 %init,%fresh
+ %good = and i1 %started,%disposed
+ %exit = trunc i64 %value to i32
+ %status = select i1 %good,i32 %exit,i32 99
+ ret i32 %status
+}
+"@
+ $negativeIR=Join-Path $artifacts ($level+'-old-deadline.ll');$negativeExe=Join-Path $bin ($level+'-old-deadline.exe')
+ Write-Text $negativeIR ($oldProduction+$nl+$globals+$oldLog+$oldMain)
+ Build-Harness $negativeIR $negativeExe $level
+ $negative=Invoke-BoundedProcess $negativeExe @()
+ Require ($negative.ExitCode -eq 1100 -and $negative.Stdout.Length -eq 0 -and $negative.Stderr.Length -eq 0) "$level restored-deadline control did not reject logical40sec with failure100"
  $missingBin=Join-Path $artifacts ($level+' missing assets');$null=New-Item -ItemType Directory -Path $missingBin
  $missingIR=Join-Path $missingBin 'missing.ll';$missingExe=Join-Path $missingBin 'missing.exe'
  $missingCode=@"
@@ -221,7 +271,7 @@ entry:
   $failedAsset=Invoke-BoundedProcess $missingExe @();Require ($failedAsset.ExitCode -eq 0) "$level missing $asset failure/ownership mismatch"
   Write-Text (Join-Path $missingAssets $asset) 'present'
  }
- Write-Output "$level $case backend/policy/message probes, 3 missing assets, unknown-CWD assets and actual built exit42 passed"
+ Write-Output "$level $case backend/policy/message probes, logical40sec success/restored30sec rejection, logical60sec timeout, 3 missing assets, unknown-CWD assets and actual built exit42 passed"
 }
 Write-Output "Backend evidence: $artifacts"
 

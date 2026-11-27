@@ -6,6 +6,8 @@ Public Type StorageFact
     StorageCells As Long
     FieldOffset As Long
     ManagedReferences As Long
+    InstanceCells As Long
+    InstanceReferences As Long
 End Type
 
 ' Allocates private layout facts before independent publication.
@@ -196,6 +198,42 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Computes instance payloads separately from the one-cell class reference value.
+Private Function LayoutInstances(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef F() As StorageFact, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Index As Long
+    Dim Field As Long
+    Dim Seen As Long
+    Dim Cells As Long
+    Dim References As Long
+    On Error GoTo Failed
+    Do While Index < Count
+        If A(Index).Kind = SourceParser.ClassNode Then
+            Field = A(Index).FirstField
+            Cells = 0
+            References = 0
+            Seen = 0
+            Do While Field <> 0
+                If Field < 1 Or Field > Count Or Seen >= Count Then LayoutInstances = Reject(N, M, A, D, Index + 1, 9, 47): Exit Function
+                If A(Field - 1).Kind <> SourceParser.VariableNode Or A(Field - 1).ScopeSymbol <> Index + 1 Then LayoutInstances = Reject(N, M, A, D, Index + 1, 9, 47): Exit Function
+                If A(Field - 1).ArrayRank <> 0 Then LayoutInstances = Reject(N, M, A, D, Field, 8, 48): Exit Function
+                If F(Field - 1).StorageCells < 1 Or F(Field - 1).StorageCells > 65536 - Cells Then LayoutInstances = Reject(N, M, A, D, Field, 6, 43): Exit Function
+                F(Field - 1).FieldOffset = Cells
+                Cells = Cells + F(Field - 1).StorageCells
+                References = References + F(Field - 1).ManagedReferences
+                Seen = Seen + 1
+                Field = A(Field - 1).NextField
+            Loop
+            F(Index).InstanceCells = Cells
+            F(Index).InstanceReferences = References
+        End If
+        Index = Index + 1
+    Loop
+    LayoutInstances = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Projects logical expression sizes and relative field offsets without allocating frame slots or payloads.
 Private Sub ProjectFacts(ByRef N() As SourceParser.SyntaxNode, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef SymbolFacts() As StorageFact, ByRef Candidate() As StorageFact)
     Dim Index As Long
@@ -322,6 +360,7 @@ Public Function TryLayoutPrepared(ByRef Bytes() As Byte, ByRef Tokens() As Sourc
         Index = Index + 1
     Loop
     If Not LayoutValues(Nodes, Modules, Symbols, SymbolCount, Expressions, SymbolFacts, Diagnostic) Then Exit Function
+    If Not LayoutInstances(Nodes, Modules, Symbols, SymbolCount, SymbolFacts, Diagnostic) Then Exit Function
     ProjectFacts Nodes, Counts, Symbols, SymbolCount, Expressions, SymbolFacts, Candidate
     Moved = MoveFacts(Layout, Candidate)
     LayoutCount = Counts.NodeCount

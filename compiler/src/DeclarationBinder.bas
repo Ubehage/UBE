@@ -272,8 +272,9 @@ Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.So
         Item.Visibility = SyntaxTokens.KwPublic
     ElseIf Region = ValueRegion Then
         ParentKind = A(Scope - 1).Kind
-        If ParentKind = SourceParser.ModuleNode Then
+        If ParentKind = SourceParser.ModuleNode Or ParentKind = SourceParser.ClassNode Then
             If Item.Visibility = SyntaxTokens.KwGlobal Then
+                If ParentKind = SourceParser.ClassNode Then Reject T, N, D, 3, 1, ModuleIndex, Node: Exit Function
                 If Kind <> SourceParser.VariableNode Then Reject T, N, D, 3, 1, ModuleIndex, Node: Exit Function
                 Item.Visibility = SyntaxTokens.KwPublic
             ElseIf Item.Visibility = 0 Then
@@ -285,10 +286,28 @@ Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.So
         End If
     End If
     If Item.Kind = SourceParser.ConstantNode And Item.ArrayRank <> 0 Then Reject T, N, D, 3, 2, ModuleIndex, Node: Exit Function
+    If ParentKind = SourceParser.ClassNode And (Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode) Then
+        If SyntaxTokens.IsLifecycleName(B, T, TokenCount, Item.NameToken, True) Then Reject T, N, D, 8, 50, ModuleIndex, Node: Exit Function
+    End If
+    If ParentKind = SourceParser.ClassNode And Kind = SourceParser.VariableNode Then
+        If Item.ArrayRank <> 0 Or N(Node - 1).FirstChild <> 0 Then Reject T, N, D, 8, 11, ModuleIndex, Node: Exit Function
+    End If
     AddDeclaration = DeclareSymbol(B, T, N, TokenCount, A, Buckets, Links, S, D, Item)
     Exit Function
 Failed:
     Err.Raise Err.Number
+End Function
+
+' Identifies members which require an instance identity rather than module storage.
+Public Function IsInstanceMember(ByRef A() As BoundSymbol, ByVal Symbol As Long) As Boolean
+    Dim Kind As Long
+    Dim Scope As Long
+    If Symbol < 1 Then Exit Function
+    Kind = A(Symbol - 1).Kind
+    If Kind <> SourceParser.VariableNode And Kind <> SourceParser.SubNode And Kind <> SourceParser.FunctionNode Then Exit Function
+    Scope = A(Symbol - 1).ScopeSymbol
+    If Scope < 1 Then Exit Function
+    IsInstanceMember = A(Scope - 1).Kind = SourceParser.ClassNode
 End Function
 
 ' Collects module and top-level identities before any forward type reference is resolved.
@@ -297,6 +316,7 @@ Private Function CollectTop(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Dim Node As Long
     Dim Symbol As Long
     Dim Kind As Long
+    Dim PreviousField As Long
     On Error GoTo Failed
     Do While Index < C.ModuleCount
         Node = M(Index).RootNode
@@ -308,6 +328,7 @@ Private Function CollectTop(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Loop
     Index = 0
     Do While Index < C.ModuleCount
+        PreviousField = 0
         Node = N(M(Index).RootNode - 1).FirstChild
         Do While Node <> 0
             If Charge(S) = False Then CollectTop = Reject(T, N, D, 6, 2, Index, Node): Exit Function
@@ -316,6 +337,10 @@ Private Function CollectTop(ByRef B() As Byte, ByRef T() As SourceScanner.Source
                 Symbol = AddDeclaration(B, T, N, C.TokenCount, A, Buckets, Links, S, D, Index, Node, ModuleSymbols(Index), ValueRegion, Kind, 0)
                 If Symbol = 0 Then Exit Function
                 NodeSymbols(Node - 1) = Symbol
+                If Kind = SourceParser.VariableNode And A(ModuleSymbols(Index) - 1).Kind = SourceParser.ClassNode Then
+                    If PreviousField = 0 Then A(ModuleSymbols(Index) - 1).FirstField = Symbol Else A(PreviousField - 1).NextField = Symbol
+                    PreviousField = Symbol
+                End If
             End If
             Node = N(Node - 1).NextSibling
         Loop
@@ -558,7 +583,7 @@ Private Function SelectEntry(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If IsExecutable = False Then SelectEntry = True: Exit Function
     Do While Index < S.Count
         Kind = A(Index).Kind
-        If (Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode) And A(Index).LookupDomain = 0 Then
+        If (Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode) And A(Index).LookupDomain = 0 And Not IsInstanceMember(A, Index + 1) Then
             If IsMain(B, T, C.TokenCount, A(Index).NameToken) Then
                 Node = A(Index).DeclarationNode
                 If N(Node - 1).IsIntrinsic Then SelectEntry = Reject(T, N, D, 3, 6, A(Index).ModuleIndex, Node): Exit Function

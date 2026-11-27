@@ -306,6 +306,9 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     If S.ManagedRoles.CollectSymbol <> 0 Then
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedEntryFrame, 0, 0, 0, 0) Then Exit Function
     End If
+    If DeclarationBinder.IsInstanceMember(A, S.CurrentSymbol) Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.InstanceRoot, 0, 0, 0, 0) Then Exit Function
+    End If
     Symbol = P(S.CurrentSymbol - 1).FirstScopeSymbol
     Do While Symbol <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
@@ -380,6 +383,9 @@ Public Function TryProcedureStart(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     S.LastConstruct = P(Symbol - 1).LastConstruct
     S.CurrentNode = A(Symbol - 1).DeclarationNode
     If Fragment(S, B, Token, Catalog, LLVMTemplates.ProcedureStart, Symbol) = False Then Exit Function
+    If DeclarationBinder.IsInstanceMember(A, Symbol) Then
+        If Not Fragment(S, B, Token, Catalog, LLVMTemplates.InstanceParameter, 0) Then Exit Function
+    End If
     Parameter = A(Symbol - 1).FirstParameter
     Do While Parameter <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
@@ -427,6 +433,7 @@ Public Function TryModuleStart(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ModuleInitializeStart, S.CurrentModule, 0, 0, 0) = False Then Exit Function
     If EmitFrame(N, A, E, L, P, Escapes, S, B, Token, Catalog) = False Then Exit Function
     Child = N(A(ModuleSymbol - 1).DeclarationNode - 1).FirstChild
+    If A(ModuleSymbol - 1).Kind = SourceParser.ClassNode Then Child = 0
     Do While Child <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
         If N(Child - 1).Kind = SourceParser.VariableNode Then FirstVariable = Child: Exit Do

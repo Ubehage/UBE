@@ -46,7 +46,7 @@ Public Function TryRun(ByRef Application() As Byte, ByRef Command() As Byte, ByR
         If Length > 65536 Then Failure = 101: Status = FilePrimitives.SetError(57): GoTo Cleanup
         If Not SystemPrimitives.TryMonotonicMilliseconds(Current, Failure) Then GoTo Cleanup
         If Current < Started Then Failure = 100: Status = FilePrimitives.SetError(57): GoTo Cleanup
-        If Current - Started >= 30000 Then Failure = 100: Status = FilePrimitives.SetError(57): GoTo Cleanup
+        If Current - Started >= 60000 Then Failure = 100: Status = FilePrimitives.SetError(57): GoTo Cleanup
         If Not ProcessPrimitives.TryWait(ProcessToken, 50, State, ExitCode, Failure) Then GoTo Cleanup
         If State = 1 Then Exit Do
     Loop

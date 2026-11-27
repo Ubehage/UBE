@@ -30,17 +30,17 @@ The long-term goal is a complete native development system:
 ## Project status
 *UBE is in early development and is not ready for production use.*
 
-**The native 64-bit Windows compiler builds itself and compiles in parallel.** The latest self-builds took about 36 seconds each on the development machine, producing identical LLVM and matching executables apart from the build timestamp.
+The native 64-bit Windows compiler builds itself and compiles in parallel.
+Class instance fields, Sub/Function methods and `Me` now work with managed
+storage, checked failure handling and receiver lifetime protection.
 
-**Single and Double now work alongside integers and Unicode text.** Arithmetic, comparisons and text conversions support records, arrays and worker captures. Floating-point values preserve signed zero and subnormal values; invalid results fail without overwriting the destination. Text, numeric conversion and collection algorithms are written in UBE, with no separate runtime installation.
+All 28 focused class checks, 518 compiler conformance assertions, repeated
+self-builds and concurrent-compilation gates pass. Broader language and library
+support, lifecycle hooks, events, source-level debugging and the IDE remain
+unfinished.
 
-**`Exit Loop` now exits the outermost enclosing loop across mixed `For`, `For Each`, `Do` and `While` nesting.** Array enumeration and `SyncLock` preserve automatic lifetime and lock cleanup without closing user-owned resources. Focused optimized/unoptimized tests, self-builds, conformance and concurrent-compilation checks pass. Class and Variant support remains limited to the operations needed by these features.
-
-**`IS_IN_IDE` now works in ordinary code and conditional compilation.** Standalone builds use False; explicit IDE-run builds use True and require a live host session before source initialization. Tests cover host shutdown, paused/resumed execution and concurrent context isolation. The host test fixture is implemented; the IDE itself remains future work.
-
-Optimized and unoptimized tests cover numerical boundaries, allocation failure and recovery, concurrent workers, and preservation of earlier files after failed builds. Several fixed storage quotas have been removed; implementation limits remain. The broader language and library, source-level debugging and IDE are still under development.
-
-See the [IDE-context contract and evidence](compiler/IDE-CONTEXT.md), [loop scope and test evidence](compiler/LOOP-CONTROL.md), [numeric scope](compiler/FLOATING-POINT.md), [text-library scope](std-lib/TEXT.md), and [development plan](project-docs/Development-Plan.md).
+See [implemented scope and test evidence](compiler/CLASS-MEMBERS.md) and the
+[development plan](project-docs/Development-Plan.md).
 
 
 ## Frequently Asked Questions

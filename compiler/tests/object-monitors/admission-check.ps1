@@ -80,7 +80,11 @@ foreach($member in @(
  @('terminate',"Private Sub Class_Terminate()`r`nEnd Sub"),
  @('method',"Public Sub Run()`r`nEnd Sub")
 )){
- Reject ('unsupported-'+$member[0]) ([ordered]@{'Gate.cls'=($explicit+$member[1]+"`r`n");'Main.bas'=(Main)}) 'Gate.cls' '4:1'
+ if($member[0] -in @('field','method')){
+  Accept ('class-'+$member[0]) ([ordered]@{'Gate.cls'=($explicit+$member[1]+"`r`n");'Main.bas'=(Main)})
+ }else{
+  Reject ('unsupported-'+$member[0]) ([ordered]@{'Gate.cls'=($explicit+$member[1]+"`r`n");'Main.bas'=(Main)}) 'Gate.cls' '4:9' 'E_COMPILE' '0/8/50'
+ }
 }
 if($ReferencedPackages){
 $library=Join-Path $evidence 'Library'

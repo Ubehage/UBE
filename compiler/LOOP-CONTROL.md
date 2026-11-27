@@ -257,8 +257,9 @@ Class type metadata is nominal, with one managed reference cell rather than a
 copied value-record payload. Native class descriptors retain the actual type
 identity when a generic Object is boxed into Variant. Empty Variant converts
 to a neutral reference; Null or incompatible boxed values report controlled
-failure without committing the destination. Class members, lifecycle hooks,
-forms and controls remain explicitly unsupported by the current source profile.
+failure without committing the destination. Class members were excluded from
+this loop increment; the later CLASS-MEMBERS.md increment qualifies ordinary
+fields/methods and Me. Lifecycle hooks, forms and controls remain unsupported.
 
 The first integrated class admission probe exposed a missing class-container
 entry in `DeclarationBinder.TryBuildIndex`. Its completeness check returned

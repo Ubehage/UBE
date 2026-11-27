@@ -131,6 +131,11 @@ and shared-state rules are in the development plan's concurrency requirement.
   Scope and evidence: `LOOP-CONTROL.md`.
   Class references and source SyncLock now pass focused native and exact
   monitor-release controls, including recursive invocation isolation.
+  Ordinary class instance fields, Sub/Function methods and Me now pass 28
+  O0/O2 execution, collector, allocation and diagnostic checks. Repeated
+  self-builds, 518 conformance assertions and full concurrency pass. Scope and
+  exact evidence: `CLASS-MEMBERS.md`; array fields, initialization hooks,
+  properties, events, interfaces and asynchronous field aliases remain open.
 - [x] Implement the existing owner-approved `IS_IN_IDE` workplan item.
   Read-only Boolean False/True, conditional selection, guarded host lifetime
   and simultaneous opposing compilation contexts pass O0/O2 acceptance.

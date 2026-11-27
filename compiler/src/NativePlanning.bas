@@ -78,52 +78,16 @@ Failed:
     Err.Raise Err.Number
 End Function
 
-' Recognizes the two deferred lifecycle hooks through shared decoded identifier spelling.
-Private Function LifecycleName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByVal Count As Long, ByVal Token As Long) As Boolean
-    Dim Position As Long
-    Dim Character As Long
-    Dim Expected As Long
-    Dim Initialize As Boolean = True
-    Dim Terminate As Boolean = True
-    On Error GoTo Failed
-    Do While Position < 18
-        Character = SyntaxTokens.SpellingByte(B, T, Token, Count, Position)
-        Expected = -1
-        If Position = 0 Then Expected = 109
-        If Position = 1 Then Expected = 111
-        If Position = 2 Then Expected = 100
-        If Position = 3 Then Expected = 117
-        If Position = 4 Then Expected = 108
-        If Position = 5 Then Expected = 101
-        If Position = 6 Then Expected = 95
-        If Position < 7 Then
-            If Character <> Expected Then Exit Function
-        Else
-            Expected = -1
-            If Position = 7 Or Position = 9 Or Position = 11 Or Position = 14 Then Expected = 105
-            If Position = 8 Then Expected = 110
-            If Position = 10 Then Expected = 116
-            If Position = 12 Then Expected = 97
-            If Position = 13 Then Expected = 108
-            If Position = 15 Then Expected = 122
-            If Position = 16 Then Expected = 101
-            If Character <> Expected Then Initialize = False
-            Expected = -1
-            If Position = 7 Or Position = 14 Then Expected = 116
-            If Position = 8 Or Position = 15 Then Expected = 101
-            If Position = 9 Then Expected = 114
-            If Position = 10 Then Expected = 109
-            If Position = 11 Then Expected = 105
-            If Position = 12 Then Expected = 110
-            If Position = 13 Then Expected = 97
-            If Character <> Expected Then Terminate = False
-        End If
-        Position = Position + 1
-    Loop
-    LifecycleName = Initialize Or Terminate
-    Exit Function
-Failed:
-    Err.Raise Err.Number
+' Adds source coordinates to a failure produced by the node-indexed escape analysis.
+Private Function LocateEscapeFailure(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Code As Long
+    Dim Reason As Long
+    Dim Node As Long
+    Code = D.Code
+    Reason = D.Reason
+    Node = D.Node
+    D.Code = 0
+    LocateEscapeFailure = Reject(N, M, C, D, Node, Code, Reason)
 End Function
 
 ' Reserves heap-frame capacity with checked indexing; controls are already charged.
@@ -152,6 +116,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
         If Kind = SourceParser.ModuleNode Or Kind = SourceParser.ClassNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
             Plans(Index).FrameCells = 4
             If ManagedRequired Then Plans(Index).FrameCells = 8
+            If DeclarationBinder.IsInstanceMember(A, Index + 1) Then Plans(Index).FrameCells = Plans(Index).FrameCells + 5
         End If
         Index = Index + 1
     Loop
@@ -160,7 +125,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Do While Index > 0
         Index = Index - 1
         Scope = A(Index).ScopeSymbol
-        If Scope > 0 Then
+        If Scope > 0 And Not (A(Index).Kind = SourceParser.VariableNode And DeclarationBinder.IsInstanceMember(A, Index + 1)) Then
             Plans(Index).NextScopeSymbol = Plans(Scope - 1).FirstScopeSymbol
             Plans(Scope - 1).FirstScopeSymbol = Index + 1
         End If
@@ -170,12 +135,14 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
         Kind = A(Index).Kind
         Node = A(Index).DeclarationNode
         If Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
-            If LifecycleName(B, T, C.TokenCount, A(Index).NameToken) Then PlanSymbols = Reject(N, M, C, D, Node, 8, 50): Exit Function
+            If SyntaxTokens.IsLifecycleName(B, T, C.TokenCount, A(Index).NameToken, False) Then PlanSymbols = Reject(N, M, C, D, Node, 8, 50): Exit Function
             If A(Index).ParameterCount > 64 Then PlanSymbols = Reject(N, M, C, D, Node, 6, 51): Exit Function
         ElseIf Kind = SourceParser.VariableNode Or Kind = SourceParser.ParameterNode Or Kind = DeclarationBinder.ResultSymbol Then
             Scope = A(Index).ScopeSymbol
             Cells = L(Node - 1).StorageCells
-            If A(Scope - 1).Kind = SourceParser.ModuleNode Then
+            If A(Scope - 1).Kind = SourceParser.ClassNode Then
+                ' Instance fields belong to the managed object payload, never an invocation frame.
+            ElseIf A(Scope - 1).Kind = SourceParser.ModuleNode Then
                 If Cells < 1 Or Cells > 65536 - ContextCells Then PlanSymbols = Reject(N, M, C, D, Node, 6, 54): Exit Function
                 Plans(Index).ContextOffset = ContextCells
                 ContextCells = ContextCells + Cells
@@ -532,7 +499,10 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Loop
     If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeNumbers(Pins, C.NodeCount, False) Then GoTo StorageFailure
-    If Not NativeEscapes.TryAnalyzeEscapes(N, A, E, C.NodeCount, SymbolCount, Escapes, FactCount, Diagnostic) Then Exit Function
+    If Not NativeEscapes.TryAnalyzeEscapes(N, A, E, C.NodeCount, SymbolCount, Escapes, FactCount, Diagnostic) Then
+        If Diagnostic.Node > 0 Then TryPlanNative = LocateEscapeFailure(N, M, C, Diagnostic)
+        Exit Function
+    End If
     Symbol = 1
     Do While Symbol <= SymbolCount
         Plans(Symbol - 1).StorageEscapes = Escapes(A(Symbol - 1).DeclarationNode - 1).StorageEscapes

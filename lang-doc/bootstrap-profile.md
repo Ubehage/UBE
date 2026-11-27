@@ -134,17 +134,28 @@ values. Empty is neutral and failed conversions preserve unfinished
 destinations. This is not complete Variant arithmetic, array-valued Variant
 support or the complete Variant library.
 
-Genuine empty named classes, typed and generic Object references, New, Set,
+Genuine named classes, typed and generic Object references, New, Set,
 Nothing and identity comparisons supply the object identity needed by SyncLock.
 The UBE compiler admits SyncLock with retained targets and acquired-state
 cleanup, including loop exits, returns and failure transfers. Source and native
 monitor checks are under `compiler/tests/object-monitors/` and
-`runtime/tests/object-monitors/`. Class members, lifecycle hooks, interfaces and
-object-collection enumeration remain unsupported. These managed dependencies
+`runtime/tests/object-monitors/`. The class-member implementation admits per-instance scalar, String, Variant, object-reference and
+finite-record fields, ordinary Sub/Function methods, and read-only Me. Explicit
+receivers are evaluated once before arguments and retained through synchronous
+calls, including field ByRef arguments. Class members do not enter unqualified
+standard-module lookup; Public, Private and package-local Friend visibility
+apply. Real-collector tests cover managed fields, cycles and receiver retention.
+Arrays as fields, field declaration initializers, lifecycle hooks, properties,
+events, interfaces, instance CallNew targets and field aliases escaping directly
+or transitively to asynchronous work remain explicit unsupported forms.
+Object-collection enumeration also remains unsupported. These managed dependencies
 do not expand the deliberately scalar/finite-record VB6 bootstrap profile.
 Final integrated regression qualification of the complete Exit Loop increment
 passes on corrected compiler 68e264aa; the exact completion audit is in
 [LOOP-CONTROL.md](../compiler/LOOP-CONTROL.md).
+Class-member source, collector and allocation-failure checks pass 28 cases on the self-hosted
+compiler 97b47838 (SHA256 5510298EAFD95492DD619683B3B562A07408F5764894EDCE0D86D10646B3DA98). The exact boundary and
+current evidence are in [CLASS-MEMBERS.md](../compiler/CLASS-MEMBERS.md).
 
 ## Current storage limits
 

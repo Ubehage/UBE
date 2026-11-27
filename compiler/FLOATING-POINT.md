@@ -79,8 +79,8 @@ the former 4408-byte compiler frame became 2344/2504-byte frames, eliminating
 that reproduced missing-stack-helper link failure.
 
 Remaining limits include Long-sized indexes/file lengths, existing parser,
-layout and work guards, the 256-call depth guard and the 30-second native-tool
-timeout. Large backend spill frames remain a separate limitation.
+layout and work guards, the 256-call depth guard and the 60-second native-tool
+timeout (extended during class-member integration after a measured 37-second build). Large backend spill frames remain a separate limitation.
 This increment does not claim that every artificial limit is gone.
 
 ## Qualification and reproducible commands

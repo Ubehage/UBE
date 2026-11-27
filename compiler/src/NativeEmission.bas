@@ -103,6 +103,7 @@ Public Function TryLine(ByRef State As EmissionState, ByRef Buffer() As Byte, By
     If Template = LLVMTemplates.ConstructState Then Cells = 1
     If Template = LLVMTemplates.AllocateVariantConversion Then Cells = 1
     If Template = LLVMTemplates.ManagedIncomingOwnerRoot Then Cells = 5
+    If Template = LLVMTemplates.InstanceRoot Then Cells = 5
     If Template = LLVMTemplates.ManagedTemporaryTable Then Cells = P0
     If Cells <> 0 Then
         If Cells < 0 Or State.FrameUsed < 0 Or State.FrameUsed > State.FrameCells Then GoTo InvalidFrame

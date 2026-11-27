@@ -329,9 +329,16 @@ Public Const VariantReference As Long = 325
 Public Const ObjectNominal As Long = 326
 Public Const VariantCreateObjectDynamic As Long = 327
 Public Const MonitorRequire As Long = 328
-Public Const TemplateCount As Long = 328
-Public Const CatalogLength As Long = 48744
-Public Const CatalogByteSum As Long = 3905817
+Public Const ObjectOffsetsStart As Long = 329
+Public Const ObjectPayloadLayout As Long = 330
+Public Const InstanceParameter As Long = 331
+Public Const InstanceValue As Long = 332
+Public Const InstanceRoot As Long = 333
+Public Const ObjectAddress As Long = 334
+Public Const ObjectAddressValid As Long = 335
+Public Const TemplateCount As Long = 335
+Public Const CatalogLength As Long = 49431
+Public Const CatalogByteSum As Long = 3964524
 
 ' Returns one exact span without changing caller outputs for an unknown identity.
 Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Long) As Boolean
@@ -646,21 +653,28 @@ Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Lo
     If Id = 309 Then Start = 43958: Count = 939: TrySpan = True: Exit Function
     If Id = 310 Then Start = 44897: Count = 517: TrySpan = True: Exit Function
     If Id = 311 Then Start = 45414: Count = 48: TrySpan = True: Exit Function
-    If Id = 312 Then Start = 45462: Count = 114: TrySpan = True: Exit Function
-    If Id = 313 Then Start = 45576: Count = 146: TrySpan = True: Exit Function
-    If Id = 314 Then Start = 45722: Count = 170: TrySpan = True: Exit Function
-    If Id = 315 Then Start = 45892: Count = 333: TrySpan = True: Exit Function
-    If Id = 316 Then Start = 46225: Count = 309: TrySpan = True: Exit Function
-    If Id = 317 Then Start = 46534: Count = 348: TrySpan = True: Exit Function
-    If Id = 318 Then Start = 46882: Count = 66: TrySpan = True: Exit Function
-    If Id = 319 Then Start = 46948: Count = 61: TrySpan = True: Exit Function
-    If Id = 320 Then Start = 47009: Count = 40: TrySpan = True: Exit Function
-    If Id = 321 Then Start = 47049: Count = 651: TrySpan = True: Exit Function
-    If Id = 322 Then Start = 47700: Count = 106: TrySpan = True: Exit Function
-    If Id = 323 Then Start = 47806: Count = 198: TrySpan = True: Exit Function
-    If Id = 324 Then Start = 48004: Count = 128: TrySpan = True: Exit Function
-    If Id = 325 Then Start = 48132: Count = 79: TrySpan = True: Exit Function
-    If Id = 326 Then Start = 48211: Count = 67: TrySpan = True: Exit Function
-    If Id = 327 Then Start = 48278: Count = 130: TrySpan = True: Exit Function
-    If Id = 328 Then Start = 48408: Count = 336: TrySpan = True: Exit Function
+    If Id = 312 Then Start = 45462: Count = 134: TrySpan = True: Exit Function
+    If Id = 313 Then Start = 45596: Count = 146: TrySpan = True: Exit Function
+    If Id = 314 Then Start = 45742: Count = 170: TrySpan = True: Exit Function
+    If Id = 315 Then Start = 45912: Count = 333: TrySpan = True: Exit Function
+    If Id = 316 Then Start = 46245: Count = 309: TrySpan = True: Exit Function
+    If Id = 317 Then Start = 46554: Count = 348: TrySpan = True: Exit Function
+    If Id = 318 Then Start = 46902: Count = 66: TrySpan = True: Exit Function
+    If Id = 319 Then Start = 46968: Count = 61: TrySpan = True: Exit Function
+    If Id = 320 Then Start = 47029: Count = 40: TrySpan = True: Exit Function
+    If Id = 321 Then Start = 47069: Count = 651: TrySpan = True: Exit Function
+    If Id = 322 Then Start = 47720: Count = 106: TrySpan = True: Exit Function
+    If Id = 323 Then Start = 47826: Count = 198: TrySpan = True: Exit Function
+    If Id = 324 Then Start = 48024: Count = 128: TrySpan = True: Exit Function
+    If Id = 325 Then Start = 48152: Count = 79: TrySpan = True: Exit Function
+    If Id = 326 Then Start = 48231: Count = 67: TrySpan = True: Exit Function
+    If Id = 327 Then Start = 48298: Count = 130: TrySpan = True: Exit Function
+    If Id = 328 Then Start = 48428: Count = 336: TrySpan = True: Exit Function
+    If Id = 329 Then Start = 48764: Count = 56: TrySpan = True: Exit Function
+    If Id = 330 Then Start = 48820: Count = 145: TrySpan = True: Exit Function
+    If Id = 331 Then Start = 48965: Count = 15: TrySpan = True: Exit Function
+    If Id = 332 Then Start = 48980: Count = 30: TrySpan = True: Exit Function
+    If Id = 333 Then Start = 49010: Count = 302: TrySpan = True: Exit Function
+    If Id = 334 Then Start = 49312: Count = 86: TrySpan = True: Exit Function
+    If Id = 335 Then Start = 49398: Count = 33: TrySpan = True: Exit Function
 End Function

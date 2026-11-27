@@ -12,7 +12,9 @@ current package-qualified class name, and use of `Class` as an ordinary variable
 name. Repeated package qualification and a module shadowing the package name
 must be rejected. It requires controlled, exactly located rejection and unchanged output
 sentinels for extension/header mismatches, duplicate class/module identities,
-and unsupported fields, methods and lifecycle hooks. Emission is admission
+and unsupported lifecycle hooks. Fields and ordinary methods now have positive
+admission controls; their execution/lifetime gates are in ../class-members.
+Emission is admission
 evidence only; this gate does not claim execution or monitor cleanup coverage.
 
 `-ReferencedPackages` additionally enables the imported-package class case when

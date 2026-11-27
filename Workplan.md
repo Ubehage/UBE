@@ -39,6 +39,11 @@ bootstrap may remain sequential. The concrete architecture requirement is in
 
 ### Next compiler increment
 
+- [x] Extend existing class references with ordinary instance fields and
+  Sub/Function methods, including Me, under the complete-language roadmap.
+  Preserve per-instance storage, exact managed roots, visibility and FAIL
+  behavior. All 28 focused checks, 518 conformance assertions, repeated self-builds
+  and full concurrency pass. Scope and exact evidence: compiler/CLASS-MEMBERS.md.
 - [x] Implement and qualify `Single`/`Double` under the existing complete-language
   roadmap: storage, literals, arithmetic/comparison, admitted conversions
   (including text), parameters/results, arrays/records and worker captures.

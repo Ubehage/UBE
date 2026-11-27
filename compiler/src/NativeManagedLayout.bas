@@ -31,6 +31,49 @@ Failed:
     S.Failure = 3
 End Function
 
+' Emits precise instance payload roots without changing the layout of a class reference.
+Private Function EmitInstance(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef S As LLVMWriter.WriterState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Symbol As Long) As Boolean
+    Dim Field As Long
+    Dim Node As Long
+    Dim Reference As Long
+    Dim Written As Long
+    Dim Offset As Long
+    Dim References As Long
+    Dim Cells As Long
+    Dim Template As Long
+    On Error GoTo Failed
+    Node = A(Symbol - 1).DeclarationNode
+    References = L(Node - 1).InstanceReferences
+    Cells = L(Node - 1).InstanceCells
+    If Cells = 0 Then Cells = 1
+    If Not LLVMFormat.TryFormat(S, B, Token, Catalog, LLVMTemplates.ObjectOffsetsStart, Symbol, References, 0, 0) Then Exit Function
+    Field = A(Symbol - 1).FirstField
+    Do While Field <> 0
+        Node = A(Field - 1).DeclarationNode
+        If A(Field - 1).ArrayRank <> 0 Then GoTo Failed
+        Reference = 0
+        Do While Reference < L(Node - 1).ManagedReferences
+            If Not ManagedLayouts.TryReferenceOffset(A, L, A(Field - 1).TypeCode, A(Field - 1).TypeSymbol, Reference, Offset) Then GoTo Failed
+            Offset = Offset + L(Node - 1).FieldOffset
+            Written = Written + 1
+            Template = LLVMTemplates.TextLiteralByte
+            If Written = References Then Template = LLVMTemplates.TextLiteralLastByte
+            If Not LLVMFormat.TryFormat(S, B, Token, Catalog, Template, Offset, 0, 0, 0) Then Exit Function
+            Reference = Reference + 1
+        Loop
+        Field = A(Field - 1).NextField
+    Loop
+    If Written <> References Then GoTo Failed
+    If Not LLVMFormat.TryFormat(S, B, Token, Catalog, LLVMTemplates.ManagedOffsetsEnd, 0, 0, 0, 0) Then Exit Function
+    If Not LLVMWriter.TryEndLine(S, B, Token) Then Exit Function
+    If Not LLVMFormat.TryFormat(S, B, Token, Catalog, LLVMTemplates.ObjectPayloadLayout, Symbol, Cells, References, 0) Then Exit Function
+    EmitInstance = LLVMWriter.TryEndLine(S, B, Token)
+    Exit Function
+Failed:
+    S.Failed = True
+    S.Failure = 3
+End Function
+
 ' Emits only non-array reference offsets; an array root follows its current descriptor separately.
 Private Function EmitGlobalReferences(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByVal SymbolCount As Long, ByVal References As Long, ByRef S As LLVMWriter.WriterState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
     Dim Index As Long
@@ -117,6 +160,7 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef 
         ElseIf Symbols(Index).Kind = SourceParser.ClassNode Then
             ' This is the layout of a reference to the class, never its instance fields.
             If Not EmitValue(Symbols, Layouts, State, Buffer, Token, Catalog, Index + 1, 1, 1) Then Exit Function
+            If Not EmitInstance(Symbols, Layouts, State, Buffer, Token, Catalog, Index + 1) Then Exit Function
         End If
         If Plans(Index).ContextOffset >= 0 Then
             If Symbols(Index).ArrayRank = 0 Then

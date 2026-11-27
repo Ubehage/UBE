@@ -2,14 +2,31 @@
 <html lang="en" data-article-id="language.word.class" data-doc-path="language/words/c/class.html" data-doc-root="../../../">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CLASS — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
 <body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/c/class.html" target="_top">Search</a></nav>
-<main id="content" class="article"><p class="breadcrumbs">UBE language help / CLASS</p><section id="overview"><h1>CLASS</h1><div class="metadata"><span class="badge status">Specified</span><span>Source / metadata word</span></div>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / CLASS</p><section id="overview"><h1>CLASS</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Source / metadata word</span></div>
 
 
 
     <p class="lede">Identifies class source in a native or imported file header.</p>
     <h2>Syntax</h2><pre><code>UBE SOURCE 1 CLASS
 VERSION major.minor CLASS</code></pre><dl><dt><code>major</code></dt><dd>The major part of the imported source-format version.</dd><dt><code>minor</code></dt><dd>The minor part of that version.</dd></dl>
-    </section><section id="details"><h2>Details</h2><p>CLASS is the native source kind for a .cls file. The VERSION form is imported compatibility metadata. CLASS is contextual in these headers; it is not a standalone class-declaration statement. Class instances, members and interfaces follow their separate specified contracts.</p>
+    </section><section id="details"><h2>Details</h2><p>CLASS is the native source kind for a .cls file. The VERSION form is imported compatibility metadata. CLASS is contextual in these headers; it is not a standalone class-declaration statement. The development implementation admits per-instance scalar, String, Variant, object-reference and finite-record fields, and ordinary Sub/Function methods. Members are selected through an instance; a class name is not a shared instance. Array fields, declaration initializers, lifecycle hooks, properties, events, interfaces and instance CallNew targets remain unavailable.</p>
 
 
-  </section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../u/ube.html">UBE</a><a href="../s/source.html">SOURCE</a><a href="../m/module.html">Module</a><a href="../f/form.html">Form</a><a href="../a/attribute.html">Attribute</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/chdrive.html" data-doc-path="language/words/c/chdrive.html">← Previous: ChDrive</a><a href="../c/close.html" data-doc-path="language/words/c/close.html">Next: Close →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>
+  </section><section id="example"><h2>Example</h2><p>Put these members in a class named <code>Counter</code>. Each new instance starts with its own zero-valued <code>Total</code>.</p><pre><code data-example="counter-class">Private Total As Long
+
+Public Sub Add(ByVal Amount As Long)
+    Me.Total = Me.Total + Amount
+End Sub
+
+Public Function Value() As Long
+    Value = Me.Total
+End Function</code></pre><p>Use the class from a standard module. <code>Main</code> returns 6.</p><pre><code data-example="counter-main">Public Function Main() As Long
+    Dim Counter As Counter
+    On Error GoTo Failed
+    Set Counter = New Counter
+    Counter.Add 6
+    Main = Counter.Value()
+    Exit Function
+Failed:
+    Main = 99
+End Function</code></pre></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../m/me.html">Me</a><a href="../n/new.html">New</a><a href="../s/set.html">Set</a><a href="../f/function.html">Function</a><a href="../b/byval.html">ByVal</a><a href="../u/ube.html">UBE</a><a href="../s/source.html">SOURCE</a><a href="../m/module.html">Module</a><a href="../f/form.html">Form</a><a href="../a/attribute.html">Attribute</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/chdrive.html" data-doc-path="language/words/c/chdrive.html">← Previous: ChDrive</a><a href="../c/close.html" data-doc-path="language/words/c/close.html">Next: Close →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

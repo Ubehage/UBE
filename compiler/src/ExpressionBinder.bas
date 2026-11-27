@@ -22,6 +22,8 @@ Public Type BoundExpression
     ConstantTextStart As Long
     ConstantTextLength As Long
     IsIDEContextConstant As Boolean
+    IsCurrentInstance As Boolean
+    InstanceReceiver As Long
 End Type
 
 Private Type ExpressionState
@@ -117,6 +119,8 @@ Private Sub CopyValue(ByRef F() As BoundExpression, ByVal Destination As Long, B
     F(Destination - 1).Writable = F(Source - 1).Writable
     F(Destination - 1).ConstantKnown = F(Source - 1).ConstantKnown
     F(Destination - 1).IsIDEContextConstant = F(Source - 1).IsIDEContextConstant
+    F(Destination - 1).IsCurrentInstance = F(Source - 1).IsCurrentInstance
+    F(Destination - 1).InstanceReceiver = F(Source - 1).InstanceReceiver
     F(Destination - 1).ConstantValue = F(Source - 1).ConstantValue
     F(Destination - 1).ConstantTextStart = F(Source - 1).ConstantTextStart
     F(Destination - 1).ConstantTextLength = F(Source - 1).ConstantTextLength
@@ -144,11 +148,14 @@ Private Sub SymbolValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As
     F(Node - 1).Writable = Kind = SourceParser.VariableNode Or Kind = SourceParser.ParameterNode Or Kind = SourceParser.FieldNode Or Kind = DeclarationBinder.ResultSymbol
     F(Node - 1).ConstantKnown = False
     F(Node - 1).IsIDEContextConstant = False
+    F(Node - 1).IsCurrentInstance = False
+    F(Node - 1).InstanceReceiver = 0
     F(Node - 1).ConstantValue = 0
     F(Node - 1).ConstantTextStart = 0
     F(Node - 1).ConstantTextLength = 0
     F(Node - 1).TrustedRole = 0
     F(Node - 1).AccessKind = 0
+    If Kind = SourceParser.VariableNode And DeclarationBinder.IsInstanceMember(A, Symbol) Then F(Node - 1).AccessKind = 4
     F(Node - 1).HasBounds = False
     If Node <> Declaration And S.ShapeMayChange = False Then
         F(Node - 1).HasBounds = F(Declaration - 1).HasBounds
@@ -228,6 +235,24 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Binds the current identity only inside an executing instance procedure.
+Private Function BindCurrentInstance(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Scope As Long) As Boolean
+    Dim Parent As Long
+    If Not DeclarationBinder.IsInstanceMember(A, Scope) Then BindCurrentInstance = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
+    If A(Scope - 1).Kind <> SourceParser.SubNode And A(Scope - 1).Kind <> SourceParser.FunctionNode Then BindCurrentInstance = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
+    Parent = N(Node - 1).Parent
+    Do While Parent <> 0
+        If N(Parent - 1).Kind = SourceParser.VariableNode Or N(Parent - 1).Kind = SourceParser.ConstantNode Then BindCurrentInstance = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
+        If N(Parent - 1).Kind = SourceParser.BodyNode Then Exit Do
+        Parent = N(Parent - 1).Parent
+    Loop
+    F(Node - 1).IsCurrentInstance = True
+    F(Node - 1).TypeCode = SyntaxTokens.KwObject
+    F(Node - 1).TypeSymbol = A(Scope - 1).ScopeSymbol
+    F(Node - 1).Writable = False
+    BindCurrentInstance = True
+End Function
+
 ' Selects one lexical namespace level; ambiguity and wrong kinds never trigger fallback.
 Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef P() As Byte, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef H() As Long, ByRef L() As Long, ByRef U() As Long, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Assignment As Boolean) As Boolean
     Dim Scope As Long
@@ -243,6 +268,10 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     ModuleIndex = ModuleOf(A, F, Node)
     Token = N(Node - 1).NameToken
     Parent = N(Node - 1).Parent
+    If SyntaxTokens.TokenCode(B, T, Token, C.TokenCount) = SyntaxTokens.KwMe Then
+        LookupName = BindCurrentInstance(N, M, A, F, D, Node, Scope)
+        Exit Function
+    End If
     If SyntaxTokens.IsIDEContextName(B, T, Token, C.TokenCount) Then
         If Parent <> 0 Then
             If N(Parent - 1).Kind = SourceParser.MemberNode And N(Parent - 1).FirstChild = Node Then
@@ -276,7 +305,8 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, U(ModuleIndex), DeclarationBinder.ValueRegion, Token, M(ModuleIndex).LookupDomain)
     If Selected <> 0 Then GoTo Found
     Do While Index < C.ModuleCount
-        Candidate = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, U(Index), DeclarationBinder.ValueRegion, Token, M(ModuleIndex).LookupDomain)
+        Candidate = 0
+        If A(U(Index) - 1).Kind = SourceParser.ModuleNode Then Candidate = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, U(Index), DeclarationBinder.ValueRegion, Token, M(ModuleIndex).LookupDomain)
         If Candidate <> 0 Then
             If A(Candidate - 1).Visibility = SyntaxTokens.KwPublic Or A(Candidate - 1).Visibility = SyntaxTokens.KwFriend Then
                 If Selected <> 0 Then LookupName = Reject(N, M, A, F, D, 4, 10, Node): Exit Function
@@ -294,6 +324,7 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
 Found:
     If S.Lookup.Work >= 4000000 Then LookupName = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
     If Selected = 0 Then LookupName = Reject(N, M, A, F, D, 2, 10, Node): Exit Function
+    If DeclarationBinder.IsInstanceMember(A, Selected) And Not DeclarationBinder.IsInstanceMember(A, Scope) Then LookupName = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
     SymbolValue A, F, S, Node, Selected
     LookupName = True
     Exit Function
@@ -374,7 +405,7 @@ Private Function ResolveMemberValue(ByRef B() As Byte, ByRef T() As SourceScanne
             Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
         ElseIf F(Receiver - 1).TypeSymbol <> 0 Then
             If Symbol <> 0 Then
-                If A(Symbol - 1).Kind = SourceParser.TypeNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+                If A(Symbol - 1).Kind = SourceParser.TypeNode Or A(Symbol - 1).Kind = SourceParser.ClassNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
             End If
             Field = True
             Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Receiver - 1).TypeSymbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
@@ -389,8 +420,13 @@ Private Function ResolveMemberValue(ByRef B() As Byte, ByRef T() As SourceScanne
         If A(Selected - 1).Visibility = SyntaxTokens.KwPrivate And A(Selected - 1).ModuleIndex <> ModuleOf(A, F, Node) Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 12, Node): Exit Function
         SymbolValue A, F, S, Node, Selected
         If Field Then
-            F(Node - 1).AccessKind = 1
-            F(Node - 1).Writable = F(Receiver - 1).Writable
+            If F(Receiver - 1).TypeCode = SyntaxTokens.KwObject Then
+                If Not DeclarationBinder.IsInstanceMember(A, Selected) Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+                F(Node - 1).InstanceReceiver = Receiver
+            Else
+                F(Node - 1).AccessKind = 1
+                F(Node - 1).Writable = F(Receiver - 1).Writable
+            End If
         End If
     End If
     ResolveMemberValue = True
@@ -582,6 +618,8 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
         Expected = A(Symbol - 1).ParameterCount
         Parameter = A(Symbol - 1).FirstParameter
         SymbolValue A, F, S, Node, Symbol
+        F(Node - 1).InstanceReceiver = F(Callee - 1).InstanceReceiver
+        If ThreadStart And DeclarationBinder.IsInstanceMember(A, Symbol) Then BindCall = Reject(N, M, A, F, D, 3, 17, Node): Exit Function
         F(Node - 1).Writable = False
     End If
     If ThreadStart Then
@@ -894,7 +932,7 @@ Private Function BindExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
         If Required <> 0 Then
             If ConstantDependency(N, M, A, F, D, Node, Symbol, Required) = False Then Exit Function
         End If
-        If F(Node - 1).TrustedRole <> 4 And Not F(Node - 1).IsIDEContextConstant Then
+        If F(Node - 1).TrustedRole <> 4 And Not F(Node - 1).IsIDEContextConstant And Not F(Node - 1).IsCurrentInstance Then
             If Symbol = 0 Then BindExpression = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
             Kind = A(Symbol - 1).Kind
             If Kind = SourceParser.ConstantNode Then

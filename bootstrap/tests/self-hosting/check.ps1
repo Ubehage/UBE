@@ -184,7 +184,7 @@ loop: br label %loop }'}
   $output=Join-Path $project.Directory 'prior.exe';Write-Text $output 'prior executable must survive';$hash=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
   $timer=[Diagnostics.Stopwatch]::StartNew();$failed=Run $compiler.Path @('--build',$project.Manifest,$output,'--clang',$fake);$timer.Stop()
   Failure $failed $output $hash
-  if($kind -eq 'timeout'){Require ($timer.ElapsedMilliseconds -ge 29000) "Timeout fixture did not reach timed backend execution: $($failed.Evidence)"}
+  if($kind -eq 'timeout'){$minimum=59000;if($compiler.Seed){$minimum=29000};Require ($timer.ElapsedMilliseconds -ge $minimum) "Timeout fixture did not reach timed backend execution: $($failed.Evidence)"}
   if($compiler.Seed){
    if($kind -eq 'nonzero'){Require ($failed.Stderr.Contains('failed with exit 29')) 'Seed nonzero backend path was not exercised'}
    if($kind -eq 'nooutput'){Require ($failed.Stderr.Contains('not a bounded AMD64 PE32+ executable')) 'Seed nooutput validation path was not exercised'}

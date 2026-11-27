@@ -6,10 +6,12 @@ param(
     [switch]$Measure,
     [switch]$MeasureOnly,
     [switch]$ContextOnly,
+    [switch]$ClassOnly,
     [string]$MeasurementManifest = ''
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+if($ClassOnly -and ($ContextOnly -or $MeasureOnly)) { throw 'ClassOnly cannot be combined with ContextOnly or MeasureOnly' }
 $utf8 = New-Object Text.UTF8Encoding($false, $true)
 $artifacts = Join-Path ([IO.Path]::GetTempPath()) ('ube concurrent compilation ' + [guid]::NewGuid())
 $workingDirectory = Join-Path $artifacts 'unrelated working directory'
@@ -92,7 +94,9 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
     $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
     $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
-    $result = Invoke-BoundedProcess $Clang $arguments
+    # The complete compiler driver exceeds 30 seconds in measured solo builds.
+    # Keep this test-tool deadline above the production backend deadline plus overhead.
+    $result = Invoke-BoundedProcess $Clang $arguments 120000
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -143,9 +147,11 @@ $null=Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $emitted=[IO.File]::ReadAllText($library,$utf8)
 $null=New-Item -ItemType Directory -Path (Join-Path $artifacts 'llvm')
 foreach($asset in @('templates.bin','windows-runtime.ll','kernel32.def')) {Copy-Item -LiteralPath (Join-Path $root ('compiler/llvm/'+$asset)) -Destination (Join-Path $artifacts ('llvm/'+$asset))}
+# Instance identities and managed fields load the same installed source support as the compiler.
+$null = & (Join-Path $root 'runtime/package-managed-support.ps1') -Destination (Join-Path $artifacts 'support')
 
 # Creates two-module source inputs with distinct source-dependent outputs.
-function New-Project([string]$Name,[int]$Value,[bool]$Invalid=$false,[bool]$Executable=$false,[bool]$DistinctShape=$false) {
+function New-Project([string]$Name,[int]$Value,[bool]$Invalid=$false,[bool]$Executable=$false,[bool]$DistinctShape=$false,[bool]$ClassMembers=$false) {
     $folder=Join-Path $artifacts $Name
     $body="UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"First`"`r`nPublic Function Value(ByVal Seed As Long) As Long`r`nValue = Seed + $Value`r`nEnd Function`r`n"
     if($Invalid){$body=$body.Replace('Seed + '+$Value,'MissingName')}
@@ -157,6 +163,13 @@ function New-Project([string]$Name,[int]$Value,[bool]$Invalid=$false,[bool]$Exec
     if($Executable) {
         Write-Text (Join-Path $folder 'Second.bas') "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"Second`"`r`nPublic Function Main() As Long`r`nMain = First.Value(1) + $Value`r`nEnd Function`r`n"
         Write-Text $path "UBE-Project 1`r`nName = `"ConcurrentInput`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nSource = `"First.bas`"`r`nSource = `"Second.bas`"`r`n"
+    }
+    if($ClassMembers) {
+        $fields="Private Value As Long`r`n"
+        if($DistinctShape){$fields="Private Padding As String`r`nPrivate Extra As LongLong`r`n"+$fields}
+        Write-Text (Join-Path $folder 'Gate.cls') ("UBE SOURCE 1 CLASS`r`nAttribute UBE_Name = `"Gate`"`r`n"+$fields+"Public Sub StoreValue(ByVal Seed As Long)`r`nMe.Value = Seed`r`nEnd Sub`r`nPublic Function ReadValue() As Long`r`nReadValue = Me.Value + $Value`r`nEnd Function`r`n")
+        Write-Text (Join-Path $folder 'First.bas') "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"First`"`r`nPublic Function Value(ByVal Seed As Long) As Long`r`nDim Item As Gate`r`nSet Item = New Gate`r`nItem.StoreValue Seed`r`nValue = Item.ReadValue()`r`nEnd Function`r`n"
+        Write-Text $path ([IO.File]::ReadAllText($path,$utf8)+"Source = `"Gate.cls`"`r`n")
     }
     return $path
 }
@@ -647,7 +660,7 @@ $parallel=Join-Path $artifacts 'parallel.ll'
 $simultaneousA=Join-Path $artifacts 'simultaneous-a.ll'
 $simultaneousB=Join-Path $artifacts 'simultaneous-b.ll'
 $secondBaseline=Join-Path $artifacts 'second-baseline.ll'
-if(-not $MeasureOnly -and -not $ContextOnly) {
+if(-not $MeasureOnly -and -not $ContextOnly -and -not $ClassOnly) {
 Run-Requests 'single worker' 1 $first $second $baseline $simultaneousB
 Run-Requests 'two workers' 2 $first $second $parallel $simultaneousB
 $parallelMetrics=($script:lastReport -split '\r?\n')[0].Split(',')
@@ -746,7 +759,7 @@ $runB=Invoke-BoundedProcess $nativeB @()
 Require ($runB.ExitCode -eq 21) 'Subsequent same-process native request was unusable after timeout cleanup'
 }
 # Opposing complete requests use the existing observed worker/request barriers.
-if(-not $MeasureOnly) {
+if(-not $MeasureOnly -and -not $ClassOnly) {
     $contextInput=New-Project 'context input' 7 $false $true
     Write-Text (Join-Path ([IO.Path]::GetDirectoryName($contextInput)) 'First.bas') "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"First`"`r`nPublic Function Value(ByVal Seed As Long) As Long`r`n#If IS_IN_IDE Then`r`nValue = Seed + 901733`r`n#Else`r`nValue = Seed + 901729`r`n#End If`r`nEnd Function`r`n"
     $ordinary=Join-Path $artifacts 'context-ordinary-baseline.ll'
@@ -768,6 +781,31 @@ if(-not $MeasureOnly) {
         Require ((Get-FileHash $contextA).Hash -ceq (Get-FileHash $hosted).Hash -and (Get-FileHash $contextB).Hash -ceq (Get-FileHash $ordinary).Hash) 'Swapped contexts leaked between complete requests'
     }
     Write-Output 'PASS: complete opposing contexts, guarded entry, conditional selection and exact independent IR baselines'
+}
+# Distinct instance layouts and methods use the same complete-request barriers and oracle.
+if(-not $MeasureOnly -and -not $ContextOnly) {
+    $classFirst=New-Project 'class first source' 137 $false $true $false $true
+    $classSecond=New-Project 'class second source' 263 $false $true $true $true
+    $classBaselineA=Join-Path $artifacts 'class-first-baseline.ll'
+    $classBaselineB=Join-Path $artifacts 'class-second-baseline.ll'
+    $classA=Join-Path $artifacts 'class-a.ll'
+    $classB=Join-Path $artifacts 'class-b.ll'
+    Run-Requests -Name 'first class layout baseline' -Mode 1 -First $classFirst -Second $classSecond -OutputA $classBaselineA -OutputB $classB
+    Run-Requests -Name 'second class layout baseline' -Mode 1 -First $classSecond -Second $classFirst -OutputA $classBaselineB -OutputB $classB
+    $classHashA=(Get-FileHash $classBaselineA).Hash
+    $classHashB=(Get-FileHash $classBaselineB).Hash
+    Require ($classHashA -cne $classHashB) 'Distinct class layouts produced the same baseline'
+    foreach($baselinePath in @($classBaselineA,$classBaselineB)) {
+        $classText=[IO.File]::ReadAllText($baselinePath,$utf8)
+        Require ($classText.Contains('i64 %instance') -and $classText.Contains('@ube.object.layout.')) 'Class baseline omitted instance methods or payload metadata'
+    }
+    foreach($level in @('O0','O2')) {
+        Run-Requests -Name ('simultaneous class layouts '+$level) -Mode 3 -First $classFirst -Second $classSecond -OutputA $classA -OutputB $classB -Level $level
+        Require ((Get-FileHash $classA).Hash -ceq $classHashA -and (Get-FileHash $classB).Hash -ceq $classHashB) 'Concurrent class compilation changed an independent baseline'
+        Run-Requests -Name ('swapped class layouts '+$level) -Mode 3 -First $classSecond -Second $classFirst -OutputA $classA -OutputB $classB -Level $level
+        Require ((Get-FileHash $classA).Hash -ceq $classHashB -and (Get-FileHash $classB).Hash -ceq $classHashA) 'Swapped class compilation leaked layout or method facts'
+    }
+    Write-Output 'PASS: complete class requests, distinct instance layouts, methods/Me and exact independent IR baselines'
 }
 if($Measure -or $MeasureOnly) {
     $measurementPackage=$package

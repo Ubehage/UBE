@@ -382,7 +382,12 @@ Private Function ParseName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceT
     Dim Member As Long
     On Error GoTo Failed
     Start = S.Position
-    NameIndex = ReadName(B, T, S, D, False)
+    If CodeAt(B, T, S, 0) = SyntaxTokens.KwMe Then
+        NameIndex = S.Position
+        S.Position = S.Position + 1
+    Else
+        NameIndex = ReadName(B, T, S, D, False)
+    End If
     If NameIndex < 0 Then Exit Function
     Node = NewNode(T, N, S, D, NameNode, Start)
     If Node = 0 Then Exit Function
@@ -567,7 +572,7 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If Node = 0 Then Exit Function
         N(Node - 1).Value = Code
         N(Node - 1).NameToken = Start
-    ElseIf SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) Then
+    ElseIf Code = SyntaxTokens.KwMe Or SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) Then
         Node = ParsePostfix(B, T, N, S, D)
         If Node = 0 Then Exit Function
     Else
@@ -745,7 +750,7 @@ Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.S
     Dim Code As Long
     Dim Kind As Long
     On Error GoTo Failed
-    If SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) = False Then Exit Function
+    If CodeAt(B, T, S, 0) <> SyntaxTokens.KwMe And SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) = False Then Exit Function
     Ahead = 1
     Do
         Code = CodeAt(B, T, S, Ahead)
@@ -1544,8 +1549,6 @@ Private Function ParseModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
             ExplicitSeen = True
             If EndLine(T, S, D) = False Then Exit Function
         Else
-            ' Empty class identities are admitted; never silently omit fields or lifecycle hooks.
-            If N(Root - 1).Kind = ClassNode Then ParseModule = Reject(T, S, D, 3, 42): Exit Function
             OptionsClosed = True
             Visibility = 0
             If Code = SyntaxTokens.KwPublic Or Code = SyntaxTokens.KwPrivate Or Code = SyntaxTokens.KwFriend Or Code = SyntaxTokens.KwGlobal Then
@@ -1554,6 +1557,12 @@ Private Function ParseModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                 If RequireSpace(T, S, D) = False Then Exit Function
             End If
             Code = CodeAt(B, T, S, 0)
+            If N(Root - 1).Kind = ClassNode Then
+                If Visibility = SyntaxTokens.KwGlobal Then ParseModule = Reject(T, S, D, 3, 42): Exit Function
+                If Code <> SyntaxTokens.KwSub And Code <> SyntaxTokens.KwFunction And Code <> SyntaxTokens.KwDim Then
+                    If Visibility = 0 Or Not SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) Then ParseModule = Reject(T, S, D, 3, 42): Exit Function
+                End If
+            End If
             If Code = SyntaxTokens.KwIntrinsic Then
                 S.Position = S.Position + 1
                 If RequireSpace(T, S, D) = False Then Exit Function

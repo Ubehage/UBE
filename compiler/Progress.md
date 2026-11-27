@@ -1,5 +1,90 @@
 # Compiler development handoff
 
+## Completed: class instance members — 2026-11-27
+
+Ordinary instance fields, Sub/Function methods and Me are qualified on compiler
+97b47838 generation 2 (SHA256 5510298EAFD95492DD619683B3B562A07408F5764894EDCE0D86D10646B3DA98).
+The final combined class suite passes all 28 checks in
+`%TEMP%/ube class members 2896db41-3e1b-4936-a723-d067879c06b5`.
+Repeated ordinary self-builds, 518 common conformance assertions, full concurrent
+compilation, layout/backend regression and object/monitor regression gates pass.
+Exact commands, hashes, scope and evidence are in [CLASS-MEMBERS.md](CLASS-MEMBERS.md).
+The root README status is concise and the language profile/public manual agree
+with the admitted implementation. Browser rendering remains unverified.
+
+No further implementation is pending for this increment. Continue within the
+existing complete-language roadmap; lifecycle hooks, properties, events,
+interfaces, array fields and asynchronously escaping field aliases remain
+unsupported. Select and inspect the next dependency before changing code.
+
+### Historical implementation checkpoints
+
+The checkpoints below retain the diagnosis and qualification sequence; pending
+statements in them describe that earlier point, not the final status above.
+
+The owner requested the next existing roadmap step, followed by a short README
+status update and push to GitHub main. IS_IN_IDE and the root agent instructions
+are published (212a4c1 and cb6ee98). This increment continues complete language
+support with ordinary class fields, Sub/Function methods and Me. Existing
+visibility, identity, FAIL and precise GC contracts apply. Hooks, events,
+interfaces and properties retain their unsupported boundary.
+
+Baseline: compiler/tests/class-members/baseline-check.ps1 against qualified
+5c66 generation 2 passes four controls: empty-class emission succeeds; field,
+method and method-returning-Me reject at Gate.cls:4:1 with E_LOAD 8/3/42 and
+unchanged output bytes. Evidence: ube class member baseline
+f64d17a1-e84c-4046-8a6d-c28a9be3535c. Me is blocked at the method header here.
+
+Reuse runtime object.create/object.address and precise metadata. Instance payload
+layout stays distinct from one-cell reference layout. Methods carry a hidden
+rooted receiver retained through argument side effects and collection, including
+field ByRef. Fields must never use shared module storage or startup initializers.
+Root owns aggregate/payload metadata; counted_tests parser/binder; foreach native
+lowering; lifetime_review focused admission and source acceptance. Array fields
+and declaration initializers require proper per-instance ownership/initialization
+before admission. No unsupported feature may silently use module behavior.
+
+Required acceptance: O0/O2 instance independence, aliasing, managed fields/cycles,
+recursion, Me/visibility diagnostics, Nothing failure/output preservation, caller
+handlers/default continuation, receiver/ByRef lifetime, deterministic concurrent
+compilation, and renewed self-build/conformance/regression gates. Update profiles,
+manual and concise README only with passing evidence; then commit/push main.
+
+Class-member implementation checkpoint: separate InstanceCells/InstanceReferences
+and per-field offsets now describe payloads; the existing one-cell class reference
+layout remains unchanged. Native lowering passes a hidden rooted receiver, captures
+explicit receivers before arguments, uses existing checked object.address/create,
+and excludes fields from module/frame initialization. Unsupported asynchronous
+field aliases are rejected through existing escape analysis. Template parity passes
+335 fragments/49431 bytes/sum3964524; no runtime ABI or runtime-source change.
+
+The frontend gate passes all six O0/O2 runs over 20 cases, including changed-value
+and escaping-FAIL controls (ube instance binding
+34ea17fd-9e12-4df8-b0f7-cafdb025221e). A focused LookupName helper extraction
+removed an evidenced 4144-byte O0 stack-probe dependency without suppressed
+checks. Whole-compiler builds reach the existing 30-second backend timeout,
+including a solo run; direct bounded clang timing is under investigation. No
+new compiler or native class-member acceptance is qualified yet.
+
+Native class-member acceptance now passes all 24 runs/checks on the diagnostic
+compiler (ube class members 764714ae-bcff-41a0-a758-dfc4045dbebb): six O0/O2
+execution/control runs, four actual collector observations/controls and 14
+located rejection/output-preservation cases. These establish component behavior,
+not final self-host qualification. Fixture-only fixes replaced reserved Alias
+and removed unrelated helper dependencies from rejection samples.
+
+The isolated native build completed in 37002 ms, proving the 30-second tool
+deadline inadequate for current compiler sources. NativeBackend now permits
+60 seconds with unchanged bounded cleanup/output protection. A fresh source
+warm compiler was emitted by 5c66 and directly linked at O2 in 32216 ms, with
+source ledger/assets/support and exact commands retained at
+ube class warm compiler 6c98695a-c1f7-4eae-9bb5-af3e7e7e0382. Its SHA256 is
+B64CA9398D5060A32652494520703B8BB693A3797D1003F6E3177848F771B000.
+This explicit bootstrap step is not an ordinary build qualification. The next
+gate is repeated ordinary self-building with this warm compiler after focused
+class concurrency releases CPU. Package gate passes 350 assertions
+(ube self-host sources 1c6f056f-ddc7-4ea4-87c5-406df2c79f94).
+
 ## Completed: IS_IN_IDE — 2026-11-27
 
 The global read-only Boolean now works in ordinary expressions and conditional
