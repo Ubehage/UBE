@@ -30,13 +30,13 @@ The long-term goal is a complete native development system:
 ## Project status
 *UBE is in early development and is not ready for production use.*
 
-**The compiler builds itself and compiles in parallel.** Two successive native 64-bit Windows self-builds took about 20 seconds each on the development machine. They produce identical LLVM and matching executables apart from the build timestamp.
+**The native 64-bit Windows compiler builds itself and compiles in parallel.** The latest self-builds took about 30 seconds each on the development machine, producing identical LLVM and matching executables apart from the build timestamp.
 
-**String values and the typed text library now work.** UBE supports Unicode text, UTF-8 import/export, concatenation, comparisons and integer/Boolean conversions, including text in records, arrays and worker captures. Precise garbage collection manages memory automatically, with no separate runtime installation. Text and collection algorithms are written in UBE.
+**Single and Double now work alongside integers and Unicode text.** Arithmetic, comparisons and text conversions support records, arrays and worker captures. Floating-point values preserve signed zero and subnormal values; invalid results fail without overwriting the destination. Text, numeric conversion and collection algorithms are written in UBE, with no separate runtime installation.
 
-Tests cover optimized and unoptimized builds, memory exhaustion and recovery, concurrent workers, deterministic output and preservation of earlier files after failed builds. The broader language and library, source-level debugging and IDE remain under development.
+Optimized and unoptimized tests cover numerical boundaries, allocation failure and recovery, concurrent workers, and preservation of earlier files after failed builds. Several fixed storage quotas have been removed; implementation limits remain. The broader language and library, source-level debugging and IDE are still under development.
 
-See the [text-library scope](std-lib/TEXT.md), [test evidence and self-build results](compiler/Progress.md), and [development plan](project-docs/Development-Plan.md).
+See the [numeric scope and test evidence](compiler/FLOATING-POINT.md), [text-library scope](std-lib/TEXT.md), and [development plan](project-docs/Development-Plan.md).
 
 
 ## Frequently Asked Questions

@@ -145,6 +145,31 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Formats typed IEEE bits with the shared invariant round-trip algorithm.
+Public Function FromFloating(ByVal Bits As LongLong, ByVal BitWidth As Long) As String
+    Dim Bytes(0 To 47) As Byte
+    Dim Used As Long
+    On Error GoTo Failed
+    If Not BinaryFloatText.TryAppend(Bytes, Used, Bits, BitWidth) Then Err.Raise Err.Number
+    FromFloating = FromUtf8(Bytes, 0, Used)
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Returns typed IEEE bits for the compiler's existing numeric cell transport.
+Public Function ToFloating(ByVal Value As String, ByVal BitWidth As Long) As LongLong
+    Dim Bytes() As Byte
+    Dim Bits As LongLong
+    On Error GoTo Failed
+    Call ToUtf8(Value, Bytes)
+    If Not BinaryFloat.TryParse(Bytes, 0, BufferPrimitives.ByteStorageLength(Bytes), BitWidth, Bits) Then Err.Raise Err.Number
+    ToFloating = Bits
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Uses the language's invariant Boolean words.
 Public Function FromBoolean(ByVal Value As Boolean) As String
     Dim Bytes(0 To 4) As Byte

@@ -5,12 +5,19 @@ narrow compiler intrinsic and platform boundary. [UBECore.UBE](UBECore.UBE)
 contains its current portable buffer, file-I/O, UTF-8, text and collection modules.
 
 The [typed text library](TEXT.md) provides String length, strict UTF-8 import
-and export, concatenation, binary comparison and admitted integer/Boolean
+and export, concatenation, binary comparison and admitted integer/Boolean/Single/Double
 conversions. String values use precise automatic collection, including across
 worker captures and retained array-element aliases. `Memory.CollectGarbage`
 requests a synchronous pass. Algorithms are ordinary UBE; native roles supply
 allocation, exact roots, publication and thread coordination. See the
 [native acceptance evidence](../runtime/tests/managed-text/README.md).
+
+Single/Double parsing, shortest round-trip formatting, constant arithmetic and
+power use shared ordinary UBE numeric modules. Finite values, signed zero,
+subnormals, checked conversions and failure preservation are covered by the
+[exact numerical gates](tests/floating-point/README.md). These modules add no
+separate runtime installation; Currency, Decimal and Variant remain outside
+this implemented increment.
 
 `Utf8.TryDecodeScalar` and `Utf8.TryEncodeScalar` convert one Unicode scalar
 to or from counted UTF-8 bytes without allocating a String. They accept U+0000,
@@ -90,7 +97,9 @@ FAIL, overlap, validation and publication behavior.
 
 The [dynamic-storage gate](../bootstrap/tests/dynamic-storage/README.md) passed
 41 groups on 2026-11-10, covering growth, independent replacement, allocation
-failures, production page quota, cleanup and live element aliases at O0/O2.
+failures, the then-current page quota, cleanup and live element aliases at O0/O2.
+The fixed heap quota is now removed; checked accounting and deterministic
+allocation-failure gates supersede those earlier exhaustion assumptions.
 
 `FilePrimitives` declares explicit open, exclusive create, read, write, flush
 and close operations plus record-only Error.Set. Paths are strict UTF-8 bytes;
@@ -130,6 +139,6 @@ Whole-input and array capacity are separate from the 65,536-byte transfer
 ceiling and 4,096-byte path ceiling. Ordinary FileBytes loops split larger
 buffers into bounded chunks. The [source-storage gate](../bootstrap/tests/source-storage/README.md)
 passed 16 checks at O0/O2, including 1 MiB round trips, short transfers,
-oversized request rejection and allocation-quota preservation. These buffers
-now support the [UBE module parser](../bootstrap/MODULE-PARSING.md); managed
-String and recursive record layout remain separate dependencies.
+oversized request rejection and injected allocation failure/retry. These buffers
+support the [UBE module parser](../bootstrap/MODULE-PARSING.md). Managed String
+support is described above; recursive record layout remains a separate dependency.

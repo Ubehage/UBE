@@ -16,20 +16,26 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / Single</nav>
     <h1>Single</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span><span class="badge">Windows x64 development compiler</span></div>
     <p class="lede">Stores an IEEE-754 binary32 floating-point number.</p>
     <h2>Syntax</h2>
     <pre><code>Dim name As Single</code></pre>
     <h2>Example</h2>
-    <pre><code>Sub Main()
-    Dim Value As Single = 1.5
-    Print Value
-End Sub</code></pre>
-    <h3>Expected result</h3><p>1.5</p>
+    <pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "SingleExample"
+Public Function Main() As Long
+    Dim Value As Single = 1.5!
+    Value = Value * 2!
+    If Value &lt;&gt; 3! Then Main = 1
+End Function</code></pre>
+    <h3>Expected result</h3><p><code>Value</code> becomes <code>3</code>. The program returns exit code zero.</p>
     <h2>Important rules</h2>
-    <p>Single values are approximate binary floating-point values.</p>
+    <p><code>Single</code> is a 32-bit approximate binary value with about seven significant decimal digits. Its default is zero. A literal ending in <code>!</code>, such as <code>1!</code> or <code>1.5!</code>, has this type. An unsuffixed real literal has type <code>Double</code>.</p>
+    <p>Values must be finite. Rounding is to nearest, ties to even; signed zero and subnormal values are preserved. NaN, infinity and overflow fail. Converting a finite value outside the destination range also fails, even when rounding could bring it back into range. Known invalid constant expressions are compile-time errors; runtime failure preserves an unfinished assignment's destination.</p>
+    <p>The development compiler supports Single literals, arithmetic, comparisons, numeric and text conversions, procedure arguments/results, arrays, records and worker captures. Other numeric families and general VB6 compatibility functions have separate support limits.</p>
+    <h2>See also</h2><p><a href="../d/double.html" data-doc-path="language/words/d/double.html">Double</a>, <a href="../../topics/conversions.html" data-doc-path="language/topics/conversions.html">Conversions</a>, and <a href="../../topics/scalar-values-operators.html" data-doc-path="language/topics/scalar-values-operators.html">Scalar values and operators</a>.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/shared.html" data-doc-path="language/words/s/shared.html">← Previous: Shared</a><a href="../s/source.html" data-doc-path="language/words/s/source.html">Next: SOURCE →</a></nav>
-    <footer class="article-footer">Article ID: language.word.single · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.word.single · UBE 1.0 · Last reviewed 2026-11-27</footer>
   </main>
 </body>
 </html>

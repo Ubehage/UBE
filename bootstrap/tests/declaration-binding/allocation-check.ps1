@@ -214,7 +214,7 @@ done:
 }
 '@
 $observed += "`r`n" + $observer
-foreach ($stage in 1..8) {
+foreach ($stage in 1..10) {
     $harness = @'
 @test.context = private global %ube.context zeroinitializer, align 8
 define i32 @main() {
@@ -249,7 +249,7 @@ entry:
   %retry.zero = icmp eq i64 %retry.value, 0
   %retried = and i1 %retry.ok, %retry.zero
   %retry.calls = load i64, ptr @test.calls
-  %four.calls = icmp eq i64 %retry.calls, 8
+  %four.calls = icmp eq i64 %retry.calls, 10
   %disposed = call i1 @ube.context.dispose(ptr %ctx)
   %live = load i64, ptr @test.live
   %clean = icmp eq i64 %live, 0

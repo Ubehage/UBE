@@ -47,11 +47,10 @@ volatile runtime input. A changed-input negative control must reject its altered
 captured bounds. Test wrappers count live allocations and require zero after
 disposal. They force one allocation failure (successful retry), two failures
 (Err7), a synthetic live-block quota, and failed target releases followed by a
-successful later disposal. Production element-count limits and the actual
-64MiB charged-page quota are checked. Fifteen 4MiB record payloads fit; the
-sixteenth must fail because headers and page rounding also consume quota.
-Exactly fifteen calls reach the target allocator, and all resulting blocks
-must be released. The 4096-live-block quota is not exhausted by this suite.
+successful later disposal. A test-only target limit admits fifteen payloads,
+rejects the sixteenth through both allocation attempts, then permits retry after
+an owner is released. This tests system-resource pressure without imposing a
+production quota. Every resulting block must be released.
 
 Fault injection renames only definitions of `ube.target.allocate(i64)->ptr` and
 `ube.target.release(ptr)->i1` in a test copy of LLVM; replacements delegate to

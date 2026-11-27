@@ -34,7 +34,23 @@ bootstrap may remain sequential. The concrete architecture requirement is in
   Successive self-builds, expanded common conformance and concurrency regressions
   pass. Exact commands and limitations are in `compiler/Progress.md`.
 
-### Managed text checkpoint
+### Next compiler increment
+
+- [x] Implement and qualify `Single`/`Double` under the existing complete-language
+  roadmap: storage, literals, arithmetic/comparison, admitted conversions
+  (including text), parameters/results, arrays/records and worker captures.
+  O0/O2 boundaries, fresh FAIL, destination preservation, deterministic output,
+  self-host fixed point and concurrency gates pass. Approved finite-only values,
+  classic suffixes and shortest round-trip text are reflected in the definitions.
+  Exact scope, commands, evidence and remaining limits are in
+  `compiler/FLOATING-POINT.md` (2026-11-27).
+- [ ] Implement the owner-approved UBE 1.0 `Exit Loop` contract recorded in
+  language-spec.md section 9.1 and the EBNF. It exits the outermost enclosing
+  loop of the current invocation, never caller/recursive-invocation loops.
+  Mixed loop kinds, nested non-loop blocks, invalid placement and cleanup need
+  dedicated acceptance tests. This definition update does not claim execution.
+
+### Managed text qualification
 
 - [x] Implement managed String and the typed text library with the specified
   precise tracing memory model. The owner approved conforming implementation
@@ -256,3 +272,26 @@ product baseline.
 
 Compiler acceptance criteria and the immediate handoff are in
 `compiler/Roadmap.md` and `compiler/Progress.md`.
+
+### Documentation redesign - 2026-11-20
+
+- [x] Assess all 274 original public HTML pages and reconcile every disposition.
+  Current PAGE-AUDIT.md accounts for 270 reworked originals, four deletions and
+  73 additions: 343 HTML files in total.
+- [x] Implement the content/layout/navigation pass and synchronize search and
+  indexes. Static validation passed all 343 files. First-program execution
+  passed 22 assertions at O0/O2; additional learning and library gates are
+  recorded in docs/ROADMAP.md. The latest offline archive passed extraction/hash
+  and static checks (350 reader files plus unchanged LICENSE). All 766 displayed
+  blocks have individual review/evidence records; exact block hashes agree.
+  Exit Loop is documented as specified, pending
+  implementation; its mixed-loop example is not execution-qualified.
+- [ ] Complete example auditing/execution and browser, all-page rendering,
+  keyboard, screen-reader and preference/offline acceptance. Headless Firefox
+  checks work; native Firefox control is stopped by unsupported URL-policy
+  enforcement. These limits are
+  recorded in docs/ROADMAP.md;
+  Owner-ideas item 1 and its goal remain active, not complete.
+
+Maintenance tools and evidence remain under ignored docs/assets/tools and
+docs/.work. No remote publication is part of this change.

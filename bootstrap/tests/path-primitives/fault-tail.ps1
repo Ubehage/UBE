@@ -5,6 +5,7 @@ $manifest=Copy-Fixtures 'fault-library' $files '0' 'Library'
 $library=Join-Path $artifacts 'library.ll'
 $null=Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $original=[IO.File]::ReadAllText($library,$utf8)
+$programHeapLimit=Get-NativeAccountingMaximum $original
 function Replace-Target([string]$Text,[string]$Name,[string]$Definition) {
     $pattern='(?ms)^define [^\r\n]*@'+[regex]::Escape($Name)+'\([^\r\n]*\{\r?\n.*?^\}'
     Require ([regex]::Matches($Text,$pattern).Count -eq 1) "Missing unique target $Name"
@@ -36,7 +37,7 @@ foreach($mode in $cases) {
     if($mode -eq 'final-stale') {$wanted=99;$expectedFailure=9;$expectedAllocations=0}
     if($mode -eq 'final-busy') {$expectedBusy=1;$expectedFailure=13;$expectedAllocations=0}
     if($mode.EndsWith('-allocation')) {$expectedFailure=3;$expectedErr=7;$expectedAllocations=2}
-    if($mode -eq 'full-quota') {$expectedFailure=3;$expectedErr=7;$expectedAllocations=0;$quota="  store i64 67108864, ptr %charge"}
+    if($mode -eq 'full-quota') {$expectedFailure=3;$expectedErr=7;$expectedAllocations=0;$quota="  store i64 $programHeapLimit, ptr %charge"}
     $allocationFail='false';if($mode.EndsWith('-allocation')) {$allocationFail='%inject'}
     $text=$text.Replace('define ptr @ube.target.allocate(', 'define ptr @test.real.allocate(')
     $text+=@"
@@ -154,8 +155,8 @@ entry:
   store i64 777, ptr @test.ctx
   store i64 $inputByte, ptr @test.input
   store i64 77, ptr @test.output
-  %charge = getelementptr %ube.context, ptr @test.ctx, i32 0, i32 5
-  %slot = getelementptr %ube.context, ptr @test.ctx, i32 0, i32 7, i64 0
+  %charge = call ptr @ube.memory.bytes(ptr @test.ctx)
+  %slot = call ptr @ube.resource.slot(ptr @test.ctx, i64 0)
   %handle = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
   %busy = getelementptr %ube.resource, ptr %slot, i32 0, i32 4
 $setup
@@ -197,7 +198,7 @@ $fill
   %output.upper = getelementptr i64, ptr @test.destination, i64 1
   store i64 4100, ptr %output.upper
   %charged = load i64, ptr %charge
-  %quota.injected = icmp eq i64 %charged, 67108864
+  %quota.injected = icmp eq i64 %charged, $programHeapLimit
   %restored = select i1 %quota.injected, i64 0, i64 %charged
   store i64 %restored, ptr %charge
   %recovery = call i1 $recovery
@@ -212,7 +213,7 @@ $fill
   %recovered = and i1 %f, %g
 $cleanup
   %disposed = call i1 @ube.context.dispose(ptr @test.ctx)
-  %live.ptr = getelementptr %ube.context, ptr @test.ctx, i32 0, i32 6
+  %live.ptr = call ptr @ube.memory.count(ptr @test.ctx)
   %live = load i64, ptr %live.ptr
   %clean = icmp eq i64 %live, 0
   %released = and i1 %disposed, %clean

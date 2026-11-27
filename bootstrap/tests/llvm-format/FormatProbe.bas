@@ -49,6 +49,10 @@ Public Function CheckInvalid(ByRef Catalog() As Byte) As Long
     If LLVMFormat.TryValidateCatalog(Changed) Then CheckInvalid = 20: Exit Function
     Changed(0) = 127
     If LLVMFormat.TryValidateCatalog(Changed) Then CheckInvalid = 5: Exit Function
+    ' TryFormat validates the selected span; catalog ordering may place other fragments first.
+    If BufferPrimitives.TryCopyBytes(Changed, Catalog) = False Then CheckInvalid = 21: Exit Function
+    If LLVMTemplates.TrySpan(LLVMTemplates.Branch, Start, Count) = False Then CheckInvalid = 22: Exit Function
+    Changed(Start) = 127
     If LLVMWriter.TryInitialize(State, Buffer) = False Then CheckInvalid = 6: Exit Function
     Status = LLVMFormat.TryFormat(State, Buffer, 0, Changed, LLVMTemplates.Branch, 1, 2, 3, 4)
     If Status Or State.Failure <> 3 Or State.Used <> 0 Then CheckInvalid = 7: Exit Function

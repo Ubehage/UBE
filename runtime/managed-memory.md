@@ -2,7 +2,9 @@
 
 Status: concrete implementation contract for the approved managed text increment
 in `compiler/TEXT-SUPPORT.md`. The native substrate and ordinary UBE collector
-are implemented; broader fault, rendezvous and graph acceptance remains open.
+are implemented and pass the scoped fault, rendezvous, metadata-growth and
+5000-record graph gates in `tests/managed-text/README.md`. Objects, finalizers
+and broader foreign-boundary qualification remain outside this increment.
 The normative language contract is `lang-doc/managed-memory.md`.
 
 ## Collector boundary
@@ -34,13 +36,17 @@ within its callback uses the no-recursion path instead.
 
 The coordinator obtains fixed allocation and root counts, borrows a LongLong
 workspace with at least AllocationCount entries, then enumerates roots.
-`Managed.Workspace` exposes the state-owned 4096-cell queue through an empty
+`Managed.Workspace` exposes the state-owned queue through an empty
 array descriptor. It permits one coordinator lease, requires Preserve=False,
-and allocates nothing during collection. The queue is charged at installation
-against the same program quota. Count zero releases the lease and empties the
+and allocates nothing during collection. Before publishing each managed record,
+registration reserves enough snapshot and queue capacity for all live records.
+Both arrays share one checked, program-owned allocation that grows geometrically
+outside collection; a collection request, active phase or workspace lease prevents
+replacement. Count zero releases the lease and empties the
 descriptor; empty cleanup is idempotent. The collector releases this lease
 before EndCollection on every exit and never accesses it afterward. An oversized
-request records Err 7; an invalid descriptor or competing lease records Err 5.
+request beyond reserved capacity records Err 7; an invalid descriptor or competing
+lease records Err 5.
 All indices are zero-based. Allocation slots retain stable indices for the
 whole round; a reclaimed slot reads as zero. Roots include exact stack/global
 slots, return handoffs, construction candidates, worker captures and managed
@@ -106,13 +112,44 @@ not traversal of managed handle edges. Old payload aliases, including ordinary
 ByRef aliases, get direct retained-payload frames so descriptor replacement
 cannot erase their reachability. Captures require the same treatment.
 
-Managed allocation records share the existing program allocator and its 64 MiB
-and 4096-block bounds. Registry metadata and work storage are charged to the
-same budget. There is no separate String heap and no hidden quota enlargement.
+Managed allocation records share the existing program allocator. Allocation is
+limited by available system resources and checked address/count representation,
+without a fixed program byte or block quota. Registry metadata and work storage
+are included in the same exact accounting; there is no separate String heap.
+Before publishing a new managed record, the runtime reserves enough space for
+both the allocation snapshot and tracing queue. Growth preserves the old buffers
+on failure and never occurs while a collection snapshot or workspace is leased.
 Packed UTF-8 payload size is measured in bytes; language array storage retains
 its existing logical-cell representation. Record metadata names a validated
 immutable layout; layout reference offsets distinguish managed identities from
 ordinary cells. Layout repetition describes arrays without conservative scans.
+
+The runtime keeps its existing collect-and-retry allocation path. An OS refusal
+or unrepresentable extent produces a controlled allocation failure and preserves
+the destination. Geometric metadata growth uses one owned buffer with two spans;
+collection itself does not allocate a larger queue. The source collector's
+count representation remains `Long`, checked before record publication.
+
+The former 64 MiB ceiling rejected a legitimate compiler request: after removing
+a redundant escape-plan publication copy, the measured live peak was 71,426,048
+bytes across 73 blocks. The measurement used a temporary diagnostic allowance;
+production now follows system resources instead of raising that artificial
+ceiling. The 5,000-record graph and metadata-growth fault gates cover collection
+beyond the former 4,096-block bound, rollback, retry and complete release.
+
+Invocation storage has no 128-cell admission cap. Frames of at most 128 cells
+use bounded native stack storage; larger frames use one checked allocation
+with planned offsets for locals, temporaries and roots. Frame entry uses native
+retirement collection and locked allocation rather than recursively invoking
+the ordinary collector while allocating that collector's own frame. Failure
+reports Err 7 before entering the body. Normal, FAIL and refused-depth exits
+restore roots and release the frame owner. Managed worker thunks have their own
+fixed root frame. The existing 256-call depth guard remains; this does not
+promise recovery from arbitrary native stack exhaustion. The focused
+`runtime/tests/frame-storage/boundary-check.ps1` and `lifetime-check.ps1` gates
+cover large frames, allocation failure/retry, root preservation and depth
+failure/recovery at O0/O2; evidence is in
+[Single/Double support](../compiler/FLOATING-POINT.md).
 
 Layout addresses are trusted immutable compiler metadata, and descriptors obey
 the language's Long-bound representation. The native boundary validates counts,

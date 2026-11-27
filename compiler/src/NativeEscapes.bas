@@ -17,6 +17,11 @@ Private Intrinsic Function ResizeFacts(ByRef Values() As EscapeFact, ByVal Count
 Attribute ResizeFacts.UBE_Primitive = "Array.TryResize"
 End Function
 
+' Publishes the private candidate without duplicating the complete node-indexed plan.
+Private Intrinsic Function MoveFacts(ByRef Destination() As EscapeFact, ByRef Source() As EscapeFact) As Boolean
+Attribute MoveFacts.UBE_Primitive = "Array.Move"
+End Function
+
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -163,7 +168,7 @@ Public Function TryAnalyzeEscapes(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     Diagnostic.Utf16Offset = 1
     Diagnostic.Line = 1
     Diagnostic.Column = 1
-    If NodeCount < 1 Or NodeCount > 131072 Or SymbolCount < 1 Or SymbolCount > 16384 Then
+    If NodeCount < 1 Or SymbolCount < 1 Then
         Diagnostic.Code = 6
         Diagnostic.Reason = 55
         Exit Function
@@ -184,7 +189,7 @@ Public Function TryAnalyzeEscapes(ByRef N() As SourceParser.SyntaxNode, ByRef A(
             Argument = Nexts(Argument - 1)
         Loop
     Loop
-    Facts = Candidate
+    If Not MoveFacts(Facts, Candidate) Then GoTo StorageFailure
     FactCount = NodeCount
     TryAnalyzeEscapes = True
     Exit Function

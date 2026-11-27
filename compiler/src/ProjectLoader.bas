@@ -70,7 +70,7 @@ Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Review
     Diagnostic.Reason = 3
     If Reviewed And Info.SourceCount <> ManagedSourceAssets.SourceCount Then Exit Function
     Diagnostic.Code = 4
-    If Info.SourceCount > 128 - Counts.ModuleCount Then Exit Function
+    If Info.SourceCount > 2147483647 - Counts.ModuleCount Then Exit Function
     Diagnostic.Stage = 9
     Diagnostic.Code = 8
     Diagnostic.Reason = 0
@@ -146,8 +146,8 @@ Private Function RetainPath(ByRef Canonical() As Byte, ByVal ManifestLine As Lon
     Dim Length As Long
     On Error GoTo Failed
     Length = BufferPrimitives.ByteStorageLength(Canonical)
-    If Length < 1 Or Length > 4096 Or Used < 0 Or Used > 524288 Then Exit Function
-    If Length > 524288 - Used Then Exit Function
+    If Length < 1 Or Length > 4096 Or Used < 0 Or Used > 2147483647 Then Exit Function
+    If Length > 2147483647 - Used Then Exit Function
     If BufferPrimitives.TryResizeBytes(PathBytes, Used + Length, True) = False Then Exit Function
     If BufferPrimitives.CopyByteRange(Canonical, 0, PathBytes, Used, Length) = False Then Exit Function
     Paths(Index).Start = Used
@@ -171,7 +171,7 @@ Public Function TryLoadManifest(ByRef ManifestPath() As Byte, ByRef PackageName(
     Dim Status As Boolean
     On Error GoTo RuntimeFailure
     Diagnostic.Stage = 2
-    If FilePrimitives.TryOpen(ManifestPath, 65536, Token, Length, Failure) = False Then GoTo IOFailed
+    If FilePrimitives.TryOpen(ManifestPath, 2147483646, Token, Length, Failure) = False Then GoTo IOFailed
     If TryCanonicalPath(Token, Canonical, Failure) = False Then GoTo IOFailed
     If WindowsPaths.TryParent(Canonical, Root, Failure) = False Then GoTo IOFailed
     Diagnostic.Stage = 3
@@ -229,7 +229,7 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
     If WindowsPaths.TryIsWithin(Root, Resolved, Within, Failure) = False Then GoTo IOFailed
     If Within = False Then Diagnostic.Code = 11: Diagnostic.Reason = 1: GoTo Rejected
     Diagnostic.Stage = 6
-    If FilePrimitives.TryOpen(Resolved, 1048576, Token, Length, Failure) = False Then GoTo IOFailed
+    If FilePrimitives.TryOpen(Resolved, 2147483646, Token, Length, Failure) = False Then GoTo IOFailed
     If TryCanonicalPath(Token, Canonical, Failure) = False Then GoTo IOFailed
     If WindowsPaths.TryIsWithin(Root, Canonical, Within, Failure) = False Then GoTo IOFailed
     If Within = False Then Diagnostic.Code = 11: Diagnostic.Reason = 1: GoTo Rejected

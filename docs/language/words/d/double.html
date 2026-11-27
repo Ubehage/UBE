@@ -16,22 +16,27 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Double</nav>
     <h1>Double</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span><span class="badge">Windows x64 development compiler</span></div>
     <p class="lede">Stores an IEEE-754 binary64 floating-point number.</p>
     <h2>Syntax</h2>
     <pre><code>Dim name As Double</code></pre>
     <h2>Example</h2>
-    <pre><code>Sub Main()
+    <pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "DoubleExample"
+Public Function Main() As Long
     Dim Result As Double
     Result = 1.5 / 2
-    Print Result
-End Sub</code></pre>
+    If Result &lt;&gt; 0.75# Then Main = 1
+End Function</code></pre>
     <h3>Expected result</h3>
-    <p>0.75</p>
+    <p><code>Result</code> becomes <code>0.75</code>. The program returns exit code zero.</p>
     <h2>Important rules</h2>
-    <p>Double values are approximate binary floating-point values. Do not expect every decimal fraction to be represented exactly.</p>
+    <p><code>Double</code> is a 64-bit approximate binary value with about 15–16 significant decimal digits. Its default is zero. Unsuffixed real literals and literals ending in <code>#</code>, including <code>1#</code>, have this type. Not every decimal fraction is exact.</p>
+    <p>Values must be finite. Rounding is to nearest, ties to even; signed zero and subnormal values are preserved. NaN, infinity and overflow fail. Known invalid constant expressions are compile-time errors. At runtime, division by zero records error 11; an out-of-range conversion or arithmetic overflow records error 6. A failed assignment preserves its destination.</p>
+    <p>The development compiler supports Double literals, arithmetic, comparisons, numeric and text conversions, procedure arguments/results, arrays, records and worker captures. Powers convert operands to Double: zero to a negative power and a negative base with a fractional exponent fail with error 5.</p>
+    <h2>See also</h2><p><a href="../s/single.html" data-doc-path="language/words/s/single.html">Single</a>, <a href="../../topics/conversions.html" data-doc-path="language/topics/conversions.html">Conversions</a>, and <a href="../../topics/scalar-values-operators.html" data-doc-path="language/topics/scalar-values-operators.html">Scalar values and operators</a>.</p>
     <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/do.html" data-doc-path="language/words/d/do.html">← Previous: Do</a><span></span></nav>
-    <footer class="article-footer">Article ID: language.word.double · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
+    <footer class="article-footer">Article ID: language.word.double · UBE 1.0 · Last reviewed 2026-11-27</footer>
   </main>
 </body>
 </html>

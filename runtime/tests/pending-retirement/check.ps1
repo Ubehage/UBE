@@ -25,6 +25,9 @@ $marker="define internal i1 @ube.memory.collect.locked(ptr %ctx) {`r`nentry:"
 if(-not $runtime.Contains($marker)){throw 'Collector instrumentation anchor missing'}
 $runtime=$runtime.Replace($marker,$marker+"`r`n  %test.scan = atomicrmw add ptr @test.scans, i64 1 monotonic")
 $probe=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'probe.ll'))
+$limit=[regex]::Match($runtime,'%available = sub i64 ([0-9]+), %charge')
+if(-not $limit.Success){throw 'Missing tested accounting bound'}
+$probe=$probe.Replace('PROGRAM_HEAP_LIMIT',$limit.Groups[1].Value)
 $llvm='C:\Program Files\LLVM\bin'
 $def=Join-Path $root 'compiler/llvm/kernel32.def';$lib=Join-Path $artifacts 'kernel32.lib'
 $result=Run (Join-Path $llvm 'llvm-dlltool.exe') @('-m','i386:x86-64','-d',$def,'-l',$lib)

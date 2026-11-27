@@ -1,4 +1,31 @@
-define { i1, i64 } @ube.proc.{0}(ptr %ctx) {
+  %floatbits{0} = trunc i64 %v{1} to i32
+  %v{0} = bitcast i32 %floatbits{0} to float  %floatbits{0} = bitcast float %v{1} to i32
+  %v{0} = zext i32 %floatbits{0} to i64  %v{0} = fadd float %v{1}, %v{2}  %v{0} = fsub float %v{1}, %v{2}  %v{0} = fmul float %v{1}, %v{2}  %v{0} = fdiv float %v{1}, %v{2}  %v{0} = fneg float %v{1}  %v{0} = fcmp oeq float %v{1}, %v{2}  %v{0} = fcmp une float %v{1}, %v{2}  %v{0} = fcmp olt float %v{1}, %v{2}  %v{0} = fcmp ogt float %v{1}, %v{2}  %v{0} = fcmp ole float %v{1}, %v{2}  %v{0} = fcmp oge float %v{1}, %v{2}  %v{0} = sitofp i64 %v{1} to float  %v{0} = bitcast i64 %v{1} to double  %v{0} = bitcast double %v{1} to i64  %v{0} = fadd double %v{1}, %v{2}  %v{0} = fsub double %v{1}, %v{2}  %v{0} = fmul double %v{1}, %v{2}  %v{0} = fdiv double %v{1}, %v{2}  %v{0} = fneg double %v{1}  %v{0} = fcmp oeq double %v{1}, %v{2}  %v{0} = fcmp une double %v{1}, %v{2}  %v{0} = fcmp olt double %v{1}, %v{2}  %v{0} = fcmp ogt double %v{1}, %v{2}  %v{0} = fcmp ole double %v{1}, %v{2}  %v{0} = fcmp oge double %v{1}, %v{2}  %v{0} = sitofp i64 %v{1} to double  %v{0} = fpext float %v{1} to double  %v{0} = fptrunc double %v{1} to float  %isnan{0} = fcmp uno double %v{1}, %v{1}
+  %ispositiveinf{0} = fcmp oeq double %v{1}, 0x7FF0000000000000
+  %isnegativeinf{0} = fcmp oeq double %v{1}, 0xFFF0000000000000
+  %isinf{0} = or i1 %ispositiveinf{0}, %isnegativeinf{0}
+  %v{0} = or i1 %isnan{0}, %isinf{0}  %v{0} = fcmp one double %v{1}, 0.0  %abovefloat{0} = fcmp ogt double %v{1}, 0x47EFFFFFE0000000
+  %belowfloat{0} = fcmp olt double %v{1}, 0xC7EFFFFFE0000000
+  %outsidefloat{0} = or i1 %abovefloat{0}, %belowfloat{0}
+  %finitefloat{0} = xor i1 %v{2}, true
+  %v{0} = and i1 %outsidefloat{0}, %finitefloat{0}  %aboveinteger{0} = fcmp uge double %v{1}, 0x43E0000000000000
+  %belowinteger{0} = fcmp ult double %v{1}, 0xC3E0000000000000
+  %v{0} = or i1 %aboveinteger{0}, %belowinteger{0}  %truncated{0} = fptosi double %v{1} to i64
+  %integral{0} = sitofp i64 %truncated{0} to double
+  %fraction{0} = fsub double %v{1}, %integral{0}
+  %oddvalue{0} = and i64 %truncated{0}, 1
+  %odd{0} = icmp ne i64 %oddvalue{0}, 0
+  %positivehalf{0} = fcmp oeq double %fraction{0}, 0.5
+  %negativehalf{0} = fcmp oeq double %fraction{0}, -0.5
+  %positiveover{0} = fcmp ogt double %fraction{0}, 0.5
+  %negativeover{0} = fcmp olt double %fraction{0}, -0.5
+  %positivetie{0} = and i1 %positivehalf{0}, %odd{0}
+  %negativetie{0} = and i1 %negativehalf{0}, %odd{0}
+  %increment{0} = or i1 %positiveover{0}, %positivetie{0}
+  %decrement{0} = or i1 %negativeover{0}, %negativetie{0}
+  %positiveadjust{0} = select i1 %increment{0}, i64 1, i64 0
+  %adjust{0} = select i1 %decrement{0}, i64 -1, i64 %positiveadjust{0}
+  %v{0} = add i64 %truncated{0}, %adjust{0}define { i1, i64 } @ube.proc.{0}(ptr %ctx) {
 entry:
   %result = call { i1, i64 } @ube.managed.collect(ptr %ctx, i64 -1)
   ret { i1, i64 } %result
@@ -192,19 +219,20 @@ entry:
   %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
   %depth.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 1define internal { i1, i64 } @ube.module.initialize.{0}(ptr %ctx) {
 entry:
-  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0  %handler.target = alloca i32, align 4
-  %handler.active = alloca i1, align 1
-  %failure.site = alloca i32, align 4
-  %handler.resume = alloca i32, align 4
+  %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0  %handler.target = getelementptr i64, ptr %frame.storage, i64 {3}
+  %handler.active = getelementptr i64, ptr %handler.target, i64 1
+  %failure.site = getelementptr i64, ptr %handler.target, i64 2
+  %handler.resume = getelementptr i64, ptr %handler.target, i64 3
   store i32 0, ptr %handler.target
   store i1 false, ptr %handler.active
   store i32 0, ptr %failure.site
-  store i32 0, ptr %handler.resume  %slot.{0} = alloca [{1} x i64], align 8  store atomic i64 %arg.{0}, ptr %slot.{0} monotonic, align 8  %temp.{0} = alloca i64, align 8  %pin.{0} = alloca ptr, align 8
+  store i32 0, ptr %handler.resume  %slot.{0} = getelementptr i64, ptr %frame.storage, i64 {3}  store atomic i64 %arg.{0}, ptr %slot.{0} monotonic, align 8  %temp.{0} = getelementptr i64, ptr %frame.storage, i64 {3}  %pin.{0} = getelementptr i64, ptr %frame.storage, i64 {3}
   store ptr null, ptr %pin.{0}  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8
   %depth.allowed = icmp ult i64 %depth.initial, 256
   br i1 %depth.allowed, label %depth.enter, label %depth.refused
 depth.refused:
   store atomic i64 28, ptr %err monotonic, align 8
+  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)
   ret { i1, i64 } { i1 false, i64 0 }
 depth.enter:
   %depth.entered = add i64 %depth.initial, 1
@@ -249,7 +277,8 @@ initialize:
   br label %complete
 complete:
   ret i1 true
-}; module {0}, node {1}, line {2}, column {3}target triple = "x86_64-pc-windows-msvc"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+}; module {0}, node {1}, line {2}, column {3}target triple = "x86_64-pc-windows-msvc"
+@_fltused = global i32 0define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
 entry:
   %accepted = call i1 @ube.system.commandline(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
   %value = select i1 %accepted, i64 -1, i64 0
@@ -382,7 +411,7 @@ entry:
   %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
   ret { i1, i64 } %result
 }
-  %v{0} = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %v{1})  %v{0} = extractvalue { i64, i64, ptr, ptr } %v{1}, {2}  %temp.{0} = alloca [{1} x i64], align 8define { i1, i64 } @ube.proc.{0}(ptr %ctx) {
+  %v{0} = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %v{1})  %v{0} = extractvalue { i64, i64, ptr, ptr } %v{1}, {2}  %temp.{0} = getelementptr i64, ptr %frame.storage, i64 {3}define { i1, i64 } @ube.proc.{0}(ptr %ctx) {
 entry:
   %result = call { i1, i64 } @ube.thread.current(ptr %ctx)
   ret { i1, i64 } %result
@@ -422,8 +451,8 @@ entry:
 owner.failed.{0}:
   store atomic i64 7, ptr %err monotonic, align 8
   br label %owner.check.{0}
-owner.check.{0}:  store ptr %v{1}, ptr %temp.owner.{0}  %v{0} = getelementptr %ube.block, ptr %v{1}, i64 1  call void @ube.box.drop(ptr %ctx, ptr %v{0}, i1 {1})  store ptr null, ptr %temp.owner.{0}  %box.{0} = alloca ptr, align 8
-  store ptr null, ptr %box.{0}  %temp.owner.{0} = alloca ptr, align 8
+owner.check.{0}:  store ptr %v{1}, ptr %temp.owner.{0}  %v{0} = getelementptr %ube.block, ptr %v{1}, i64 1  call void @ube.box.drop(ptr %ctx, ptr %v{0}, i1 {1})  store ptr null, ptr %temp.owner.{0}  %box.{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  store ptr null, ptr %box.{0}  %temp.owner.{0} = getelementptr i64, ptr %frame.storage, i64 {3}
   store ptr null, ptr %temp.owner.{0}  store ptr %v{1}, ptr %box.{0}, ptr %owner.{0}  br i1 %v{0}, label %owner.ready.{0}, label %return.fail
 owner.ready.{0}:  %box.address.{0} = load ptr, ptr %box.{1}
   %v{0} = getelementptr %ube.block, ptr %box.address.{0}, i64 1  %temp.address.{0} = load ptr, ptr %temp.owner.{1}
@@ -439,14 +468,13 @@ entry:
   ret { i1, i64 } %result
 }
 @ube.text.bytes.{0} = private constant [{1} x i64] [i64 {0}, i64 {0}]
-@ube.text.literal.{0} = private constant { i64, i64, ptr, ptr } { i64 0, i64 {1}, ptr @ube.text.bytes.{0}, ptr null }, align 8  %v{0} = getelementptr i8, ptr @ube.text.literal.{1}, i64 0  %v{0} = call i64 @ube.managed.load(ptr %ctx, ptr %v{1}, ptr %text{2})  call void @ube.managed.store(ptr %ctx, ptr %text{0}, i64 %v{1})  %v{0} = call i64 @ube.managed.take(ptr %ctx, ptr %text{1})  %root.entry = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %root.entry, ptr null, ptr null, i64 0)  %managed.text = alloca [{0} x i64], align 8
-  store [{0} x i64] zeroinitializer, ptr %managed.text, align 8
-  %managed.text.root = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %managed.text.root, ptr %managed.text, ptr @ube.managed.layout.0, i64 {0})  %text{0} = getelementptr i64, ptr %managed.text, i64 {1}  %symbol.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)  %symbol.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)  %temporary.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)  %temporary.root{0} = alloca %ube.rootframe, align 8
+@ube.text.literal.{0} = private constant { i64, i64, ptr, ptr } { i64 0, i64 {1}, ptr @ube.text.bytes.{0}, ptr null }, align 8  %v{0} = getelementptr i8, ptr @ube.text.literal.{1}, i64 0  %v{0} = call i64 @ube.managed.load(ptr %ctx, ptr %v{1}, ptr %text{2})  call void @ube.managed.store(ptr %ctx, ptr %text{0}, i64 %v{1})  %v{0} = call i64 @ube.managed.take(ptr %ctx, ptr %text{1})  %root.entry = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %root.entry, ptr null, ptr null, i64 0)  %managed.text = getelementptr i64, ptr %frame.storage, i64 {3}
+  %managed.text.root = getelementptr i64, ptr %managed.text, i64 {0}
+  call void @ube.managed.root.push(ptr %ctx, ptr %managed.text.root, ptr %managed.text, ptr @ube.managed.layout.0, i64 {0})  %text{0} = getelementptr i64, ptr %managed.text, i64 {1}  %symbol.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)  %symbol.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)  %temporary.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)  %temporary.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
   call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)  call void @ube.managed.return(ptr %ctx, i64 %v{0})  call void @ube.managed.discard(ptr %ctx)@ube.managed.offsets.{0} = private constant [{1} x i64] []@ube.managed.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.managed.offsets.{0}, i64 0, ptr null, i64 0, ptr null }
 @ube.managed.arrayentry.{0} = private constant %ube.managed.array { i64 0, ptr @ube.managed.layout.{0} }
 @ube.managed.arraylayout.{0} = private constant %ube.managed.layout { i64 4, i64 0, ptr null, i64 1, ptr @ube.managed.arrayentry.{0}, i64 0, ptr null }  call void @ube.managed.store(ptr %ctx, ptr %v{1}, i64 %v{0})@ube.managed.globalsoffsets = private constant [{0} x i64] [@ube.managed.globalsarrays = private constant [{0} x %ube.managed.array] [%ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }, %ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }@ube.managed.globals.layout = private constant %ube.managed.layout { i64 {0}, i64 {1}, ptr @ube.managed.globalsoffsets, i64 {2}, ptr @ube.managed.globalsarrays, i64 0, ptr null }  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8
@@ -455,6 +483,7 @@ entry:
 depth.refused:
   store atomic i64 28, ptr %err monotonic, align 8
   call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)
+  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)
   ret { i1, i64 } { i1 false, i64 0 }
 depth.enter:
   %depth.entered = add i64 %depth.initial, 1
@@ -464,12 +493,12 @@ managed.refused:
   ret i1 false
 managed.ready:
   call void @ube.managed.globals(ptr %ctx, ptr @ube.managed.globals.layout)
-@ube.managed.owner.root.layout = private constant %ube.managed.layout { i64 1, i64 0, ptr null, i64 0, ptr null, i64 1, ptr @ube.managed.offsets.0 }  %box.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %box.root{0}, ptr %box.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %temporary.owner.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.owner.root{0}, ptr %temp.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %incoming.owner.{0} = alloca ptr, align 8
+@ube.managed.owner.root.layout = private constant %ube.managed.layout { i64 1, i64 0, ptr null, i64 0, ptr null, i64 1, ptr @ube.managed.offsets.0 }  %box.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %box.root{0}, ptr %box.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %temporary.owner.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
+  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.owner.root{0}, ptr %temp.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %incoming.owner.{0} = getelementptr i64, ptr %frame.storage, i64 {3}
   store ptr %owner.{0}, ptr %incoming.owner.{0}, align 8
-  %incoming.owner.root{0} = alloca %ube.rootframe, align 8
-  call void @ube.managed.root.push(ptr %ctx, ptr %incoming.owner.root{0}, ptr %incoming.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %pin.root{0} = alloca %ube.rootframe, align 8
+  %incoming.owner.root{0} = getelementptr i64, ptr %incoming.owner.{0}, i64 1
+  call void @ube.managed.root.push(ptr %ctx, ptr %incoming.owner.root{0}, ptr %incoming.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)  %pin.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}
   call void @ube.managed.root.push(ptr %ctx, ptr %pin.root{0}, ptr %pin.{0}, ptr @ube.managed.owner.root.layout, i64 1)  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.layout.{1}, i64 {2})  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.arraylayout.{1}, i64 1)define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
 entry:
   %accepted = call i1 @ube.managed.begin(ptr %ctx, ptr %arg.0, ptr %arg.1)
@@ -592,7 +621,7 @@ entry:
   %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
   ret { i1, i64 } %result
 }
-@ube.managed.capture.offsets.{0} = private constant [{1} x i64] [@ube.managed.capture.owners.{0} = private constant [{1} x i64] [@ube.managed.capture.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.managed.capture.offsets.{0}, i64 0, ptr null, i64 {3}, ptr @ube.managed.capture.owners.{0} }  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.capture.layout.{1}, i64 1)  %v{0} = getelementptr i8, ptr %capture, i64 0  store atomic ptr null, ptr %v{0} release, align 8  call void @ube.managed.enter(ptr %ctx)  %managed.temps = alloca ptr, i64 {0}, align 8  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}
+@ube.managed.capture.offsets.{0} = private constant [{1} x i64] [@ube.managed.capture.owners.{0} = private constant [{1} x i64] [@ube.managed.capture.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.managed.capture.offsets.{0}, i64 0, ptr null, i64 {3}, ptr @ube.managed.capture.owners.{0} }  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.capture.layout.{1}, i64 1)  %v{0} = getelementptr i8, ptr %capture, i64 0  store atomic ptr null, ptr %v{0} release, align 8  call void @ube.managed.enter(ptr %ctx)  %managed.temps = getelementptr i64, ptr %frame.storage, i64 {3}  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}
   %v{2} = getelementptr i64, ptr %managed.text, i64 {1}
   store ptr %v{2}, ptr %v{0}, align 8  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}
   store ptr %v{2}, ptr %v{0}, align 8  call void @ube.managed.temps.clear(ptr %ctx, ptr %managed.temps, i64 {0})define internal void @ube.managed.temps.clear(ptr %ctx, ptr %table, i64 %count) {
@@ -625,4 +654,25 @@ entry:
   %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
   ret { i1, i64 } %result
 }
-  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3}, ptr @ube.managed.layout.{0})
+  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3}, ptr @ube.managed.layout.{0})  %frame.retired = call i1 @ube.memory.collect(ptr %ctx)
+  %frame.program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %frame.program)
+  %frame.owner = call ptr @ube.memory.new.locked(ptr %ctx, i64 {0}, i64 1)
+  call void @ube.program.storage.unlock(ptr %frame.program)
+  %frame.allocated = icmp ne ptr %frame.owner, null
+  br i1 %frame.allocated, label %frame.ready, label %frame.failed
+frame.failed:
+  store atomic i64 7, ptr %err monotonic, align 8
+  ret { i1, i64 } { i1 false, i64 0 }
+frame.ready:
+  %frame.storage = getelementptr %ube.block, ptr %frame.owner, i64 1  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)  %frame.owner = inttoptr i64 0 to ptr
+  %frame.storage = alloca [{0} x i64], align 8
+  br label %frame.zero
+frame.zero:
+  %frame.zero.index = phi i64 [ 0, %entry ], [ %frame.zero.next, %frame.zero ]
+  %frame.zero.cell = getelementptr i64, ptr %frame.storage, i64 %frame.zero.index
+  store volatile i64 0, ptr %frame.zero.cell, align 8
+  %frame.zero.next = add i64 %frame.zero.index, 1
+  %frame.zero.more = icmp ult i64 %frame.zero.next, {0}
+  br i1 %frame.zero.more, label %frame.zero, label %frame.ready
+frame.ready:

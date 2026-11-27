@@ -48,12 +48,20 @@ The numeric family is `Byte`, `Integer`, `Long`, `LongLong`, `IntPtr`,
 types are numbers, not dereferenceable addresses. Foreign pointer conversion
 requires an explicit ABI facility.
 
-## Floating special values
+## Finite floating values
 
-`NaN`, `Infinity`, and `-Infinity` survive `Single`/`Double` conversion and
-convert to their invariant strings. String parsing accepts those spellings
-case-insensitively. They fail conversion to integral, pointer-sized,
-`Currency`, `Decimal`, `Date`, or `Boolean` destinations.
+Owner-confirmed on 2026-11-20: NaN and infinities are not UBE values.
+All conversions reject them, including Single/Double identity and widening
+conversions. Text parsing rejects `NaN`, `Infinity`, and `-Infinity`, and
+formatting never publishes them. Finite signed zero and subnormals remain
+supported. Known invalid constants fail compilation; runtime failures leave
+unfinished destinations unchanged.
+
+Single/Double-to-String conversion uses the fewest significant decimal digits
+that parse back to the same value in the original floating type. Signed zeros
+format as `0` and `-0`. Candidate selection and canonical fixed/scientific
+spelling follow [language-spec.md section 14](language-spec.md#14-conversion-arithmetic-and-comparison).
+These are numeric conversion rules; they do not change a String's stored text.
 
 ## Enums
 

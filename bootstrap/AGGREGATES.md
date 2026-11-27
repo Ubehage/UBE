@@ -79,13 +79,15 @@ once. Success preserves sticky Err. Fixed storage
 begins neutral before an initializer runs. Declared records and array elements
 containing only scalar values require no tracing collector in this profile.
 
-Admission limits are 1,048,576 elements per array, 128 flattened cells per record,
-64 recursive layout visits, and 65,536 total module storage cells per execution
-context. The existing 128-cell frame limit includes four control cells, local
-aggregate payloads/descriptors, ByRef pointers, borrow slots, scalar temporaries
-and record copy/comparison snapshots. Dynamic payloads have separate 64 MiB
-charged-storage and 4,096-live-block limits, including retained borrows. Excessive inputs
-receive diagnostics rather than creating uncontrolled stack or memory demand.
+Remaining layout admission limits include 128 flattened cells per record,
+64 recursive layout visits and 65,536 total module storage cells per execution
+context. Dynamic array counts and extents use checked representation and OS
+allocation failure instead of the former element/heap/block quotas. The UBE
+compiler now admits frames beyond 128 cells using checked heap storage, while
+small frames retain bounded stack storage. These changes and their focused
+failure/recovery gates are recorded in
+[Single/Double support](../compiler/FLOATING-POINT.md). This does not remove
+every language-profile or native-stack restriction.
 The broader language retains its existing array and managed-memory semantics.
 
 The original storage fixture retains bytes and spans as data. The subsequent

@@ -164,7 +164,7 @@ Private Function LayoutValues(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
         Node = A(Index).DeclarationNode
         If Kind <> SourceParser.TypeNode And Kind <> SourceParser.FieldNode Then
             Cells = 0
-            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or A(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IntegerWidth(A(Index).TypeCode) <> 0 Then Cells = 1
+            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or A(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IsNumeric(A(Index).TypeCode) Then Cells = 1
             If A(Index).TypeSymbol <> 0 Then Cells = F(A(Index).TypeSymbol - 1).StorageCells
             F(Index).ElementCells = Cells
             F(Index).StorageCells = Cells
@@ -209,7 +209,7 @@ Private Sub ProjectFacts(ByRef N() As SourceParser.SyntaxNode, ByRef C As Projec
             Candidate(Index) = SymbolFacts(Symbol - 1)
         Else
             Cells = 0
-            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or E(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IntegerWidth(E(Index).TypeCode) <> 0 Then Cells = 1
+            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or E(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IsNumeric(E(Index).TypeCode) Then Cells = 1
             If E(Index).TypeSymbol <> 0 Then Cells = SymbolFacts(E(Index).TypeSymbol - 1).StorageCells
             Candidate(Index).ElementCells = Cells
             Candidate(Index).StorageCells = Cells

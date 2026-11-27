@@ -1,5 +1,11 @@
 # Links the compiler's Windows memory imports using the already installed LLVM tools.
 # The invoking gate supplies bounded process execution, assertions and UTF-8 writing.
+function Get-NativeAccountingMaximum([string]$Text) {
+    $limits = [regex]::Matches($Text, '%available = sub i64 ([0-9]+), %charge')
+    if ($limits.Count -ne 1) { throw 'Expected one checked accounting bound in the tested runtime' }
+    return [long]$limits[0].Groups[1].Value
+}
+
 function Get-NativeMemoryLinkArguments([string]$IR, [string]$Clang, [string]$Directory) {
     $text = [IO.File]::ReadAllText($IR)
     $fileImports = $text.Contains('@CreateFileW')

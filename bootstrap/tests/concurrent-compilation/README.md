@@ -1,6 +1,13 @@
 # Concurrent compiler acceptance
 
-The managed-support planner split and 32 MiB IR limit passed the complete request
+The current source gate passed with the `d99d4536` seed in
+`ube concurrent compilation 81ba7175-7992-461a-b6fc-6f17b208fd86`. It checks
+deterministic single/two-worker output, simultaneous request isolation,
+cancellation, fresh failures, cleanup recovery, checked counter overflow,
+publication and backend failure/timeout recovery. Byte/line fault injection
+now seeds LongLong overflow boundaries rather than the removed output quotas.
+
+The earlier managed-support planner split and 32 MiB IR limit passed the complete request
 gate using the `f844bb77` seed:
 `ube concurrent compilation a97c54ed-1eb3-4731-b6c5-7cc61e5eb347`.
 This run includes worker isolation, cancellation, quota diagnostics, retained
@@ -23,16 +30,18 @@ coordinator's original catalog; direct calls and quota replay also use ByVal.
 After every started source worker has completed, the request checks cumulative
 work, byte and line charges, copies closed chunks in stable symbol order, writes
 the footer and leaves publication to the existing guarded publication path.
-Quota replay preserves the accepted diagnostic cursor. The unchanged request
-limits are 10000000 work charges, 33554432 LLVM bytes and 500000 lines.
+Failure replay preserves the accepted diagnostic cursor. The 10000000-work-charge
+guard remains; LLVM byte/line totals now use checked LongLong arithmetic instead
+of fixed output quotas.
 
 Request resources, range results and stage ownership remain with the caller for
 cleanup retry. `SourceFinished` means source execution and capture access have
 ended; it does not claim that an OS thread handle has closed. Thread identities
 and unsuccessful native handle cleanup remain owned by the program registry for
 final drain. `WaitFailed` records fresh failure independently of its error
-number, including zero. The 64 MiB program heap is shared across simultaneous
-requests; each request does not receive a separate 64 MiB allowance.
+number, including zero. Simultaneous requests share the program allocator and
+its checked accounting; each request does not receive a separate heap allowance.
+Allocation follows available system resources rather than the former 64 MiB cap.
 
 Run the correctness gate:
 

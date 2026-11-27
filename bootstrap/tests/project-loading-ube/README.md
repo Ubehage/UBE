@@ -65,11 +65,12 @@ external source bytes are read. Different path spellings that resolve to an
 earlier canonical path are duplicates; separate hardlink names are not compared
 by file ID, matching the existing bootstrap path-based contract.
 
-The current qualified bounds remain 65,536 manifest bytes, 128 modules,
-4,096 UTF-8 path bytes, one MiB retained project source bytes, 262,144 tokens,
-131,072 project nodes (65,536 per module) and the existing native allocation quota. The canonical path arena
-is bounded to 524,288 bytes (128 times the path capacity). Full-language project
-references, resources and other unsupported manifest features remain rejected.
+The UBE loader now grows manifest/source spans, module tables and canonical-path
+storage with checked Long counts and controlled allocation failure. The former
+fixed module/source/token/node quotas are removed; the 4,096-byte path boundary
+remains. Current growth and rollback evidence is in
+[Single/Double support](../../../compiler/FLOATING-POINT.md). Full-language
+project references, resources and other unsupported manifest features remain rejected.
 
 ## Diagnostic mapping
 

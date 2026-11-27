@@ -103,7 +103,7 @@ refuse:
  br i1 %ok4, label %quota, label %fail5
 quota:
  ; Synthetic charged quota isolates the allocation fallback without changing bounds.
- store i64 67108864, ptr %bytes
+ store i64 PROGRAM_HEAP_LIMIT, ptr %bytes
  %denied = call ptr @ube.memory.new(ptr @test.ctx, i64 1, i64 1)
  store i64 0, ptr %bytes
  %scan5 = load i64, ptr @test.scans

@@ -29,6 +29,35 @@ Failed:
     S.ErrorNode = S.CurrentNode
 End Function
 
+' Resolves a scalar cell through the authoritative finite record field layout.
+Private Function RecordCellType(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByVal TypeSymbol As Long, ByVal Cell As Long) As Long
+    Dim Field As Long
+    Dim Node As Long
+    Dim Depth As Long
+    Dim Selected As Boolean
+    On Error GoTo Failed
+    Do While TypeSymbol <> 0 And Depth < 64
+        Field = A(TypeSymbol - 1).FirstField
+        Selected = False
+        Do While Field <> 0
+            Node = A(Field - 1).DeclarationNode
+            If Cell >= L(Node - 1).FieldOffset And Cell < L(Node - 1).FieldOffset + L(Node - 1).StorageCells Then
+                Cell = Cell - L(Node - 1).FieldOffset
+                TypeSymbol = A(Field - 1).TypeSymbol
+                If TypeSymbol = 0 Then RecordCellType = A(Field - 1).TypeCode: Exit Function
+                Selected = True
+                Exit Do
+            End If
+            Field = A(Field - 1).NextField
+        Loop
+        If Not Selected Then Exit Function
+        Depth = Depth + 1
+    Loop
+    Exit Function
+Failed:
+    RecordCellType = 0
+End Function
+
 ' Captures the complete left record before any right-side evaluation can mutate its storage.
 Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim LeftNode As Long
@@ -47,6 +76,7 @@ Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRe
     Dim ReferenceOffset As Long = -1
     Dim Comparison As Long
     Dim ZeroValue As Long
+    Dim CellType As Long
     On Error GoTo Failed
     LeftNode = N(Node - 1).FirstChild
     RightNode = N(LeftNode - 1).NextSibling
@@ -82,7 +112,14 @@ Private Function EmitRecordComparison(ByRef N() As SourceParser.SyntaxNode, ByRe
                 If Not ManagedLayouts.TryReferenceOffset(A, L, E(LeftNode - 1).TypeCode, E(LeftNode - 1).TypeSymbol, ReferenceIndex, ReferenceOffset) Then InvalidRequest S: Exit Function
             End If
         Else
-            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, LeftValues(Index), RightValues(Index), 0) = False Then Exit Function
+            CellType = RecordCellType(A, L, E(LeftNode - 1).TypeSymbol, Index)
+            If CellType = 0 Then InvalidRequest S: Exit Function
+            If ConstantValues.IsFloating(CellType) Then
+                Test = NativeValues.FloatingCompare(S, B, Token, Catalog, LeftValues(Index), RightValues(Index), CellType, SyntaxTokens.SymEqual)
+                If Test = 0 Then Exit Function
+            Else
+                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, LeftValues(Index), RightValues(Index), 0) = False Then Exit Function
+            End If
         End If
         If Index = 0 Then
             Equal = Test
@@ -316,15 +353,96 @@ Failed:
 End Function
 
 ' Lowers every admitted scalar expression or call using already checked identities and types.
-Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
-    Dim Kind As Long
+' Evaluates binary operands in source order and emits their already-bound operator.
+Private Function EmitBinaryExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
     Dim Child As Long
     Dim RightNode As Long
     Dim LeftValue As Long
     Dim RightValue As Long
-    Dim Address As Long
     Dim Result As Long
     Dim Test As Long
+    Dim Template As Long
+    Dim Operator As Long
+    On Error GoTo Failed
+    Child = N(Node - 1).FirstChild
+    If E(Child - 1).TypeSymbol <> 0 Then
+        EmitBinaryExpression = EmitRecordComparison(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        Exit Function
+    End If
+    RightNode = N(Child - 1).NextSibling
+    LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
+    If LeftValue = 0 Or Terminated Then Exit Function
+    RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
+    If RightValue = 0 Or Terminated Then Exit Function
+    Operator = N(Node - 1).Value
+    If Operator = SyntaxTokens.SymAmpersand Then
+        Result = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ConcatSymbol, Node, 2, LeftValue, RightValue, 0, False, True)
+    ElseIf E(Child - 1).ConvertedType = SyntaxTokens.KwString Then
+        LeftValue = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.CompareBinarySymbol, Node, 2, LeftValue, RightValue, 0, False, False)
+        RightValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
+        If Operator = SyntaxTokens.SymEqual Then Template = LLVMTemplates.CompareEqual
+        If Operator = SyntaxTokens.SymNotEqual Then Template = LLVMTemplates.DifferentValues
+        If Operator = SyntaxTokens.SymLess Then Template = LLVMTemplates.BelowBound
+        If Operator = SyntaxTokens.SymGreater Then Template = LLVMTemplates.AboveBound
+        If Operator = SyntaxTokens.SymLessEqual Then Template = LLVMTemplates.CompareLessEqual
+        If Operator = SyntaxTokens.SymGreaterEqual Then Template = LLVMTemplates.CompareGreaterEqual
+        If Template = 0 Then InvalidRequest S: Exit Function
+        Test = NativeEmission.NewValue(S)
+        Result = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Test, LeftValue, RightValue, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) Then Exit Function
+    ElseIf Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
+        Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.SymMinus)
+    ElseIf Operator = SyntaxTokens.SymStar Then
+        Result = NativeValues.CheckedProduct(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode)
+    ElseIf Operator = SyntaxTokens.SymSlash Then
+        Result = NativeValues.FloatingBinary(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator)
+    ElseIf Operator = SyntaxTokens.SymCaret Then
+        Result = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.PowerSymbol, Node, 2, LeftValue, RightValue, 0, False, False)
+    ElseIf Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+        Result = NativeValues.CheckedDivision(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.KwMod)
+    ElseIf Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then
+        Template = LLVMTemplates.IntegerAnd
+        If Operator = SyntaxTokens.KwOr Then Template = LLVMTemplates.IntegerOr
+        Result = NativeEmission.NewValue(S)
+        If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, LeftValue, RightValue, 0) = False Then Exit Function
+    Else
+        If ConstantValues.IsFloating(E(Child - 1).ConvertedType) Then
+            Test = NativeValues.FloatingCompare(S, B, Token, Catalog, LeftValue, RightValue, E(Child - 1).ConvertedType, Operator)
+            If Test = 0 Then Exit Function
+            Result = NativeEmission.NewValue(S)
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) Then Exit Function
+            EmitBinaryExpression = Result
+            Exit Function
+        End If
+        If Operator = SyntaxTokens.SymEqual Then Template = LLVMTemplates.CompareEqual
+        If Operator = SyntaxTokens.SymNotEqual Then Template = LLVMTemplates.DifferentValues
+        If Operator = SyntaxTokens.SymLess Then Template = LLVMTemplates.BelowBound
+        If Operator = SyntaxTokens.SymGreater Then Template = LLVMTemplates.AboveBound
+        If Operator = SyntaxTokens.SymLessEqual Then Template = LLVMTemplates.CompareLessEqual
+        If Operator = SyntaxTokens.SymGreaterEqual Then Template = LLVMTemplates.CompareGreaterEqual
+        If Template = 0 Then InvalidRequest S: Exit Function
+        Test = NativeEmission.NewValue(S)
+        Result = NativeEmission.NewValue(S)
+        If NativeEmission.TryLine(S, B, Token, Catalog, Template, Test, LeftValue, RightValue, 0) = False Then Exit Function
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) = False Then Exit Function
+    End If
+    EmitBinaryExpression = Result
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByRef Terminated As Boolean) As Long
+    Dim Kind As Long
+    Dim Child As Long
+    Dim LeftValue As Long
+    Dim RightValue As Long
+    Dim Address As Long
+    Dim Result As Long
     Dim Template As Long
     Dim Operator As Long
     On Error GoTo Failed
@@ -370,8 +488,12 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         If LeftValue = 0 Or Terminated Then Exit Function
         Operator = N(Node - 1).Value
         If Operator = SyntaxTokens.SymMinus Then
-            RightValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
-            Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, RightValue, LeftValue, E(Node - 1).TypeCode, True)
+            If ConstantValues.IsFloating(E(Node - 1).TypeCode) Then
+                Result = NativeValues.FloatingNegate(S, B, Token, Catalog, LeftValue, E(Node - 1).TypeCode)
+            Else
+                RightValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
+                Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, RightValue, LeftValue, E(Node - 1).TypeCode, True)
+            End If
         ElseIf Operator = SyntaxTokens.KwNot Then
             Result = NativeValues.Complement(S, B, Token, Catalog, Seen, Nexts, LeftValue, E(Node - 1).TypeCode)
         ElseIf Operator = SyntaxTokens.SymPlus Then
@@ -382,57 +504,8 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
     ElseIf Kind = SourceParser.CallNode Or Kind = SourceParser.ThreadStartNode Then
         Result = EmitCall(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
     ElseIf Kind = SourceParser.BinaryNode Then
-        Child = N(Node - 1).FirstChild
-        If E(Child - 1).TypeSymbol <> 0 Then
-            EmitExpression = EmitRecordComparison(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
-            Exit Function
-        End If
-        RightNode = N(Child - 1).NextSibling
-        LeftValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, E(Child - 1).ConvertedType, Terminated)
-        If LeftValue = 0 Or Terminated Then Exit Function
-        RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
-        If RightValue = 0 Or Terminated Then Exit Function
-        Operator = N(Node - 1).Value
-        If Operator = SyntaxTokens.SymAmpersand Then
-            Result = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ConcatSymbol, Node, 2, LeftValue, RightValue, 0, False, True)
-        ElseIf E(Child - 1).ConvertedType = SyntaxTokens.KwString Then
-            LeftValue = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.CompareBinarySymbol, Node, 2, LeftValue, RightValue, 0, False, False)
-            RightValue = NativeEmission.Literal(S, B, Token, Catalog, 0)
-            If Operator = SyntaxTokens.SymEqual Then Template = LLVMTemplates.CompareEqual
-            If Operator = SyntaxTokens.SymNotEqual Then Template = LLVMTemplates.DifferentValues
-            If Operator = SyntaxTokens.SymLess Then Template = LLVMTemplates.BelowBound
-            If Operator = SyntaxTokens.SymGreater Then Template = LLVMTemplates.AboveBound
-            If Operator = SyntaxTokens.SymLessEqual Then Template = LLVMTemplates.CompareLessEqual
-            If Operator = SyntaxTokens.SymGreaterEqual Then Template = LLVMTemplates.CompareGreaterEqual
-            If Template = 0 Then InvalidRequest S: Exit Function
-            Test = NativeEmission.NewValue(S)
-            Result = NativeEmission.NewValue(S)
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Test, LeftValue, RightValue, 0) Then Exit Function
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) Then Exit Function
-        ElseIf Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
-            Result = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.SymMinus)
-        ElseIf Operator = SyntaxTokens.SymStar Then
-            Result = NativeValues.CheckedProduct(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode)
-        ElseIf Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
-            Result = NativeValues.CheckedDivision(S, B, Token, Catalog, Seen, Nexts, LeftValue, RightValue, E(Node - 1).TypeCode, Operator = SyntaxTokens.KwMod)
-        ElseIf Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then
-            Template = LLVMTemplates.IntegerAnd
-            If Operator = SyntaxTokens.KwOr Then Template = LLVMTemplates.IntegerOr
-            Result = NativeEmission.NewValue(S)
-            If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, LeftValue, RightValue, 0) = False Then Exit Function
-        Else
-            If Operator = SyntaxTokens.SymEqual Then Template = LLVMTemplates.CompareEqual
-            If Operator = SyntaxTokens.SymNotEqual Then Template = LLVMTemplates.DifferentValues
-            If Operator = SyntaxTokens.SymLess Then Template = LLVMTemplates.BelowBound
-            If Operator = SyntaxTokens.SymGreater Then Template = LLVMTemplates.AboveBound
-            If Operator = SyntaxTokens.SymLessEqual Then Template = LLVMTemplates.CompareLessEqual
-            If Operator = SyntaxTokens.SymGreaterEqual Then Template = LLVMTemplates.CompareGreaterEqual
-            If Template = 0 Then InvalidRequest S: Exit Function
-            Test = NativeEmission.NewValue(S)
-            Result = NativeEmission.NewValue(S)
-            If NativeEmission.TryLine(S, B, Token, Catalog, Template, Test, LeftValue, RightValue, 0) = False Then Exit Function
-            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Test, 0, 0) = False Then Exit Function
-        End If
+        Result = EmitBinaryExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Result = 0 Or Terminated Then Exit Function
     Else
         InvalidRequest S: Exit Function
     End If

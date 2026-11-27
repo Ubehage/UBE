@@ -88,6 +88,16 @@ Public Function Emit(ByVal Operation As Long, ByVal SourceType As Long, ByVal De
     If Operation = 3 Then Value = NativeValues.Complement(State, Buffer, Token, Catalog, Seen, Continuations, 1, SourceType)
     If Operation = 4 Then Value = NativeEmission.Literal(State, Buffer, Token, Catalog, -9223372036854775808^)
     If Operation = 5 Then Value = NativeEmission.Literal(State, Buffer, Token, Catalog, 9223372036854775807^)
+    If Operation = 6 Then Value = NativeValues.CheckedProduct(State, Buffer, Token, Catalog, Seen, Continuations, 1, 2, SourceType)
+    If Operation = 7 Then Value = NativeValues.FloatingBinary(State, Buffer, Token, Catalog, Seen, Continuations, 1, 2, SourceType, SyntaxTokens.SymSlash)
+    If Operation = 8 Then Value = NativeValues.FloatingNegate(State, Buffer, Token, Catalog, 1, SourceType)
+    If Operation = 9 Then
+        Value = NativeValues.FloatingCompare(State, Buffer, Token, Catalog, 1, 2, SourceType, DestinationType)
+        Result = NativeEmission.NewValue(State)
+        If Not NativeEmission.TryLine(State, Buffer, Token, Catalog, LLVMTemplates.BooleanSelect, Result, Value, 0, 0) Then Result = 5: GoTo Cleanup
+        Value = Result
+        Result = 0
+    End If
     If Value = 0 Or State.Text.Failed Then Result = 5: GoTo Cleanup
     If ExpectedGuard Then
         If State.FailureCount <> 1 Or Seen(0) <> 7 Or Continuations(0) <> 0 Then Result = 6: GoTo Cleanup

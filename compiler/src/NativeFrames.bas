@@ -223,7 +223,14 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Dim Address As Long
     Dim Slot As Long
     Dim Cells As Long
+    Dim FrameTemplate As Long
     On Error GoTo Failed
+    S.FrameCells = P(S.CurrentSymbol - 1).FrameCells
+    S.FrameUsed = 0
+    FrameTemplate = LLVMTemplates.HeapFrame
+    ' Small fixed frames retain bounded native storage; larger frames remain dynamically allocated.
+    If S.FrameCells <= 128 Then FrameTemplate = LLVMTemplates.StackFrame
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, FrameTemplate, S.FrameCells, 0, 0, 0) Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.FrameControls, 0, 0, 0, 0) = False Then Exit Function
     If S.ManagedRoles.CollectSymbol <> 0 Then
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedEntryFrame, 0, 0, 0, 0) Then Exit Function
@@ -304,7 +311,9 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
         End If
         Slot = Slot + 1
     Loop
-    EmitFrame = EmitTemporaryTable(N, A, E, L, P, Escapes, S, B, Token, Catalog)
+    If Not EmitTemporaryTable(N, A, E, L, P, Escapes, S, B, Token, Catalog) Then Exit Function
+    If S.FrameUsed <> S.FrameCells Then GoTo Failed
+    EmitFrame = True
     Exit Function
 Failed:
     S.Text.Failed = True
@@ -495,6 +504,7 @@ Public Function TryReturns(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedRestoreRoots, 0, 0, 0, 0) Then Exit Function
     End If
     If NativeOwnership.ReleaseLocals(A, P, S, B, Token, Catalog) = False Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReleaseFrame, 0, 0, 0, 0) Then Exit Function
     Result = NativeEmission.NewValue(S)
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnSuccessValue, Result, Value, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnFailureLabel, 0, 0, 0, 0) = False Then Exit Function
@@ -509,6 +519,7 @@ Public Function TryReturns(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedRestoreRoots, 0, 0, 0, 0) Then Exit Function
     End If
     If NativeOwnership.ReleaseLocals(A, P, S, B, Token, Catalog) = False Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReleaseFrame, 0, 0, 0, 0) Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnFailedValue, 0, 0, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.FunctionEnd, 0, 0, 0, 0) = False Then Exit Function
     TryReturns = LLVMWriter.TryEndLine(S.Text, B, Token)

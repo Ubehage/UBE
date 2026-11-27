@@ -5,6 +5,7 @@ $manifest = Copy-Fixtures 'fault-library' $files '0' 'Library'
 $library = Join-Path $artifacts 'library.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$library) 'EMIT OK'
 $original = [IO.File]::ReadAllText($library,$utf8)
+$programHeapLimit = Get-NativeAccountingMaximum $original
 $bound = Invoke-BoundedProcess $BootstrapExe @('--dump-bound',$manifest)
 Require ($bound.ExitCode -eq 0) 'Fault library binding failed'
 $helper = 0
@@ -54,7 +55,7 @@ entry:
 '@
             $expectedFailure=5;$expectedErr=57
         }
-        if ($mode -eq 'command-quota') {$quota='  %quota = getelementptr %ube.context, ptr @test.ctx, i32 0, i32 5' + "`r`n  store i64 67108864, ptr %quota";$expectedFailure=3;$expectedErr=7}
+        if ($mode -eq 'command-quota') {$quota='  %quota = call ptr @ube.memory.bytes(ptr @test.ctx)' + "`r`n  store i64 $programHeapLimit, ptr %quota";$expectedFailure=3;$expectedErr=7}
         if ($mode -eq 'command-alias') {$call=$call.Replace('ptr @test.failure','ptr @test.count');$expectedFailure=0}
     } else {
         $expectedCount=0;$expectedErr=777
@@ -129,7 +130,7 @@ $call
   %calls = load volatile i64, ptr @test.calls
   %calls.ok = icmp eq i64 %calls, $expectedCalls
   %disposed = call i1 @ube.context.dispose(ptr @test.ctx)
-  %live.ptr = getelementptr %ube.context, ptr @test.ctx, i32 0, i32 6
+  %live.ptr = call ptr @ube.memory.count(ptr @test.ctx)
   %live = load i64, ptr %live.ptr
   %clean = icmp eq i64 %live, 0
   %a = and i1 %result.ok, %count.ok

@@ -1,5 +1,56 @@
 # Compiler development handoff
 
+## Completed: Single and Double support — 2026-11-27
+
+The UBE-written Windows x64 compiler now supports Single/Double literals,
+storage, constant/runtime arithmetic and comparisons, admitted scalar/text
+conversions, parameters/results, arrays, nested records and worker captures.
+Ordinary numerical and text algorithms remain in UBE; native executables
+require no additional UBE runtime or math DLL.
+
+The owner-approved rules are finite values only, classic !/#/@ real suffixes,
+shortest round-trip text with negative zero preserved, and LongLong rounding
+for floating operands of integer division/Mod. Currency remains unimplemented.
+See [FLOATING-POINT.md](FLOATING-POINT.md) for the precise scope, errors,
+architecture, acceptance commands, artifact identities and limitations.
+
+Qualification passed:
+
+- Actual native emitter: 1366 scalar vectors at O0/O2 with negative controls.
+- Independent library oracles: parser 97, formatter 86, power 180,
+  floating-to-integer 320, arithmetic 608 and comparisons 152; O0/O2,
+  failure/destination preservation and changed-expectation controls.
+- Final compiler: all nine floating source fixtures and eight rejection cases,
+  including aggregate storage, worker captures and output preservation.
+- Self-host fixed point: byte-identical LLVM and native images differing only
+  in the PE timestamp. The successful builds took 30,935 and 29,216 ms.
+- Final common CLI: 518 compiler-only assertions, reusing the separately
+  passing seed corpus; current-source concurrent-compilation gate passed.
+- Frame allocation/depth recovery, exact root restoration, managed text,
+  retained worker payloads, 5000-record collection, metadata growth,
+  allocation faults and collector rendezvous passed their scoped gates.
+
+Fixed heap/project/output and collector-workspace quotas were replaced with
+checked growth where documented. Small procedure frames use bounded stack
+storage; larger frames use checked heap storage. Existing index, parsing,
+work, depth and backend-timeout limits remain; this is not unlimited admission.
+The final compiler is in
+`%TEMP%/ube compiler rebuild bd4240e3-5cdd-434a-81d9-a09803a0aedf/generation-2/UBE.exe`.
+Its source ledger and three native assets were checked against the repository.
+Exact comparison provenance and retained evidence are in FLOATING-POINT.md.
+
+## Next planned language work
+
+The already approved `Exit Loop` definition exits the outermost enclosing loop
+of the current procedure invocation. Implementation and its mixed-loop,
+invalid-placement and cleanup acceptance tests remain pending in Workplan.md.
+This completed numeric increment does not claim For/For Each/While admission,
+objects/events, Variant/Decimal/Currency, foreign ABI completion, debugging
+or the IDE.
+
+The sections below preserve earlier milestone evidence. Their historical
+quotas and timing observations do not supersede the current numeric checkpoint.
+
 ## Completed: managed String and text-library support
 
 Owner requested the next planned step, qualification, concise root README

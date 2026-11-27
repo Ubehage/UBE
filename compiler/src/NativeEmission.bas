@@ -20,6 +20,8 @@ Public Type EmissionState
     ErrorNode As Long
     FailureCode As Long
     FailureReason As Long
+    FrameCells As Long
+    FrameUsed As Long
 End Type
 
 ' Every traversal and generated identity contributes to one bounded emission request.
@@ -56,6 +58,8 @@ Public Sub BeginFunction(ByRef State As EmissionState, ByVal Symbol As Long, ByV
     State.ValueNumber = 0
     State.BlockNumber = NodeCount
     State.FailureCount = 0
+    State.FrameCells = 0
+    State.FrameUsed = 0
 End Sub
 
 Public Function NewValue(ByRef State As EmissionState) As Long
@@ -72,10 +76,32 @@ End Function
 
 ' Formats one instruction without exposing partially accepted compiler output.
 Public Function TryLine(ByRef State As EmissionState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Template As Long, ByVal P0 As LongLong, ByVal P1 As LongLong, ByVal P2 As LongLong, ByVal P3 As LongLong) As Boolean
+    Dim Cells As LongLong
     On Error GoTo Failed
     If State.Text.Failed Then Exit Function
+    ' Allocation templates name typed addresses inside one checked invocation block.
+    If Template = LLVMTemplates.FrameControls Or Template = LLVMTemplates.ManagedEntryFrame Then Cells = 4
+    If Template = LLVMTemplates.AllocateSlot Or Template = LLVMTemplates.AllocateAggregateTemporary Then Cells = P1
+    If Template = LLVMTemplates.AllocateTemporary Or Template = LLVMTemplates.AllocatePin Or Template = LLVMTemplates.AllocateLocalOwner Or Template = LLVMTemplates.AllocateTemporaryOwner Then Cells = 1
+    If Template = LLVMTemplates.ManagedTextSlots Then Cells = P0 + 4
+    If Template = LLVMTemplates.ManagedSymbolRoot Or Template = LLVMTemplates.ManagedArraySymbolRoot Or Template = LLVMTemplates.ManagedTemporaryRoot Or Template = LLVMTemplates.ManagedArrayTemporaryRoot Then Cells = 4
+    If Template = LLVMTemplates.ManagedLocalOwnerRoot Or Template = LLVMTemplates.ManagedTemporaryOwnerRoot Or Template = LLVMTemplates.ManagedPinRoot Then Cells = 4
+    If Template = LLVMTemplates.ManagedIncomingOwnerRoot Then Cells = 5
+    If Template = LLVMTemplates.ManagedTemporaryTable Then Cells = P0
+    If Cells <> 0 Then
+        If Cells < 0 Or State.FrameUsed < 0 Or State.FrameUsed > State.FrameCells Then GoTo InvalidFrame
+        If Cells > State.FrameCells - State.FrameUsed Then GoTo InvalidFrame
+        P3 = State.FrameUsed
+        State.FrameUsed = State.FrameUsed + Cells
+    End If
     TryLine = LLVMFormat.TryLine(State.Text, Buffer, Token, Catalog, Template, P0, P1, P2, P3)
     If State.Text.Failed Then State.ErrorNode = State.CurrentNode
+    Exit Function
+InvalidFrame:
+    State.Text.Failed = True
+    State.FailureCode = 9
+    State.FailureReason = 62
+    State.ErrorNode = State.CurrentNode
     Exit Function
 Failed:
     State.Text.Failed = True

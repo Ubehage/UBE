@@ -122,6 +122,12 @@ while `1 & x` is concatenation. Date literal contents are interpreted using the
 invariant UBE date syntax by default; a compatibility mode may enable the VB6
 locale-dependent interpretation.
 
+Owner-confirmed on 2026-11-20: real literal suffixes are the classic `!`
+(Single), `#` (Double), and `@` (Currency). A suffix alone can establish a
+real literal, as in `1!` or `1#`; a decimal point or exponent is not required
+in that case. The formerly listed but undefined `F`, `R`, and `D` suffixes
+are not part of UBE. An unsuffixed decimal real literal has type Double.
+
 Invariant date/time literals use a proleptic Gregorian calendar and exactly one
 of these forms between their `#` delimiters:
 
@@ -201,7 +207,7 @@ UBE retains the VB type names and adds explicit machine-sized types needed by a
 | `Long` | Signed 32-bit integer (VB-compatible). |
 | `LongLong` | Signed 64-bit integer. |
 | `IntPtr`, `UIntPtr` | Signed/unsigned target pointer-sized integer. |
-| `Single`, `Double` | IEEE-754 binary32/binary64. |
+| `Single`, `Double` | Finite IEEE-754 binary32/binary64 values, including signed zero and subnormals. |
 | `Currency` | Signed 64-bit fixed point with scale 10,000. |
 | `Decimal` | Decimal value with a 96-bit coefficient and scale 0 through 28 in 128-bit storage. |
 | `Date` | Timezone-neutral proleptic-Gregorian date/time from year 0001 through 9999, with nanosecond resolution. |
@@ -1081,6 +1087,22 @@ one-based label position, and continue with the following statement when the
 result is outside the list. `GoSub` additionally records the ordinary
 procedure-local return point.
 
+`Exit Loop` leaves the outermost lexically enclosing loop in the current
+procedure invocation and continues immediately after that loop. It applies to
+mixed nesting of counted `For`, `For Each`, `Do` (all condition forms), and
+`While` loops. It does not execute further loop-body statements, loop increments
+or loop-condition tests on the exit path. With only one enclosing loop, it
+leaves that loop. Outside any loop it is a compile-time error.
+
+The target never crosses a procedure boundary or searches the call stack:
+loops in callers and other recursive invocations are unaffected. Non-loop
+blocks that enclose the target loop remain active; continuation is not
+necessarily at the procedure's outermost statement level. Normal automatic
+lifetime and lock cleanup applies to scopes actually exited. This is ordinary
+control flow, not FAIL, and it does not implicitly close user-owned resources.
+Existing `Exit For`, `Exit Do` and `Exit While` continue to leave the nearest
+enclosing loop of their named kind; procedure-exit forms are unchanged.
+
 Classic `Open`, `Close`, `Print #`, `Input #`, `Line Input #`, `Get`, `Put`,
 `Seek`, `Lock`, `Unlock`, `Write #`, `Width #`, and named file-operation
 statements retain their VB statement shapes. Their file numbers, access modes,
@@ -1315,11 +1337,29 @@ numeric, Boolean, and date text is invariant. `True` has numeric value -1 and
 `YYYY-MM-DDTHH:MM:SS[.fraction]`; locale-sensitive parsing and formatting are
 explicit library operations.
 
+Finite Single/Double values format with the fewest significant decimal digits
+that convert back to exactly the same value in the original floating type.
+Negative zero formats as `-0`, and positive zero as `0`. This owner-approved
+round-trip rule avoids a display-oriented precision limit. Nonfinite values
+and text spellings such as `NaN`, `Infinity`, and `-Infinity` are rejected.
+Canonical spelling chooses the shorter of fixed notation and normalized
+scientific notation, preferring fixed notation on equal length. Fixed fractions
+include a leading zero. Scientific notation uses uppercase `E`, no redundant
+positive exponent sign or leading exponent zeros, and one digit before the
+decimal point. Among candidates with the minimum number of significant
+decimal digits, choose the nearest to the exact value, breaking an exact tie
+with an even last digit; then apply the fixed/scientific spelling rule.
+
 Integer, `Currency`, and `Decimal` arithmetic is checked. Known overflow or
 division by zero is a compile-time error; runtime-dependent failure reports
-FAIL plus `Err`, with no usable arithmetic result. `Single` and `Double` follow IEEE-754, including
-infinities and NaN, without recording an error merely for producing those
-values.
+FAIL plus `Err`, with no usable arithmetic result. Owner-confirmed on
+2026-11-20: `Single` and `Double` use IEEE-754 finite encodings and
+round-to-nearest/ties-to-even, including signed zero and subnormals, but do
+not admit infinities or NaN. Floating division by zero, overflow to a
+nonfinite result, and invalid numeric domains fail. Known invalid constants
+are compile-time errors; runtime-dependent cases report FAIL plus Err and
+preserve unfinished destinations. This replaces the earlier special-value
+rule for all floating operations and conversions, including powers.
 
 Operands are evaluated exactly once from left to right. Integer arithmetic
 promotes `Byte` to `Integer`, then chooses the first of `Integer`, `Long`, and
@@ -1341,8 +1381,16 @@ and `Mod`, nonintegral operands round to the nearest integer, ties to even;
 division truncates toward zero and the nonzero remainder has the dividend's
 sign. For any signed integer type, its minimum value `Mod -1` returns zero
 successfully and preserves the existing `Err`; the corresponding integer
-division overflows. `^` converts both operands to Double and is right-associative. `&` is the
+division overflows. `^` converts both operands to Double and is right-associative.
+Zero raised to a negative exponent and a negative base raised to a nonintegral
+exponent are invalid domains and fail under the preceding rules. `&` is the
 only string-concatenation operator; `+` is numeric only.
+
+Owner-confirmed on 2026-11-20: when either operand of `\` or `Mod` is Single
+or Double, both operands convert to LongLong and the result is LongLong.
+Fractional operands round before the LongLong range check; no 32-bit
+intermediate may restrict their range. A nonfinite or out-of-range operand
+fails before division, and a divisor that rounds to zero is division by zero.
 
 Boolean `Not`, `And`, `Or`, `Xor`, `Eqv`, and `Imp` are eager logical
 operations. On integral values they are bitwise operations in the common

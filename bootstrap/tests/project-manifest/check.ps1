@@ -120,11 +120,11 @@ Case 'missing name' ($valid.Replace('Name = "Test"'+$nl,'')) 8
 Case 'missing kind' ($valid.Replace('Kind = "Exe"'+$nl,'')) 8
 Case 'missing source' ($valid.Replace('Source = "Main.bas"','')) 8
 Case 'missing startup' ($valid.Replace('Startup = "Main"'+$nl,'')) 8
-Case 'manifest byte limit' ($valid+("'"*65536)) 9
+Case 'manifest beyond former byte quota' ($valid+$nl+("'"*65536))
 $many=$valid
 foreach($i in 1..127){$many+=$nl+'Source = "M'+$i+'.bas"'}
 Case '128 source boundary' $many 0 128 $true 2 2 'Test' 'Main.bas' 'M127.bas'
-Case '129 source boundary' ($many+$nl+'Source="Last.bas"') 9
+Case '129 sources exceed former quota' ($many+$nl+'Source="Last.bas"') 0 129 $true 2 2 'Test' 'Main.bas' 'Last.bas'
 Case 'malformed utf8' ([byte[]](@(255)+$utf8.GetBytes($valid))) 10
 Case 'embedded nul' ($valid+[char]0) 10
 Case 'bare CR' ($valid+[char]13) 10
@@ -200,19 +200,20 @@ foreach($level in @('O0','O2')){
  Require ($r.ExitCode -eq 0) "Decode assertions failed $level $($r.Evidence)"
  Write-Output "PASS $level : $($decodes.Count) exact decoding and invalid-span cases"
 }
-# Fault each of the parser's three allocation sites and its retry, then recover.
+# Fault initial allocation, every dynamic growth, final shrink and publication, then recover.
 $observed=$production.Replace('define ptr @ube.target.allocate(', 'define ptr @test.real.allocate(').Replace('define i1 @ube.target.release(', 'define i1 @test.real.release(')
 $observer=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../file-io/fixtures/AllocatorObserver.ll'),$utf8)
 $globals='@test.context = private global %ube.context zeroinitializer,align 8'+$nl
-$globals+=Descriptor 'valid' ($utf8.GetBytes($valid))
+$globals+=Descriptor 'valid' ($utf8.GetBytes($many+$nl+'Source="Last.bas"'))
 $globals+=Descriptor 'name' ($utf8.GetBytes('Test'))
 $globals+=Descriptor 'path' ($utf8.GetBytes('Main.bas'))
+$globals+=Descriptor 'last' ($utf8.GetBytes('Last.bas'))
 $code=@('define i32 @main(){','entry:','call void @ube.context.init(ptr @test.context)','%init=call i1 @ube.project.init(ptr @test.context)')
-foreach($site in 2..4){
- $code+=@('store i64 0,ptr @test.alloc.calls',"store i64 $site,ptr @test.fail.after",'store i64 2,ptr @test.fail.remaining',"%p$site=call {i1,i64} @ube.proc.$($symbols['CheckManifest'])(ptr @test.context,ptr @valid,i64 12,i64 1,i64 -1,i64 2,i64 2,ptr @name,ptr @path,ptr @path,i64 5)","%f$site=extractvalue {i1,i64} %p$site,0","%v$site=extractvalue {i1,i64} %p$site,1","%z$site=icmp eq i64 %v$site,0","%g$site=and i1 %f$site,%z$site","%calls$site=load i64,ptr @test.alloc.calls","%exact$site=icmp eq i64 %calls$site,$($site+1)","%remaining$site=load i64,ptr @test.fail.remaining","%used$site=icmp eq i64 %remaining$site,0","%live$site=load i64,ptr @test.live","%clean$site=icmp eq i64 %live$site,0","%a$site=and i1 %g$site,%exact$site","%b$site=and i1 %used$site,%clean$site","%ok$site=and i1 %a$site,%b$site",'store i64 0,ptr @test.alloc.calls',"%r$site=call {i1,i64} @ube.proc.$($symbols['CheckManifest'])(ptr @test.context,ptr @valid,i64 0,i64 1,i64 -1,i64 2,i64 2,ptr @name,ptr @path,ptr @path,i64 5)","%rf$site=extractvalue {i1,i64} %r$site,0","%rv$site=extractvalue {i1,i64} %r$site,1","%rz$site=icmp eq i64 %rv$site,0","%rg$site=and i1 %rf$site,%rz$site","%recovery$site=and i1 %ok$site,%rg$site")
+foreach($site in 2..8){
+ $code+=@('store i64 0,ptr @test.alloc.calls',"store i64 $site,ptr @test.fail.after",'store i64 2,ptr @test.fail.remaining',"%p$site=call {i1,i64} @ube.proc.$($symbols['CheckManifest'])(ptr @test.context,ptr @valid,i64 12,i64 129,i64 -1,i64 2,i64 2,ptr @name,ptr @path,ptr @last,i64 5)","%f$site=extractvalue {i1,i64} %p$site,0","%v$site=extractvalue {i1,i64} %p$site,1","%z$site=icmp eq i64 %v$site,0","%g$site=and i1 %f$site,%z$site","%calls$site=load i64,ptr @test.alloc.calls","%exact$site=icmp eq i64 %calls$site,$($site+1)","%remaining$site=load i64,ptr @test.fail.remaining","%used$site=icmp eq i64 %remaining$site,0","%live$site=load i64,ptr @test.live","%clean$site=icmp eq i64 %live$site,0","%a$site=and i1 %g$site,%exact$site","%b$site=and i1 %used$site,%clean$site","%ok$site=and i1 %a$site,%b$site",'store i64 0,ptr @test.alloc.calls',"%r$site=call {i1,i64} @ube.proc.$($symbols['CheckManifest'])(ptr @test.context,ptr @valid,i64 0,i64 129,i64 -1,i64 2,i64 2,ptr @name,ptr @path,ptr @last,i64 5)","%rf$site=extractvalue {i1,i64} %r$site,0","%rv$site=extractvalue {i1,i64} %r$site,1","%rz$site=icmp eq i64 %rv$site,0","%rg$site=and i1 %rf$site,%rz$site","%recovery$site=and i1 %ok$site,%rg$site")
  if($site -eq 2){$code+="%all$site=and i1 %init,%recovery$site"}else{$code+="%all$site=and i1 %all$($site-1),%recovery$site"}
 }
-$code+=@('%disposed=call i1 @ube.context.dispose(ptr @test.context)','%live=load i64,ptr @test.live','%clean=icmp eq i64 %live,0','%a=and i1 %all4,%disposed','%good=and i1 %a,%clean','%exit=select i1 %good,i32 0,i32 99','ret i32 %exit','}')
+$code+=@('%disposed=call i1 @ube.context.dispose(ptr @test.context)','%live=load i64,ptr @test.live','%clean=icmp eq i64 %live,0','%a=and i1 %all8,%disposed','%good=and i1 %a,%clean','%exit=select i1 %good,i32 0,i32 99','ret i32 %exit','}')
 $path=Join-Path $artifacts 'faults.ll'
 Write-Text $path ($observed+$nl+$observer+$nl+$globals+($code -join $nl))
 foreach($level in @('O0','O2')){
@@ -220,7 +221,7 @@ foreach($level in @('O0','O2')){
  Build $path $exe $level
  $r=Run $exe @()
  Require ($r.ExitCode -eq 0) "Allocation assertions failed $level $($r.Evidence)"
- Write-Output "PASS $level : all three parser allocation sites, failed retries, exact call counts, recovery and zero live blocks"
+ Write-Output "PASS $level : all seven parser allocation/growth/publication sites, failed retries, exact call counts, recovery and zero live blocks"
 }
 
 

@@ -110,8 +110,8 @@ function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [s
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
-$files = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | ForEach-Object { Join-Path $root ('std-lib/src/portable/'+$_+'.bas') }
-$files += @('SourceScanner','SyntaxTokens','ConstantValues','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues') | ForEach-Object { Join-Path $root ('compiler/src/'+$_+'.bas') }
+$files = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText') | ForEach-Object { Join-Path $root ('std-lib/src/portable/'+$_+'.bas') }
+$files += @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ExpressionBinder','ManagedSupport','ConstantValues','ConstantText','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues') | ForEach-Object { Join-Path $root ('compiler/src/'+$_+'.bas') }
 $files += Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
 $library=Join-Path $artifacts 'emitter.ll'
@@ -122,7 +122,7 @@ $symbols=@{}
 foreach($line in ($bound.Stdout -split '\r?\n')) {
     if($line -notmatch '^SYMBOL ') {continue}
     $f=$line.Substring(7).Split('|')
-    if($f[5] -eq '13' -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
+    if($f[5] -eq [string]($files.Count-1) -and $f[1] -in @('function','sub')) {$symbols[$f[2]]=$f[0]}
 }
 foreach($name in @('ConfigurePath','SetPathByte','Emit','CheckFailures')) {Require ($symbols.ContainsKey($name)) "Missing $name"}
 $emitted=[IO.File]::ReadAllText($library,$utf8)
@@ -211,9 +211,10 @@ for($n=0;$n -lt $specs.Count;$n++) {
     } else {$expected=$minimum[157];if($op -eq 5){$expected=$maximum[157]};$vectors.Add(@($n,'0','0',$true,$expected))}
 }
 
+. (Join-Path $PSScriptRoot 'floating-vectors.ps1')
 foreach($level in @('O0','O2')) {
     $paths=Emit-Fragments $level
-    $text=''
+    $text="@_fltused = global i32 0`r`n"
     foreach($width in @(16,32,64)){foreach($operation in @('sadd','ssub')){$text+="declare { i$width, i1 } @llvm.$operation.with.overflow.i${width}(i$width, i$width)`r`n"}}
     for($n=0;$n -lt $paths.Count;$n++) {
         $fragment=[IO.File]::ReadAllText($paths[$n],$utf8)
@@ -222,7 +223,7 @@ foreach($level in @('O0','O2')) {
     $text+="@input = private global i64 12`r`ndefine i32 @main() {`r`nentry:`r`n  %err = alloca i64`r`n  %out = alloca i64`r`n"
     for($i=0;$i -lt $vectors.Count;$i++) {
         $v=$vectors[$i];$expected=$v[4];$errorValue=771;$flag='true'
-        if(-not $v[3]){$expected='999';$errorValue=6;$flag='false'}
+        if(-not $v[3]){$expected='999';$errorValue=6;$flag='false';if($v.Count -gt 5){$errorValue=$v[5]}}
         $operand=''+$v[1]
         if($operand -eq '12'){$text+="  %runtime$i = load volatile i64, ptr @input`r`n";$operand="%runtime$i"}
         $text+="  store i64 771, ptr %err`r`n  store i64 999, ptr %out`r`n  %status$i = call i1 @case$($v[0])(ptr %err, ptr %out, i64 $operand, i64 $($v[2]))`r`n"
@@ -237,5 +238,11 @@ foreach($level in @('O0','O2')) {
     Write-Text $controlIR ($text.Replace('@input = private global i64 12','@input = private global i64 13'));Build-Harness $controlIR $controlExe $level
     $control=Invoke-BoundedProcess $controlExe @();Require ($control.ExitCode -eq 76) "Changed runtime input expected assertion76 got $($control.ExitCode)"
     Write-Output "PASS: exact changed-input assertion 76 $level"
+    $controlIR=Join-Path $artifacts "changed-floating-$level.ll";$controlExe=Join-Path $artifacts "changed-floating-$level.exe"
+    $marker="%value$floatingFirst = icmp eq i64 %result$floatingFirst, 0"
+    Require ($text.Contains($marker)) 'Floating negative-control marker missing'
+    Write-Text $controlIR ($text.Replace($marker,"%value$floatingFirst = icmp eq i64 %result$floatingFirst, 1"));Build-Harness $controlIR $controlExe $level
+    $control=Invoke-BoundedProcess $controlExe @();Require ($control.ExitCode -eq ($floatingFirst+1)) "Changed floating expectation failed to reject at first floating case"
+    Write-Output "PASS: exact changed-floating-expectation assertion $($floatingFirst+1) $level"
 }
 Write-Output "PASS: native scalar helpers. Evidence: $artifacts"

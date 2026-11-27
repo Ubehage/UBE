@@ -288,11 +288,11 @@ Public Function PrepareQuota() As Long
     PrepareQuota = 0
 End Function
 
-' Rejects both an over-quota payload and an excessive element count before any target allocation.
-Public Function RejectQuota() As Long
+' Native allocation failures preserve both prior destinations, including a count above the former ceiling.
+Public Function RejectQuota(ByVal TooManyElements As Long) As Long
     Dim Status As Boolean
     On Error GoTo Failed
-    Status = ResizeWide(Wide, 65536, True)
+    Status = ResizeWide(Wide, TooManyElements, True)
     If Status Then RejectQuota = 1: Exit Function
     If Err.Number <> 7 Or WideLength(Wide) <> 1 Then RejectQuota = 2: Exit Function
     If Wide(0).Cell127 <> 123 Then RejectQuota = 3: Exit Function
@@ -313,5 +313,9 @@ Public Function RetryQuota() As Long
     If Status = False Then RetryQuota = 1: Exit Function
     If Wide(0).Cell127 <> 123 Or Wide(1).Cell127 <> 0 Then RetryQuota = 2: Exit Function
     If Err.Number <> 7 Then RetryQuota = 3: Exit Function
+    Status = BufferPrimitives.TryResizeBytes(Bytes, 1048577, True)
+    If Not Status Then RetryQuota = 4: Exit Function
+    If BufferPrimitives.ByteStorageLength(Bytes) <> 1048577 Then RetryQuota = 5: Exit Function
+    If Bytes(0) <> 77 Or Bytes(1048576) <> 0 Then RetryQuota = 6: Exit Function
     RetryQuota = 0
 End Function

@@ -90,9 +90,11 @@ Public Function CheckCounts(ByVal Seed As Long) As Long
     If Status <> False Then CheckCounts = 1: Exit Function
     If Err.Number <> 5 Then CheckCounts = 2: Exit Function
     Status = BufferPrimitives.TryResizeBytes(Destination, 1048576 + Seed, True)
-    If Status <> False Then CheckCounts = 3: Exit Function
-    If Err.Number <> 7 Then CheckCounts = 4: Exit Function
+    If Not Status Then CheckCounts = 3: Exit Function
+    If Err.Number <> 5 Then CheckCounts = 4: Exit Function
     Value = Destination(0)
     If Value <> 7 Then CheckCounts = 5: Exit Function
+    If BufferPrimitives.ByteStorageLength(Destination) <> 1048576 + Seed Then CheckCounts = 6: Exit Function
+    If Destination(1048576) <> 0 Then CheckCounts = 7: Exit Function
     CheckCounts = 0
 End Function

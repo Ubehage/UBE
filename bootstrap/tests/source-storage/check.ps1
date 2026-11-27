@@ -242,20 +242,21 @@ entry:
   %setup.zero = icmp eq i64 %setup.value, 0
   %ready = and i1 %setup.ok, %setup.zero
   store i64 0, ptr @test.alloc.calls
-  %reject = call { i1, i64 } @ube.proc.REJECT(ptr %ctx)
+  store i64 4, ptr @test.fail.remaining
+  %reject = call { i1, i64 } @ube.proc.REJECT(ptr %ctx, i64 1048577)
   %reject.ok = extractvalue { i1, i64 } %reject, 0
   %reject.value = extractvalue { i1, i64 } %reject, 1
   %reject.zero = icmp eq i64 %reject.value, 0
   %rejected = and i1 %reject.ok, %reject.zero
   %calls = load i64, ptr @test.alloc.calls
-  %no.calls = icmp eq i64 %calls, 0
+  %no.calls = icmp eq i64 %calls, 4
   %retry = call { i1, i64 } @ube.proc.RETRY(ptr %ctx)
   %retry.ok = extractvalue { i1, i64 } %retry, 0
   %retry.value = extractvalue { i1, i64 } %retry, 1
   %retry.zero = icmp eq i64 %retry.value, 0
   %retried = and i1 %retry.ok, %retry.zero
   %retry.calls = load i64, ptr @test.alloc.calls
-  %one.call = icmp eq i64 %retry.calls, 1
+  %one.call = icmp eq i64 %retry.calls, 6
   %disposed = call i1 @ube.context.dispose(ptr %ctx)
   %live = load i64, ptr @test.live
   %clean = icmp eq i64 %live, 0
@@ -277,9 +278,9 @@ foreach ($level in @('O0','O2')) {
     $exe = Join-Path $artifacts ("quota-$level.exe")
     Build-Harness $quotaIR $exe $level
     $result = Invoke-BoundedProcess $exe @()
-    Require ($result.ExitCode -eq 0) "Oversized block quota $level failed: $($result.Evidence)"
+    Require ($result.ExitCode -eq 0) "Allocation pressure/recovery $level failed: $($result.Evidence)"
     $script:passed++
-    Write-Output "PASS: oversized block $level rejects before OS allocation, preserves owners and permits retry"
+    Write-Output "PASS: OS allocation failure $level preserves owners, retries and admits counts above the former ceiling"
 }
 Write-Output "PASS: $script:passed source storage checks"
 

@@ -169,13 +169,15 @@ done:
 define internal ptr @ube.memory.new.locked(ptr %ctx, i64 %count, i64 %stride) {
 entry:
   %negative = icmp sle i64 %count, 0
-  %large = icmp sgt i64 %count, 1048576
   %bad.stride.low = icmp sle i64 %stride, 0
   %bad.stride.high = icmp sgt i64 %stride, 128
-  %bad.count = or i1 %negative, %large
   %bad.stride = or i1 %bad.stride.low, %bad.stride.high
-  %bad = or i1 %bad.count, %bad.stride
-  br i1 %bad, label %failed, label %size
+  %bad = or i1 %negative, %bad.stride
+  br i1 %bad, label %failed, label %extent
+extent:
+  %maximum.count = udiv i64 1152921504606846459, %stride
+  %extent.large = icmp ugt i64 %count, %maximum.count
+  br i1 %extent.large, label %failed, label %size
 size:
   %cells = mul i64 %count, %stride
   %payload.bytes = mul i64 %cells, 8
@@ -183,10 +185,7 @@ size:
   %rounded = add i64 %total, 4095
   %pages = lshr i64 %rounded, 12
   %charge = shl i64 %pages, 12
-  %charge.large = icmp ugt i64 %charge, 67108864
-  br i1 %charge.large, label %failed, label %quota
-quota:
-  %available = sub i64 67108864, %charge
+  %available = sub i64 9223372036854775807, %charge
   %head = call ptr @ube.memory.head(ptr %ctx)
   %bytes.ptr = call ptr @ube.memory.bytes(ptr %ctx)
   %count.ptr = call ptr @ube.memory.count(ptr %ctx)
@@ -195,7 +194,7 @@ attempt:
   %bytes = load atomic i64, ptr %bytes.ptr monotonic, align 8
   %blocks = load atomic i64, ptr %count.ptr monotonic, align 8
   %over.bytes = icmp ugt i64 %bytes, %available
-  %over.blocks = icmp uge i64 %blocks, 4096
+  %over.blocks = icmp uge i64 %blocks, 9223372036854775807
   %over = or i1 %over.bytes, %over.blocks
   br i1 %over, label %miss, label %allocate
 allocate:
@@ -320,7 +319,9 @@ define internal i1 @ube.array.tryresize(ptr %ctx, ptr %array, i64 %count, i64 %p
 entry:
   %err = getelementptr %ube.thread, ptr %ctx, i32 0, i32 0
   %negative = icmp slt i64 %count, 0
-  br i1 %negative, label %argument.fail, label %empty.test
+  %outside.long = icmp ugt i64 %count, 2147483647
+  %invalid.count = or i1 %negative, %outside.long
+  br i1 %invalid.count, label %argument.fail, label %empty.test
 empty.test:
   %empty = icmp eq i64 %count, 0
   br i1 %empty, label %empty.resize, label %allocate
@@ -3239,7 +3240,7 @@ failed:
 %ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }
 %ube.managed.array = type { i64, ptr }
 %ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64 }
-%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, [4096 x i64], %ube.rootframe, i64, [4096 x i64], ptr }
+%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64 }
 @ube.managed.next = internal global i64 1
 
 define internal ptr @ube.managed.state(ptr %ctx) {
@@ -3409,7 +3410,9 @@ check:
   %valid = icmp ult i64 %index, %count
   br i1 %valid, label %read, label %bad
 read:
-  %slot = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10, i64 %index
+  %snapshot.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10
+  %snapshot.data = load ptr, ptr %snapshot.ptr, align 8
+  %slot = getelementptr i64, ptr %snapshot.data, i64 %index
   %identity = load i64, ptr %slot, align 8
   store i64 %identity, ptr %output, align 8
   ret i1 true
@@ -3796,6 +3799,89 @@ bounds:
 failed:
   ret i1 false
 }
+; Reserves collection metadata before publishing a managed record; collection never grows it.
+define internal i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record) {
+entry:
+  %retry.used = alloca i1, align 1
+  store i1 false, ptr %retry.used, align 1
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  %request.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 3
+  %phase.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 4
+  %lease.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 14
+  %buffer.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 15
+  %capacity.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 16
+  %live.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17
+  br label %lock
+lock:
+  call void @ube.managed.enter(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %request = load atomic i64, ptr %request.ptr seq_cst, align 8
+  %phase = load i64, ptr %phase.ptr, align 8
+  %lease = load ptr, ptr %lease.ptr, align 8
+  %requested = icmp ne i64 %request, 0
+  %phased = icmp ne i64 %phase, 0
+  %leased = icmp ne ptr %lease, null
+  %active.phase = or i1 %requested, %phased
+  %active = or i1 %active.phase, %leased
+  br i1 %active, label %park, label %count
+park:
+  call void @ube.program.storage.unlock(ptr %program)
+  %owner.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 2
+  %owner = load atomic ptr, ptr %owner.ptr acquire, align 8
+  %mine = icmp eq ptr %owner, %ctx
+  br i1 %mine, label %failed, label %lock
+count:
+  %live = load i64, ptr %live.ptr, align 8
+  %count.fits = icmp ult i64 %live, 2147483647
+  br i1 %count.fits, label %capacity, label %unlock.failed
+capacity:
+  %needed = add i64 %live, 1
+  %old.capacity = load i64, ptr %capacity.ptr, align 8
+  %fits = icmp ule i64 %needed, %old.capacity
+  br i1 %fits, label %publish, label %grow
+grow:
+  %doubled = shl i64 %old.capacity, 1
+  %empty = icmp eq i64 %old.capacity, 0
+  %initial = select i1 %empty, i64 16, i64 %doubled
+  %too.large = icmp ugt i64 %initial, 2147483647
+  %new.capacity = select i1 %too.large, i64 2147483647, i64 %initial
+  %cells = shl i64 %new.capacity, 1
+  %buffer = call ptr @ube.memory.new.locked(ptr %ctx, i64 %cells, i64 1)
+  %allocated = icmp ne ptr %buffer, null
+  br i1 %allocated, label %replace, label %retry
+replace:
+  %snapshot = getelementptr %ube.block, ptr %buffer, i64 1
+  %queue = getelementptr i64, ptr %snapshot, i64 %new.capacity
+  %snapshot.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10
+  %queue.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 13
+  %old.buffer = load ptr, ptr %buffer.ptr, align 8
+  store ptr %snapshot, ptr %snapshot.ptr, align 8
+  store ptr %queue, ptr %queue.ptr, align 8
+  store ptr %buffer, ptr %buffer.ptr, align 8
+  store i64 %new.capacity, ptr %capacity.ptr, align 8
+  call void @ube.block.drop(ptr %ctx, ptr %old.buffer)
+  br label %publish
+publish:
+  %old.head = load atomic ptr, ptr %state acquire, align 8
+  store ptr %old.head, ptr %record, align 8
+  store atomic ptr %record, ptr %state release, align 8
+  store i64 %needed, ptr %live.ptr, align 8
+  call void @ube.program.storage.unlock(ptr %program)
+  ret i1 true
+retry:
+  call void @ube.program.storage.unlock(ptr %program)
+  %retried = load i1, ptr %retry.used, align 1
+  br i1 %retried, label %failed, label %collect
+collect:
+  store i1 true, ptr %retry.used, align 1
+  %collected = call {i1,i64} @ube.managed.collect(ptr %ctx, i64 0)
+  br label %lock
+unlock.failed:
+  call void @ube.program.storage.unlock(ptr %program)
+  br label %failed
+failed:
+  ret i1 false
+}
 define i1 @ube.text.create(ptr %ctx, i64 %bytes, i64 %scalars, ptr %output) {
 entry:
   %negative = icmp slt i64 %bytes, 0
@@ -3822,11 +3908,13 @@ owner:
   %owned = and i1 %ready, %framed
   br i1 %owned, label %size, label %bad
 size:
-  %too.large = icmp ugt i64 %bytes, 67104768
-  br i1 %too.large, label %memory, label %allocate
-allocate:
   %header.end = getelementptr %ube.managed.record, ptr null, i64 1
   %header.bytes = ptrtoint ptr %header.end to i64
+  %maximum.total = sub i64 9223372036854775807, %header.bytes
+  %maximum.bytes = sub i64 %maximum.total, 1023
+  %too.large = icmp ugt i64 %bytes, %maximum.bytes
+  br i1 %too.large, label %memory, label %allocate
+allocate:
   %total = add i64 %bytes, %header.bytes
   %rounded = add i64 %total, 1023
   %chunks = lshr i64 %rounded, 10
@@ -3858,16 +3946,13 @@ initialize:
   store ptr %payload, ptr %payload.ptr, align 8
   store ptr %ctx, ptr %thread.ptr, align 8
   store i64 1, ptr %kind.ptr, align 8
+  %registered = call i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record)
+  br i1 %registered, label %candidate, label %discard
+candidate:
   %candidates = getelementptr %ube.thread, ptr %ctx, i32 0, i32 5
   %old.candidate = load ptr, ptr %candidates, align 8
   store ptr %old.candidate, ptr %candidate.next, align 8
   store ptr %record, ptr %candidates, align 8
-  %program = call ptr @ube.thread.program(ptr %ctx)
-  call void @ube.program.storage.lock(ptr %program)
-  %old.head = load atomic ptr, ptr %state acquire, align 8
-  store ptr %old.head, ptr %record, align 8
-  store atomic ptr %record, ptr %state release, align 8
-  call void @ube.program.storage.unlock(ptr %program)
   store i64 %identity, ptr %output, align 8
   ret i1 true
 bad:
@@ -4111,7 +4196,11 @@ array.read:
   %difference = sub i64 %upper, %lower
   %length = add i64 %difference, 1
   %array.count = select i1 %nonempty, i64 %length, i64 0
-  %array.valid = icmp ule i64 %array.count, 1048576
+  %array.extent = icmp ule i64 %array.count, 2147483647
+  %lower.valid = icmp sge i64 %lower, -2147483648
+  %upper.valid = icmp sle i64 %upper, 2147483647
+  %bounds.valid = and i1 %lower.valid, %upper.valid
+  %array.valid = and i1 %array.extent, %bounds.valid
   br i1 %array.valid, label %visit.array, label %bad
 visit.array:
   br label %visit
@@ -4492,12 +4581,16 @@ snapshot:
   %record.exists = icmp ne ptr %record, null
   br i1 %record.exists, label %capacity, label %roots
 capacity:
-  %room = icmp ult i64 %allocation.count, 4096
+  %capacity.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 16
+  %capacity.value = load i64, ptr %capacity.ptr, align 8
+  %room = icmp ult i64 %allocation.count, %capacity.value
   br i1 %room, label %record.read, label %metadata.error
 record.read:
   %identity.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 1
   %identity = load i64, ptr %identity.ptr, align 8
-  %slot = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10, i64 %allocation.count
+  %snapshot.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10
+  %snapshot.data = load ptr, ptr %snapshot.ptr, align 8
+  %slot = getelementptr i64, ptr %snapshot.data, i64 %allocation.count
   store i64 %identity, ptr %slot, align 8
   %mark.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 2
   store i64 0, ptr %mark.ptr, align 8
@@ -4505,6 +4598,11 @@ record.read:
   %next.count = add i64 %allocation.count, 1
   br label %snapshot
 roots:
+  %live.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17
+  %live = load i64, ptr %live.ptr, align 8
+  %consistent = icmp eq i64 %allocation.count, %live
+  br i1 %consistent, label %counts, label %metadata.error
+counts:
   store i64 %allocation.count, ptr %allocation.count.ptr, align 8
   %root.result = call {i1,i64} @ube.managed.roots.visit(ptr %ctx, i64 -1)
   %root.count = extractvalue {i1,i64} %root.result, 1
@@ -4631,6 +4729,10 @@ release:
 unlink:
   store ptr %next.native, ptr %native.link, align 8
   store atomic ptr %next.managed, ptr %managed.link release, align 8
+  %live.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17
+  %live = load i64, ptr %live.ptr, align 8
+  %less.live = sub i64 %live, 1
+  store i64 %less.live, ptr %live.ptr, align 8
   %bytes.ptr = call ptr @ube.memory.bytes(ptr %ctx)
   %blocks.ptr = call ptr @ube.memory.count(ptr %ctx)
   %bytes = load atomic i64, ptr %bytes.ptr monotonic, align 8
@@ -4648,7 +4750,9 @@ snapshot:
   %more = icmp ult i64 %index, %count
   br i1 %more, label %slot, label %done
 slot:
-  %slot.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10, i64 %index
+  %snapshot.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 10
+  %snapshot.data = load ptr, ptr %snapshot.ptr, align 8
+  %slot.ptr = getelementptr i64, ptr %snapshot.data, i64 %index
   %slot.value = load i64, ptr %slot.ptr, align 8
   %same = icmp eq i64 %slot.value, %identity
   %new.value = select i1 %same, i64 0, i64 %slot.value
@@ -4727,7 +4831,9 @@ validate:
   %arguments = and i1 %not.preserve, %nonnegative
   br i1 %arguments, label %capacity, label %bad
 capacity:
-  %fits = icmp ule i64 %count, 4096
+  %capacity.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 16
+  %capacity.value = load i64, ptr %capacity.ptr, align 8
+  %fits = icmp ule i64 %count, %capacity.value
   br i1 %fits, label %descriptor, label %memory
 descriptor:
   %upper.ptr = getelementptr i64, ptr %array, i64 1
@@ -4761,7 +4867,8 @@ acquire.check:
   %available = and i1 %empty.unowned, %unleased
   br i1 %available, label %acquire, label %bad
 acquire:
-  %workspace = getelementptr %ube.managed.state, ptr %state, i32 0, i32 13, i64 0
+  %workspace.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 13
+  %workspace = load ptr, ptr %workspace.ptr, align 8
   br label %clear
 clear:
   %index = phi i64 [ 0, %acquire ], [ %next, %clear ]
@@ -4822,6 +4929,10 @@ detach:
   %program = call ptr @ube.thread.program(ptr %ctx)
   %slot = getelementptr %ube.program, ptr %program, i32 0, i32 14
   store atomic ptr null, ptr %slot release, align 8
+  %metadata.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 15
+  %metadata = load ptr, ptr %metadata.ptr, align 8
+  store ptr null, ptr %metadata.ptr, align 8
+  call void @ube.block.drop(ptr %ctx, ptr %metadata)
   %block = getelementptr %ube.block, ptr %state, i64 -1
   call void @ube.block.drop(ptr %ctx, ptr %block)
   br label %done

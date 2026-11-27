@@ -7,7 +7,7 @@ into programs that use managed values, without a separate runtime installation.
 
 The current text surface includes variable-length String literals and values,
 `&` concatenation, binary comparisons, and conversions involving the admitted
-Boolean and integer types. Strings can occur in admitted records, arrays,
+Boolean, integer, Single and Double types. Strings can occur in admitted records, arrays,
 parameters, results and worker captures. Comparison uses text content rather
 than backing-storage identity.
 
@@ -30,10 +30,20 @@ counts Err 5, malformed UTF-8 Err 13, and exhausted allocation Err 7. Ordinary
 FAIL propagation preserves an unfinished assignment's previous destination.
 
 The same module implements `Concat`, `CompareBinary`, `FromInteger`,
-`FromBoolean`, `ToInteger` and `ToBoolean` for the compiler's admitted
+`FromBoolean`, `ToInteger`, `ToBoolean`, `FromFloating` and `ToFloating` for the compiler's admitted
 conversions. Numeric text follows invariant language rules, including exact
 decimal/exponent parsing and ties-to-even integer rounding. Algorithms remain
 ordinary UBE code; native roles provide storage and synchronization.
+
+Single and Double text conversions accept finite values only. Formatting uses
+the shortest significant decimal representation that parses back to the same
+value and preserves negative zero as `-0`. Parsing rejects malformed text and
+Infinity/NaN spellings with Err 13, and out-of-range finite values with Err 6.
+The `BinaryFloat`, `BinaryFloatValues`, `BinaryFloatText`, `BinaryFloatMath` and
+`BinaryFloatPower` modules implement shared numeric algorithms in ordinary UBE;
+they do not introduce new VB6 compatibility function names. Exact spelling,
+rounding and acceptance evidence are in
+[Single/Double support](../compiler/FLOATING-POINT.md).
 
 `Memory.CollectGarbage()` requests a synchronous collection. It returns 1 when
 managed storage is reclaimed and 0 when there is no such work. Allocation
@@ -41,14 +51,14 @@ pressure also invokes collection automatically before one retry. Live values
 remain reachable through exact roots, including retained worker captures and
 old array payloads still owned by an element alias.
 
-This increment does not implement Variant, fixed-length String, additional
-numeric families, text-folding/Like, objects or the broad-input compatibility
+This increment does not implement Variant, fixed-length String, Currency,
+Decimal, text-folding/Like, objects or the broad-input compatibility
 functions such as Len and CStr. Their established definitions remain in force;
 these typed functions do not narrow or replace them.
 
 See [native acceptance tests](../runtime/tests/managed-text/README.md),
 [runtime contracts](../runtime/managed-memory.md) and
 [compiler progress](../compiler/Progress.md) for commands, evidence and remaining
-integration work. The normative rules are in
+language work. The normative rules are in
 [the language specification](../lang-doc/language-spec.md) and
 [managed memory](../lang-doc/managed-memory.md).

@@ -1,5 +1,5 @@
 # Links native fault assertions to the actual compiler-emitted ordinary UBE collector.
-param([Parameter(Mandatory=$true)][string]$ProgramIR,[switch]$Rendezvous,[switch]$Graph)
+param([Parameter(Mandatory=$true)][string]$ProgramIR,[switch]$Rendezvous,[switch]$Graph,[switch]$Growth)
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
@@ -14,7 +14,8 @@ if($program -notmatch 'call i1 @ube.managed.install\(ptr %ctx, ptr @ube.proc.\d+
 $probeName='fault-probe.ll';$entry='faultmain'
 if($Rendezvous){$probeName='rendezvous-probe.ll';$entry='rendezvousmain'}
 if($Graph){$probeName='graph-probe.ll';$entry='graphmain'}
-if($Graph -and $Rendezvous){throw 'Choose one assertion suite'}
+if($Growth){$probeName='growth-probe.ll';$entry='growthmain'}
+if(([int]$Graph.IsPresent+[int]$Rendezvous.IsPresent+[int]$Growth.IsPresent) -gt 1){throw 'Choose one assertion suite'}
 $probe=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $probeName),$utf8)
 $script:sequence=0
 function Run([string]$File,[string[]]$Arguments,[int]$Expected=0) {
@@ -26,6 +27,7 @@ function Run([string]$File,[string[]]$Arguments,[int]$Expected=0) {
 $lib=Join-Path $evidence 'kernel32.lib'
 Run 'C:\Program Files\LLVM\bin\llvm-dlltool.exe' @('-m','i386:x86-64','-d',(Join-Path $repo 'compiler/llvm/kernel32.def'),'-l',$lib)
 if($Graph){$text=$program}
+elseif($Growth){$text=$program.Replace('define ptr @ube.target.allocate(i64 %bytes)', 'define ptr @growth.target.allocate(i64 %bytes)')}
 elseif($Rendezvous){
  $text=$program.Replace('define i1 @ube.managed.begin(ptr %ctx, ptr %prior.work, ptr %prior.error)', 'define i1 @rendezvous.managed.begin(ptr %ctx, ptr %prior.work, ptr %prior.error)')
  $marker='  %more.joiners = add i64 %joiners, 1'
@@ -44,7 +46,8 @@ foreach($level in @('O0','O2')) {
  foreach($negative in @($false,$true)) {
   $assertions=$probe
   if($negative){
-   if($Graph){$assertions=$assertions.Replace('%all.released = icmp eq i64 %cycle.released, 3000','%all.released = icmp eq i64 %cycle.released, 3001')}
+   if($Graph){$assertions=$assertions.Replace('%all.released = icmp eq i64 %cycle.released, 5000','%all.released = icmp eq i64 %cycle.released, 5001')}
+   elseif($Growth){$assertions=$assertions.Replace('%seventeen = icmp eq i64 %new.live, 17','%seventeen = icmp eq i64 %new.live, 18')}
    elseif($Rendezvous){$assertions=$assertions.Replace('%joined = icmp eq i64 %joins, 1','%joined = icmp eq i64 %joins, 2')}
    else{$assertions=$assertions.Replace('%two = icmp eq i64 %allocations, 2','%two = icmp eq i64 %allocations, 3')}
   }
@@ -53,7 +56,8 @@ foreach($level in @('O0','O2')) {
   Run 'C:\Program Files\LLVM\bin\clang.exe' @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-'+$level),($stem+'.ll'),$lib,'-o',($stem+'.exe'),('-Wl,/entry:'+$entry+',/subsystem:console,/stack:8388608'))
   $expected=0;if($negative){$expected=1}
   Run ($stem+'.exe') @('fault-probe') $expected
-  if($Graph){Write-Output "PASS $level actual UBE collector 3000-record cycle, integer nonroot and empty disposal negative=$negative"}
+  if($Graph){Write-Output "PASS $level actual UBE collector 5000-record cycle, integer nonroot and empty disposal negative=$negative"}
+  elseif($Growth){Write-Output "PASS $level metadata growth failure, preserved buffer/roots, retry and empty disposal negative=$negative"}
   elseif($Rendezvous){Write-Output "PASS $level actual UBE collector joined round, capsule-only root, per-thread Err and empty disposal negative=$negative"}
   else{Write-Output "PASS $level actual UBE collector allocation retry, workspace abort/recovery, startup refusal and empty disposal negative=$negative"}
  }

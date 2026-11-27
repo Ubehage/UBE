@@ -74,17 +74,14 @@ reported byte offsets are module-local. Categories are duplicate=1, name/access=
 type=3, ambiguity=4, entry=5, limit=6, storage/runtime=7, unsupported=8 and invalid
 input=9. Code zero accompanies successful publication. Sticky Err is not cleared.
 
-The bounded project profile retains at most 128 modules, 1 MiB total source,
-262,144 tokens and 131,072 nodes. Each individual module still has the scanner and
-parser's existing limits. The source-byte aggregate limit follows the present
-Byte-array representation and 64 MiB heap quota; it is not a language restriction.
-Declaration storage retains at most 16,384 symbols with a bounded lookup budget.
-The cumulative node capacity accommodates the measured 74,893 module nodes of
-the 44-module compiler source package. Module syntax remains capped at 65,536
-nodes. The parser and declaration gates accept exactly 131,072 project nodes,
-refuse the next node, and preserve the committed project for rebinding.
-The main gate accepts exactly 16,384 symbols and rejects 16,386. The precise
-lookup-work threshold is a defensive bound, not a separately qualified limit.
+The UBE project and declaration arenas now grow using checked Long counts and
+controlled allocation failure instead of the former 128-module, 1 MiB source,
+262,144-token, 131,072-node and 16,384-symbol quotas. Remaining syntax-depth,
+token-spelling and lookup-work guards are independent limits. Candidate growth
+must still preserve the committed project on failure. Current regression gates
+accept 129 modules, about 1.2 MiB source, 16,400 variables and a 45,000-statement
+project; these are tested examples, not new admission ceilings. Exact commands
+and results are in [Single/Double support](../compiler/FLOATING-POINT.md).
 
 ## Acceptance requirements
 

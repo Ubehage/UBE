@@ -70,7 +70,7 @@ End Function
 
 ' Emits with private numbering, traversal and buffering; shared semantic facts are read-only until join.
 ' The ByVal catalog supplies each renderer an owned copy of the validated immutable bytes.
-Private Sub EmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Expressions() As ExpressionBinder.BoundExpression, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Roles() As Long, ByVal NodeCount As Long, ByVal Catalog() As Byte, ByRef Stage() As Byte, ByVal Ordinal As Long, ByRef Result As RangeResult, ByVal WorkBase As Long, ByVal ByteBase As Long, ByVal LineBase As Long)
+Private Sub EmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Expressions() As ExpressionBinder.BoundExpression, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Roles() As Long, ByVal NodeCount As Long, ByVal Catalog() As Byte, ByRef Stage() As Byte, ByVal Ordinal As Long, ByRef Result As RangeResult, ByVal WorkBase As Long, ByVal ByteBase As LongLong, ByVal LineBase As LongLong)
     Dim Buffer() As Byte
     Dim Seen() As Long
     Dim Nexts() As Long
@@ -165,7 +165,8 @@ Private Function TryAppendRange(ByRef Stage() As Byte, ByVal Ordinal As Long, By
     Dim Status As Boolean
     On Error GoTo Failed
     If Not OutputPublication.TryEmissionPath(Stage, Ordinal, Path, Range.Failure) Then Exit Function
-    If Not FilePrimitives.TryOpen(Path, LLVMWriter.MaximumBytes, Range.FileToken, Length, Range.Failure) Then Exit Function
+    ' The current file-length primitive returns Long; retain its representation boundary.
+    If Not FilePrimitives.TryOpen(Path, 2147483647, Range.FileToken, Length, Range.Failure) Then Exit Function
     If Length <> Range.State.Text.TotalBytes Then Range.Failure = 1: GoTo Cleanup
     If Not BufferPrimitives.TryResizeBytes(ReadBuffer, LLVMWriter.BufferSize, False) Then GoTo Cleanup
     Do While Offset < Length
@@ -257,7 +258,7 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
             State.Text.Failure = 1
             GoTo Rejected
         End If
-        If Ranges(Index).State.Text.Failure = 2 Or (Ranges(Index).State.FailureCode = 6 And Ranges(Index).State.FailureReason = 56) Or Ranges(Index).State.Work > NativeEmission.MaximumWork - State.Work Or Ranges(Index).State.Text.TotalBytes > LLVMWriter.MaximumBytes - State.Text.TotalBytes Or Ranges(Index).State.Text.LineCount > LLVMWriter.MaximumLines - State.Text.LineCount Then
+        If Ranges(Index).State.Text.Failure = 2 Or (Ranges(Index).State.FailureCode = 6 And Ranges(Index).State.FailureReason = 56) Or Ranges(Index).State.Work > NativeEmission.MaximumWork - State.Work Or Ranges(Index).State.Text.TotalBytes > 9223372036854775807^ - State.Text.TotalBytes Or Ranges(Index).State.Text.LineCount > 9223372036854775807^ - State.Text.LineCount Then
             Call PrepareReplay(Ranges(Index), Ranges(MaximumWorkers), State)
             Call EmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, Stage, MaximumWorkers, Ranges(MaximumWorkers), State.Work, State.Text.TotalBytes, State.Text.LineCount)
             Call CopyEmissionState(State, Ranges(MaximumWorkers).State)

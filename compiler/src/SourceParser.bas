@@ -204,11 +204,15 @@ Private Function NewNode(ByRef T() As SourceScanner.SourceToken, ByRef N() As Sy
     Dim Capacity As Long
     Dim Index As Long
     On Error GoTo Failed
-    If S.NodeCount >= 65536 Then Reject T, S, D, 4, 5: Exit Function
+    If S.NodeCount = 2147483647 Then Reject T, S, D, 4, 5: Exit Function
     If S.NodeCount = S.Capacity Then
-        Capacity = S.Capacity + S.Capacity
+        If S.Capacity > 1073741823 Then
+            Capacity = 2147483647
+        Else
+            Capacity = S.Capacity + S.Capacity
+        End If
         If Capacity = 0 Then Capacity = 128
-        If Capacity > 65536 Then Capacity = 65536
+
         If ResizeNodes(N, Capacity, True) = False Then Reject T, S, D, 5, 6: Exit Function
         S.Capacity = Capacity
     End If
@@ -284,6 +288,8 @@ Private Function ScalarSuffix(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     If Code = SyntaxTokens.SymAmpersand Then Result = SyntaxTokens.KwLong
     If Code = SyntaxTokens.SymCaret Then Result = SyntaxTokens.KwLongLong
     If Code = SyntaxTokens.SymDollar Then Result = SyntaxTokens.KwString
+    If Code = SyntaxTokens.SymBang Then Result = SyntaxTokens.KwSingle
+    If Code = SyntaxTokens.SymHash Then Result = SyntaxTokens.KwDouble
     If Result = 0 Or S.Position < 1 Then Exit Function
     If T(S.Position - 1).ByteStart + T(S.Position - 1).ByteLength <> T(S.Position).ByteStart Then Exit Function
     S.Position = S.Position + 1
@@ -326,7 +332,7 @@ Private Function ReadType(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     If RequireSpace(T, S, D) = False Then Exit Function
     Start = S.Position
     Code = CodeAt(B, T, S, 0)
-    If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwString Then
+    If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwSingle Or Code = SyntaxTokens.KwDouble Or Code = SyntaxTokens.KwString Then
         S.Position = S.Position + 1
     Else
         NameIndex = ReadName(B, T, S, D, False)
@@ -474,9 +480,10 @@ Private Function OperatorRank(ByVal Code As Long) As Long
     If Code = SyntaxTokens.SymEqual Or Code = SyntaxTokens.SymNotEqual Or Code = SyntaxTokens.SymLess Or Code = SyntaxTokens.SymGreater Or Code = SyntaxTokens.SymLessEqual Or Code = SyntaxTokens.SymGreaterEqual Then OperatorRank = 4
     If Code = SyntaxTokens.SymAmpersand Then OperatorRank = 5
     If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 6
-    If Code = SyntaxTokens.SymStar Then OperatorRank = 7
+    If Code = SyntaxTokens.SymStar Or Code = SyntaxTokens.SymSlash Then OperatorRank = 7
     If Code = SyntaxTokens.SymBackslash Then OperatorRank = 8
     If Code = SyntaxTokens.KwMod Then OperatorRank = 9
+    If Code = SyntaxTokens.SymCaret Then OperatorRank = 11
 End Function
 
 ' Parses literal, grouped and unary primaries with retained source spelling.
@@ -516,7 +523,6 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         AddChild N, Node, Child
         If Expect(B, T, S, D, SyntaxTokens.SymClose) = False Then Exit Function
     ElseIf Kind = SourceScanner.NumberToken Then
-        If SyntaxTokens.IsIntegerToken(B, T, S.Position, S.TokenCount) = False Then Reject T, S, D, 3, 10: Exit Function
         S.Position = S.Position + 1
         Node = NewNode(T, N, S, D, NumberNode, Start)
         If Node = 0 Then Exit Function
@@ -578,7 +584,11 @@ Private Function ParseExpression(ByRef B() As Byte, ByRef T() As SourceScanner.S
         If Rank <= 2 Or Code = SyntaxTokens.KwMod Then
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
-        RightNode = ParseExpression(B, T, N, S, D, Rank + 1)
+        If Code = SyntaxTokens.SymCaret Then
+            RightNode = ParseExpression(B, T, N, S, D, Rank)
+        Else
+            RightNode = ParseExpression(B, T, N, S, D, Rank + 1)
+        End If
         If RightNode = 0 Then Exit Function
         Node = NewNode(T, N, S, D, BinaryNode, N(LeftNode - 1).FirstToken)
         If Node = 0 Then Exit Function
@@ -710,7 +720,7 @@ Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.S
     Ahead = 1
     Do
         Code = CodeAt(B, T, S, Ahead)
-        If Code = SyntaxTokens.SymPercent Or Code = SyntaxTokens.SymAmpersand Or Code = SyntaxTokens.SymCaret Then Ahead = Ahead + 1
+        If Code = SyntaxTokens.SymPercent Or Code = SyntaxTokens.SymAmpersand Or Code = SyntaxTokens.SymCaret Or Code = SyntaxTokens.SymBang Or Code = SyntaxTokens.SymHash Or Code = SyntaxTokens.SymDollar Then Ahead = Ahead + 1
         Code = CodeAt(B, T, S, Ahead)
         If Code = SyntaxTokens.SymDot Then
             Kind = KindAt(T, S, Ahead + 1)
@@ -1392,7 +1402,7 @@ Private Function ValidateTokens(ByRef B() As Byte, ByRef T() As SourceScanner.So
     On Error GoTo Failed
     Length = SourceLength(B)
     Actual = TokenLength(T)
-    If Length > 1048576 Or S.TokenCount < 2 Or S.TokenCount > 65536 Or S.TokenCount > Actual Then ValidateTokens = Reject(T, S, D, 4, 38): Exit Function
+    If Length = 2147483647 Or S.TokenCount < 2 Or S.TokenCount > Actual Then ValidateTokens = Reject(T, S, D, 4, 38): Exit Function
     If Length > 0 Then
         Probe = B(0)
         Probe = B(Length - 1)

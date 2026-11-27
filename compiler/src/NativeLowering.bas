@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 225602
-Private Const RuntimeByteSum As Long = 18378661
+Private Const RuntimeLength As Long = 230936
+Private Const RuntimeByteSum As Long = 18813585
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -150,7 +150,7 @@ End Function
 Public Function TryInitializeTraversal(ByVal NodeCount As Long, ByRef Seen() As Long, ByRef Nexts() As Long, ByRef State As NativeEmission.EmissionState) As Boolean
     On Error GoTo Failed
     If State.Text.Failed Then Exit Function
-    If NodeCount < 1 Or NodeCount > ProjectSyntax.MaximumProjectNodes Then
+    If NodeCount < 1 Then
         State.Text.Failure = 3
         GoTo Rejected
     End If
@@ -202,7 +202,7 @@ Public Function TryEmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Sym
     Dim NextNode As Long
     On Error GoTo Failed
     If State.Text.Failed Then Exit Function
-    If SymbolCount < 1 Or SymbolCount > 16384 Or NodeCount < 1 Or NodeCount > ProjectSyntax.MaximumProjectNodes Then
+    If SymbolCount < 1 Or NodeCount < 1 Then
         State.Text.Failure = 3
         GoTo Rejected
     End If

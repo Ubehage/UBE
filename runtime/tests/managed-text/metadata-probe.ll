@@ -7,6 +7,7 @@
 @inner = global %ube.rootframe zeroinitializer
 @answer = global i64 77
 @count = global i64 88
+@snapshot.data = global i64 0
 @bad.refs = constant %ube.managed.layout {i64 1,i64 1,ptr null,i64 0,ptr null,i64 0,ptr null}
 @bad.arrays = constant %ube.managed.layout {i64 4,i64 0,ptr null,i64 1,ptr null,i64 0,ptr null}
 @bad.owners = constant %ube.managed.layout {i64 1,i64 0,ptr null,i64 0,ptr null,i64 1,ptr null}
@@ -27,7 +28,9 @@ entry:
  %root.count = getelementptr %ube.managed.state, ptr @state, i32 0, i32 9
  store i64 1, ptr %allocation.count
  store i64 3, ptr %root.count
- %snapshot = getelementptr %ube.managed.state, ptr @state, i32 0, i32 10, i64 0
+ %snapshot.slot = getelementptr %ube.managed.state, ptr @state, i32 0, i32 10
+ store ptr @snapshot.data, ptr %snapshot.slot
+ %snapshot = getelementptr i64, ptr @snapshot.data, i64 0
  store i64 101, ptr %snapshot
  store i64 91, ptr @ctx
  %counts = call i1 @ube.managed.snapshot.counts(ptr @ctx, ptr @answer, ptr @count)

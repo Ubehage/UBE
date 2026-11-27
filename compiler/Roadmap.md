@@ -118,6 +118,12 @@ and shared-state rules are in the development plan's concurrency requirement.
   deep cycles, worker roots and retained array payloads. Final self-builds,
   common conformance and concurrent compilation pass; scope is in
   `../std-lib/TEXT.md`, with exact evidence in Progress.md.
+  Single/Double now pass literals/storage, constant and runtime arithmetic,
+  comparisons, admitted scalar/text conversions, arrays/records and worker
+  captures. Independent O0/O2 numerical/failure gates, renewed self-host fixed
+  point, common conformance and concurrent compilation pass. The scoped
+  resource-growth changes and remaining limits are in `FLOATING-POINT.md`.
+  `Exit Loop` is specified separately and remains unimplemented.
 - [~] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
   The admitted String/scalar/finite-aggregate profile is qualified; objects,

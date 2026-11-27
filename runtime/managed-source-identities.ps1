@@ -71,7 +71,7 @@ Public Function ValidateProject(ByRef Bytes() As Byte, ByRef Modules() As Projec
     Dim Index As Long
     Dim Identity As Long
     BadModule = -1
-    If Counts.ModuleCount < 0 Or Counts.ModuleCount > ModuleLength(Modules) Or Counts.ModuleCount > 128 Then Exit Function
+    If Counts.ModuleCount < 0 Or Counts.ModuleCount > ModuleLength(Modules) Then Exit Function
     If Counts.ByteCount < 0 Or Counts.ByteCount > BufferPrimitives.ByteStorageLength(Bytes) Then Exit Function
     Do While Index < Counts.ModuleCount
         If Modules(Index).LookupDomain < 0 Or Modules(Index).LookupDomain > 1 Then BadModule = Index: Exit Function

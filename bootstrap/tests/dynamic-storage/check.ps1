@@ -209,13 +209,13 @@ $cases = @(
     @{Name='CheckByValSecondCopyFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=2; Calls=4},
     @{Name='CheckByValLaterFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=2; Calls=2},
     @{Name='CheckByValDepthFailure'; Prepare=$true; Setup='PrepareArguments'; Fail=0; Quota=0; Calls=1},
-    @{Name='CheckHeapQuota'; Prepare=$false; Fail=0; Quota=0; Calls=15},
+    @{Name='CheckHeapQuota'; Prepare=$false; Fail=0; Quota=15; Calls=18},
     @{Name='CheckSourceBuffer'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
     @{Name='CheckValues'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
     @{Name='CheckPins'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
     @{Name='CheckIndexCapture'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
     @{Name='CheckCleanup'; Prepare=$false; Fail=0; Quota=0; Calls=-1},
-    @{Name='CheckCounts'; Prepare=$true; Fail=0; Quota=0; Calls=0},
+    @{Name='CheckCounts'; Prepare=$true; Fail=0; Quota=0; Calls=1},
     @{Name='CheckRejectedResize'; Prepare=$true; Fail=2; Quota=0; Calls=2},
     @{Name='CheckRetry'; Prepare=$true; Fail=1; Quota=0; Calls=2},
     @{Name='CheckRejectedCopy'; Prepare=$true; Fail=2; Quota=0; Calls=2},
@@ -223,8 +223,9 @@ $cases = @(
     @{Name='CheckRejectedResize'; Prepare=$true; Fail=0; Quota=2; Calls=2}
 )
 foreach ($case in $cases) {
+    $caseSeed = 1
     $stem = $case.Name + '-' + $case.Fail + '-' + $case.Quota
-    $harness = @('@test.input = global i64 1','@test.context = private global %ube.context zeroinitializer, align 8','define i32 @main() {','entry:','  %ctx = getelementptr %ube.context, ptr @test.context, i32 0','  call void @ube.context.init(ptr %ctx)','  %init = call i1 @ube.project.init(ptr %ctx)','  %seed = load volatile i64, ptr @test.input')
+    $harness = @("@test.input = global i64 $caseSeed",'@test.context = private global %ube.context zeroinitializer, align 8','define i32 @main() {','entry:','  %ctx = getelementptr %ube.context, ptr @test.context, i32 0','  call void @ube.context.init(ptr %ctx)','  %init = call i1 @ube.project.init(ptr %ctx)','  %seed = load volatile i64, ptr @test.input')
     if ($case.Prepare) {
         $setupName = 'Prepare'
         if ($case.ContainsKey('Setup')) { $setupName = $case.Setup }

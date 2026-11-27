@@ -77,8 +77,9 @@ For CallNew, the catalog snapshot is prepared before worker publication and
 retained by the typed capture until source execution ends. A failure preparing
 a later snapshot enters the caller's failure path; previously started workers
 must still finish before request-owned stages can be discarded. The additional
-copies consume the existing shared 64 MiB program heap and introduce no separate
-request allowance or change to output/work quotas.
+copies use the existing shared program allocator and introduce no separate
+request allowance. The allocator now checks representation and actual system
+resource failures instead of imposing a fixed byte or block quota.
 
 The complete coordinator gate passed in
 `ube concurrent compilation 95205396-5aaf-4636-b717-0b1298181b0b`. Its added O0/O2
@@ -378,7 +379,7 @@ and driver/runtime hashes. This establishes useful parallelism for the tested
 workload and machine, not a fixed speedup for other inputs or hardware. It
 measures source-to-LLVM requests and excludes driver construction and native
 backend execution. Worker counts are explicitly bounded to one or two, and
-simultaneous requests share the existing 64 MiB program heap.
+simultaneous requests share the existing program allocator and system resources.
 
 The scoped synchronization review and contention/fault assertions complement
 these measurements; neither stress schedules nor overlap alone prove absence

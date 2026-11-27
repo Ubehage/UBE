@@ -1,5 +1,40 @@
 # Managed text qualification
 
+## Current source and collector checkpoint
+
+The full `text-check.ps1 -CompilerExe <UBE.exe>` client now retains 5,000
+Strings, checks their independent values after collection, and passes at O0/O2
+with its negative control (`dbd8a0ae-04e2-4a2d-9bbe-71bb050f85df`). It does not
+expect exhaustion at the removed fixed heap quota. `-AllocationFailure` instead
+injects exactly two failed text-allocation attempts and checks fresh failure,
+unchanged destination and roots, successful retry and sticky Err at O0/O2
+(`a14d0c11-631f-43c9-bc12-dd95f7c106de`). Injection exists only in temporary test IR.
+
+`-Threads` passes retained String-array payload and simultaneous collector checks
+with its changed-value control on the self-built compiler
+(`18f3dfd7-1803-46fe-956c-84d70f6d662a`). Native `fault-check.ps1 -ProgramIR
+<emitted Collector.ll>` also passes O0/O2 and negative controls: default faults
+`0c4d335f-cd11-4ea6-b18a-70d8355c4ad9`, `-Growth`
+`9f09facd-f677-4d3b-b86a-68b68463cf70`, `-Graph` (5,000 records)
+`9026943c-5282-43cc-940c-53b98455b614`, and `-Rendezvous`
+`40768c67-4228-4017-9a65-b33f986d7820`. Full compiler provenance and the separate
+Single/Double gates are recorded in
+[FLOATING-POINT.md](../../../compiler/FLOATING-POINT.md).
+
+## Dynamic metadata checkpoint
+
+On 2026-11-25, `rtk proxy powershell -NoProfile -File
+runtime/tests/managed-text/metadata-check.ps1` passed against the current
+230,936-byte runtime: O0/O2 snapshot, marking and frame assertions; changed
+oracle controls; and the null metadata-list regression. The regression asserts
+controlled rejection with the production guard and an access violation when
+that guard is deliberately removed in temporary test IR. Evidence:
+`%TEMP%/ube managed metadata 8e890b6c-cedf-4ed1-aa51-df49e9b5deb1`.
+This gate checks native metadata mechanics; renewed source collector, worker
+and heap-frame integration qualification remains separate.
+
+## Earlier String source acceptance
+
 The actual native acceptance runner is `text-check.ps1 -CompilerExe <UBE.exe>`.
 It checks text values, conversions, failure preservation, aggregate and worker
 roots, and allocation pressure at O0/O2, plus a changed scalar-count control.
@@ -8,8 +43,9 @@ changed-value control for isolating integration failures. Final O0/O2 runs use
 generation 2 from `ube compiler rebuild 2a484f43-e11e-4490-8436-686fe60cb92a`:
 full-client evidence `299a500f-fb4c-41fe-a5fa-3af04a7db266`, simple-client
 evidence `a6271c60-763d-4b23-be3e-6ea3562f19ec`, each under `%TEMP%/ube managed text `.
-The full client also fills the retained-allocation quota, asserts unchanged
-failed destinations and recovers after dropping retained values. `-Conditions`
+At that checkpoint the full client also filled the retained-allocation quota, asserted unchanged
+failed destinations and recovered after dropping retained values. The current
+growth and deterministic failure cases above supersede that quota assumption. `-Conditions`
 checks String Boolean conditions and array indexes, including invalid text;
 it passed with negative controls in `b972f7b8-435f-47ef-b9ae-bca740ce12b7`.
 Separate native fault/graph/rendezvous gates are documented in

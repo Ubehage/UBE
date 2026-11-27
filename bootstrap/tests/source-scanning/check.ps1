@@ -230,7 +230,7 @@ Require ([Convert]::ToBase64String($sampleBytes) -ceq [Convert]::ToBase64String(
 $sample.Bytes = $sampleBytes
 $cases.Add($sample)
 $numberParts = New-Object 'System.Collections.Generic.List[object]'
-foreach ($spelling in @('1&','1%','2^','&Hff&','&O77','.5','12.','1e-3','7F','8!','9#','10@','11R','12D')) { $numberParts.Add(@(3,$spelling)); $numberParts.Add(@(0,' ')) }
+foreach ($spelling in @('1&','1%','2^','&Hff&','&O77','.5','12.','1e-3','8!','9#','10@')) { $numberParts.Add(@(3,$spelling)); $numberParts.Add(@(0,' ')) }
 $cases.Add((New-TokenCase 'numeric spellings and suffixes' $numberParts.ToArray()))
 $cases.Add((New-TokenCase 'operators and literal adjacency' @(@(3,'1'),@(0,' '),@(5,'&'),@(0,' '),@(1,'x'),@(5,':='),@(3,'2'),@(5,'<='),@(3,'3'),@(5,'<>'),@(3,'4'),@(5,'>='),@(3,'5'),@(5,'('),@(1,'a'),@(5,':'),@(1,'b'),@(5,')'),@(5,'!'),@(5,'$'))))
 $unicode = [string][char]0x00E9 + [char]0xD83D + [char]0xDE00
@@ -243,8 +243,8 @@ $cases.Add((New-TokenCase '128 decoded bracket characters' @(@(2,('[' + ('a' * 1
 $cases.Add((New-TokenCase '4096 byte quoted token' @(@(4,('"' + ('a' * 4094) + '"')))))
 $cases.Add((New-TokenCase 'one MiB comment and synthetic EOF' @(@(0,("'" + ('a' * 1048575))))))
 $limitParts = New-Object 'System.Collections.Generic.List[object]'
-for ($index = 0; $index -lt 65534; $index++) { $limitParts.Add(@(5,'+')) }
-$cases.Add((New-TokenCase '65536 token boundary including synthetic terminals' $limitParts.ToArray()))
+for ($index = 0; $index -lt 65535; $index++) { $limitParts.Add(@(5,'+')) }
+$cases.Add((New-TokenCase '65537 tokens exceed the former quota including synthetic terminals' $limitParts.ToArray()))
 $cases.Add((New-TokenCase 'bracketed words do not introduce Rem comments' @(@(2,'[Then]'),@(0,' '),@(1,'Rem'),@(0,' '),@(1,'value'),@(6,"`n"),@(1,'Thing'),@(5,'.'),@(1,'Rem'),@(6,"`n"),@(1,'If'),@(0,' '),@(1,'False'),@(0,' '),@(1,'Then'),@(0,' '),@(1,'x'),@(0,' '),@(1,'Else'),@(0,' Rem comment'))))
 $cases.Add((New-TokenCase 'colon-equals is not a statement separator' @(@(1,'x'),@(5,':='),@(1,'Rem'),@(0,' '),@(1,'value'))))
 $cases.Add((New-TokenCase 'continuation with Unicode comment' @(@(1,'x'),@(0,(' _ ''' + $unicode + "`r`n`t")),@(5,'+'),@(3,'1'))))
@@ -257,6 +257,9 @@ $negative = @(
     @{Name='based literal needs digits'; Text='&H'; Diag=@(2,2,0,1,1,1)},
     @{Name='invalid octal digit'; Text='&O8'; Diag=@(2,2,0,1,1,1)},
     @{Name='truncated exponent'; Text='1e+'; Diag=@(2,2,0,1,1,1)},
+    @{Name='undefined F suffix'; Text='7F'; Diag=@(2,2,0,1,1,1)},
+    @{Name='undefined R suffix'; Text='11R'; Diag=@(2,2,0,1,1,1)},
+    @{Name='undefined D suffix'; Text='12D'; Diag=@(2,2,0,1,1,1)},
     @{Name='numeric word boundary'; Text='123abc'; Diag=@(2,2,0,1,1,1)},
     @{Name='dangling continuation'; Text='x _'; Diag=@(2,3,2,3,1,3)},
     @{Name='continuation comment without physical newline'; Text="x _ 'tail"; Diag=@(2,3,2,3,1,3)},
@@ -267,8 +270,7 @@ $negative = @(
     @{Name='identifier length exceeded'; Text=('a' * 129); Diag=@(4,4,0,1,1,1)},
     @{Name='bracket decoded length exceeded'; Text=('[' + ('a' * 129) + ']'); Diag=@(4,4,0,1,1,1)},
     @{Name='quoted token character limit'; Text=('"' + ('a' * 4095) + '"'); Diag=@(4,2,0,1,1,1)},
-    @{Name='unclosed token character limit'; Text=('"' + ('a' * 4096)); Diag=@(4,2,0,1,1,1)},
-    @{Name='EOF token exceeds bounded vector'; Text=('+' * 65535); Diag=@(4,3,65535,65536,1,65536)}
+    @{Name='unclosed token character limit'; Text=('"' + ('a' * 4096)); Diag=@(4,2,0,1,1,1)}
 )
 foreach ($case in $negative) { $cases.Add((New-RejectedCase $case.Name $utf8.GetBytes($case.Text) $case.Diag)) }
 $cases.Add((New-RejectedCase 'malformed UTF8 inside ignored comment' ([byte[]]@(39,32,192,175)) @(1,1,2,3,1,3)))

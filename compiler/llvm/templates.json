@@ -1,4 +1,39 @@
 [
+{"name":"UnpackSingle","text":"  %floatbits{0} = trunc i64 %v{1} to i32\r\n  %v{0} = bitcast i32 %floatbits{0} to float"},
+{"name":"PackSingle","text":"  %floatbits{0} = bitcast float %v{1} to i32\r\n  %v{0} = zext i32 %floatbits{0} to i64"},
+{"name":"SingleAdd","text":"  %v{0} = fadd float %v{1}, %v{2}"},
+{"name":"SingleSubtract","text":"  %v{0} = fsub float %v{1}, %v{2}"},
+{"name":"SingleMultiply","text":"  %v{0} = fmul float %v{1}, %v{2}"},
+{"name":"SingleDivide","text":"  %v{0} = fdiv float %v{1}, %v{2}"},
+{"name":"SingleNegate","text":"  %v{0} = fneg float %v{1}"},
+{"name":"SingleEqual","text":"  %v{0} = fcmp oeq float %v{1}, %v{2}"},
+{"name":"SingleNotEqual","text":"  %v{0} = fcmp une float %v{1}, %v{2}"},
+{"name":"SingleLess","text":"  %v{0} = fcmp olt float %v{1}, %v{2}"},
+{"name":"SingleGreater","text":"  %v{0} = fcmp ogt float %v{1}, %v{2}"},
+{"name":"SingleLessEqual","text":"  %v{0} = fcmp ole float %v{1}, %v{2}"},
+{"name":"SingleGreaterEqual","text":"  %v{0} = fcmp oge float %v{1}, %v{2}"},
+{"name":"IntegerToSingle","text":"  %v{0} = sitofp i64 %v{1} to float"},
+{"name":"UnpackDouble","text":"  %v{0} = bitcast i64 %v{1} to double"},
+{"name":"PackDouble","text":"  %v{0} = bitcast double %v{1} to i64"},
+{"name":"DoubleAdd","text":"  %v{0} = fadd double %v{1}, %v{2}"},
+{"name":"DoubleSubtract","text":"  %v{0} = fsub double %v{1}, %v{2}"},
+{"name":"DoubleMultiply","text":"  %v{0} = fmul double %v{1}, %v{2}"},
+{"name":"DoubleDivide","text":"  %v{0} = fdiv double %v{1}, %v{2}"},
+{"name":"DoubleNegate","text":"  %v{0} = fneg double %v{1}"},
+{"name":"DoubleEqual","text":"  %v{0} = fcmp oeq double %v{1}, %v{2}"},
+{"name":"DoubleNotEqual","text":"  %v{0} = fcmp une double %v{1}, %v{2}"},
+{"name":"DoubleLess","text":"  %v{0} = fcmp olt double %v{1}, %v{2}"},
+{"name":"DoubleGreater","text":"  %v{0} = fcmp ogt double %v{1}, %v{2}"},
+{"name":"DoubleLessEqual","text":"  %v{0} = fcmp ole double %v{1}, %v{2}"},
+{"name":"DoubleGreaterEqual","text":"  %v{0} = fcmp oge double %v{1}, %v{2}"},
+{"name":"IntegerToDouble","text":"  %v{0} = sitofp i64 %v{1} to double"},
+{"name":"SingleToDouble","text":"  %v{0} = fpext float %v{1} to double"},
+{"name":"DoubleToSingle","text":"  %v{0} = fptrunc double %v{1} to float"},
+{"name":"DoubleNonfinite","text":"  %isnan{0} = fcmp uno double %v{1}, %v{1}\r\n  %ispositiveinf{0} = fcmp oeq double %v{1}, 0x7FF0000000000000\r\n  %isnegativeinf{0} = fcmp oeq double %v{1}, 0xFFF0000000000000\r\n  %isinf{0} = or i1 %ispositiveinf{0}, %isnegativeinf{0}\r\n  %v{0} = or i1 %isnan{0}, %isinf{0}"},
+{"name":"DoubleNonzero","text":"  %v{0} = fcmp one double %v{1}, 0.0"},
+{"name":"DoubleSingleOverflow","text":"  %abovefloat{0} = fcmp ogt double %v{1}, 0x47EFFFFFE0000000\r\n  %belowfloat{0} = fcmp olt double %v{1}, 0xC7EFFFFFE0000000\r\n  %outsidefloat{0} = or i1 %abovefloat{0}, %belowfloat{0}\r\n  %finitefloat{0} = xor i1 %v{2}, true\r\n  %v{0} = and i1 %outsidefloat{0}, %finitefloat{0}"},
+{"name":"DoubleIntegerOverflow","text":"  %aboveinteger{0} = fcmp uge double %v{1}, 0x43E0000000000000\r\n  %belowinteger{0} = fcmp ult double %v{1}, 0xC3E0000000000000\r\n  %v{0} = or i1 %aboveinteger{0}, %belowinteger{0}"},
+{"name":"DoubleRoundInteger","text":"  %truncated{0} = fptosi double %v{1} to i64\r\n  %integral{0} = sitofp i64 %truncated{0} to double\r\n  %fraction{0} = fsub double %v{1}, %integral{0}\r\n  %oddvalue{0} = and i64 %truncated{0}, 1\r\n  %odd{0} = icmp ne i64 %oddvalue{0}, 0\r\n  %positivehalf{0} = fcmp oeq double %fraction{0}, 0.5\r\n  %negativehalf{0} = fcmp oeq double %fraction{0}, -0.5\r\n  %positiveover{0} = fcmp ogt double %fraction{0}, 0.5\r\n  %negativeover{0} = fcmp olt double %fraction{0}, -0.5\r\n  %positivetie{0} = and i1 %positivehalf{0}, %odd{0}\r\n  %negativetie{0} = and i1 %negativehalf{0}, %odd{0}\r\n  %increment{0} = or i1 %positiveover{0}, %positivetie{0}\r\n  %decrement{0} = or i1 %negativeover{0}, %negativetie{0}\r\n  %positiveadjust{0} = select i1 %increment{0}, i64 1, i64 0\r\n  %adjust{0} = select i1 %decrement{0}, i64 -1, i64 %positiveadjust{0}\r\n  %v{0} = add i64 %truncated{0}, %adjust{0}"},
 {"name":"IntrinsicMemoryCollect","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx) {\r\nentry:\r\n  %result = call { i1, i64 } @ube.managed.collect(ptr %ctx, i64 -1)\r\n  ret { i1, i64 } %result\r\n}\r\n"},
 {"name":"IntrinsicManagedWorkspace","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2) {\r\nentry:\r\n  %accepted = call i1 @ube.managed.workspace(ptr %ctx, ptr %arg.0, i64 %arg.1, i64 %arg.2)\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
   {
@@ -379,11 +414,11 @@
   },
   {
     "name": "FrameControls",
-    "text": "  %handler.target = alloca i32, align 4\r\n  %handler.active = alloca i1, align 1\r\n  %failure.site = alloca i32, align 4\r\n  %handler.resume = alloca i32, align 4\r\n  store i32 0, ptr %handler.target\r\n  store i1 false, ptr %handler.active\r\n  store i32 0, ptr %failure.site\r\n  store i32 0, ptr %handler.resume"
+    "text": "  %handler.target = getelementptr i64, ptr %frame.storage, i64 {3}\n  %handler.active = getelementptr i64, ptr %handler.target, i64 1\n  %failure.site = getelementptr i64, ptr %handler.target, i64 2\n  %handler.resume = getelementptr i64, ptr %handler.target, i64 3\n  store i32 0, ptr %handler.target\n  store i1 false, ptr %handler.active\n  store i32 0, ptr %failure.site\n  store i32 0, ptr %handler.resume"
   },
   {
     "name": "AllocateSlot",
-    "text": "  %slot.{0} = alloca [{1} x i64], align 8"
+    "text": "  %slot.{0} = getelementptr i64, ptr %frame.storage, i64 {3}"
   },
   {
     "name": "StoreParameter",
@@ -391,15 +426,15 @@
   },
   {
     "name": "AllocateTemporary",
-    "text": "  %temp.{0} = alloca i64, align 8"
+    "text": "  %temp.{0} = getelementptr i64, ptr %frame.storage, i64 {3}"
   },
   {
     "name": "AllocatePin",
-    "text": "  %pin.{0} = alloca ptr, align 8\r\n  store ptr null, ptr %pin.{0}"
+    "text": "  %pin.{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  store ptr null, ptr %pin.{0}"
   },
   {
     "name": "ProcedureDepth",
-    "text": "  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store atomic i64 28, ptr %err monotonic, align 8\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store atomic i64 %depth.entered, ptr %depth.ptr monotonic, align 8"
+    "text": "  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store atomic i64 28, ptr %err monotonic, align 8\r\n  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store atomic i64 %depth.entered, ptr %depth.ptr monotonic, align 8"
   },
   {
     "name": "FailureDispatchLabel",
@@ -455,7 +490,7 @@
   },
   {
     "name": "TargetHeader",
-    "text": "target triple = \"x86_64-pc-windows-msvc\""
+    "text": "target triple = \"x86_64-pc-windows-msvc\"\r\n@_fltused = global i32 0"
   },
   {
     "name": "IntrinsicSystemCommandLine",
@@ -543,7 +578,7 @@
   },
   {
     "name": "AllocateAggregateTemporary",
-    "text": "  %temp.{0} = alloca [{1} x i64], align 8"
+    "text": "  %temp.{0} = getelementptr i64, ptr %frame.storage, i64 {3}"
   },
   {
     "name": "IntrinsicThreadCurrentId",
@@ -581,8 +616,8 @@
   {"name":"OwnerPayload","text":"  %v{0} = getelementptr %ube.block, ptr %v{1}, i64 1"},
   {"name":"DropOwner","text":"  call void @ube.box.drop(ptr %ctx, ptr %v{0}, i1 {1})"},
   {"name":"ClearTemporaryOwner","text":"  store ptr null, ptr %temp.owner.{0}"},
-  {"name":"AllocateLocalOwner","text":"  %box.{0} = alloca ptr, align 8\r\n  store ptr null, ptr %box.{0}"},
-  {"name":"AllocateTemporaryOwner","text":"  %temp.owner.{0} = alloca ptr, align 8\r\n  store ptr null, ptr %temp.owner.{0}"},
+  {"name":"AllocateLocalOwner","text":"  %box.{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  store ptr null, ptr %box.{0}"},
+  {"name":"AllocateTemporaryOwner","text":"  %temp.owner.{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  store ptr null, ptr %temp.owner.{0}"},
   {"name":"SetLocalOwner","text":"  store ptr %v{1}, ptr %box.{0}"},
   {"name":"OwnerParameter","text":", ptr %owner.{0}"},
   {"name":"OwnerEntryGuard","text":"  br i1 %v{0}, label %owner.ready.{0}, label %return.fail\r\nowner.ready.{0}:"},
@@ -620,13 +655,13 @@
 {"name":"TextRootLoad","text":"  %v{0} = call i64 @ube.managed.load(ptr %ctx, ptr %v{1}, ptr %text{2})"},
 {"name":"TextRootStore","text":"  call void @ube.managed.store(ptr %ctx, ptr %text{0}, i64 %v{1})"},
 {"name":"TextRootTake","text":"  %v{0} = call i64 @ube.managed.take(ptr %ctx, ptr %text{1})"},
-{"name":"ManagedEntryFrame","text":"  %root.entry = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %root.entry, ptr null, ptr null, i64 0)"},
-{"name":"ManagedTextSlots","text":"  %managed.text = alloca [{0} x i64], align 8\r\n  store [{0} x i64] zeroinitializer, ptr %managed.text, align 8\r\n  %managed.text.root = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %managed.text.root, ptr %managed.text, ptr @ube.managed.layout.0, i64 {0})"},
+{"name":"ManagedEntryFrame","text":"  %root.entry = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %root.entry, ptr null, ptr null, i64 0)"},
+{"name":"ManagedTextSlots","text":"  %managed.text = getelementptr i64, ptr %frame.storage, i64 {3}\n  %managed.text.root = getelementptr i64, ptr %managed.text, i64 {0}\n  call void @ube.managed.root.push(ptr %ctx, ptr %managed.text.root, ptr %managed.text, ptr @ube.managed.layout.0, i64 {0})"},
 {"name":"ManagedTextAlias","text":"  %text{0} = getelementptr i64, ptr %managed.text, i64 {1}"},
-{"name":"ManagedSymbolRoot","text":"  %symbol.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
-{"name":"ManagedArraySymbolRoot","text":"  %symbol.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
-{"name":"ManagedTemporaryRoot","text":"  %temporary.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
-{"name":"ManagedArrayTemporaryRoot","text":"  %temporary.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
+{"name":"ManagedSymbolRoot","text":"  %symbol.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
+{"name":"ManagedArraySymbolRoot","text":"  %symbol.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %symbol.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
+{"name":"ManagedTemporaryRoot","text":"  %temporary.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.layout.{2}, i64 1)"},
+{"name":"ManagedArrayTemporaryRoot","text":"  %temporary.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.root{0}, ptr %v{1}, ptr @ube.managed.arraylayout.{2}, i64 1)"},
 {"name":"ManagedRestoreRoots","text":"  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)"},
 {"name":"ManagedReturnValue","text":"  call void @ube.managed.return(ptr %ctx, i64 %v{0})"},
 {"name":"ManagedDiscardReturn","text":"  call void @ube.managed.discard(ptr %ctx)"},
@@ -640,15 +675,15 @@
 {"name":"ManagedGlobalArrayEntry","text":"%ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }, "},
 {"name":"ManagedGlobalArrayLastEntry","text":"%ube.managed.array { i64 {0}, ptr @ube.managed.layout.{1} }"},
 {"name":"ManagedGlobalLayout","text":"@ube.managed.globals.layout = private constant %ube.managed.layout { i64 {0}, i64 {1}, ptr @ube.managed.globalsoffsets, i64 {2}, ptr @ube.managed.globalsarrays, i64 0, ptr null }"},
-{"name":"ManagedProcedureDepth","text":"  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store atomic i64 28, ptr %err monotonic, align 8\r\n  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store atomic i64 %depth.entered, ptr %depth.ptr monotonic, align 8"}
+{"name":"ManagedProcedureDepth","text":"  %depth.initial = load atomic i64, ptr %depth.ptr monotonic, align 8\r\n  %depth.allowed = icmp ult i64 %depth.initial, 256\r\n  br i1 %depth.allowed, label %depth.enter, label %depth.refused\r\ndepth.refused:\r\n  store atomic i64 28, ptr %err monotonic, align 8\r\n  call void @ube.managed.root.restore(ptr %ctx, ptr %root.entry)\r\n  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)\r\n  ret { i1, i64 } { i1 false, i64 0 }\r\ndepth.enter:\r\n  %depth.entered = add i64 %depth.initial, 1\r\n  store atomic i64 %depth.entered, ptr %depth.ptr monotonic, align 8"}
 ,
 {"name":"ManagedProjectInitialize","text":"  %managed.installed = call i1 @ube.managed.install(ptr %ctx, ptr @ube.proc.{0})\r\n  br i1 %managed.installed, label %managed.ready, label %managed.refused\r\nmanaged.refused:\r\n  ret i1 false\r\nmanaged.ready:\r\n  call void @ube.managed.globals(ptr %ctx, ptr @ube.managed.globals.layout)\r\n"}
 ,
 {"name":"ManagedOwnerLayout","text":"@ube.managed.owner.root.layout = private constant %ube.managed.layout { i64 1, i64 0, ptr null, i64 0, ptr null, i64 1, ptr @ube.managed.offsets.0 }"},
-{"name":"ManagedLocalOwnerRoot","text":"  %box.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %box.root{0}, ptr %box.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
-{"name":"ManagedTemporaryOwnerRoot","text":"  %temporary.owner.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.owner.root{0}, ptr %temp.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
-{"name":"ManagedIncomingOwnerRoot","text":"  %incoming.owner.{0} = alloca ptr, align 8\r\n  store ptr %owner.{0}, ptr %incoming.owner.{0}, align 8\r\n  %incoming.owner.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %incoming.owner.root{0}, ptr %incoming.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
-{"name":"ManagedPinRoot","text":"  %pin.root{0} = alloca %ube.rootframe, align 8\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %pin.root{0}, ptr %pin.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedLocalOwnerRoot","text":"  %box.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %box.root{0}, ptr %box.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedTemporaryOwnerRoot","text":"  %temporary.owner.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %temporary.owner.root{0}, ptr %temp.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedIncomingOwnerRoot","text":"  %incoming.owner.{0} = getelementptr i64, ptr %frame.storage, i64 {3}\n  store ptr %owner.{0}, ptr %incoming.owner.{0}, align 8\n  %incoming.owner.root{0} = getelementptr i64, ptr %incoming.owner.{0}, i64 1\n  call void @ube.managed.root.push(ptr %ctx, ptr %incoming.owner.root{0}, ptr %incoming.owner.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
+{"name":"ManagedPinRoot","text":"  %pin.root{0} = getelementptr i64, ptr %frame.storage, i64 {3}\r\n  call void @ube.managed.root.push(ptr %ctx, ptr %pin.root{0}, ptr %pin.{0}, ptr @ube.managed.owner.root.layout, i64 1)"},
 {"name":"AttachManagedOwner","text":"  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.layout.{1}, i64 {2})"},
 {"name":"AttachManagedArrayOwner","text":"  call void @ube.managed.owner.layout(ptr %ctx, ptr %v{0}, ptr @ube.managed.arraylayout.{1}, i64 1)"}
 ,
@@ -679,7 +714,7 @@
 {"name":"ClearCapturedOwner","text":"  store atomic ptr null, ptr %v{0} release, align 8"}
 ,
 {"name":"ManagedSafepoint","text":"  call void @ube.managed.enter(ptr %ctx)"},
-{"name":"ManagedTemporaryTable","text":"  %managed.temps = alloca ptr, i64 {0}, align 8"},
+{"name":"ManagedTemporaryTable","text":"  %managed.temps = getelementptr i64, ptr %frame.storage, i64 {3}"},
 {"name":"ManagedTextTableEntry","text":"  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}\r\n  %v{2} = getelementptr i64, ptr %managed.text, i64 {1}\r\n  store ptr %v{2}, ptr %v{0}, align 8"},
 {"name":"ManagedTemporaryTableEntry","text":"  %v{0} = getelementptr ptr, ptr %managed.temps, i64 {1}\r\n  store ptr %v{2}, ptr %v{0}, align 8"},
 {"name":"ManagedRetireTemporaries","text":"  call void @ube.managed.temps.clear(ptr %ctx, ptr %managed.temps, i64 {0})"},
@@ -689,4 +724,8 @@
 {"name":"IntrinsicArrayCopyManaged","text":"define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {\r\nentry:\r\n  %accepted = call i1 @ube.array.trycopy(ptr %ctx, ptr %arg.0, ptr %arg.1, i64 {1}, ptr @ube.managed.layout.{2})\r\n  %value = select i1 %accepted, i64 -1, i64 0\r\n  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1\r\n  ret { i1, i64 } %result\r\n}\r\n"},
 {"name":"ControlManagedArrayCopyStart","text":"  %v{0} = call i1 @ube.array.trycopy(ptr %ctx, ptr %v{1}, ptr %v{2}, i64 {3}"},
 {"name":"ManagedLayoutCallEnd","text":", ptr @ube.managed.layout.{0})"}
+,
+{"text":"  %frame.retired = call i1 @ube.memory.collect(ptr %ctx)\n  %frame.program = call ptr @ube.thread.program(ptr %ctx)\n  call void @ube.program.storage.lock(ptr %frame.program)\n  %frame.owner = call ptr @ube.memory.new.locked(ptr %ctx, i64 {0}, i64 1)\n  call void @ube.program.storage.unlock(ptr %frame.program)\n  %frame.allocated = icmp ne ptr %frame.owner, null\n  br i1 %frame.allocated, label %frame.ready, label %frame.failed\nframe.failed:\n  store atomic i64 7, ptr %err monotonic, align 8\n  ret { i1, i64 } { i1 false, i64 0 }\nframe.ready:\n  %frame.storage = getelementptr %ube.block, ptr %frame.owner, i64 1","name":"HeapFrame"},
+{"text":"  call void @ube.block.drop(ptr %ctx, ptr %frame.owner)","name":"ReleaseFrame"},
+{"name":"StackFrame","text":"  %frame.owner = inttoptr i64 0 to ptr\n  %frame.storage = alloca [{0} x i64], align 8\n  br label %frame.zero\nframe.zero:\n  %frame.zero.index = phi i64 [ 0, %entry ], [ %frame.zero.next, %frame.zero ]\n  %frame.zero.cell = getelementptr i64, ptr %frame.storage, i64 %frame.zero.index\n  store volatile i64 0, ptr %frame.zero.cell, align 8\n  %frame.zero.next = add i64 %frame.zero.index, 1\n  %frame.zero.more = icmp ult i64 %frame.zero.next, {0}\n  br i1 %frame.zero.more, label %frame.zero, label %frame.ready\nframe.ready:"}
 ]

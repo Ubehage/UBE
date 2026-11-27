@@ -15,14 +15,17 @@ supplies paths through test-only generated LLVM calls; it is not a production
 command driver. A runnable compiler must supply those inputs itself and own
 staging, backend execution and publication.
 
-The complete driver/compiler package has 44 modules. It requires 74,893 syntax
+The original driver/compiler package had 44 modules. It required 74,893 syntax
 nodes, with a largest module of 7,748 nodes. Its bootstrap-generated IR measures
 9,810,828 bytes and 269,156 lines. These measured requirements prompted focused
 increases to 131,072 cumulative project nodes and 500,000 output lines. The
 65,536 per-module node limit remained unchanged. Managed support later grew the
-compiler beyond the former 16 MiB emitted-file bound; the general bound is now
-32 MiB in both compilers and the bootstrap backend.
-Other independent frame, allocation and work bounds still apply.
+compiler beyond the former 16 MiB emitted-file bound. The current UBE writer
+uses checked LongLong byte/line counts instead of a fixed output quota, and
+project storage grows beyond those original token/node counts. Other
+representation, layout, recursion and work guards remain. Current self-build
+inputs, results and resource evidence are in
+[Single/Double support](../compiler/FLOATING-POINT.md).
 
 Source paths must stay inside their manifest tree. Project-reference support
 is not admitted by the bootstrap. Therefore bootstrap/tools/self-host-sources.ps1

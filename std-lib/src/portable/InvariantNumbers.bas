@@ -69,7 +69,8 @@ Private Function Describe(ByRef Bytes() As Byte, ByVal First As Long, ByVal Last
     Dim PointSeen As Boolean
     Dim ExponentNegative As Boolean
     Dim ExponentLimit As LongLong = Last - First
-    ExponentLimit = ExponentLimit + 64
+    ' Covers the full binary64 subnormal range as well as integer conversion.
+    ExponentLimit = ExponentLimit + 1200
     Description.Radix = 10
     Code = Bytes(Position)
     If Code = 43 Or Code = 45 Then
@@ -126,6 +127,22 @@ Private Function Describe(ByRef Bytes() As Byte, ByVal First As Long, ByVal Last
         If ExponentNegative Then Description.Exponent = -Description.Exponent
     End If
     Describe = True
+End Function
+
+' Parses IEEE bit encodings through the same complete invariant scanner.
+Public Function TryParseFloating(ByRef Bytes() As Byte, ByVal Offset As Long, ByVal Count As Long, ByVal BitWidth As Long, ByRef Value As LongLong) As Boolean
+    Dim First As Long
+    Dim Last As Long
+    Dim Description As NumberText
+    On Error GoTo Failed
+    If BitWidth <> 32 And BitWidth <> 64 Then TryParseFloating = RecordError(5): Exit Function
+    If Not TrimSpan(Bytes, Offset, Count, First, Last) Then Exit Function
+    If Not Describe(Bytes, First, Last, Description) Then Exit Function
+    If Description.Radix <> 10 Then TryParseFloating = RecordError(13): Exit Function
+    TryParseFloating = BinaryFloat.TryParseDecimal(Bytes, Description.First, Description.Last, Description.LeadingZeros, Description.IntegerDigits, Description.Exponent, Description.Negative, Description.Nonzero, BitWidth, Value)
+    Exit Function
+Failed:
+    TryParseFloating = False
 End Function
 
 ' Accumulates a magnitude negatively so the full signed LongLong range is representable.

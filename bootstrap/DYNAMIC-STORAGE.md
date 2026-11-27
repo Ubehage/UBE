@@ -72,14 +72,15 @@ only after successful linking and x64 validation. Target details follow
 [VirtualAlloc](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc)
 and [VirtualFree](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree).
 
-Admission limits are 1,048,576 elements per array, 128 cells per finite-record
-element, 64 MiB of live charged allocation storage rounded to 4,096-byte pages,
-and 4,096 live blocks, including blocks retained solely by borrows. Existing
-source, symbol, context and frame limits still apply; prepared borrow slots
-count toward the bounded frame. Element-count admission does not promise that
-every element type fits the allocation quota: payload, block header and page
-rounding must all fit before allocation. The 16-check source-storage gate
-qualifies the enlarged bound and quota rejection at O0/O2. Exact evidence
+Dynamic array counts must fit their Long representation; finite-record elements
+currently use at most 128 cells. Live allocation storage is accounted in
+4,096-byte pages, including blocks retained solely by borrows, without a fixed
+program byte or block quota. OS allocation failure remains controlled. Existing
+context, layout and traversal limits still apply. The UBE compiler uses checked
+heap storage for frames larger than its small-stack-frame threshold. Payload,
+block header and page rounding must fit checked allocation accounting before
+allocation. The 16-check source-storage gate covers growth beyond the former
+element ceiling and injected OS allocation failure/retry at O0/O2. Exact evidence
 belongs in Progress.md and tests/source-storage/README.md.
 
 ## Explicit later work

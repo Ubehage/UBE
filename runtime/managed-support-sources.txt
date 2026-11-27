@@ -8,4 +8,8 @@ std-lib/src/portable/Utf8.bas
 std-lib/src/portable/BufferPrimitives.bas
 std-lib/src/portable/ByteText.bas
 std-lib/src/portable/InvariantNumbers.bas
+std-lib/src/portable/BinaryFloat.bas
+std-lib/src/portable/BinaryFloatValues.bas
+std-lib/src/portable/BinaryFloatText.bas
+std-lib/src/portable/BinaryFloatPower.bas
 std-lib/src/portable/FilePrimitives.bas

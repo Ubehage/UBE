@@ -397,6 +397,7 @@ End Function
 ' The original Text must remain unchanged while retained value spans are used.
 Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByRef Info As ManifestInfo, ByRef Diagnostic As ManifestDiagnostic) As Boolean
     Dim Candidate() As ValueSpan
+    Dim Capacity As Long
     Dim NextInfo As ManifestInfo
     Dim Seen(0 To 10) As Boolean
     Dim Length As Long
@@ -421,7 +422,8 @@ Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByR
     Diagnostic.Line = 1
     Diagnostic.Column = 1
     Length = BufferPrimitives.ByteStorageLength(Text)
-    If Length > 65536 Then Exit Function
+    ' One-based line/column coordinates require space for the position after the input.
+    If Length = 2147483647 Then Exit Function
     Diagnostic.Code = 10
     Do While Position < Length
         Character = Text(Position)
@@ -446,7 +448,8 @@ Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByR
     NextInfo.Optimization = 2
     NextInfo.DebugInformation = 2
     Diagnostic.Code = 12
-    If ResizeSpans(Candidate, 128, False) = False Then Exit Function
+    Capacity = 16
+    If ResizeSpans(Candidate, Capacity, False) = False Then Exit Function
     Do While Position < Length
         LineStart = Position
         LineEnd = Position
@@ -557,7 +560,16 @@ Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByR
                         Scan = ValueStart + ValueLength - 4
                         If Text(Scan) <> 46 Or Fold(Text(Scan + 1)) <> 98 Or Fold(Text(Scan + 2)) <> 97 Or Fold(Text(Scan + 3)) <> 115 Then Exit Function
                         Diagnostic.Code = 9
-                        If NextInfo.SourceCount >= 128 Then Exit Function
+                        If NextInfo.SourceCount = 2147483647 Then Exit Function
+                        If NextInfo.SourceCount = Capacity Then
+                            If Capacity > 1073741823 Then
+                                Capacity = 2147483647
+                            Else
+                                Capacity = Capacity + Capacity
+                            End If
+                            Diagnostic.Code = 12
+                            If Not ResizeSpans(Candidate, Capacity, True) Then Exit Function
+                        End If
                         Candidate(NextInfo.SourceCount).Start = ValueStart
                         Candidate(NextInfo.SourceCount).Length = ValueLength
                         Candidate(NextInfo.SourceCount).Line = Diagnostic.Line

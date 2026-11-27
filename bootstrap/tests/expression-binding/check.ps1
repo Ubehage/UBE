@@ -242,7 +242,7 @@ function Constant-Equals([string]$Node,[string]$Expected,[string]$Description) {
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
 $files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','NativeEscapes.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'ExpressionProbe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'

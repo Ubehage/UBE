@@ -1,10 +1,16 @@
 # Linking ordinary UBE managed support
 
 Status: source-domain loading, role resolution and automatic installed-source
-integration have passed their focused acceptance gates. Full String/runtime
-qualification is tracked separately. This document uses the existing
+integration have passed their focused acceptance gates. String and Single/Double
+qualification is recorded in compiler/Progress.md and compiler/FLOATING-POINT.md.
+This document uses the existing
 compiler target-support boundary as the integration point. It does not add a
 source package, manifest key, language attribute, or implicit library reference.
+
+The current installed closure contains 13 ordered source files and resolves
+11 ordinary procedure roles, including floating text conversion and power.
+`runtime/managed-support-sources.txt` is the file inventory; generated identities
+and role checks qualify that exact closure. Numeric algorithms remain in UBE.
 
 ## Contract and current evidence
 
@@ -101,8 +107,10 @@ to caller-supplied parsed arenas.
 
 Preserve request ownership throughout. Loading or binding failure must publish
 no partially merged program and must leave prior IR/executable artifacts intact.
-The existing node/module/symbol limits apply to the combined plan; do not silently
-increase quotas. Account for installed support when diagnosing exhausted limits.
+The combined plan uses the same checked storage and index representations for
+project and installed support sources. Account for both domains when diagnosing
+allocation failures or remaining traversal/representation limits; installed
+support does not receive an independent heap allowance.
 
 ## Runtime installation and initialization
 

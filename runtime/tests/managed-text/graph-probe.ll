@@ -41,7 +41,7 @@ linked:
  %is.first = icmp eq i64 %index, 0
  %first = select i1 %is.first, ptr %payload, ptr %tail
  %next = add i64 %index, 1
- %more = icmp ult i64 %next, 3000
+ %more = icmp ult i64 %next, 5000
  br i1 %more, label %allocate, label %cycle
 cycle:
  store i64 %id, ptr %first
@@ -52,10 +52,13 @@ cycle:
  store i64 %lookalike, ptr %integer.slot
  %before.count.ptr = call ptr @ube.memory.count(ptr @graph.ctx)
  %before.count = load i64, ptr %before.count.ptr
+ %live.count.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17
+ %before.live = load i64, ptr %live.count.ptr
  %collected = call {i1,i64} @ube.managed.collect(ptr @graph.ctx, i64 -1)
  %work = extractvalue {i1,i64} %collected, 1
  %after.count = load i64, ptr %before.count.ptr
- %released = sub i64 %before.count, %after.count
+ %after.live = load i64, ptr %live.count.ptr
+ %released = sub i64 %before.live, %after.live
  %one.released = icmp eq i64 %released, 1
  %worked = icmp eq i64 %work, 1
  %lookalike.record = call ptr @ube.managed.find(ptr %state, i64 %lookalike)
@@ -74,8 +77,9 @@ release.cycle:
  %cycle.work = extractvalue {i1,i64} %cycle.collected, 1
  %cycle.worked = icmp eq i64 %cycle.work, 1
  %after.cycle = load i64, ptr %before.count.ptr
- %cycle.released = sub i64 %after.count, %after.cycle
- %all.released = icmp eq i64 %cycle.released, 3000
+ %after.cycle.live = load i64, ptr %live.count.ptr
+ %cycle.released = sub i64 %after.live, %after.cycle.live
+ %all.released = icmp eq i64 %cycle.released, 5000
  %cycle.ok = and i1 %cycle.worked, %all.released
  br i1 %cycle.ok, label %cleanup, label %fail
 cleanup:

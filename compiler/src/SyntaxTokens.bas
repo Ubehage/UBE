@@ -32,6 +32,7 @@ Public Const SymDollar As Long = 30
 Public Const SymAt As Long = 31
 Public Const SymSemicolon As Long = 32
 Public Const SymAssignNamed As Long = 33
+Public Const SymHash As Long = 34
 Public Const KwIf As Long = 100
 Public Const KwThen As Long = 101
 Public Const KwElse As Long = 102
@@ -463,6 +464,7 @@ Public Function TokenCode(ByRef Source() As Byte, ByRef Tokens() As SourceScanne
     If First = 47 Then TokenCode = SymSlash: Exit Function
     If First = 92 Then TokenCode = SymBackslash: Exit Function
     If First = 33 Then TokenCode = SymBang: Exit Function
+    If First = 35 Then TokenCode = SymHash: Exit Function
     If First = 36 Then TokenCode = SymDollar: Exit Function
     If First = 64 Then TokenCode = SymAt: Exit Function
     If First = 59 Then TokenCode = SymSemicolon: Exit Function

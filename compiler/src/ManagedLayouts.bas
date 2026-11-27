@@ -20,7 +20,7 @@ Public Function ValidPublication(ByRef Symbols() As DeclarationBinder.BoundSymbo
         ExpectedCells = Layouts(Node - 1).ElementCells
     ElseIf TypeCode = SyntaxTokens.KwString Then
         Expected = 1
-    ElseIf TypeCode <> SyntaxTokens.KwBoolean And TypeCode <> SyntaxTokens.KwByte And TypeCode <> SyntaxTokens.KwInteger And TypeCode <> SyntaxTokens.KwLong And TypeCode <> SyntaxTokens.KwLonglong Then
+    ElseIf TypeCode <> SyntaxTokens.KwBoolean And Not ConstantValues.IsNumeric(TypeCode) Then
         Exit Function
     End If
     If Cells <> ExpectedCells Or References <> Expected Then Exit Function

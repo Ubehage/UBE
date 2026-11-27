@@ -156,7 +156,7 @@ function Read-Procedures([string]$Manifest) {
 # Compiles the checked-in constant engine and its actual lexical dependencies.
 $core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compiler = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$manifest = Copy-Fixtures 'constant library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'ConstantValues.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'constant library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $core 'FilePrimitives.bas'),(Join-Path $core 'ByteText.bas'),(Join-Path $core 'InvariantNumbers.bas'),(Join-Path $core 'BinaryFloat.bas'),(Join-Path $core 'BinaryFloatValues.bas'),(Join-Path $core 'BinaryFloatMath.bas'),(Join-Path $core 'BinaryFloatPower.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'ConstantValues.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'constants.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'
@@ -171,6 +171,7 @@ foreach($level in @('O0','O2')){
 $cases = New-Object Collections.Generic.List[object]
 # Explicit public codes are an independent contract oracle, not values read from the implementation.
 $Bool=153;$Byte=154;$Integer=155;$Long=156;$LongLong=157
+$Single=158;$Double=159
 function Literal([string]$Text,[int]$Context,[bool]$Negated,[string]$Value,[int]$Type,[int]$Reason=0){$cases.Add(@{Kind='Literal';Text=$Text;Context=$Context;Negated=$Negated;Value=$Value;Type=$Type;Reason=$Reason})}
 function Unary([int]$Op,[string]$InputValue,[int]$InputType,[string]$Value,[int]$Type,[int]$Reason=0){$cases.Add(@{Kind='Unary';Op=$Op;Input=$InputValue;InputType=$InputType;Value=$Value;Type=$Type;Reason=$Reason})}
 function Binary([int]$Op,[string]$A,[int]$AT,[string]$B,[int]$BT,[string]$Value,[int]$Type,[int]$Reason=0){$cases.Add(@{Kind='Binary';Op=$Op;A=$A;AT=$AT;B=$B;BT=$BT;Value=$Value;Type=$Type;Reason=$Reason})}
@@ -193,7 +194,50 @@ Literal '9223372036854775808' 0 $false '0' 0 2
 Literal '9223372036854775809' 0 $true '0' 0 2
 Literal '9999999999999999999999999' 0 $false '0' 0 2
 Literal '000000000000000000000001' $LongLong $false '1' $LongLong
-foreach($text in @('&HFF','&O77','1.5','1E2','1!','^','9999999999999999999999E2')){Literal $text 0 $false '0' 0 1}
+foreach($text in @('&HFF','&O77','^','1E99999')){Literal $text 0 $false '0' 0 1}
+Literal '1.5' 0 $false '4609434218613702656' $Double
+Literal '1E2' 0 $false '4636737291354636288' $Double
+Literal '1!' 0 $false '1065353216' $Single
+Literal '0!' 0 $true '2147483648' $Single
+Literal '0.0' 0 $true '-9223372036854775808' $Double
+Literal '1' $Single $false '1065353216' $Single
+Literal '1' $Double $false '4607182418800017408' $Double
+Literal '1&' $Double $false '1' $Long
+Unary 17 '2147483648' $Single '0' $Single
+Unary 17 '-9223372036854775808' $Double '0' $Double
+Unary 139 '1065353216' $Single '0' 0 1
+Convert-Constant '1075838976' $Single $Long '2'
+Convert-Constant '1080033280' $Single $Long '4'
+Convert-Constant '1056964608' $Single $Bool '-1'
+Convert-Constant '2147483648' $Single $Bool '0'
+Convert-Constant '2139095040' $Single $Bool '0' 3
+Convert-Constant '2143289344' $Single $Long '0' 3
+Convert-Constant '2139095040' $Single $Single '0' 3
+Convert-Constant '9221120237041090560' $Double $Double '0' 3
+Convert-Constant '1' $Long $Single '1065353216'
+Convert-Constant '1065353216' $Single $Double '4607182418800017408'
+Convert-Constant '4607182418800017408' $Double $Single '1065353216'
+Binary 16 '1069547520' $Single '1073741824' $Single '1080033280' $Single
+Binary 17 '1069547520' $Single '1073741824' $Single '3204448256' $Single
+Binary 26 '1069547520' $Single '1073741824' $Single '1077936128' $Single
+Binary 27 '1069547520' $Single '1073741824' $Single '4604930618986332160' $Double
+Binary 27 '1' $Long '2' $Long '4602678819172646912' $Double
+Binary 25 '2' $Long '3' $Long '4620693217682128896' $Double
+Binary 25 '4621256167635550208' $Double '4602678819172646912' $Double '4613937818241073152' $Double
+Binary 25 '-2' $Long '4602678819172646912' $Double '0' 0 2
+Binary 25 '0' $Long '-1' $Long '0' 0 2
+Binary 16 '1069547520' $Single '1' $LongLong '4612811918334230528' $Double
+Binary 15 '0' $Single '2147483648' $Single '-1' $Bool
+Binary 15 '9221120237041090560' $Double '0' $Double '0' 0 3
+Binary 22 '9221120237041090560' $Double '0' $Double '0' 0 3
+Binary 18 '9221120237041090560' $Double '0' $Double '0' 0 3
+Binary 27 '1' $Long '0' $Long '0' 0 4
+Binary 27 '0' $Long '0' $Long '0' 0 4
+Binary 16 '2139095039' $Single '2139095039' $Single '0' 0 2
+Unary 17 '2139095040' $Single '0' 0 3
+Binary 28 '3243769856' $Single '1077936128' $Single '-4' $LongLong
+Binary 143 '1095237632' $Single '1084227584' $Single '2' $LongLong
+Binary 28 '1065353216' $Single '1056964608' $Single '0' 0 4
 Literal '9' 0 $false '0' 0 3
 $cases[$cases.Count-1].Start=-1
 Literal '9' 0 $false '0' 0 3

@@ -217,7 +217,12 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
     Payload = NativeEmission.NewValue(S)
     If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CapturePayloadAddress, Payload, 0, 0, 0) Then Exit Function
     If S.ManagedRoles.CollectSymbol <> 0 Then
+        ' A worker thunk owns only its fixed root sentinel, independently of its caller's frame plan.
+        S.FrameCells = 4
+        S.FrameUsed = 0
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StackFrame, 4, 0, 0, 0) Then Exit Function
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedEntryFrame, 0, 0, 0, 0) Then Exit Function
+        If S.FrameUsed <> S.FrameCells Then GoTo Failed
     End If
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0

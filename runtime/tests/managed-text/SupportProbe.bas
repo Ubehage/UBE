@@ -2,18 +2,23 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "SupportProbe"
 ' Executes role binding against independently supplied source and trusted domain inputs.
 
+Private Intrinsic Function ResizeModules(ByRef Values() As ProjectSyntax.ParsedModule, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
+Attribute ResizeModules.UBE_Primitive = "Array.TryResize"
+End Function
+
 Public Function CheckAsset(ByRef Bytes() As Byte, ByVal Identity As Long, ByVal Expected As Boolean) As Long
     If ManagedSourceAssets.Validate(Bytes, Identity) <> Expected Then CheckAsset = 1
 End Function
 
 Public Function CheckProjectAssets(ByRef Bytes() As Byte, ByRef Starts() As Long, ByRef Sizes() As Long, ByVal Mode As Long, ByVal Expected As Boolean) As Long
-    Dim Modules(0 To 8) As ProjectSyntax.ParsedModule
+    Dim Modules() As ProjectSyntax.ParsedModule
     Dim Counts As ProjectSyntax.ProjectCounts
     Dim Index As Long
     Dim BadModule As Long
-    Counts.ModuleCount = 9
+    If Not ResizeModules(Modules, 13, False) Then CheckProjectAssets = 3: Exit Function
+    Counts.ModuleCount = 13
     Counts.ByteCount = BufferPrimitives.ByteStorageLength(Bytes)
-    Do While Index < 9
+    Do While Index < 13
         Modules(Index).LookupDomain = 1
         Modules(Index).ByteBase = Starts(Index)
         Modules(Index).ByteCount = Sizes(Index)
@@ -23,8 +28,8 @@ Public Function CheckProjectAssets(ByRef Bytes() As Byte, ByRef Starts() As Long
     If Mode = 1 Then Modules(0).LookupDomain = 2
     If Mode = 2 Then Modules(0).ByteBase = -1
     If Mode = 3 Then Modules(0).ByteCount = Counts.ByteCount + 1
-    If Mode = 4 Then Counts.ModuleCount = 8
-    If Mode = 5 Then Counts.ModuleCount = 10
+    If Mode = 4 Then Counts.ModuleCount = 12
+    If Mode = 5 Then Counts.ModuleCount = 14
     If Mode = 6 Then Modules(0).ByteBase = Counts.ByteCount + 1
     If Mode = 7 Then Modules(0).ByteBase = Starts(1): Modules(0).ByteCount = Sizes(1)
     If Mode = 8 Then Modules(0).LookupDomain = 0
@@ -54,9 +59,12 @@ Private Function RoleSymbol(ByRef Plan As ManagedSupport.RolePlan, ByVal Index A
     If Index = 5 Then RoleSymbol = Plan.ToBooleanSymbol
     If Index = 6 Then RoleSymbol = Plan.FromUtf8Symbol
     If Index = 7 Then RoleSymbol = Plan.CollectSymbol
+    If Index = 8 Then RoleSymbol = Plan.FromFloatingSymbol
+    If Index = 9 Then RoleSymbol = Plan.ToFloatingSymbol
+    If Index = 10 Then RoleSymbol = Plan.PowerSymbol
 End Function
 
-Public Function Check(ByRef PublicSource() As Byte, ByRef TextSource() As Byte, ByRef CollectorSource() As Byte, ByRef Expected() As Long, ByVal Domain As Long, ByVal Reason As Long) As Long
+Public Function Check(ByRef PublicSource() As Byte, ByRef TextSource() As Byte, ByRef CollectorSource() As Byte, ByRef PowerSource() As Byte, ByRef Expected() As Long, ByVal Domain As Long, ByVal Reason As Long) As Long
     Dim Bytes() As Byte
     Dim Tokens() As SourceScanner.SourceToken
     Dim Nodes() As SourceParser.SyntaxNode
@@ -82,7 +90,15 @@ Public Function Check(ByRef PublicSource() As Byte, ByRef TextSource() As Byte, 
     If BufferPrimitives.ByteStorageLength(CollectorSource) > 0 Then
         If Not ProjectSyntax.TryAppendModuleInDomain(CollectorSource, Domain, Bytes, Tokens, Nodes, Modules, Counts, InputError) Then Check = 3: Exit Function
     End If
-    If Not DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Symbols, SymbolCount, EntrySymbol, Diagnostic) Then Check = 4: Exit Function
+    If BufferPrimitives.ByteStorageLength(PowerSource) > 0 Then
+        If Not ProjectSyntax.TryAppendModuleInDomain(PowerSource, Domain, Bytes, Tokens, Nodes, Modules, Counts, InputError) Then Check = 19: Exit Function
+    End If
+    Status = DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Symbols, SymbolCount, EntrySymbol, Diagnostic)
+    If Reason = -1 Then
+        If Status Or Diagnostic.Code = 0 Then Check = 20
+        Exit Function
+    End If
+    If Not Status Then Check = 4: Exit Function
     Plan.ConcatSymbol = 777
     Plan.CollectSymbol = 888
     Before = Plan
@@ -92,7 +108,7 @@ Public Function Check(ByRef PublicSource() As Byte, ByRef TextSource() As Byte, 
         If Plan <> Before Then Check = 6: Exit Function
     Else
         If Not Status Or Diagnostic.Code <> 0 Then Check = 7: Exit Function
-        Do While Index < 8
+        Do While Index < 11
             Symbol = RoleSymbol(Plan, Index)
             If Symbol <> Expected(Index) Then Check = 8 + Index: Exit Function
             If Symbol > 0 Then

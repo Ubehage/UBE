@@ -124,10 +124,11 @@ result; a successful Sub Main produces zero.
 Native call admission has a depth guard in the callee prologue, before its
 source body runs, reporting Err 28 at 256 active source calls. This qualifies a
 controlled recursion limit, not recovery from arbitrary OS stack exhaustion.
-The driver reserves an 8 MiB native stack. Emission admits at most 128
-frame cells (including four control cells, borrow slots and aggregate storage/snapshots),
-65,536 module storage cells per context, 64 parameters, 500,000 IR lines and
-32 MiB of IR text. Aggregate frame/dispatcher scans and initializer dependency
+The driver reserves an 8 MiB native stack. The UBE compiler uses bounded stack
+storage for frames of at most 128 cells and checked heap storage for larger
+frames; 128 is no longer an admission limit. The 65,536 module-storage-cell
+and 64-parameter limits remain. LLVM byte/line counters use checked LongLong
+arithmetic rather than fixed output quotas. Aggregate frame/dispatcher scans and initializer dependency
 visits each have a ten-million-step budget. These bounds report diagnostics;
 an unavailable backend stack-probe helper produces a controlled build failure.
 

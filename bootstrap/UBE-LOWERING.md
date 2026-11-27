@@ -78,17 +78,16 @@ are not LLVM debug metadata and do not qualify source-level debugging.
 
 ## Measured output dependency
 
-One current Byte array holds at most 1,048,576 elements, represented privately
-as eight-byte cells. Retaining 16 MiB of text in one array would violate both
-that bound and the 64 MiB allocation quota. This does not justify reducing the
-existing IR limit. Instead LLVMWriter streams through a 65,536-byte buffer into
+The original Byte-array and heap quotas made retaining all LLVM in one array
+impractical. Those fixed quotas have since been removed; streaming remains the
+final writer architecture. LLVMWriter streams through a 65,536-byte buffer into
 a caller-owned private staging token, using FileBytes.TryWriteByteRange. The
 range helper handles partial progress without flushing after every fragment;
 writer completion flushes once. ByteText formats exact signed decimal values,
 including LongLong minimum, without a new String type or arithmetic operator.
 
-LLVMWriter admits at most 16,777,216 bytes and 500,000 lines, counting
-CRLF bytes and line-feed terminators. It checks a complete fragment before
+LLVMWriter uses checked LongLong byte/line counts, counting CRLF bytes and
+line-feed terminators, without the former fixed output quotas. It checks a complete fragment before
 consuming it and latches any failure. Its fragment input and scratch output
 buffer must be separate caller-owned arrays. The writer never owns or closes
 the token and never publishes a destination. Partial failed stages are not

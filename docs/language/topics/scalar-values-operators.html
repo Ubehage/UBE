@@ -16,19 +16,20 @@
   <main id="content" class="article">
     <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="language/topics/index.html">Language reference</a> / Scalar values and operators</nav>
     <h1>Scalar values and operators</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">UBE 1.0</span><span class="badge">Compiler support in progress</span></div>
+    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">UBE 1.0</span><span class="badge">Compiler support varies</span></div>
     <p class="lede">UBE fixes numeric ranges, promotion, rounding, and failure behavior so an expression has the same meaning on every supported target.</p>
     <h2>Integer promotion</h2>
     <p><code>Byte</code> arithmetic produces at least <code>Integer</code>. Other fixed integers use the first of <code>Integer</code>, <code>Long</code>, and <code>LongLong</code> that covers both operand types. Enum operands use their underlying integer type; an arithmetic result is an integer, not an Enum value.</p>
     <p><code>IntPtr</code> and <code>UIntPtr</code> support arithmetic with the same pointer-sized type and with a fixed integer whose complete range fits. Incompatible signed and unsigned mixtures require an explicit conversion. These types are numbers and never grant memory access.</p>
     <h2>Decimal, Currency, and floating point</h2>
     <p><code>Decimal</code> uses a 96-bit unsigned coefficient, a sign, and a scale from 0 through 28 in 128-bit storage. It has no infinity or NaN. Results retain exact digits when possible and otherwise round to nearest with ties to even. <code>Currency</code> is a signed 64-bit value scaled by 10,000.</p>
-    <p><code>Single</code> and <code>Double</code> use IEEE-754. Mixed operations choose the specified common type; they do not depend on the compiler host's native arithmetic.</p>
+    <p><code>Single</code> and <code>Double</code> use finite IEEE-754 binary32 and binary64 values. They round to nearest, ties to even, preserve signed zero and subnormals, and reject NaN and infinity. Mixed operations choose the specified common type. The Windows x64 development compiler supports these types and the fixed integer types; Decimal, Currency, Date and pointer-sized numeric support remain separate.</p>
     <h2>Operator rules</h2>
     <ul>
       <li><code>+</code> is numeric. <code>&amp;</code> is the only concatenation operator.</li>
       <li><code>/</code> returns Decimal for nonfloating Decimal or Currency operands and Double otherwise.</li>
-      <li><code>\</code> and <code>Mod</code> round nonintegral operands to the nearest integer, ties to even, before operating.</li>
+      <li><code>\</code> and <code>Mod</code> round nonintegral operands to the nearest integer, ties to even, before operating. If either operand is Single or Double, both rounded operands and the result use LongLong. A rounded value outside its range fails before division; a divisor that rounds to zero also fails.</li>
+      <li><code>^</code> converts both operands to Double. Zero to zero is one. Zero to a negative power, or a negative base to a fractional power, fails with error 5.</li>
       <li>For any signed integer type, its minimum value <code>Mod -1</code> returns zero and leaves an existing <code>Err</code> unchanged. The corresponding integer division overflows.</li>
       <li><code>And</code>, <code>Or</code>, <code>Xor</code>, <code>Eqv</code>, and <code>Imp</code> are eager. On integers they are bitwise.</li>
       <li><code>AndAlso</code> and <code>OrElse</code> require Boolean values and short-circuit.</li>
@@ -36,8 +37,8 @@
     <h2>Date and strings</h2>
     <p><code>Date</code> is a timezone-neutral Gregorian value from year 0001 through 9999 with nanosecond resolution. It supports comparison, not core numeric date arithmetic. String comparisons follow <code>Option Compare</code>; <code>Like</code> uses the classic <code>?</code>, <code>*</code>, <code>#</code>, bracket-list, negated-list, and range patterns.</p>
     <h2>Failures</h2>
-    <p>Known overflow, invalid conversion, or division by zero is a compile-time error. A runtime-dependent checked failure records <code>Err</code> and reports FAIL without a usable result. The containing statement is skipped by default or transfers to its enabled handler; remaining operands and an unfinished assignment do not execute. Floating infinity and NaN follow IEEE-754 without automatically setting <code>Err</code>.</p>
-    <footer class="article-footer">Article ID: language.scalar-operators · UBE 1.0 specified behavior · Last reviewed 2026-10-15</footer>
+    <p>Known overflow, invalid conversion, or division by zero is a compile-time error. A runtime-dependent checked failure records <code>Err</code> and reports FAIL without a usable result. The containing statement is skipped by default or transfers to its enabled handler; remaining operands and an unfinished assignment do not execute. Floating division by zero records error 11. A result that rounds to infinity records overflow error 6; finite underflow may produce a subnormal or signed zero. Successful operations preserve an earlier error.</p>
+    <footer class="article-footer">Article ID: language.scalar-operators · UBE 1.0 · Last reviewed 2026-11-27</footer>
   </main>
 </body>
 </html>

@@ -299,7 +299,7 @@ line-label          = identifier, ":" | decimal-digits, [ ":" ] ;
 label-reference     = identifier | decimal-digits ;
 exit-statement      = "Exit", spacing1,
                       ( "Sub" | "Function" | "Property" | "For" | "Do" |
-                        "While" ) ;
+                        "While" | "Loop" ) ;
 end-statement       = "End" ;
 stop-statement      = "Stop" ;
 
@@ -467,14 +467,15 @@ literal             = integer-literal | real-literal | string-literal |
                       date-literal | boolean-literal | null-literal ;
 integer-literal     = [ sign ], ( decimal-digits | "&H", hex-digits |
                       "&O", octal-digits ), [ integer-suffix ] ;
-real-literal        = [ sign ], REAL_TEXT, [ real-suffix ] ;
+real-literal        = [ sign ], ( REAL_TEXT, [ real-suffix ] |
+                      decimal-digits, real-suffix ) ;
 string-literal      = '"', STRING_TEXT, '"' ;
 date-literal        = "#", DATE_TEXT, "#" ;
 boolean-literal     = "True" | "False" ;
 null-literal        = "Nothing" | "Null" | "Empty" ;
 sign                = "+" | "-" ;
 integer-suffix      = "%" | "&" | "^" ;
-real-suffix         = "!" | "#" | "@" | "F" | "R" | "D" ;
+real-suffix         = "!" | "#" | "@" ;
 
 identifier          = bare-identifier | bracketed-identifier ;
 bare-identifier     = identifier-start, { identifier-part } ;

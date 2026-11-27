@@ -239,7 +239,7 @@ Private Function CheckInputs(ByRef ManifestPath() As Byte, ByRef PathBytes() As 
     Dim Length As Long
     Dim Total As Long
     On Error GoTo Failed
-    If SourceCount < 0 Or SourceCount > 128 Then CheckInputs = InvalidRequest(Failure): Exit Function
+    If SourceCount < 0 Then CheckInputs = InvalidRequest(Failure): Exit Function
     If SourceCount > PathCount(Paths) Then CheckInputs = InvalidRequest(Failure): Exit Function
     If CheckInput(ManifestPath, Output, PhysicalOutput, OutputIdentity, Existing, Token, Failure) = False Then Exit Function
     Total = BufferPrimitives.ByteStorageLength(PathBytes)

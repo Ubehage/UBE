@@ -119,7 +119,8 @@ Private Function NameHash(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Position As Long
     Dim Character As Long
     On Error GoTo Failed
-    Hash = Scope + Region + LookupDomain
+    Hash = Scope Mod 32749
+    Hash = Hash + Region + LookupDomain
     Position = LabelStart(B, T, Token, Count, Region)
     Character = SyntaxTokens.SpellingByte(B, T, Token, Count, Position)
     Do While Character >= 0
@@ -186,12 +187,17 @@ Private Function DeclareSymbol(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     Existing = FindSymbol(B, T, TokenCount, A, Buckets, Links, S, Item.ScopeSymbol, Item.Region, Item.NameToken, Item.LookupDomain)
     If S.Work >= 4000000 Then Reject T, N, D, 6, 2, Item.ModuleIndex, Item.DeclarationNode: Exit Function
     If Existing <> 0 Then Reject T, N, D, 1, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
-    If S.Count >= 16384 Then Reject T, N, D, 6, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
+    If S.Count = 2147483647 Then Reject T, N, D, 6, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
     If S.Count = S.Capacity Then
-        Capacity = S.Capacity + S.Capacity
+        If S.Capacity > 1073741823 Then
+            Capacity = 2147483647
+        Else
+            Capacity = S.Capacity + S.Capacity
+        End If
         If Capacity = 0 Then Capacity = 128
-        If Capacity > 16384 Then Capacity = 16384
+
         If ResizeSymbols(A, Capacity, True) = False Then Reject T, N, D, 7, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
+        If ResizeIndex(Links, Capacity, True) = False Then Reject T, N, D, 7, 1, Item.ModuleIndex, Item.DeclarationNode: Exit Function
         S.Capacity = Capacity
     End If
     Index = S.Count
@@ -492,7 +498,7 @@ Private Function ResolveSignatures(ByRef B() As Byte, ByRef T() As SourceScanner
             Code = N(Node - 1).Suffix
             First = N(Node - 1).TypeFirstToken
             If First >= 0 Then Code = SyntaxTokens.TokenCode(B, T, First, C.TokenCount)
-            If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwString Then
+            If Code = SyntaxTokens.KwBoolean Or Code = SyntaxTokens.KwByte Or Code = SyntaxTokens.KwInteger Or Code = SyntaxTokens.KwLong Or Code = SyntaxTokens.KwLongLong Or Code = SyntaxTokens.KwSingle Or Code = SyntaxTokens.KwDouble Or Code = SyntaxTokens.KwString Then
                 If First >= 0 Then
                     If N(Node - 1).TypeLastToken <> First Then ResolveSignatures = Reject(T, N, D, 3, 5, A(Index).ModuleIndex, Node): Exit Function
                 End If
@@ -647,8 +653,8 @@ Public Function TryBuildIndex(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     State.Count = 0
     State.Capacity = 0
     State.Work = 0
-    If SymbolCount < 1 Or SymbolCount > 16384 Then Exit Function
-    If C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Then Exit Function
+    If SymbolCount < 1 Then Exit Function
+    If C.NodeCount < 1 Or C.ModuleCount < 1 Then Exit Function
     If ResizeIndex(Buckets, 32749, False) = False Then Exit Function
     If ResizeIndex(Links, SymbolCount, False) = False Then Exit Function
     If ResizeIndex(NodeSymbols, C.NodeCount, False) = False Then Exit Function
@@ -724,7 +730,6 @@ Public Function TryBindDeclarations(ByRef Bytes() As Byte, ByRef Tokens() As Sou
     Diagnostic.Column = 1
     If ValidateProject(Bytes, Tokens, Nodes, Modules, Counts, PackageName, Diagnostic) = False Then GoTo Rejected
     If ResizeIndex(Buckets, 32749, False) = False Then GoTo StorageFailure
-    If ResizeIndex(Links, 16384, False) = False Then GoTo StorageFailure
     If ResizeIndex(NodeSymbols, Counts.NodeCount, False) = False Then GoTo StorageFailure
     If ResizeIndex(ModuleSymbols, Counts.ModuleCount, False) = False Then GoTo StorageFailure
     If ValidateTrees(Tokens, Nodes, Modules, Counts, NodeSymbols, State, Diagnostic) = False Then GoTo Rejected

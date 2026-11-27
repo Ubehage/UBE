@@ -1,21 +1,19 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "LLVMWriter"
-' Streams bounded ASCII IR into a caller-owned private staging token, never a published destination.
-Public Const MaximumBytes As Long = 33554432
-Public Const MaximumLines As Long = 500000
+' Streams ASCII IR into a caller-owned private staging token, never a published destination.
 Public Const BufferSize As Long = 65536
 
 Public Type WriterState
     Used As Long
-    TotalBytes As Long
-    LineCount As Long
+    TotalBytes As LongLong
+    LineCount As LongLong
     Failed As Boolean
     Failure As Long
     FileFailure As Long
     ErrorNumber As Long
 End Type
 
-' Failure codes: 1 runtime, 2 output limit, 3 invalid span/text, 4 file progress/flush.
+' Failure codes: 1 runtime, 2 counter overflow, 3 invalid span/text, 4 file progress/flush.
 Private Function Reject(ByRef State As WriterState, ByVal Failure As Long) As Boolean
     State.Failed = True
     State.Failure = Failure
@@ -70,8 +68,8 @@ Public Function TryAppendSpan(ByRef State As WriterState, ByRef Buffer() As Byte
     Length = BufferPrimitives.ByteStorageLength(Text)
     If Start < 0 Or Count < 0 Or Start > Length Then TryAppendSpan = Reject(State, 3): Exit Function
     If Count > Length - Start Then TryAppendSpan = Reject(State, 3): Exit Function
-    If State.TotalBytes < 0 Or State.TotalBytes > MaximumBytes Then TryAppendSpan = Reject(State, 3): Exit Function
-    If State.LineCount < 0 Or State.LineCount > MaximumLines Then TryAppendSpan = Reject(State, 3): Exit Function
+    If State.TotalBytes < 0 Then TryAppendSpan = Reject(State, 3): Exit Function
+    If State.LineCount < 0 Then TryAppendSpan = Reject(State, 3): Exit Function
     If State.Used < 0 Or State.Used > BufferSize Then TryAppendSpan = Reject(State, 3): Exit Function
     If BufferPrimitives.ByteStorageLength(Buffer) <> BufferSize Then TryAppendSpan = Reject(State, 3): Exit Function
     Probe = Buffer(0)
@@ -80,7 +78,7 @@ Public Function TryAppendSpan(ByRef State As WriterState, ByRef Buffer() As Byte
         Probe = Text(0)
         Probe = Text(Length - 1)
     End If
-    If Count > MaximumBytes - State.TotalBytes Then TryAppendSpan = Reject(State, 2): Exit Function
+    If Count > 9223372036854775807^ - State.TotalBytes Then TryAppendSpan = Reject(State, 2): Exit Function
     Do While Index < Count
         Character = Text(Start + Index)
         If Character <> 9 And Character <> 10 And Character <> 13 Then
@@ -89,7 +87,7 @@ Public Function TryAppendSpan(ByRef State As WriterState, ByRef Buffer() As Byte
         If Character = 10 Then Lines = Lines + 1
         Index = Index + 1
     Loop
-    If Lines > MaximumLines - State.LineCount Then TryAppendSpan = Reject(State, 2): Exit Function
+    If Lines > 9223372036854775807^ - State.LineCount Then TryAppendSpan = Reject(State, 2): Exit Function
     Do While Copied < Count
         If State.Used = BufferSize Then
             If FlushBuffer(State, Buffer, Token) = False Then Exit Function

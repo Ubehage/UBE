@@ -51,10 +51,13 @@ The metadata gate also checks field-declaration scope ownership, a nominal
 `Type [Long]` alongside primitive Long, and escaped `Type [A|B]` names across
 AST, SYMBOL and BOUND records without corrupting field framing.
 
-Resource regressions require specific controlled errors for 129 flattened
+The original resource regressions required specific controlled errors for 129 flattened
 record cells, 65 layout levels, more than 65,536 module-context cells and a
-frame whose aggregate copy snapshot pushes it above 128 cells. Storage-limit
-failures must preserve the previously emitted artifact.
+frame whose aggregate copy snapshot pushes it above 128 cells. The UBE compiler
+now accepts larger frames using checked heap storage; the current frame-storage
+and floating AggregateBinding gates supersede that frame-rejection expectation.
+Record/layout/context bounds remain. Storage failures must preserve the previously
+emitted artifact.
 
 The syntax regression keeps `Take (Value) = 1` as a no-parentheses procedure
 call with a Boolean comparison argument. The bounded parser admits a spaced

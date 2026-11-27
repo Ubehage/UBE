@@ -153,45 +153,50 @@ Public Intrinsic Function ResizeWide(ByRef Values() As WideRecord, ByVal Count A
 Attribute ResizeWide.UBE_Primitive = "Array.TryResize"
 End Function
 
-' Fifteen charged 4MiB payloads fit; the sixteenth exceeds the 64MiB page quota.
-Public Function CheckHeapQuota(ByVal Seed As Long) As Long
+' The native observer refuses block sixteen, then permits retry after one owner is released.
+Public Function CheckHeapQuota(ByVal Elements As Long) As Long
     Dim Status As Boolean
     Dim Value As LongLong
-    Status = ResizeWide(Block0, 4095 + Seed, False)
+    Status = ResizeWide(Block0, Elements, False)
     If Status = False Then CheckHeapQuota = 1: Exit Function
-    Status = ResizeWide(Block1, 4095 + Seed, False)
+    Status = ResizeWide(Block1, Elements, False)
     If Status = False Then CheckHeapQuota = 2: Exit Function
-    Status = ResizeWide(Block2, 4095 + Seed, False)
+    Status = ResizeWide(Block2, Elements, False)
     If Status = False Then CheckHeapQuota = 3: Exit Function
-    Status = ResizeWide(Block3, 4095 + Seed, False)
+    Status = ResizeWide(Block3, Elements, False)
     If Status = False Then CheckHeapQuota = 4: Exit Function
-    Status = ResizeWide(Block4, 4095 + Seed, False)
+    Status = ResizeWide(Block4, Elements, False)
     If Status = False Then CheckHeapQuota = 5: Exit Function
-    Status = ResizeWide(Block5, 4095 + Seed, False)
+    Status = ResizeWide(Block5, Elements, False)
     If Status = False Then CheckHeapQuota = 6: Exit Function
-    Status = ResizeWide(Block6, 4095 + Seed, False)
+    Status = ResizeWide(Block6, Elements, False)
     If Status = False Then CheckHeapQuota = 7: Exit Function
-    Status = ResizeWide(Block7, 4095 + Seed, False)
+    Status = ResizeWide(Block7, Elements, False)
     If Status = False Then CheckHeapQuota = 8: Exit Function
-    Status = ResizeWide(Block8, 4095 + Seed, False)
+    Status = ResizeWide(Block8, Elements, False)
     If Status = False Then CheckHeapQuota = 9: Exit Function
-    Status = ResizeWide(Block9, 4095 + Seed, False)
+    Status = ResizeWide(Block9, Elements, False)
     If Status = False Then CheckHeapQuota = 10: Exit Function
-    Status = ResizeWide(Block10, 4095 + Seed, False)
+    Status = ResizeWide(Block10, Elements, False)
     If Status = False Then CheckHeapQuota = 11: Exit Function
-    Status = ResizeWide(Block11, 4095 + Seed, False)
+    Status = ResizeWide(Block11, Elements, False)
     If Status = False Then CheckHeapQuota = 12: Exit Function
-    Status = ResizeWide(Block12, 4095 + Seed, False)
+    Status = ResizeWide(Block12, Elements, False)
     If Status = False Then CheckHeapQuota = 13: Exit Function
-    Status = ResizeWide(Block13, 4095 + Seed, False)
+    Status = ResizeWide(Block13, Elements, False)
     If Status = False Then CheckHeapQuota = 14: Exit Function
-    Status = ResizeWide(Block14, 4095 + Seed, False)
+    Status = ResizeWide(Block14, Elements, False)
     If Status = False Then CheckHeapQuota = 15: Exit Function
     Block0(0).Cell0 = 13
-    Status = ResizeWide(Block15, 4095 + Seed, False)
+    Status = ResizeWide(Block15, Elements, False)
     If Status <> False Then CheckHeapQuota = 16: Exit Function
     If Err.Number <> 7 Then CheckHeapQuota = 17: Exit Function
     Value = Block0(0).Cell0
     If Value <> 13 Then CheckHeapQuota = 18: Exit Function
+    Status = ResizeWide(Block1, 0, False)
+    If Not Status Then CheckHeapQuota = 19: Exit Function
+    Status = ResizeWide(Block15, Elements, False)
+    If Not Status Then CheckHeapQuota = 20: Exit Function
+    If Err.Number <> 7 Then CheckHeapQuota = 21: Exit Function
     CheckHeapQuota = 0
 End Function

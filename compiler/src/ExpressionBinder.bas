@@ -64,6 +64,8 @@ Private Function TextNumber(ByRef X() As Byte, ByVal Start As Long, ByVal Length
     If Destination = SyntaxTokens.KwBoolean Then
         Status = InvariantNumbers.TryParseBoolean(X, Start, Length, Truth)
         If Truth Then Candidate = -1
+    ElseIf ConstantValues.IsFloating(Destination) Then
+        Status = ConstantValues.TryFloatingText(X, Start, Length, Destination, Candidate)
     Else
         Status = InvariantNumbers.TryParseInteger(X, Start, Length, ConstantValues.Minimum(Destination), ConstantValues.Maximum(Destination), Candidate)
     End If
@@ -78,7 +80,7 @@ End Function
 
 ' Formats only known scalar values into the same immutable arena used by quoted literals.
 Private Function AsText(ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S As ExpressionState, ByVal Node As Long, ByRef Start As Long, ByRef Length As Long) As Boolean
-    Dim Scratch(0 To 31) As Byte
+    Dim Scratch(0 To 47) As Byte
     Dim Used As Long
     On Error GoTo Failed
     If Not F(Node - 1).ConstantKnown Then Exit Function
@@ -89,6 +91,8 @@ Private Function AsText(ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S
     End If
     If F(Node - 1).TypeCode = SyntaxTokens.KwBoolean Then
         If Not ByteText.TryAppendBoolean(Scratch, Used, F(Node - 1).ConstantValue <> 0) Then Exit Function
+    ElseIf ConstantValues.IsFloating(F(Node - 1).TypeCode) Then
+        If Not BinaryFloatText.TryAppend(Scratch, Used, F(Node - 1).ConstantValue, ConstantValues.FloatingWidth(F(Node - 1).TypeCode)) Then Exit Function
     Else
         If Not ByteText.TryAppendInteger(Scratch, Used, F(Node - 1).ConstantValue) Then Exit Function
     End If
@@ -331,8 +335,8 @@ Private Function ConvertValue(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
     Dim Reason As Long
     On Error GoTo Failed
     If Aggregate(F, Node) Then ConvertValue = Reject(N, M, A, F, D, 3, 10, Node): Exit Function
-    If F(Node - 1).TypeCode <> SyntaxTokens.KwString And F(Node - 1).TypeCode <> SyntaxTokens.KwBoolean And ConstantValues.IntegerWidth(F(Node - 1).TypeCode) = 0 Then ConvertValue = Reject(N, M, A, F, D, 3, 10, Node): Exit Function
-    If Destination <> SyntaxTokens.KwString And Destination <> SyntaxTokens.KwBoolean And ConstantValues.IntegerWidth(Destination) = 0 Then ConvertValue = Reject(N, M, A, F, D, 3, 10, Node): Exit Function
+    If F(Node - 1).TypeCode <> SyntaxTokens.KwString And F(Node - 1).TypeCode <> SyntaxTokens.KwBoolean And Not ConstantValues.IsNumeric(F(Node - 1).TypeCode) Then ConvertValue = Reject(N, M, A, F, D, 3, 10, Node): Exit Function
+    If Destination <> SyntaxTokens.KwString And Destination <> SyntaxTokens.KwBoolean And Not ConstantValues.IsNumeric(Destination) Then ConvertValue = Reject(N, M, A, F, D, 3, 10, Node): Exit Function
     F(Node - 1).ConvertedType = Destination
     If F(Node - 1).ConstantKnown And Destination <> SyntaxTokens.KwString Then
         If F(Node - 1).TypeCode = SyntaxTokens.KwString Then
@@ -564,7 +568,7 @@ Private Function BindNumber(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     On Error GoTo Failed
     If N(Node - 1).NameToken = -1 Then
         TypeCode = Destination
-        If ConstantValues.IntegerWidth(TypeCode) = 0 Then TypeCode = SyntaxTokens.KwLong
+        If Not ConstantValues.IsNumeric(TypeCode) Then TypeCode = SyntaxTokens.KwLong
     Else
         If ConstantValues.TryLiteral(B, T(N(Node - 1).NameToken), Destination, Negated, Value, TypeCode, Reason) = False Then
             Code = 11
@@ -702,14 +706,24 @@ Private Function BindBinary(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     End If
     Selected = ConstantValues.BinaryType(F(LeftNode - 1).TypeCode, F(RightNode - 1).TypeCode)
     If Selected = 0 Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+    If Operator = SyntaxTokens.SymSlash Or Operator = SyntaxTokens.SymCaret Then
+        If Selected = SyntaxTokens.KwBoolean Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+        Selected = SyntaxTokens.KwDouble
+    End If
+    If ConstantValues.IsFloating(Selected) Then
+        If Operator = SyntaxTokens.KwAnd Or Operator = SyntaxTokens.KwOr Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+        If Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then Selected = SyntaxTokens.KwLongLong
+    End If
     Comparison = Operator = SyntaxTokens.SymEqual Or Operator = SyntaxTokens.SymNotEqual Or Operator = SyntaxTokens.SymLess Or Operator = SyntaxTokens.SymGreater Or Operator = SyntaxTokens.SymLessEqual Or Operator = SyntaxTokens.SymGreaterEqual
-    If Comparison = False And Operator <> SyntaxTokens.SymPlus And Operator <> SyntaxTokens.SymMinus And Operator <> SyntaxTokens.SymStar And Operator <> SyntaxTokens.SymBackslash And Operator <> SyntaxTokens.KwMod And Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+    If Comparison = False And Operator <> SyntaxTokens.SymPlus And Operator <> SyntaxTokens.SymMinus And Operator <> SyntaxTokens.SymStar And Operator <> SyntaxTokens.SymSlash And Operator <> SyntaxTokens.SymCaret And Operator <> SyntaxTokens.SymBackslash And Operator <> SyntaxTokens.KwMod And Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
     If Selected = SyntaxTokens.KwBoolean Then
         If Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr And Operator <> SyntaxTokens.SymEqual And Operator <> SyntaxTokens.SymNotEqual Then BindBinary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
     End If
-    If Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+    If Operator = SyntaxTokens.SymSlash Or Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
         If F(RightNode - 1).ConstantKnown Then
-            If F(RightNode - 1).ConstantValue = 0 Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
+            If Not ConstantValues.TryConvert(F(RightNode - 1).ConstantValue, F(RightNode - 1).TypeCode, Selected, Value, Reason) Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
+            If Operator = SyntaxTokens.SymSlash Then Value = Value And 9223372036854775807^
+            If Value = 0 Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
         End If
     End If
     F(Node - 1).TypeCode = Selected
@@ -752,6 +766,7 @@ Private Function BindUnary(ByRef B() As Byte, ByRef T() As SourceScanner.SourceT
             If BindExpression(B, T, N, M, C, P, A, F, H, L, U, K, X, S, D, Child, Required, Destination) = False Then Exit Function
             If Aggregate(F, Child) Then BindUnary = Reject(N, M, A, F, D, 3, 19, Node): Exit Function
             If F(Child - 1).TypeCode = SyntaxTokens.KwString Then BindUnary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
+            If ConstantValues.IsFloating(F(Child - 1).TypeCode) And N(Node - 1).Value = SyntaxTokens.KwNot Then BindUnary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
             If F(Child - 1).TypeCode = SyntaxTokens.KwBoolean And N(Node - 1).Value <> SyntaxTokens.KwNot Then BindUnary = Reject(N, M, A, F, D, 8, 14, Node): Exit Function
             CopyValue F, Node, Child
             F(Node - 1).TypeCode = ConstantValues.PromotedType(F(Child - 1).TypeCode)

@@ -4,6 +4,13 @@ Native worker runtime source, runtime regression tests and profiling helpers
 live here. Obsolete one-time authoring transformations have been removed;
 the canonical sources and reproducible tests below are the maintained inputs.
 
+The current allocator grows to checked representation and operating-system
+resource limits; the former fixed byte/block quotas are removed. Managed
+snapshot and queue metadata grow together before record publication. Procedure
+storage uses small bounded stack frames or checked heap frames, preserving
+roots and controlled allocation failures. See [managed-memory.md](managed-memory.md)
+and [the current compiler evidence](../compiler/FLOATING-POINT.md).
+
 The canonical native worker runtime is [bootstrap/NativeThreadRuntime.bas](bootstrap/NativeThreadRuntime.bas).
 The bootstrap project includes that module directly. `bootstrap/tools/runtime-text.ps1`
 extracts its reviewed text into the production `compiler/llvm/windows-runtime.ll`
@@ -36,10 +43,13 @@ failed workspace and partial marking without sweep, retained charges after relea
 recovery, startup refusal and zero owned blocks after disposal. `-Rendezvous`
 forces two callers to own/join one round, checks independent Err values and a
 String rooted only by the worker capsule. `-Graph` constructs exact native
-metadata for a 3000-record cycle and checks integer lookalikes are not roots,
+metadata for a 5000-record cycle and checks integer lookalikes are not roots,
 reachable cycles survive and unreachable cycles are reclaimed. These do not
-substitute another traversal algorithm. All three suites passed O0/O2 with
-changed-oracle controls against the final rebuilt compiler's positive
+substitute another traversal algorithm. `-Growth` additionally checks metadata
+expansion, allocation refusal with unchanged old buffers, and recovery. Current
+O0/O2 results are in [the managed-text gate](tests/managed-text/README.md).
+The following earlier String checkpoint used the former 3000-record graph:
+all three suites passed O0/O2 with changed-oracle controls against its
 `Collector.ll`: `b1c128e1-3921-4bcd-972c-45f57ed80bbe`,
 `afbc26b8-341c-4190-8c44-3db782e9baf4`, and
 `51be44cd-6f31-44ea-9db7-3fd1c55f4914`, respectively. The input is retained in

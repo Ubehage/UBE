@@ -2,10 +2,12 @@
 <html lang="en" data-article-id="language.word.mod">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Returns the remainder after integer division."><title>Mod — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
 <body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/m/mod.html">UBE documentation</a></header><main id="content" class="article">
-<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/m/index.html">M</a> / Mod</nav><h1>Mod</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Arithmetic operator</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Returns the remainder after integer division.</p>
-<h2>Syntax</h2><pre><code>left Mod right</code></pre><h2>Example</h2><pre><code>Sub Main()
-    Dim Remainder As Long
-    Remainder = 17 Mod 5
-    Print Remainder
-End Sub</code></pre><h3>Expected result</h3><p>2</p><h2>Important rules</h2><p>The right operand must not be zero.</p>
+<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/m/index.html">M</a> / Mod</nav><h1>Mod</h1><div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Arithmetic operator</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Returns the remainder after integer division.</p>
+<h2>Syntax</h2><pre><code>left Mod right</code></pre><h2>Example</h2><pre><code>UBE SOURCE 1 MODULE
+Attribute UBE_Name = "ModExample"
+Public Function Main() As Long
+    Dim Remainder As LongLong
+    Remainder = 17# Mod 5#
+    If Remainder &lt;&gt; 2 Then Main = 1
+End Function</code></pre><h3>Expected result</h3><p><code>Remainder</code> becomes <code>2</code>; the program returns exit code zero.</p><h2>Important rules</h2><p>If either operand is Single or Double, both operands round to LongLong (nearest integer, ties to even), and the result is LongLong. Values outside that range fail before division. A divisor that is zero after rounding records error 11. A nonzero remainder has the dividend's sign; the minimum signed integer <code>Mod -1</code> returns zero.</p><p>The Windows x64 development compiler supports integer, Single and Double operands. Currency and Decimal support is separate. <code>Mod</code> needs whitespace on both sides and binds more tightly than <code>\</code>, which binds more tightly than <code>*</code> and <code>/</code>.</p>
 <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="mkdir.html" data-doc-path="language/words/m/mkdir.html">← Previous: MkDir</a><span></span></nav><footer class="article-footer">Article ID: language.word.mod · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>

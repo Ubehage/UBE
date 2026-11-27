@@ -124,10 +124,10 @@ Failed:
     Err.Raise Err.Number
 End Function
 
-' Reserves frame capacity before addition; four invocation-local control cells are already charged.
+' Reserves heap-frame capacity with checked indexing; controls are already charged.
 Private Function AddCells(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Scope As Long, ByVal Cells As Long, ByVal Node As Long) As Boolean
     On Error GoTo Failed
-    If Cells < 0 Or Cells > 128 - Plans(Scope - 1).FrameCells Then AddCells = Reject(N, M, C, D, Node, 6, 50): Exit Function
+    If Cells < 0 Or Cells > 2147483647 - Plans(Scope - 1).FrameCells Then AddCells = Reject(N, M, C, D, Node, 6, 50): Exit Function
     Plans(Scope - 1).FrameCells = Plans(Scope - 1).FrameCells + Cells
     AddCells = True
     Exit Function
@@ -142,6 +142,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim Node As Long
     Dim Scope As Long
     Dim Cells As Long
+    Dim Borrowed As Boolean
     On Error GoTo Failed
     Do While Index < Count
         Plans(Index).ContextOffset = -1
@@ -177,17 +178,18 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                 Plans(Index).ContextOffset = ContextCells
                 ContextCells = ContextCells + Cells
             Else
+                Borrowed = False
                 If Plans(Index).StorageEscapes Then Cells = 1
                 If Kind = SourceParser.ParameterNode Then
                     If A(Index).PassingMode = SyntaxTokens.KwByRef Or A(Index).ArrayRank <> 0 Or A(Index).TypeSymbol <> 0 Then
-                        Cells = 1
-                        If Plans(Index).StorageEscapes Then Cells = 2
+                        Borrowed = True
+                        Cells = 0
+                        If ManagedRequired And Plans(Index).StorageEscapes Then Cells = 1
                     End If
                 End If
-                If Cells < 1 Then Cells = 1
-                ' Escaping owned boxes use one pointer cell; borrowed pointers plus their owner use two.
-                If L(Node - 1).ManagedReferences > 0 Then
-                    If Not Plans(Index).StorageEscapes Or Cells = 2 Then Cells = Cells + 4
+                ' Borrowed addresses are SSA parameters; only rooted incoming owners occupy storage.
+                If ManagedRequired And L(Node - 1).ManagedReferences > 0 Then
+                    If Not Plans(Index).StorageEscapes Or Borrowed Then Cells = Cells + 4
                 End If
                 If ManagedRequired And Plans(Index).StorageEscapes Then Cells = Cells + 4
                 If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
@@ -276,7 +278,9 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
     Do While Node <= C.NodeCount
         Scope = E(Node - 1).ScopeSymbol
         Kind = N(Node - 1).Kind
-        If E(Node - 1).ArgumentMode = 3 Then
+        If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
+            If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+        ElseIf E(Node - 1).ArgumentMode = 3 Then
             If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
             If E(Node - 1).ConvertedType = SyntaxTokens.KwString And Not Escapes(Node - 1).NeedsOwner Then
                 If Not AddCells(N, M, C, Plans, D, Scope, 4, Node) Then Exit Function
@@ -288,8 +292,8 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
                 If Escapes(Node - 1).NeedsOwner Then Cells = 1
                 Plans(Scope - 1).ArgumentArrayCount = Plans(Scope - 1).ArgumentArrayCount + 1
             ElseIf E(Node - 1).TypeSymbol <> 0 Then
-                Cells = L(Node - 1).StorageCells + L(Node - 1).StorageCells
-                If Escapes(Node - 1).NeedsOwner Then Cells = 1 + L(Node - 1).StorageCells
+                Cells = L(Node - 1).StorageCells
+                If Escapes(Node - 1).NeedsOwner Then Cells = 1
             End If
             If Cells <> 0 Then
                 If L(Node - 1).ManagedReferences > 0 And Not Escapes(Node - 1).NeedsOwner Then Cells = Cells + 4
@@ -317,21 +321,6 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
             End If
         End If
         Kind = N(Node - 1).Kind
-        Cells = 0
-        If Kind = SourceParser.AssignmentNode Then
-            Child = N(Node - 1).FirstChild
-            If E(Child - 1).ArrayRank = 0 And E(Child - 1).TypeSymbol <> 0 Then Cells = L(Child - 1).StorageCells
-        ElseIf Kind = SourceParser.VariableNode Then
-            If E(Node - 1).ArrayRank = 0 And E(Node - 1).TypeSymbol <> 0 Then
-                If ExpressionBinder.InitializerNode(N, Node) <> 0 Then Cells = L(Node - 1).StorageCells
-            End If
-        ElseIf Kind = SourceParser.BinaryNode Then
-            Child = N(Node - 1).FirstChild
-            If E(Child - 1).TypeSymbol <> 0 Then Cells = L(Child - 1).StorageCells + L(Child - 1).StorageCells
-        End If
-        If Cells <> 0 Then
-            If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
-        End If
         If IsExecutable And Kind = SourceParser.CallNode And Scope = EntrySymbol And E(Node - 1).TrustedRole = 2 Then PlanNodes = Reject(N, M, C, D, Node, 8, 51): Exit Function
         Node = Node + 1
     Loop
@@ -372,12 +361,14 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
     Dim Other As Long
     Dim MatrixCells As Long
     On Error GoTo Failed
+    If SymbolCount > 2147483647 - C.NodeCount Then InitializerDependencies = Reject(N, M, C, D, 0, 6, 53): Exit Function
     Capacity = C.NodeCount + SymbolCount
     If Not ResizeNumbers(Stack, Capacity, False) Then GoTo Failed
     If Not ResizeNumbers(Seen, SymbolCount, False) Then GoTo Failed
     If Not ResizeNumbers(Bases, C.ModuleCount, False) Then GoTo Failed
     Do While Index < C.ModuleCount
         Bases(Index) = MatrixCells
+        If C.ModuleCount > 2147483647 - MatrixCells Then InitializerDependencies = Reject(N, M, C, D, 0, 6, 53): Exit Function
         MatrixCells = MatrixCells + C.ModuleCount
         Index = Index + 1
     Loop
@@ -475,7 +466,7 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Summary.ContextCells = 0
     Summary.EntrySymbol = 0
     Diagnostic.Code = 0
-    If SymbolCount < 1 Or SymbolCount > 16384 Or C.NodeCount < 1 Or C.NodeCount > ProjectSyntax.MaximumProjectNodes Or C.ModuleCount < 1 Or C.ModuleCount > 128 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
+    If SymbolCount < 1 Or C.NodeCount < 1 Or C.ModuleCount < 1 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
     ' Any managed expression requires precise roots, including implicit text conversions.
     Symbol = 1
     Do While Symbol <= SymbolCount

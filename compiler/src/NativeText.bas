@@ -15,6 +15,7 @@ Public Function ConvertValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef S
     Dim Symbol As Long
     Dim Low As Long
     Dim High As Long
+    Dim BitWidth As Long
     On Error GoTo Failed
     If SourceType = DestinationType Then ConvertValue = Value: Exit Function
     If DestinationType = SyntaxTokens.KwString Then
@@ -22,6 +23,12 @@ Public Function ConvertValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef S
             Symbol = S.ManagedRoles.FromBooleanSymbol
         ElseIf ConstantValues.IntegerWidth(SourceType) <> 0 Then
             Symbol = S.ManagedRoles.FromIntegerSymbol
+        ElseIf ConstantValues.IsFloating(SourceType) Then
+            BitWidth = 64
+            If SourceType = SyntaxTokens.KwSingle Then BitWidth = 32
+            Low = NativeEmission.Literal(S, B, Token, Catalog, BitWidth)
+            ConvertValue = CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.FromFloatingSymbol, Node, 2, Value, Low, 0, False, True)
+            Exit Function
         End If
         If Symbol = 0 Then Call InvalidFacts(S, Node): Exit Function
         ConvertValue = CallSupport(A, S, B, Token, Catalog, Seen, Nexts, Symbol, Node, 1, Value, 0, 0, False, True)
@@ -32,6 +39,11 @@ Public Function ConvertValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef S
             Low = NativeEmission.Literal(S, B, Token, Catalog, ConstantValues.Minimum(DestinationType))
             High = NativeEmission.Literal(S, B, Token, Catalog, ConstantValues.Maximum(DestinationType))
             ConvertValue = CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ToIntegerSymbol, Node, 3, Value, Low, High, False, False)
+        ElseIf ConstantValues.IsFloating(DestinationType) Then
+            BitWidth = 64
+            If DestinationType = SyntaxTokens.KwSingle Then BitWidth = 32
+            Low = NativeEmission.Literal(S, B, Token, Catalog, BitWidth)
+            ConvertValue = CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ToFloatingSymbol, Node, 2, Value, Low, 0, False, False)
         Else
             Call InvalidFacts(S, Node)
         End If

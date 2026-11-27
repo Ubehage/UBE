@@ -180,6 +180,15 @@ Successful operations do not implicitly clear an earlier `Err`; code uses
 
 ### 3.3 Frozen scalar conversion details
 
+Owner-confirmed on 2026-11-20: real literals use only the classic suffixes
+`!` (Single), `#` (Double) and `@` (Currency); `F`, `R` and `D` are not
+accepted. Unsuffixed real literals are Double. Integer-looking suffixed forms
+such as `1!` and `1#` are valid real literals.
+
+Owner-confirmed on 2026-11-20: integer division and Mod involving Single or
+Double use LongLong operands and result, rounding fractions to nearest/even
+before the checked conversion. They do not impose VB6's narrower Long range.
+
 Conversion from a fractional numeric value to an integer uses round-to-nearest
 with ties to even (banker's rounding). For example, `2.5` becomes `2`, `3.5`
 becomes `4`, and `-2.5` becomes `-2`. A rounded result outside the destination
@@ -222,11 +231,21 @@ scale. A known out-of-range constant is a compile-time error. At runtime the
 same condition reports FAIL and records `Err`; an unfinished destination
 assignment does not commit.
 
-`Single` and `Double` may contain IEEE not-a-number, positive infinity, and
-negative infinity. Their invariant strings are `NaN`, `Infinity`, and
-`-Infinity`; parsing accepts these spellings case-insensitively. Conversion of
-a special value to an integer, `Currency`, `Decimal`, `Date`, or `Boolean`
-fails. Conversion between `Single` and `Double` preserves the special value.
+Owner-confirmed on 2026-11-20: `Single` and `Double` admit only finite IEEE
+values, including signed zero and subnormals. NaN and positive/negative
+infinity are rejected in every operation and conversion, including
+Single/Double identity or widening conversions and text parsing/formatting.
+This supersedes the previous special-value admission rule.
+
+Owner-approved finite floating text rule (2026-11-20): invariant conversion
+of `Single` or `Double` to String uses the fewest significant decimal digits
+that converts back to exactly the same value in the original floating type.
+Negative zero is written `-0`; positive zero is written `0`. Formatting must
+not silently discard precision to match a display-oriented digit limit.
+This defines language behavior; implementation admission remains tracked in
+`bootstrap-profile.md`.
+Canonical fixed/scientific spelling and decimal candidate ties are specified
+in language-spec.md section 14.
 
 `String` and `Date` convert implicitly using only UBE's invariant date formats.
 `Date` converts to the canonical form `YYYY-MM-DDTHH:MM:SS[.fraction]`.
@@ -374,11 +393,12 @@ reports FAIL and records `Err`. Integer division or modulus by zero, and
 `Currency` or `Decimal` division by zero, likewise report FAIL plus `Err`.
 No zero is substituted and no later operand in that statement is evaluated.
 
-`Single` and `Double` arithmetic follows IEEE-754. Finite nonzero division by
-floating zero produces signed infinity; floating zero divided by floating zero
-produces `NaN`; and finite overflow produces signed infinity. Merely producing
-an IEEE infinity or `NaN` does not record `Err`. A later conversion of such a
-value to an incompatible destination follows the checked special-value rules.
+`Single` and `Double` arithmetic uses IEEE finite precision and ties-to-even
+rounding. Division by zero, nonfinite results and invalid domains report
+FAIL plus Err instead of producing infinity or NaN. Known invalid constants
+are compile-time errors. In particular, zero raised to a negative exponent
+and a negative base raised to a nonintegral exponent fail. Unfinished
+destinations remain unchanged; successful operations preserve earlier Err.
 Any future shift operators must validate their counts rather than inherit a
 target processor's masking or undefined behavior.
 
@@ -990,6 +1010,19 @@ Function. Export is explicitly `Public Export [Inline]` on a Library standard-
 module Sub/Function and never Static or ForceInline. Default applies only to
 the one approved indexed class/interface property. Invalid, repeated, or
 ineffective combinations are diagnosed rather than ignored.
+
+### 4.7 Exiting a nest of loops
+
+Owner-approved for UBE 1.0 on 2026-11-20: `Exit Loop` leaves the outermost
+lexically enclosing loop in the current procedure invocation and continues
+immediately after it. Counted `For`, `For Each`, every `Do` form and `While`
+participate, including mixed nesting. No enclosing loop is a compile-time error.
+Caller loops and other recursive invocations are unaffected. Enclosing
+non-loop blocks remain active. Normal cleanup applies to exited scopes;
+the statement is not FAIL and does not close user-owned resources implicitly.
+Named loop exits and procedure exits keep their existing meanings. The full
+contract is in `language-spec.md` section 9.1 and the `exit-statement` grammar.
+This definition does not claim compiler implementation.
 
 ## 5. Threads and `CallNew`
 

@@ -91,13 +91,15 @@ spell a keyword. DecodedIdentifierCode is used only where metadata explicitly
 requires a name comparison. Quoted module identities remain bounded ASCII
 identifiers. Token spellings are neither globally interned nor copied to String.
 
-Limits are 1,048,576 source bytes, 65,536 tokens, 65,536 syntax nodes and 48
-recursive syntax levels per module. Token length remains 4,096 UTF-16 units and
-identifier length 128. These are distinct from the VB6 host parser's depth 64
-and project token budget. The existing 64 MiB charged allocation quota, 4,096
-live blocks, 128-cell frames/finite records and 65,536-cell fixed module context
-remain in force. Candidate publication and retained old trees consume that
-same quota; the element ceiling does not guarantee every allocation will fit.
+The former 1 MiB source and 65,536 token/node quotas are removed from the UBE
+scanner/parser storage path. Growth uses checked Long counts and allocation
+failure, with prior trees preserved on failed publication. The 48-level syntax
+guard, 4,096 UTF-16-unit token spelling and 128-unit identifier bounds remain.
+These are distinct from the VB6 host parser's bounds. Fixed record/context
+layout limits also remain. Runtime heap/block and UBE procedure-frame quotas
+are superseded by the checked storage described in
+[Single/Double support](../compiler/FLOATING-POINT.md); this is not an unlimited
+input or native-stack guarantee.
 
 ## Diagnostics and evidence
 

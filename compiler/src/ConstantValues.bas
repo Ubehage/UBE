@@ -2,6 +2,33 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ConstantValues"
 ' Checks exact typed integer constants without executing invalid arithmetic or changing Err.
 
+Private Intrinsic Function RecordError(ByVal Number As Long) As Boolean
+Attribute RecordError.UBE_Primitive = "Error.Set"
+End Function
+
+' Parses floating text while isolating diagnostics from the compiler thread's Err.
+Public Function TryFloatingText(ByRef Source() As Byte, ByVal Start As Long, ByVal Count As Long, ByVal TypeCode As Long, ByRef Value As LongLong) As Boolean
+    Dim PriorError As Long
+    Dim BitWidth As Long
+    Dim Status As Boolean
+    Dim Restored As Boolean
+    Dim Candidate As LongLong
+    On Error GoTo Failed
+    PriorError = Err.Number
+    If TypeCode = SyntaxTokens.KwSingle Then BitWidth = 32
+    If TypeCode = SyntaxTokens.KwDouble Then BitWidth = 64
+    If BitWidth = 0 Then Exit Function
+    Status = BinaryFloat.TryParse(Source, Start, Count, BitWidth, Candidate)
+    Restored = RecordError(PriorError)
+    If Not Status Then Exit Function
+    If Not Fits(Candidate, TypeCode) Then Exit Function
+    Value = Candidate
+    TryFloatingText = True
+    Exit Function
+Failed:
+    Restored = RecordError(PriorError)
+End Function
+
 ' Returns the integer storage width, or zero for a noninteger type code.
 Public Function IntegerWidth(ByVal TypeCode As Long) As Long
     If TypeCode = SyntaxTokens.KwByte Then IntegerWidth = 8
@@ -10,11 +37,62 @@ Public Function IntegerWidth(ByVal TypeCode As Long) As Long
     If TypeCode = SyntaxTokens.KwLongLong Then IntegerWidth = 64
 End Function
 
+' Identifies IEEE scalar domains without conflating their payloads with integers.
+Public Function IsFloating(ByVal TypeCode As Long) As Boolean
+    IsFloating = TypeCode = SyntaxTokens.KwSingle Or TypeCode = SyntaxTokens.KwDouble
+End Function
+
+' Identifies admitted numeric scalar types; Boolean retains its separate logical domain.
+Public Function IsNumeric(ByVal TypeCode As Long) As Boolean
+    IsNumeric = IntegerWidth(TypeCode) <> 0 Or IsFloating(TypeCode)
+End Function
+
+Public Function FloatingWidth(ByVal TypeCode As Long) As Long
+    If TypeCode = SyntaxTokens.KwSingle Then FloatingWidth = 32
+    If TypeCode = SyntaxTokens.KwDouble Then FloatingWidth = 64
+End Function
+
+' Converts IEEE payloads with the same ordinary UBE algorithms as runtime text support.
+Private Function FloatingConvert(ByVal InputValue As LongLong, ByVal SourceType As Long, ByVal DestinationType As Long, ByRef Value As LongLong) As Boolean
+    Dim PriorError As Long
+    Dim Restored As Boolean
+    Dim Status As Boolean
+    Dim Candidate As LongLong
+    Dim Negative As Boolean
+    Dim Significand As LongLong
+    Dim Exponent As Long
+    Dim Kind As Long
+    On Error GoTo Failed
+    PriorError = Err.Number
+    If IsFloating(SourceType) Then
+        If IsFloating(DestinationType) Then
+            Status = BinaryFloatValues.TryConvertWidth(InputValue, FloatingWidth(SourceType), FloatingWidth(DestinationType), Candidate)
+        ElseIf DestinationType = SyntaxTokens.KwBoolean Then
+            Status = BinaryFloatValues.TryDecode(InputValue, FloatingWidth(SourceType), Negative, Significand, Exponent, Kind)
+            If Kind <> 0 Then Status = False
+            If Significand <> 0 Then Candidate = -1
+        Else
+            Status = BinaryFloatValues.TryToInteger(InputValue, FloatingWidth(SourceType), Candidate)
+            If Status Then Status = Fits(Candidate, DestinationType)
+        End If
+    ElseIf IsFloating(DestinationType) Then
+        Status = BinaryFloatValues.TryFromInteger(InputValue, FloatingWidth(DestinationType), Candidate)
+    End If
+    Restored = RecordError(PriorError)
+    If Not Status Then Exit Function
+    If Not Fits(Candidate, DestinationType) Then Exit Function
+    Value = Candidate
+    FloatingConvert = True
+    Exit Function
+Failed:
+    Restored = RecordError(PriorError)
+End Function
+
 ' Promotes Byte operations to Integer and preserves other admitted scalar domains.
 Public Function PromotedType(ByVal TypeCode As Long) As Long
     On Error GoTo Failed
     If TypeCode = SyntaxTokens.KwByte Then PromotedType = SyntaxTokens.KwInteger: Exit Function
-    If TypeCode = SyntaxTokens.KwBoolean Or IntegerWidth(TypeCode) <> 0 Then PromotedType = TypeCode
+    If TypeCode = SyntaxTokens.KwBoolean Or IsNumeric(TypeCode) Then PromotedType = TypeCode
     Exit Function
 Failed:
     Err.Raise Err.Number
@@ -26,6 +104,14 @@ Public Function BinaryType(ByVal LeftType As Long, ByVal RightType As Long) As L
     Dim B As Long
     On Error GoTo Failed
     If LeftType = SyntaxTokens.KwBoolean And RightType = SyntaxTokens.KwBoolean Then BinaryType = SyntaxTokens.KwBoolean: Exit Function
+    If IsNumeric(LeftType) And IsNumeric(RightType) Then
+        If LeftType = SyntaxTokens.KwDouble Or RightType = SyntaxTokens.KwDouble Then BinaryType = SyntaxTokens.KwDouble: Exit Function
+        If IsFloating(LeftType) Or IsFloating(RightType) Then
+            BinaryType = SyntaxTokens.KwSingle
+            If LeftType = SyntaxTokens.KwLongLong Or RightType = SyntaxTokens.KwLongLong Then BinaryType = SyntaxTokens.KwDouble
+            Exit Function
+        End If
+    End If
     A = IntegerWidth(LeftType)
     B = IntegerWidth(RightType)
     If A = 0 Or B = 0 Then Exit Function
@@ -56,6 +142,8 @@ End Function
 ' Validates the complete source scalar representation before operating on it.
 Private Function Fits(ByVal Value As LongLong, ByVal TypeCode As Long) As Boolean
     On Error GoTo Failed
+    If TypeCode = SyntaxTokens.KwDouble Then Fits = (Value And 9218868437227405312^) <> 9218868437227405312^: Exit Function
+    If TypeCode = SyntaxTokens.KwSingle Then Fits = Value >= 0 And Value <= 4294967295^ And (Value And 2139095040^) <> 2139095040^: Exit Function
     If TypeCode <> SyntaxTokens.KwBoolean And IntegerWidth(TypeCode) = 0 Then Exit Function
     Fits = Value >= Minimum(TypeCode) And Value <= Maximum(TypeCode)
     Exit Function
@@ -69,6 +157,15 @@ Public Function TryConvert(ByVal InputValue As LongLong, ByVal SourceType As Lon
     On Error GoTo Failed
     Reason = 3
     If Not Fits(InputValue, SourceType) Then Exit Function
+    If SourceType = DestinationType Then Value = InputValue: Reason = 0: TryConvert = True: Exit Function
+    If IsFloating(SourceType) Or IsFloating(DestinationType) Then
+        Reason = 2
+        If Not FloatingConvert(InputValue, SourceType, DestinationType, Candidate) Then Exit Function
+        Value = Candidate
+        Reason = 0
+        TryConvert = True
+        Exit Function
+    End If
     If DestinationType <> SyntaxTokens.KwBoolean And IntegerWidth(DestinationType) = 0 Then Exit Function
     Candidate = InputValue
     If DestinationType = SyntaxTokens.KwBoolean Then
@@ -137,6 +234,8 @@ Public Function TryLiteral(ByRef Source() As Byte, ByRef Token As SourceScanner.
     Dim Selected As Long
     Dim Candidate As LongLong
     Dim Probe As Long
+    Dim Cursor As Long
+    Dim RealNumber As Boolean
     On Error GoTo Failed
     Reason = 3
     Size = BufferPrimitives.ByteStorageLength(Source)
@@ -148,6 +247,30 @@ Public Function TryLiteral(ByRef Source() As Byte, ByRef Token As SourceScanner.
     If Token.Kind <> SourceScanner.NumberToken Then Exit Function
     Finish = Token.ByteStart + Token.ByteLength
     Suffix = Source(Finish - 1)
+    If Suffix = 33 Then Selected = SyntaxTokens.KwSingle
+    If Suffix = 35 Then Selected = SyntaxTokens.KwDouble
+    Cursor = Token.ByteStart
+    Do While Cursor < Finish
+        If Source(Cursor) = 46 Or Source(Cursor) = 69 Or Source(Cursor) = 101 Then RealNumber = True
+        Cursor = Cursor + 1
+    Loop
+    If IsFloating(Selected) Or RealNumber Then
+        If Selected <> 0 Then Finish = Finish - 1
+        If Selected = 0 Then Selected = SyntaxTokens.KwDouble
+    ElseIf Suffix >= 48 And Suffix <= 57 And IsFloating(ExpectedType) Then
+        Selected = ExpectedType
+    End If
+    If IsFloating(Selected) Then
+        If Not TryFloatingText(Source, Token.ByteStart, Finish - Token.ByteStart, Selected, Candidate) Then Exit Function
+        If Negated Then
+            If Not TryUnary(SyntaxTokens.SymMinus, Candidate, Selected, Candidate, Selected, Reason) Then Exit Function
+        End If
+        Value = Candidate
+        TypeCode = Selected
+        Reason = 0
+        TryLiteral = True
+        Exit Function
+    End If
     If Suffix = 37 Then Selected = SyntaxTokens.KwInteger
     If Suffix = 38 Then Selected = SyntaxTokens.KwLong
     If Suffix = 94 Then Selected = SyntaxTokens.KwLongLong
@@ -186,6 +309,30 @@ Public Function TryUnary(ByVal Operator As Long, ByVal InputValue As LongLong, B
     If Not Fits(InputValue, InputType) Then Exit Function
     Selected = PromotedType(InputType)
     Reason = 1
+    If IsFloating(InputType) Then
+        If Operator <> SyntaxTokens.SymPlus And Operator <> SyntaxTokens.SymMinus Then Exit Function
+        Candidate = InputValue
+        If Operator = SyntaxTokens.SymMinus Then
+            If InputType = SyntaxTokens.KwSingle Then
+                If Candidate >= 2147483648^ Then
+                    Candidate = Candidate - 2147483648^
+                Else
+                    Candidate = Candidate + 2147483648^
+                End If
+            Else
+                If Candidate < 0 Then
+                    Candidate = Candidate - -9223372036854775808^
+                Else
+                    Candidate = Candidate + -9223372036854775808^
+                End If
+            End If
+        End If
+        Value = Candidate
+        TypeCode = InputType
+        Reason = 0
+        TryUnary = True
+        Exit Function
+    End If
     If Operator = SyntaxTokens.KwNot Then
         Candidate = Not InputValue
     ElseIf Operator = SyntaxTokens.SymPlus Or Operator = SyntaxTokens.SymMinus Then
@@ -209,6 +356,62 @@ Failed:
 End Function
 
 ' Folds admitted binary operations after checking overflow in the selected operation type.
+Private Function FloatingBinary(ByVal Operator As Long, ByVal LeftValue As LongLong, ByVal LeftType As Long, ByVal RightValue As LongLong, ByVal RightType As Long, ByVal Selected As Long, ByRef Value As LongLong, ByRef TypeCode As Long, ByRef Reason As Long) As Boolean
+    Dim LeftBits As LongLong
+    Dim RightBits As LongLong
+    Dim Candidate As LongLong
+    Dim Operation As Long
+    Dim Order As Long
+    Dim Unordered As Boolean
+    Dim Truth As Boolean
+    Dim PriorError As Long
+    Dim Restored As Boolean
+    Dim Status As Boolean
+    On Error GoTo Failed
+    PriorError = Err.Number
+    If Not TryConvert(LeftValue, LeftType, Selected, LeftBits, Reason) Then Exit Function
+    If Not TryConvert(RightValue, RightType, Selected, RightBits, Reason) Then Exit Function
+    Reason = 1
+    If Operator = SyntaxTokens.SymPlus Then Operation = 1
+    If Operator = SyntaxTokens.SymMinus Then Operation = 2
+    If Operator = SyntaxTokens.SymStar Then Operation = 3
+    If Operator = SyntaxTokens.SymSlash Then Operation = 4
+    If Operation <> 0 Then
+        Status = BinaryFloatMath.TryBinary(LeftBits, RightBits, FloatingWidth(Selected), Operation, Candidate)
+    ElseIf Operator = SyntaxTokens.SymCaret Then
+        Status = BinaryFloatPower.TryPower(LeftBits, RightBits, Candidate)
+    Else
+        If Operator <> SyntaxTokens.SymEqual And Operator <> SyntaxTokens.SymNotEqual And Operator <> SyntaxTokens.SymLess And Operator <> SyntaxTokens.SymGreater And Operator <> SyntaxTokens.SymLessEqual And Operator <> SyntaxTokens.SymGreaterEqual Then Exit Function
+        Status = BinaryFloatMath.TryCompare(LeftBits, RightBits, FloatingWidth(Selected), Order, Unordered)
+        If Not Unordered Then
+            If Operator = SyntaxTokens.SymEqual Then Truth = Order = 0
+            If Operator = SyntaxTokens.SymNotEqual Then Truth = Order <> 0
+            If Operator = SyntaxTokens.SymLess Then Truth = Order < 0
+            If Operator = SyntaxTokens.SymGreater Then Truth = Order > 0
+            If Operator = SyntaxTokens.SymLessEqual Then Truth = Order <= 0
+            If Operator = SyntaxTokens.SymGreaterEqual Then Truth = Order >= 0
+        End If
+        If Unordered Then Status = False
+        If Truth Then Candidate = -1
+        Selected = SyntaxTokens.KwBoolean
+    End If
+    Reason = 2
+    If Not Status Then
+        If Err.Number = 11 Then Reason = 4
+    Else
+        Status = Fits(Candidate, Selected)
+    End If
+    Restored = RecordError(PriorError)
+    If Not Status Then Exit Function
+    Value = Candidate
+    TypeCode = Selected
+    Reason = 0
+    FloatingBinary = True
+    Exit Function
+Failed:
+    Restored = RecordError(PriorError)
+End Function
+
 Public Function TryBinary(ByVal Operator As Long, ByVal LeftValue As LongLong, ByVal LeftType As Long, ByVal RightValue As LongLong, ByVal RightType As Long, ByRef Value As LongLong, ByRef TypeCode As Long, ByRef Reason As Long) As Boolean
     Dim Selected As Long
     Dim Candidate As LongLong
@@ -222,6 +425,23 @@ Public Function TryBinary(ByVal Operator As Long, ByVal LeftValue As LongLong, B
     Reason = 1
     Selected = BinaryType(LeftType, RightType)
     If Selected = 0 Then Exit Function
+    If Operator = SyntaxTokens.SymSlash Or Operator = SyntaxTokens.SymCaret Then
+        If Selected = SyntaxTokens.KwBoolean Then Exit Function
+        Selected = SyntaxTokens.KwDouble
+    End If
+    If Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
+        If IsFloating(Selected) Then
+            Selected = SyntaxTokens.KwLongLong
+            If Not TryConvert(LeftValue, LeftType, Selected, Candidate, Reason) Then Exit Function
+            LeftValue = Candidate
+            If Not TryConvert(RightValue, RightType, Selected, Candidate, Reason) Then Exit Function
+            RightValue = Candidate
+        End If
+    End If
+    If IsFloating(Selected) Then
+        TryBinary = FloatingBinary(Operator, LeftValue, LeftType, RightValue, RightType, Selected, Value, TypeCode, Reason)
+        Exit Function
+    End If
     If Selected = SyntaxTokens.KwBoolean Then
         If Operator <> SyntaxTokens.KwAnd And Operator <> SyntaxTokens.KwOr And Operator <> SyntaxTokens.SymEqual And Operator <> SyntaxTokens.SymNotEqual Then Exit Function
     End If

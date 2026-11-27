@@ -88,7 +88,7 @@ function Invoke-Compiler([string[]]$Arguments, [string]$Marker) {
 function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
     $linkArguments = @(Get-NativeMemoryLinkArguments $IR $Clang $artifacts)
     $arguments = @('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-' + $Level),$IR,$stackProbe) + $linkArguments + @('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608')
-    $result = Invoke-BoundedProcess $Clang $arguments
+    $result = Invoke-BoundedProcess $Clang $arguments 180000
     Require ($result.ExitCode -eq 0) "Native harness build failed. Evidence: $($result.Evidence)"
     Assert-X64 $Exe
 }
@@ -527,15 +527,13 @@ for ($index=0; $index -lt 2; $index++) {
     Append-Source $path
 }
 $value = Call-Probe 'Bind' @(0)
-Check-Value $value 1 '16386 declarations exceed the symbol ceiling'
+Check-Value $value 0 '16386 declarations exceed the former symbol quota successfully'
 $value = Call-Probe 'DiagnosticField' @(0)
-Check-Value $value 6 'symbol capacity diagnostic category'
+Check-Value $value 0 'successful symbol growth has no diagnostic'
 $value = Call-Probe 'DiagnosticField' @(1)
-Check-Value $value 1 'symbol capacity reason, not lookup-work exhaustion'
-foreach ($name in @('CountSymbols','EntryIdentity')) { $value = Call-Probe $name; Check-Value $value 0 'limit failure publishes no partial output' }
-$value = Call-Probe 'RetainedCount'
-Check-Value $value $boundaryCapacity 'limit failure preserves previous backing storage'
-Symbol-Equals 16384 4 $boundaryLastKind 'limit failure preserves last previously valid symbol'
+Check-Value $value 0 'successful symbol growth has no diagnostic reason'
+$value = Call-Probe 'CountSymbols'; Check-Value $value 16386 'all declarations published after growth'
+$value = Call-Probe 'EntryIdentity'; Check-Value $value 0 'library has no entry identity'
 $script:passed++
 # Real parsed modules cross the old project limit, reach the exact new bound, and refuse one extra node.
 Start-Project 'NodeBoundary'
@@ -552,10 +550,9 @@ $value=Call-Probe 'CountNodes'; Check-Value $value 131072 'exact project node ca
 $value=Call-Probe 'Bind' @(0); Check-Value $value 0 'declaration validator accepts extended project nodes'
 $path=Join-Path $artifacts 'node-excess.bas'
 Write-Text $path (Module-Source 'OneMoreNode' '')
-Append-Source $path 2
-$value=Call-Probe 'AppendLimitDiagnostic'; Check-Value $value 0 'one excess node rejected by project capacity'
-$value=Call-Probe 'CountNodes'; Check-Value $value 131072 'refusal preserves committed project node prefix'
-$value=Call-Probe 'Bind' @(0); Check-Value $value 0 'retained project still binds after refused append'
+Append-Source $path
+$value=Call-Probe 'CountNodes'; Check-Value $value 131073 'append exceeds former project node quota'
+$value=Call-Probe 'Bind' @(0); Check-Value $value 0 'grown project still binds'
 $script:passed++
 $lines.Add('  %disposed = call i1 @ube.context.dispose(ptr %ctx)')
 $lines.Add('  %disposed.wide = zext i1 %disposed to i64')

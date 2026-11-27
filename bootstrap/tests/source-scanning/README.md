@@ -78,15 +78,17 @@ partial token vector and returns Count zero; an older independent token vector
 remains unchanged. Private helpers propagate unexpected fresh FAIL to the
 public handler, which writes diagnostics directly without another call frame.
 
-The scanner admits at most 1,048,576 source bytes and 65,536 tokens, including
-synthetic newline/EOF entries. Raw token text remains limited to 4096 UTF-16
+The UBE scanner now grows source/token storage with checked Long counts instead
+of the former 1 MiB/65,536-token quotas. The current 90-group gate includes
+65,537 tokens and classic numeric suffix acceptance plus F/R/D rejection.
+Raw token text remains limited to 4096 UTF-16
 units and identifiers to 128 decoded ASCII characters. It scans the
 existing ASCII identifier profile with strict Unicode text inside comments and
 strings. Unicode identifier tables, conditional preprocessing, assembly
 payloads and general String storage remain outside this scanner's profile.
 The separate module-parsing gate exercises the UBE-written syntax parser.
 
-The enlarged-capacity gate passed 86 groups, including exact 1 MiB source and
+The earlier enlarged-capacity gate passed 86 groups, including exact 1 MiB source and
 65,536-token acceptance, terminal-token overflow, overlong closed/unclosed
 quoted tokens and unchanged runtime negative controls. Evidence:
 `ube source scanning 43e03795-4ad7-4c6f-8fa3-d7090b5fdf3b`.

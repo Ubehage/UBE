@@ -253,7 +253,7 @@ Private Function CollectionPressure() As Boolean
     On Error GoTo Failed
     Retained = Echo("retained through pressure")
     Call FilePrimitives.SetError(42)
-    ' More allocations than the shared 4096-block limit require automatic GC.
+    ' Exercise repeated allocations beyond the former fixed block quota.
     Do While Index < 5000
         Value = "short-lived allocation"
         Index = Index + 1
@@ -269,45 +269,35 @@ Failed:
 End Function
 
 Private Function FillRetained(ByRef Values() As String, ByRef Stored As Long) As Boolean
-    On Error GoTo Expected
+    On Error GoTo Failed
     Do While Stored < 5000
         Values(Stored) = "retained"
         Stored = Stored + 1
     Loop
-    Exit Function
-Expected:
-    FillRetained = Err.Number = 7
+    FillRetained = True
+Failed:
 End Function
 
-Private Function ReplaceAtQuota(ByRef Value As String) As Boolean
-    On Error GoTo Expected
-    Value = "replacement"
-    Exit Function
-Expected:
-    ReplaceAtQuota = Err.Number = 7
-End Function
-
-Private Function RetainedExhaustion() As Boolean
+Private Function RetainedGrowth() As Boolean
     Dim Values() As String
     Dim Stored As Long
     Dim Value As String
     On Error GoTo Failed
     If Not ResizeTexts(Values, 5000, False) Then Exit Function
     If Not FillRetained(Values, Stored) Then Exit Function
-    If Stored < 1 Or Stored >= 5000 Then Exit Function
-    ' These reads allocate nothing while all retained allocations fill the quota.
+    If Stored <> 5000 Then Exit Function
+    Call Memory.CollectGarbage()
     If Text.Length(Values(0)) <> 8 Or Text.Length(Values(Stored - 1)) <> 8 Then Exit Function
-    If Text.Length(Values(Stored)) <> 0 Or Err.Number <> 7 Then Exit Function
-    If Not ReplaceAtQuota(Values(0)) Then Exit Function
-    If Text.Length(Values(0)) <> 8 Or Err.Number <> 7 Then Exit Function
+    Values(0) = "replacement"
+    If Values(0) <> "replacement" Or Values(Stored - 1) <> "retained" Then Exit Function
     If Not ResizeTexts(Values, 0, False) Then Exit Function
     Call FilePrimitives.SetError(42)
     If Memory.CollectGarbage() <> 1 Or Err.Number <> 42 Then Exit Function
     Value = Echo("recovered")
-    RetainedExhaustion = Value = "recovered" And Err.Number = 42
+    RetainedGrowth = Value = "recovered" And Err.Number = 42
     Exit Function
 Failed:
-    RetainedExhaustion = False
+    RetainedGrowth = False
 End Function
 
 Private Function RejectMalformed() As Boolean
@@ -335,7 +325,7 @@ Public Function Main() As Long
     If Not LanguageConversions() Then Main = 8: Exit Function
     If Not ConversionFailure() Then Main = 9: Exit Function
     If Not CollectionPressure() Then Main = 10: Exit Function
-    If Not RetainedExhaustion() Then Main = 11: Exit Function
+    If Not RetainedGrowth() Then Main = 11: Exit Function
     Exit Function
 Failed:
     Main = 250

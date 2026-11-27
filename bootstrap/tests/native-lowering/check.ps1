@@ -114,7 +114,7 @@ function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [s
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
-$core=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
+$core=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText') | ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
 $compiler=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering') | ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files=@($core)+@($compiler)+@(Join-Path $PSScriptRoot 'Probe.bas')
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'

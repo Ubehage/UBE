@@ -1,13 +1,49 @@
 # UBE compiler bootstrap source profile
 
-**Status:** bounded scalar and aggregate source-to-native compilation implemented and tested
-on Windows x64. This file does not grant exceptions to language semantics.
-The dynamic-storage extension below passed its separate 41-group native gate;
-exact results and regression evidence are recorded in compiler/Progress.md.
+**Status:** the UBE-written compiler implements and tests the scalar, finite
+aggregate, managed String and Single/Double scope below on Windows x64.
+It builds itself and compiles independent work in parallel. This file describes
+implementation admission; it does not grant exceptions to language semantics.
+Earlier bootstrap gates are retained below as historical qualification, not as
+the current limit of the UBE-written compiler.
+
+## Current Single and Double admission
+
+The UBE-written compiler admits finite `Single` and `Double` literals,
+constants, storage, parameters/results, rank-one array elements, finite record
+fields and worker captures. The operators `+`, `-`, `*`, `/`, `^`, unary signs
+and comparisons are supported, as are conversions with the admitted Boolean,
+integer and variable-length String types. Floating operands of `\` and `Mod`
+round to nearest/even LongLong values before division; the result is LongLong.
+`/` and `^` produce Double in this admitted numeric profile.
+
+Real literals use `!` for Single and `#` for Double; integer-looking forms such
+as `1!` and `1#` are admitted. Unsuffixed real literals are Double. The grammar
+also specifies the classic Currency suffix `@`, but Currency storage and
+arithmetic are not implemented by this increment. `F`, `R` and `D` are not
+numeric suffixes.
+
+Finite IEEE rounding, signed zero and subnormals are preserved. NaN and
+infinities are rejected. Known invalid constants fail compilation; runtime
+failures preserve unfinished destinations and successful operations preserve
+earlier Err. Division by zero records Err 11; numeric overflow/nonfinite input
+records Err 6; zero to a negative power or a negative base to a fractional power
+records Err 5; malformed numeric text, including special-value spellings,
+records Err 13. Invariant text uses the shortest round-trip representation and
+preserves negative zero as `-0`, following language-spec.md section 14.
+
+O0/O2 qualification covers exact numerical boundaries, failure/recovery,
+constants, arrays/records, argument evaluation, grouped ByRef conversions and
+worker captures. The final compiler also passes self-build fixed-point,
+common-conformance and concurrent-compilation gates. Commands, exact evidence
+and the distinction between native-helper and source-level tests are in
+[FLOATING-POINT.md](../compiler/FLOATING-POINT.md). This does not claim floating
+source admission in the VB6 bootstrap, Currency/Decimal/Variant support,
+foreign floating ABI support or a complete mathematics library.
 
 The UBE-written compiler additionally admits variable-length String values,
 quoted literals, `&`, binary comparisons and conversions with the admitted
-Boolean/integer types. String locals, globals, parameters, results, finite
+Boolean/integer and Single/Double types. String locals, globals, parameters, results, finite
 record fields, array elements and worker captures use precise managed roots.
 Ordinary UBECore text and collection algorithms are linked automatically;
 allocation pressure collects and retries once. Exact scope, errors and
@@ -15,9 +51,37 @@ remaining exclusions are in [TEXT.md](../std-lib/TEXT.md). Actual O0/O2 source,
 fault, collection and worker gates are listed in
 [the managed-text tests](../runtime/tests/managed-text/README.md).
 This extends the UBE compiler; it does not claim String source admission in
-the VB6 bootstrap. Variant, fixed-length String, further numeric families,
+the VB6 bootstrap. Variant, fixed-length String, Currency/Decimal,
 text-folding/Like and broad-input compatibility functions remain outside this
 increment.
+
+`Exit Loop` is specified for UBE 1.0 as an exit from the outermost enclosing
+loop in the current procedure invocation. It is not yet admitted by the
+compiler. Its definition does not imply new support for For/For Each/While;
+those loop forms retain their separately documented implementation status.
+
+## Current storage limits
+
+The UBE-written compiler no longer imposes the former fixed source-byte,
+module-count, token/node-count, symbol-count or total LLVM-output quotas.
+Those stores grow with checked counts and allocation failure. The native
+runtime's former 64 MiB heap quota and 4096-record collector workspace are
+replaced by checked size accounting and growing workspace. Procedure frames
+larger than 128 cells use checked heap allocation; 128 is now a small-frame
+stack-storage threshold, not an admission limit. Failed allocation reports
+failure, and failed compilation preserves an earlier output.
+
+This is not unlimited compiler admission. Counts and indexes still have their
+representation bounds; source/manifest files currently fit in 2,147,483,646
+bytes. Tokens retain their 4096 UTF-16-unit bound and ASCII identifiers their
+128-unit bound. Parsing depth is 48, binding and record-layout depth is 64,
+and existing work, parameter, record-layout, module-storage and call-depth
+guards remain. The native backend has its existing 30-second invocation
+timeout. Compiler input growth does not imply that arbitrary native stack
+requirements are supported. The tests and remaining boundaries are recorded
+in [FLOATING-POINT.md](../compiler/FLOATING-POINT.md).
+
+## Earlier bootstrap and dependency gates
 
 The checked integer-operation extension now admits `*`, integer `\` and `Mod`
 for the existing integer types, with Byte promotion, compile-time diagnostics,
@@ -27,8 +91,9 @@ binds more tightly than `*`; Mod requires whitespace on both sides.
 The minimum signed value Mod -1 succeeds with zero, while its division by -1
 overflows. The shared O0/O2 gate is
 `../bootstrap/tests/integer-operations/check.ps1`, with independent host/UBE
-evidence in its README. `/`, `^` and nonintegral numeric families remain outside
-this admission. Ordinary UBE UTF-8 scalar codecs use these operations; their
+evidence in its README. That integer-only gate does not qualify `/`, `^` or
+floating arithmetic; the current floating increment above does. Ordinary UBE
+UTF-8 scalar codecs use these operations; their
 exhaustive byte oracle is `../std-lib/tests/unicode-scalars/check.ps1`.
 
 Project loading is implemented separately from source compilation. On
@@ -66,8 +131,9 @@ in [AGGREGATES.md](../bootstrap/AGGREGATES.md). It retains source bytes and
 token/tree records, checks bounds, borrows fields/elements/arrays ByRef and
 copies independent values. Its original fixed-storage acceptance required
 identical known bounds for whole-array copies; the dynamic extension below
-removes that admission restriction. Managed fields, aggregate ByVal/results and
-foreign layouts remain outside the profile. This extension uses existing GoTo traversal, without adding
+removes that admission restriction. That original gate excluded managed fields,
+aggregate ByVal/results and foreign layouts. Later String/worker gates qualify
+their separately stated scope. This extension uses existing GoTo traversal, without adding
 loop-header failure semantics.
 
 The counted-buffer extension validates exact Intrinsic declarations for the
@@ -88,8 +154,9 @@ values are independent of later writes through old aliases. A conservative
 project effect invalidates current-bound proofs when shapes may change, while
 declaration metadata retains initial fixed bounds. Its 41-group gate is
 `bootstrap/tests/dynamic-storage/check.ps1`; exact evidence and same-build
-regressions are in compiler/Progress.md. Managed fields, ReDim/Erase syntax,
-aggregate ByVal/results and broader primitives remain deferred. Counted file
+regressions are in compiler/Progress.md. That original gate did not qualify
+managed fields or aggregate ByVal/results; later String/worker gates extend it.
+ReDim/Erase syntax and broader primitives remain deferred. Counted file
 I/O is qualified separately below.
 
 The counted file-I/O gate `bootstrap/tests/file-io/check.ps1` passed 56 groups
@@ -102,9 +169,10 @@ and executes `compiler/src/SourceScanner.bas` with ordinary UBECore UTF-8
 validation. `bootstrap/tests/source-scanning/check.ps1` passed 86 groups for
 actual file input, retained tokens/positions and controlled malformed-input
 diagnostics. Separate gates passed 42 allocation/depth checks, 37 UTF-8 cases
-at O0/O2 plus a changed-input control, and 13 syntax/binding cases. Its input
-limit is 1,048,576 bytes, with at most 65,536 tokens. Individual tokens retain
-the 4,096 UTF-16-unit bound and identifiers the 128-unit bound. This is the
+at O0/O2 plus a changed-input control, and 13 syntax/binding cases. The former
+1,048,576-byte input and 65,536-token quotas were removed in the current
+increment. Individual tokens retain the 4,096 UTF-16-unit bound and identifiers
+the 128-unit bound. This is the
 current ASCII identifier profile; full Unicode identifiers remain deferred.
 Managed String admission is described above. Exact scanning contracts are in
 [SOURCE-SCANNING.md](../bootstrap/SOURCE-SCANNING.md) and compiler/Progress.md.
@@ -112,11 +180,13 @@ Managed String admission is described above. Exact scanning contracts are in
 The UBE-written module parser now retains caller-owned indexed trees for this
 admitted grammar. Its gate passed 19 cases at O0/O2, including actual compiler
 and library modules, exact tree/spans and a changed-input negative control.
-Syntax limits are 65,536 nodes per module, 131,072 nodes per project, and 48 recursive parsing levels;
-these are distinct from the VB6 host parser's limits. Type references, including
+The former 65,536-node module and 131,072-node project quotas were removed;
+48 recursive parsing levels remain. These are distinct from the VB6 host
+parser's limits. Type references, including
 recursive spellings, are retained without claiming recursive layout support.
-See [MODULE-PARSING.md](../bootstrap/MODULE-PARSING.md). UBE-written binding and
-lowering, complete-language parsing and self-hosting remain unimplemented.
+See [MODULE-PARSING.md](../bootstrap/MODULE-PARSING.md). UBE-written binding,
+lowering and self-hosting are now qualified by later gates; complete-language
+parsing remains unfinished.
 
 `bootstrap/tests/native-compilation/check.ps1` compiles actual UBE source through
 the complete pipeline and asserts the eight error-oracle checks at O0/O2,
@@ -135,8 +205,8 @@ and its development dump format are defined in `../bootstrap/DESIGN.md`.
 
 The initial scalar admission set exists to prove the accepted error contract
 before expanding implementation. The later dependency set identifies what the
-UBE-written compiler will need; it is not a claim that self-hosting is already
-possible or that its minimum dependencies have all been measured.
+UBE-written compiler needed. These historical admission lists do not replace
+the current self-hosting evidence linked above.
 
 ## Initial scalar admission set
 
@@ -183,8 +253,8 @@ profile is not a prerequisite for starting the parser.
 
 ## Input and failure constraints
 
-- Set and document byte/token/nesting/diagnostic limits before implementing
-  the source reader. Check limits before allocating or descending recursively.
+- Check storage-size arithmetic and allocation failure before publishing new
+  input state. Check remaining nesting/work guards before recursive descent.
 - Reject malformed UTF-8, embedded invalid source characters, truncated
   tokens, mismatched terminators and duplicate declarations with locations.
 - Unsupported constructs receive an explicit diagnostic; never compile them
@@ -254,11 +324,12 @@ Nominal recursive equality is checked as a type fact, not executed or laid out.
 Separate UBE passes now validate intrinsic authority and finite aggregate
 layout under `../bootstrap/SEMANTIC-STORAGE.md`. Production lowering is now
 implemented in UBE, with the VB6 bootstrap retained as an independent reference.
-The final integrated compiler reached the successive self-build fixed point
+An earlier integrated compiler reached the successive self-build fixed point
 (`ube compiler rebuild 18c217dd-d417-4e79-b96a-198202d3613a`). The matching
 common-conformance checks also passed: 860 assertions for bootstrap/generation 2
 and 446 for generation 1, including both optimization modes and backend recovery.
-Exact native and failure-gate evidence is in `../compiler/Progress.md`.
+Exact native and failure-gate evidence is in `../compiler/Progress.md`;
+the current Single/Double rebuild and conformance results are linked above.
 
 ## Explicitly outside the initial implementation
 
