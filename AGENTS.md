@@ -13,6 +13,9 @@ The compiler must also support source-level debugging, as an IDE mimicking VB6's
 ## 1. Orientation
 Reference `/navigation.md` for details on navigating the repository.
 
+Before reading or modifying files in a folder, check for an `AGENTS.md` in that folder and any parent folders up to the repository root. Read and follow all applicable instructions. Instructions already read need not be reread unless they have changed.
+
+
 
 ## 2. Golden rules
 ## Never crash (outranks every other rule)
