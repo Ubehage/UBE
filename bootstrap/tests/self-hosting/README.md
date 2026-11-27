@@ -84,12 +84,9 @@ The raw native hashes and reuse qualification are in
 
 ## Checked-in compiler project
 
-The root `Compiler.UBE` now owns the ordered compiler source list. Packaging
-reads it and retains the existing flattened Library/Exe fixture support.
-Add `-RepositoryProject` to `rebuild-check.ps1` to compile that checked-in
-manifest directly in both generations. This mode requires Optimization 2,
-matching the manifest; no project settings are silently overridden. Each build
-retains its actual input path, arguments and project hash in `build-input.json`
-and checks that repository project/source hashes remain unchanged.
-`package-check.ps1` compares all root source identities and order against the
-package, in addition to its existing byte/hash and failure-preservation checks.
+`compiler/Compiler.UBE` owns the ordered source list. Packaging resolves its
+compiler-relative sources and explicit sibling standard-library paths, then
+creates the self-contained manifests used by build/rebuild checks. Direct builds
+of the repository manifest await library resolution; the former
+`-RepositoryProject` switch has been removed. Source identities, byte/hash parity
+and malformed-manifest refusal are covered by `package-check.ps1`.

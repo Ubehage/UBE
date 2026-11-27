@@ -30,7 +30,7 @@ The long-term goal is a complete native development system:
 ## Project status
 *UBE is in early development and is not ready for production use.*
 
-The native 64-bit Windows compiler builds itself from [Compiler.UBE](Compiler.UBE)
+The native 64-bit Windows compiler builds itself from [Compiler.UBE](compiler/Compiler.UBE)
 and compiles in parallel. [Build instructions](compiler/README.md).
 Class instance fields, Sub/Function methods and `Me` now work with managed
 storage, checked failure handling and receiver lifetime protection.

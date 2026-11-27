@@ -1,7 +1,6 @@
 # Qualifies a repeated ordinary UBE compiler build with retained comparison evidence.
 param(
  [Parameter(Mandatory=$true)][string]$InitialCompilerExe,
- [switch]$RepositoryProject,
  [string]$FirstGenerationDirectory = '',
  [string]$SecondGenerationDirectory = '',
  [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
@@ -87,7 +86,7 @@ try{
   $directory=$FirstGenerationDirectory;if($index -eq 2){$directory=$SecondGenerationDirectory}
   if($directory -eq ''){
    $directory=Join-Path $artifacts ('generation-'+$index)
-   & (Join-Path $root 'bootstrap/tools/build-compiler.ps1') -CompilerExe $previous -Destination $directory -Clang $Clang -Optimization $Optimization -RepositoryProject:$RepositoryProject | Out-Host
+   & (Join-Path $root 'bootstrap/tools/build-compiler.ps1') -CompilerExe $previous -Destination $directory -Clang $Clang -Optimization $Optimization | Out-Host
    Record "BUILT generation $index using $previous"
   }else{Record "REUSED generation $index supplied explicitly: $directory; predecessor invocation not independently witnessed by this run"}
   $directory=Check-Package $directory

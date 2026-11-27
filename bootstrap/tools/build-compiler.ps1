@@ -2,7 +2,6 @@
 param(
  [Parameter(Mandatory=$true)][string]$CompilerExe,
  [Parameter(Mandatory=$true)][string]$Destination,
- [switch]$RepositoryProject,
  [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
  [ValidateSet('0','2')][string]$Optimization = '2',
  [ValidateRange(1000,600000)][int]$TimeoutMilliseconds = 180000
@@ -17,8 +16,7 @@ if(-not [IO.File]::Exists($CompilerExe)){throw "Source compiler is missing: $Com
 & (Join-Path $PSScriptRoot 'llvm-templates.ps1')
 & (Join-Path $PSScriptRoot 'native-imports.ps1')
 & (Join-Path $root 'runtime/managed-source-identities.ps1')
-if ($RepositoryProject -and $Optimization -ne '2') { throw 'Repository Compiler.UBE uses Optimization 2' }
-$project=Join-Path $root 'Compiler.UBE'
+$project=Join-Path $root 'compiler/Compiler.UBE'
 $projectHash=(Get-FileHash -LiteralPath $project -Algorithm SHA256).Hash
 $package=& (Join-Path $PSScriptRoot 'self-host-sources.ps1') -Destination $Destination -Kind Exe -Optimization $Optimization
 $assets=Join-Path $package.Destination 'llvm'
@@ -38,7 +36,6 @@ function Quote-Argument([string]$Value){
  return '"'+$escaped+'"'
 }
 $buildManifest=$package.Manifest
-if ($RepositoryProject) { $buildManifest=$project }
 $arguments=@('--build',$buildManifest,$executable,'--clang',$Clang)
 [IO.File]::WriteAllText((Join-Path $package.Destination 'build-input.json'), ([pscustomobject]@{ Manifest=$buildManifest; RepositoryProjectSHA256=$projectHash; Arguments=$arguments } | ConvertTo-Json), $encoding)
 $timer=[Diagnostics.Stopwatch]::StartNew()

@@ -35,7 +35,7 @@ function Write-NewBytes([string]$Path, [byte[]]$Bytes) {
 
 Assert-PlainAncestors $target
 # The checked-in project owns source identity and order; packages only relocate it.
-$project = Join-Path $root 'Compiler.UBE'
+$project = Join-Path $root 'compiler/Compiler.UBE'
 $paths = @()
 $projectSettings = @('UBE-Project 1','Name = "Compiler"','Kind = "Exe"','Optimization = "2"','Startup = "Main"')
 $settingIndex = 0
@@ -44,7 +44,7 @@ foreach ($line in [IO.File]::ReadAllLines($project, $encoding)) {
         if ($settingIndex -ne $projectSettings.Count) { throw 'Compiler project sources must follow settings' }
         $relative = $Matches[1]
         if ([IO.Path]::IsPathRooted($relative)) { throw 'Compiler project source must be relative' }
-        $absolute = [IO.Path]::GetFullPath((Join-Path $root $relative))
+        $absolute = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetDirectoryName($project)) $relative))
         if (-not $absolute.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Compiler project source escapes repository' }
         $paths += $absolute
     } elseif ($settingIndex -lt $projectSettings.Count -and $line -ceq $projectSettings[$settingIndex]) {

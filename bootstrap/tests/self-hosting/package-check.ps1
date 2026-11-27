@@ -25,11 +25,11 @@ function Require-Rejection([string]$Destination, [string[]]$Sources, [string]$Pa
 Write-Output "Artifacts retained: $artifacts"
 $first = & $tool -Destination (Join-Path $artifacts 'first')
 $second = & $tool -Destination (Join-Path $artifacts 'second')
-$projectSources = @([IO.File]::ReadAllLines((Join-Path $root 'Compiler.UBE'), $encoding) | Where-Object { $_ -match '^Source = ' })
+$projectSources = @([IO.File]::ReadAllLines((Join-Path $root 'compiler/Compiler.UBE'), $encoding) | Where-Object { $_ -match '^Source = ' })
 Require ($projectSources.Count -eq $first.Sources.Count) 'Repository project source count differs'
 for ($i=0; $i -lt $projectSources.Count; $i++) {
     Require ($projectSources[$i] -match '^Source = "([^"]+)"$') 'Malformed repository source entry'
-    $original = [IO.Path]::GetFullPath((Join-Path $root $Matches[1]))
+    $original = [IO.Path]::GetFullPath((Join-Path (Join-Path $root 'compiler') $Matches[1]))
     Require ($original -ceq $first.Sources[$i].OriginalPath) 'Package source differs from repository project'
 }
 $expected = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives','ThreadPrimitives','WindowsArguments','WindowsPaths','WindowsImages','SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering','ProjectManifest','ProjectLoader','CommandOptions','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages','NativeCompilation','CompilationRequest','CompilerCommand','ManagedSupport','ManagedSourceAssets','ManagedLayouts','NativeManagedLayout','NativeText')
@@ -99,8 +99,9 @@ $probeTools = Join-Path $probeRoot 'bootstrap/tools'
 $null = New-Item -ItemType Directory -Path $probeTools -Force
 $probeTool = Join-Path $probeTools 'self-host-sources.ps1'
 Copy-Item -LiteralPath $tool -Destination $probeTool
-$projectText = [IO.File]::ReadAllText((Join-Path $root 'Compiler.UBE'), $encoding)
-[IO.File]::WriteAllText((Join-Path $probeRoot 'Compiler.UBE'), ('Source = "Missing.bas"' + [Environment]::NewLine + $projectText), $encoding)
+$null = New-Item -ItemType Directory -Path (Join-Path $probeRoot 'compiler')
+$projectText = [IO.File]::ReadAllText((Join-Path $root 'compiler/Compiler.UBE'), $encoding)
+[IO.File]::WriteAllText((Join-Path $probeRoot 'compiler/Compiler.UBE'), ('Source = "Missing.bas"' + [Environment]::NewLine + $projectText), $encoding)
 $probeDestination = Join-Path $probeRoot 'output'
 $message = ''
 try { $null = & $probeTool -Destination $probeDestination } catch { $message = $_.Exception.Message }

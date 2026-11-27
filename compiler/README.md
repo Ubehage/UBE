@@ -1,48 +1,43 @@
 # UBE compiler
 
-The native Windows x64 compiler is written in UBE. Its checked-in project is
-[Compiler.UBE](../Compiler.UBE), at the repository root so its compiler and
-standard-library sources remain within the project tree. That manifest owns
-the ordered source list; build packages read it rather than maintain another list.
+The native Windows x64 compiler is written in UBE. Its project is
+[Compiler.UBE](Compiler.UBE), beside this README. It owns the ordered compiler
+and standard-library source list. Compiler sources use `src/`; current explicit
+library inputs use `../std-lib/`.
 
 ## Build
 
 From the repository root, with an existing qualified UBE compiler and LLVM:
 
 ```powershell
-rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe C:\path\to\UBE.exe -Destination C:\path\to\new-build -RepositoryProject
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe C:\path\to\UBE.exe -Destination C:\path\to\new-build
 ```
 
-The destination must not already exist. This command compiles the checked-in
-`Compiler.UBE` directly, at its declared Optimization 2, and places `UBE.exe`,
-its LLVM assets and managed support in the destination. The input compiler
-must already have its own `llvm` and `support` directories. LLVM defaults to
-`C:\Program Files\LLVM\bin\clang.exe`; use `-Clang` for another installation.
+The destination must not already exist. The script reads `compiler/Compiler.UBE`,
+stages its source files into a self-contained build directory, and compiles the
+resulting manifest. It packages the output `UBE.exe` with its LLVM assets and
+managed support. The input compiler needs its own `llvm` and `support` folders.
+LLVM defaults to `C:\Program Files\LLVM\bin\clang.exe`; use `-Clang` to override.
 
-The underlying compiler invocation is:
+**Current limitation:** direct `UBE.exe --build compiler/Compiler.UBE ...` does
+not yet work because source paths cannot escape the manifest directory. The
+build script resolves the explicit sibling-library paths while staging. Automatic
+standard-library discovery is not implemented; this project move does not claim it.
 
-```powershell
-& C:\path\to\UBE.exe --build .\Compiler.UBE C:\path\to\output\UBE.exe --clang "C:\Program Files\LLVM\bin\clang.exe"
-```
-
-Use the build script when you need the output compiler packaged with its support
-assets. It retains build logs, the actual invocation and project hash in
-`build-input.json`, plus a source snapshot and hash ledger; it checks that project
-and source inputs did not change during compilation. Existing test fixtures
-can still request flattened packages without `-RepositoryProject`.
-
-A fresh checkout still needs an initial compiler: see the
+Build logs, actual invocation and project hash are retained in `build-input.json`,
+with a source snapshot and hash ledger. Project/source inputs are checked for
+changes during compilation. A fresh checkout needs an initial compiler; see the
 [VB6 bootstrap](../bootstrap/README.md). No prebuilt compiler is bundled here.
 
 ## Verify self-building
 
 ```powershell
-rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe C:\path\to\UBE.exe -RepositoryProject
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe C:\path\to\UBE.exe
 ```
 
-This builds the repository project twice, the second time with the first output,
-then compares source/assets, emitted LLVM and native images (allowing only the
-PE build timestamp). Full compiler conformance is a separate test gate.
+This builds twice from the checked-in source list, the second time with the first
+output, then compares sources/assets, emitted LLVM and native images (allowing
+only the PE timestamp). Both builds use staged manifests.
 
 See [Roadmap.md](Roadmap.md) for the development sequence and
 [Progress.md](Progress.md) for the current handoff and bootstrap evidence.

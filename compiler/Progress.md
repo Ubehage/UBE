@@ -1,5 +1,31 @@
 # Compiler development handoff
 
+## Current: compiler project location — 2026-11-27
+
+Owner directed moving the project into compiler/. `compiler/Compiler.UBE` is
+now authoritative; compiler inputs use src/ and library inputs ../std-lib/.
+Packaging resolves paths relative to this manifest and retains repository
+containment and source identity checks. Build/rebuild scripts use staged
+self-contained manifests. The direct repository-build switch was removed:
+parent-directory Source paths are not admitted by the current source compiler.
+Automatic library discovery remains unimplemented. No source-language change
+is made to accomplish the move. The older direct-root-build evidence below
+records the previous layout and is not a claim about direct builds after this move.
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/package-check.ps1`
+passes 483 assertions. Evidence: `%TEMP%/ube self-host sources
+af6031dd-27e7-41f3-8e48-250e402b27d2`.
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube compiler rebuild b9d3c241-23a1-46db-8784-8f7377ac18d3/generation-2/UBE.exe"`
+passes both staged builds (35945/36124 ms), current source/asset parity, identical
+LLVM and native equality except the COFF timestamp. Evidence:
+`%TEMP%/ube compiler rebuild 06eca12a-31b9-4645-a86e-3dc02bda005e`.
+Final executable SHA256:
+`CBCA42A7FFAD92AD48A7975773415873CD7F70CAA8465EF4B5C8B379D0CAB01B`.
+Relocation is complete. These results qualify the staged build path, not direct
+compilation of sibling-library Source entries.
+
+
 ## Completed: checked-in compiler project — 2026-11-27
 
 Owner request: make the compiler an actual UBE project and confirm it compiles.
