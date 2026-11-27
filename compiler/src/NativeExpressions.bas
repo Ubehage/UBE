@@ -44,7 +44,7 @@ Private Function RecordCellType(ByRef A() As DeclarationBinder.BoundSymbol, ByRe
             If Cell >= L(Node - 1).FieldOffset And Cell < L(Node - 1).FieldOffset + L(Node - 1).StorageCells Then
                 Cell = Cell - L(Node - 1).FieldOffset
                 TypeSymbol = A(Field - 1).TypeSymbol
-                If TypeSymbol = 0 Then RecordCellType = A(Field - 1).TypeCode: Exit Function
+                If Not ManagedLayouts.IsRecordValue(A(Field - 1).TypeCode, TypeSymbol) Then RecordCellType = A(Field - 1).TypeCode: Exit Function
                 Selected = True
                 Exit Do
             End If
@@ -195,10 +195,10 @@ Private Function TryPrepareArguments(ByRef N() As SourceParser.SyntaxNode, ByRef
         If E(Argument - 1).ArgumentMode = 2 Then
             Value = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
             If Value = 0 Or Terminated Then Exit Function
-        ElseIf E(Argument - 1).ArgumentMode = 1 And (E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0) Then
+        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant And (E(Argument - 1).ArrayRank <> 0 Or ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol)) Then
             Value = PrepareAggregateArgument(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Argument, Terminated)
             If Value = 0 Or Terminated Then Exit Function
-        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 And N(Node - 1).Kind <> SourceParser.ThreadStartNode And E(Argument - 1).TypeCode <> SyntaxTokens.KwString And E(Argument - 1).ConvertedType <> SyntaxTokens.KwString Then
+        ElseIf E(Argument - 1).ArgumentMode = 1 And E(Argument - 1).ConstantKnown And Role = 0 And N(Node - 1).Kind <> SourceParser.ThreadStartNode And Not ManagedLayouts.IsManagedScalar(E(Argument - 1).TypeCode) And Not ManagedLayouts.IsManagedScalar(E(Argument - 1).ConvertedType) Then
             ' A checked pure constant can be materialized after module initialization without spanning its call.
             Value = 0
         Else
@@ -289,7 +289,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         Template = LLVMTemplates.CallValueArgument
-        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.CallReferenceArgument
+        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.CallReferenceArgument
         If Fragment(S, B, Token, Catalog, Template, Values(Index), 0) = False Then Exit Function
         If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
             If Owners(Index) = 0 Then InvalidRequest S: Exit Function
@@ -300,7 +300,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
         Argument = N(Argument - 1).NextSibling
     Loop
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallEnd, 0, 0, 0, 0) = False Then Exit Function
-    If E(Node - 1).TypeCode = SyntaxTokens.KwString Then
+    If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Then
         Result = NativeText.TakeResult(S, B, Token, Catalog, Node)
         If Result = 0 Then Exit Function
     End If
@@ -308,7 +308,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     If NativeFrames.TryReleaseArgumentArrays(N, E, P, Escapes, S, B, Token, Catalog, Node) = False Then Exit Function
     If NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) = False Then Exit Function
     If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
-    If E(Node - 1).TypeCode <> SyntaxTokens.KwString Then
+    If Not ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Then
         Result = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Result, Pair, 0, 0) = False Then Exit Function
     End If
@@ -326,9 +326,53 @@ Public Function EmitConvertedExpression(ByRef N() As SourceParser.SyntaxNode, By
     Dim Converted As LongLong
     Dim Reason As Long
     Dim Value As Long
+    Dim Pair As Long
     On Error GoTo Failed
     If S.Text.Failed Or Terminated Then Exit Function
     If DestinationType = 0 Then DestinationType = E(Node - 1).TypeCode
+    If E(Node - 1).TypeCode = SyntaxTokens.KwVariant And DestinationType = SyntaxTokens.KwVariant And E(Node - 1).ReferenceAssignment Then
+        Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        Pair = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantReference, Pair, Value, 0, 0) Then Exit Function
+        If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+        EmitConvertedExpression = Value
+        Exit Function
+    End If
+    If E(Node - 1).TypeCode = SyntaxTokens.KwVariant And DestinationType = SyntaxTokens.KwObject Then
+        Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        Pair = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantReference, Pair, Value, E(Node - 1).ConvertedTypeSymbol, 0) Then Exit Function
+        If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+        Value = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Value, Pair, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TextRootStore, Node, Value, 0, 0) Then Exit Function
+        EmitConvertedExpression = Value
+        Exit Function
+    End If
+    If E(Node - 1).TypeCode = SyntaxTokens.KwObject And DestinationType = SyntaxTokens.KwObject Then
+        EmitConvertedExpression = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        Exit Function
+    End If
+    If DestinationType = SyntaxTokens.KwVariant And ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) Then
+        Value = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        EmitConvertedExpression = NativeStorage.BoxRecord(A, L, S, B, Token, Catalog, Seen, Nexts, Node, Value, E(Node - 1).TypeSymbol)
+        Exit Function
+    End If
+    If E(Node - 1).TypeCode = SyntaxTokens.KwObject And DestinationType = SyntaxTokens.KwVariant Then
+        Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        EmitConvertedExpression = NativeStorage.BoxReference(S, B, Token, Catalog, Seen, Nexts, Node, Value, E(Node - 1).TypeSymbol)
+        Exit Function
+    End If
+    If E(Node - 1).TypeCode = SyntaxTokens.KwVariant Or DestinationType = SyntaxTokens.KwVariant Then
+        Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
+        If Value = 0 Or Terminated Then Exit Function
+        EmitConvertedExpression = NativeText.ConvertVariant(A, S, B, Token, Catalog, Seen, Nexts, Node, Value, E(Node - 1).TypeCode, DestinationType)
+        Exit Function
+    End If
     If E(Node - 1).TypeCode = SyntaxTokens.KwString Or DestinationType = SyntaxTokens.KwString Then
         Value = EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         If Value = 0 Or Terminated Then Exit Function
@@ -365,7 +409,7 @@ Private Function EmitBinaryExpression(ByRef N() As SourceParser.SyntaxNode, ByRe
     Dim Operator As Long
     On Error GoTo Failed
     Child = N(Node - 1).FirstChild
-    If E(Child - 1).TypeSymbol <> 0 Then
+    If ManagedLayouts.IsRecordValue(E(Child - 1).TypeCode, E(Child - 1).TypeSymbol) Then
         EmitBinaryExpression = EmitRecordComparison(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Terminated)
         Exit Function
     End If
@@ -375,7 +419,9 @@ Private Function EmitBinaryExpression(ByRef N() As SourceParser.SyntaxNode, ByRe
     RightValue = EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, RightNode, E(RightNode - 1).ConvertedType, Terminated)
     If RightValue = 0 Or Terminated Then Exit Function
     Operator = N(Node - 1).Value
-    If Operator = SyntaxTokens.SymAmpersand Then
+    If Operator = SyntaxTokens.KwIs Or Operator = SyntaxTokens.KwIsnot Then
+        Result = NativeObjects.CompareIdentity(S, B, Token, Catalog, LeftValue, RightValue, Operator)
+    ElseIf Operator = SyntaxTokens.SymAmpersand Then
         Result = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.ConcatSymbol, Node, 2, LeftValue, RightValue, 0, False, True)
     ElseIf E(Child - 1).ConvertedType = SyntaxTokens.KwString Then
         LeftValue = NativeText.CallSupport(A, S, B, Token, Catalog, Seen, Nexts, S.ManagedRoles.CompareBinarySymbol, Node, 2, LeftValue, RightValue, 0, False, False)
@@ -461,14 +507,18 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         If Address = 0 Or Terminated Then Exit Function
         Result = NativeEmission.NewValue(S)
         Template = LLVMTemplates.LoadValue
-        If E(Node - 1).TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.TextRootLoad
+        If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Then Template = LLVMTemplates.TextRootLoad
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, Address, Node, 0) = False Then Exit Function
         If NativeStorage.ReleaseNodePins(N, E, Pins, S, B, Token, Catalog, Node) = False Then Exit Function
         EmitExpression = Result
         Exit Function
     End If
     Kind = N(Node - 1).Kind
-    If Kind = SourceParser.NameNode Or Kind = SourceParser.MemberNode Then
+    If Kind = SourceParser.NewObjectNode Then
+        Result = NativeObjects.Create(A, E, S, B, Token, Catalog, Seen, Nexts, Node)
+    ElseIf Kind = SourceParser.NothingNode Then
+        Result = NativeEmission.Literal(S, B, Token, Catalog, 0)
+    ElseIf Kind = SourceParser.NameNode Or Kind = SourceParser.MemberNode Then
         If E(Node - 1).TrustedRole = 4 Then
             Result = NativeEmission.NewValue(S)
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadError, Result, 0, 0, 0) = False Then Exit Function
@@ -477,7 +527,7 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
             If Address = 0 Then Exit Function
             Result = NativeEmission.NewValue(S)
             Template = LLVMTemplates.LoadValue
-            If E(Node - 1).TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.TextRootLoad
+            If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Then Template = LLVMTemplates.TextRootLoad
             If NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, Address, Node, 0) = False Then Exit Function
         End If
     ElseIf Kind = SourceParser.GroupNode Then
@@ -510,7 +560,7 @@ Public Function EmitExpression(ByRef N() As SourceParser.SyntaxNode, ByRef A() A
         InvalidRequest S: Exit Function
     End If
     If S.Text.Failed Or Terminated Then Exit Function
-    If E(Node - 1).TypeCode = SyntaxTokens.KwString Then
+    If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Then
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TextRootStore, Node, Result, 0, 0) Then Exit Function
     End If
     EmitExpression = Result

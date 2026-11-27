@@ -1,7 +1,7 @@
 # UBE compiler bootstrap source profile
 
 **Status:** the UBE-written compiler implements and tests the scalar, finite
-aggregate, managed String and Single/Double scope below on Windows x64.
+aggregate, managed String, Single/Double and loop-dependency scope below on Windows x64.
 It builds itself and compiles independent work in parallel. This file describes
 implementation admission; it does not grant exceptions to language semantics.
 Earlier bootstrap gates are retained below as historical qualification, not as
@@ -38,7 +38,8 @@ worker captures. The final compiler also passes self-build fixed-point,
 common-conformance and concurrent-compilation gates. Commands, exact evidence
 and the distinction between native-helper and source-level tests are in
 [FLOATING-POINT.md](../compiler/FLOATING-POINT.md). This does not claim floating
-source admission in the VB6 bootstrap, Currency/Decimal/Variant support,
+source admission in the VB6 bootstrap, Currency/Decimal support, the later
+Variant dependency scope described below,
 foreign floating ABI support or a complete mathematics library.
 
 The UBE-written compiler additionally admits variable-length String values,
@@ -51,14 +52,48 @@ remaining exclusions are in [TEXT.md](../std-lib/TEXT.md). Actual O0/O2 source,
 fault, collection and worker gates are listed in
 [the managed-text tests](../runtime/tests/managed-text/README.md).
 This extends the UBE compiler; it does not claim String source admission in
-the VB6 bootstrap. Variant, fixed-length String, Currency/Decimal,
+the VB6 bootstrap. Fixed-length String, Currency/Decimal,
 text-folding/Like and broad-input compatibility functions remain outside this
 increment.
 
 `Exit Loop` is specified for UBE 1.0 as an exit from the outermost enclosing
-loop in the current procedure invocation. It is not yet admitted by the
-compiler. Its definition does not imply new support for For/For Each/While;
-those loop forms retain their separately documented implementation status.
+loop in the current procedure invocation. Both compiler paths now admit it
+within Do, While and counted For loops, including mixed nesting and nearest-kind
+Exit Do/While/For. UBE admits floating counters; the bootstrap admits integer
+counters. Focused O0/O2 execution, invocation isolation and invalid-placement
+gates pass; exact scope and evidence are in
+[LOOP-CONTROL.md](../compiler/LOOP-CONTROL.md).
+
+The UBE-written compiler also admits rank-one array `For Each` with a writable
+Variant control variable, including admitted scalar, String, Variant, finite
+record and object-reference elements. The collection expression is evaluated
+once. Enumeration retains the original array storage through replacement or
+resize and observes writes to that storage; it does not snapshot the elements.
+Exit For leaves the nearest For; Exit Loop leaves the outermost enclosing loop
+across all four loop kinds. Construct-owned leases and managed roots are
+retired at actual exit destinations without clearing procedure locals or the
+control variable. Hardened O0/O2 source tests and exact emitted owner/root
+oracles are `compiler/tests/loop-control/foreach-check.ps1` and
+`foreach-lease-check.ps1`; syntax diagnostics use `foreach-syntax-check.ps1`.
+
+This dependency uses real managed Variant boxes, preserving exact scalar tags,
+nominal record value copies and object-reference identity. Checked conversions
+cover the admitted Boolean/integer, Single/Double, String, record and object
+values. Empty is neutral and failed conversions preserve unfinished
+destinations. This is not complete Variant arithmetic, array-valued Variant
+support or the complete Variant library.
+
+Genuine empty named classes, typed and generic Object references, New, Set,
+Nothing and identity comparisons supply the object identity needed by SyncLock.
+The UBE compiler admits SyncLock with retained targets and acquired-state
+cleanup, including loop exits, returns and failure transfers. Source and native
+monitor checks are under `compiler/tests/object-monitors/` and
+`runtime/tests/object-monitors/`. Class members, lifecycle hooks, interfaces and
+object-collection enumeration remain unsupported. These managed dependencies
+do not expand the deliberately scalar/finite-record VB6 bootstrap profile.
+Final integrated regression qualification of the complete Exit Loop increment
+passes on corrected compiler 68e264aa; the exact completion audit is in
+[LOOP-CONTROL.md](../compiler/LOOP-CONTROL.md).
 
 ## Current storage limits
 

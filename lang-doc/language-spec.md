@@ -1079,6 +1079,14 @@ An enabled error handler still receives control. A failed ordinary statement
 inside the body retains ordinary statement-skipping behavior. The detailed
 continuation and retry contract is in [error-handling.md](error-handling.md).
 
+Under the 2026-11-27 delegated implementation choice, failure in a While
+condition, For initial value/bound/step, For Each enumeration source, or
+SyncLock target/acquisition likewise skips that complete construct by default.
+An enabled handler still receives control; remaining header operands and the
+body are not evaluated and completed effects are retained. A lock that was not
+acquired is not released. Detailed explicit Resume targets beyond If/Do remain
+separate decisions in the error-handling contract.
+
 A `Do` loop has either one precondition after `Do`, one postcondition after
 `Loop`, or no condition; it never has both. `While` continues while true and
 `Until` continues while false. `On expression GoTo` and `On expression GoSub`

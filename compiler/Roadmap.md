@@ -123,7 +123,14 @@ and shared-state rules are in the development plan's concurrency requirement.
   captures. Independent O0/O2 numerical/failure gates, renewed self-host fixed
   point, common conformance and concurrent compilation pass. The scoped
   resource-growth changes and remaining limits are in `FLOATING-POINT.md`.
-  `Exit Loop` is specified separately and remains unimplemented.
+  `Exit Loop` is qualified: Do/While/counted For and focused O0/O2 execution
+  pass in both compiler paths; UBE also passes floating counters and focused
+  scalar/String/Variant/record/object For Each controls and exact enumeration
+  lease/root cleanup. Final self-host, common conformance, concurrency and
+  clause-by-clause acceptance pass on corrected compiler 68e264aa.
+  Scope and evidence: `LOOP-CONTROL.md`.
+  Class references and source SyncLock now pass focused native and exact
+  monitor-release controls, including recursive invocation isolation.
 - [~] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
   The admitted String/scalar/finite-aggregate profile is qualified; objects,

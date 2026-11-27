@@ -2,7 +2,7 @@
 <html lang="en" data-article-id="language.word.wend" data-doc-path="language/words/w/wend.html" data-doc-root="../../../">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wend — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
 <body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/w/wend.html" target="_top">Search</a></nav>
-<main id="content" class="article"><p class="breadcrumbs">UBE language help / Wend</p><section id="overview"><h1>Wend</h1><div class="metadata"><span class="badge status">Specified</span><span>Keyword</span></div>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Wend</p><section id="overview"><h1>Wend</h1><div class="metadata"><span class="badge status">Implemented</span><span>Keyword</span></div>
 
 
 
@@ -14,4 +14,13 @@ Wend</code></pre><dl><dt><code>condition</code></dt><dd>The Boolean expression t
     <p>Wend closes the nearest active While block.</p>
 
 
-  </section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../d/do.html">Do</a><a href="../l/loop.html">Loop</a><a href="while.html">While</a><a href="../u/until.html">Until</a><a href="../e/exit.html">Exit</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../v/version.html" data-doc-path="language/words/v/version.html">← Previous: Version</a><a href="../w/while.html" data-doc-path="language/words/w/while.html">Next: While →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>
+  </section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
+    Dim Count As Long
+    Dim Total As Long
+    Count = 3
+    While Count &gt; 0
+        Total = Total + Count
+        Count = Count - 1
+    Wend
+    Main = Total
+End Function</code></pre><p>Main returns 6.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../d/dim.html">Dim</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a><a href="../d/do.html">Do</a><a href="../l/loop.html">Loop</a><a href="while.html">While</a><a href="../u/until.html">Until</a><a href="../e/exit.html">Exit</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../v/version.html" data-doc-path="language/words/v/version.html">← Previous: Version</a><a href="../w/while.html" data-doc-path="language/words/w/while.html">Next: While →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

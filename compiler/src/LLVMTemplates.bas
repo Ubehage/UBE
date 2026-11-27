@@ -289,9 +289,47 @@ Public Const ManagedLayoutCallEnd As Long = 285
 Public Const HeapFrame As Long = 286
 Public Const ReleaseFrame As Long = 287
 Public Const StackFrame As Long = 288
-Public Const TemplateCount As Long = 288
-Public Const CatalogLength As Long = 41928
-Public Const CatalogByteSum As Long = 3337166
+Public Const VariantTag As Long = 289
+Public Const IntrinsicVariantTag As Long = 290
+Public Const VariantScalar As Long = 291
+Public Const VariantBoxValue As Long = 292
+Public Const VariantBoxReference As Long = 293
+Public Const VariantPayload As Long = 294
+Public Const VariantCreatePlainRecord As Long = 295
+Public Const VariantCreateRecord As Long = 296
+Public Const VariantPublish As Long = 297
+Public Const VariantMatchRecord As Long = 298
+Public Const AllocateVariantConversion As Long = 299
+Public Const StoreVariantConversion As Long = 300
+Public Const LoadVariantConversion As Long = 301
+Public Const LoadManagedExpression As Long = 302
+Public Const EnumerationLoad As Long = 303
+Public Const EnumerationStoreIndex As Long = 304
+Public Const EnumerationPayload As Long = 305
+Public Const EnumerationRoot As Long = 306
+Public Const EnumerationCapture As Long = 307
+Public Const EnumerationRelease As Long = 308
+Public Const ObjectDescriptor As Long = 309
+Public Const ObjectCreate As Long = 310
+Public Const ObjectPublish As Long = 311
+Public Const IntrinsicMonitorTryEnter As Long = 312
+Public Const IntrinsicMonitorLeave As Long = 313
+Public Const IntrinsicMonitorYield As Long = 314
+Public Const MonitorSlots As Long = 315
+Public Const MonitorCapture As Long = 316
+Public Const MonitorAcquire As Long = 317
+Public Const MonitorAcquired As Long = 318
+Public Const MonitorRelease As Long = 319
+Public Const ConstructState As Long = 320
+Public Const ConstructGuard As Long = 321
+Public Const VariantCreateObject As Long = 322
+Public Const VariantReference As Long = 323
+Public Const ObjectNominal As Long = 324
+Public Const VariantCreateObjectDynamic As Long = 325
+Public Const MonitorRequire As Long = 326
+Public Const TemplateCount As Long = 326
+Public Const CatalogLength As Long = 48582
+Public Const CatalogByteSum As Long = 3892537
 
 ' Returns one exact span without changing caller outputs for an unknown identity.
 Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Long) As Boolean
@@ -583,4 +621,42 @@ Public Function TrySpan(ByVal Id As Long, ByRef Start As Long, ByRef Count As Lo
     If Id = 286 Then Start = 40725: Count = 620: TrySpan = True: Exit Function
     If Id = 287 Then Start = 41345: Count = 55: TrySpan = True: Exit Function
     If Id = 288 Then Start = 41400: Count = 528: TrySpan = True: Exit Function
+    If Id = 289 Then Start = 41928: Count = 61: TrySpan = True: Exit Function
+    If Id = 290 Then Start = 41989: Count = 165: TrySpan = True: Exit Function
+    If Id = 291 Then Start = 42154: Count = 64: TrySpan = True: Exit Function
+    If Id = 292 Then Start = 42218: Count = 88: TrySpan = True: Exit Function
+    If Id = 293 Then Start = 42306: Count = 105: TrySpan = True: Exit Function
+    If Id = 294 Then Start = 42411: Count = 60: TrySpan = True: Exit Function
+    If Id = 295 Then Start = 42471: Count = 114: TrySpan = True: Exit Function
+    If Id = 296 Then Start = 42585: Count = 133: TrySpan = True: Exit Function
+    If Id = 297 Then Start = 42718: Count = 73: TrySpan = True: Exit Function
+    If Id = 298 Then Start = 42791: Count = 90: TrySpan = True: Exit Function
+    If Id = 299 Then Start = 42881: Count = 71: TrySpan = True: Exit Function
+    If Id = 300 Then Start = 42952: Count = 43: TrySpan = True: Exit Function
+    If Id = 301 Then Start = 42995: Count = 44: TrySpan = True: Exit Function
+    If Id = 302 Then Start = 43039: Count = 56: TrySpan = True: Exit Function
+    If Id = 303 Then Start = 43095: Count = 114: TrySpan = True: Exit Function
+    If Id = 304 Then Start = 43209: Count = 79: TrySpan = True: Exit Function
+    If Id = 305 Then Start = 43288: Count = 112: TrySpan = True: Exit Function
+    If Id = 306 Then Start = 43400: Count = 396: TrySpan = True: Exit Function
+    If Id = 307 Then Start = 43796: Count = 939: TrySpan = True: Exit Function
+    If Id = 308 Then Start = 44735: Count = 517: TrySpan = True: Exit Function
+    If Id = 309 Then Start = 45252: Count = 48: TrySpan = True: Exit Function
+    If Id = 310 Then Start = 45300: Count = 114: TrySpan = True: Exit Function
+    If Id = 311 Then Start = 45414: Count = 146: TrySpan = True: Exit Function
+    If Id = 312 Then Start = 45560: Count = 170: TrySpan = True: Exit Function
+    If Id = 313 Then Start = 45730: Count = 333: TrySpan = True: Exit Function
+    If Id = 314 Then Start = 46063: Count = 309: TrySpan = True: Exit Function
+    If Id = 315 Then Start = 46372: Count = 348: TrySpan = True: Exit Function
+    If Id = 316 Then Start = 46720: Count = 66: TrySpan = True: Exit Function
+    If Id = 317 Then Start = 46786: Count = 61: TrySpan = True: Exit Function
+    If Id = 318 Then Start = 46847: Count = 40: TrySpan = True: Exit Function
+    If Id = 319 Then Start = 46887: Count = 651: TrySpan = True: Exit Function
+    If Id = 320 Then Start = 47538: Count = 106: TrySpan = True: Exit Function
+    If Id = 321 Then Start = 47644: Count = 198: TrySpan = True: Exit Function
+    If Id = 322 Then Start = 47842: Count = 128: TrySpan = True: Exit Function
+    If Id = 323 Then Start = 47970: Count = 79: TrySpan = True: Exit Function
+    If Id = 324 Then Start = 48049: Count = 67: TrySpan = True: Exit Function
+    If Id = 325 Then Start = 48116: Count = 130: TrySpan = True: Exit Function
+    If Id = 326 Then Start = 48246: Count = 336: TrySpan = True: Exit Function
 End Function

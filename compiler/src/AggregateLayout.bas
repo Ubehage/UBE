@@ -66,7 +66,7 @@ Private Function LayoutRecord(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
     Field = A(Symbol - 1).FirstField
     Do While Field <> 0
         Cells = 1
-        If A(Field - 1).TypeSymbol <> 0 Then
+        If ManagedLayouts.IsRecordValue(A(Field - 1).TypeCode, A(Field - 1).TypeSymbol) Then
             If Not LayoutRecord(N, M, A, F, State, D, A(Field - 1).TypeSymbol, Depth + 1) Then Exit Function
             Cells = F(A(Field - 1).TypeSymbol - 1).StorageCells
         End If
@@ -75,8 +75,8 @@ Private Function LayoutRecord(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
         F(Field - 1).ElementCells = Cells
         F(Field - 1).StorageCells = Cells
         F(Field - 1).ManagedReferences = 0
-        If A(Field - 1).TypeCode = SyntaxTokens.KwString Then F(Field - 1).ManagedReferences = 1
-        If A(Field - 1).TypeSymbol <> 0 Then F(Field - 1).ManagedReferences = F(A(Field - 1).TypeSymbol - 1).ManagedReferences
+        If ManagedLayouts.IsManagedScalar(A(Field - 1).TypeCode) Then F(Field - 1).ManagedReferences = 1
+        If ManagedLayouts.IsRecordValue(A(Field - 1).TypeCode, A(Field - 1).TypeSymbol) Then F(Field - 1).ManagedReferences = F(A(Field - 1).TypeSymbol - 1).ManagedReferences
         Managed = Managed + F(Field - 1).ManagedReferences
         Count = Count + Cells
         Field = A(Field - 1).NextField
@@ -164,12 +164,12 @@ Private Function LayoutValues(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
         Node = A(Index).DeclarationNode
         If Kind <> SourceParser.TypeNode And Kind <> SourceParser.FieldNode Then
             Cells = 0
-            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or A(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IsNumeric(A(Index).TypeCode) Then Cells = 1
-            If A(Index).TypeSymbol <> 0 Then Cells = F(A(Index).TypeSymbol - 1).StorageCells
+            If A(Index).TypeCode = SyntaxTokens.KwBoolean Or ManagedLayouts.IsManagedScalar(A(Index).TypeCode) Or ConstantValues.IsNumeric(A(Index).TypeCode) Then Cells = 1
+            If ManagedLayouts.IsRecordValue(A(Index).TypeCode, A(Index).TypeSymbol) Then Cells = F(A(Index).TypeSymbol - 1).StorageCells
             F(Index).ElementCells = Cells
             F(Index).StorageCells = Cells
-            If A(Index).TypeCode = SyntaxTokens.KwString Then F(Index).ManagedReferences = 1
-            If A(Index).TypeSymbol <> 0 Then F(Index).ManagedReferences = F(A(Index).TypeSymbol - 1).ManagedReferences
+            If ManagedLayouts.IsManagedScalar(A(Index).TypeCode) Then F(Index).ManagedReferences = 1
+            If ManagedLayouts.IsRecordValue(A(Index).TypeCode, A(Index).TypeSymbol) Then F(Index).ManagedReferences = F(A(Index).TypeSymbol - 1).ManagedReferences
             If A(Index).ArrayRank <> 0 Then
                 If Kind = SourceParser.ParameterNode Then
                     F(Index).StorageCells = 0
@@ -209,12 +209,12 @@ Private Sub ProjectFacts(ByRef N() As SourceParser.SyntaxNode, ByRef C As Projec
             Candidate(Index) = SymbolFacts(Symbol - 1)
         Else
             Cells = 0
-            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or E(Index).TypeCode = SyntaxTokens.KwString Or ConstantValues.IsNumeric(E(Index).TypeCode) Then Cells = 1
-            If E(Index).TypeSymbol <> 0 Then Cells = SymbolFacts(E(Index).TypeSymbol - 1).StorageCells
+            If E(Index).TypeCode = SyntaxTokens.KwBoolean Or ManagedLayouts.IsManagedScalar(E(Index).TypeCode) Or ConstantValues.IsNumeric(E(Index).TypeCode) Then Cells = 1
+            If ManagedLayouts.IsRecordValue(E(Index).TypeCode, E(Index).TypeSymbol) Then Cells = SymbolFacts(E(Index).TypeSymbol - 1).StorageCells
             Candidate(Index).ElementCells = Cells
             Candidate(Index).StorageCells = Cells
-            If E(Index).TypeCode = SyntaxTokens.KwString Then Candidate(Index).ManagedReferences = 1
-            If E(Index).TypeSymbol <> 0 Then Candidate(Index).ManagedReferences = SymbolFacts(E(Index).TypeSymbol - 1).ManagedReferences
+            If ManagedLayouts.IsManagedScalar(E(Index).TypeCode) Then Candidate(Index).ManagedReferences = 1
+            If ManagedLayouts.IsRecordValue(E(Index).TypeCode, E(Index).TypeSymbol) Then Candidate(Index).ManagedReferences = SymbolFacts(E(Index).TypeSymbol - 1).ManagedReferences
             If E(Index).ArrayRank <> 0 Then Candidate(Index).StorageCells = 0
         End If
         Index = Index + 1
@@ -287,7 +287,11 @@ Public Function TryLayoutPrepared(ByRef Bytes() As Byte, ByRef Tokens() As Sourc
         Selected = Symbols(Index).TypeSymbol
         If Selected < 0 Or Selected > SymbolCount Then GoTo InvalidFacts
         If Selected > 0 Then
-            If Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Symbols(Index).TypeCode <> 0 Then GoTo InvalidFacts
+            If Symbols(Selected - 1).Kind = SourceParser.ClassNode Then
+                If Symbols(Index).TypeCode <> SyntaxTokens.KwObject Then GoTo InvalidFacts
+            ElseIf Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Symbols(Index).TypeCode <> 0 Then
+                GoTo InvalidFacts
+            End If
         End If
         Index = Index + 1
     Loop
@@ -298,7 +302,11 @@ Public Function TryLayoutPrepared(ByRef Bytes() As Byte, ByRef Tokens() As Sourc
         Selected = Expressions(Index).TypeSymbol
         If Selected < 0 Or Selected > SymbolCount Then GoTo InvalidFacts
         If Selected > 0 Then
-            If Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Expressions(Index).TypeCode <> 0 Then GoTo InvalidFacts
+            If Symbols(Selected - 1).Kind = SourceParser.ClassNode Then
+                If Expressions(Index).TypeCode <> SyntaxTokens.KwObject Then GoTo InvalidFacts
+            ElseIf Symbols(Selected - 1).Kind <> SourceParser.TypeNode Or Expressions(Index).TypeCode <> 0 Then
+                GoTo InvalidFacts
+            End If
         End If
         If Expressions(Index).ArrayRank < 0 Or Expressions(Index).ArrayRank > 1 Then GoTo InvalidFacts
         Index = Index + 1

@@ -31,10 +31,11 @@ is tracked separately. No executable conformance is claimed by this document.
 
 The following are still decisions, not accidental implementation defaults:
 
-1. Default resume targets for failures in compound control headers other than
-   If and Do, including For, Select Case and SyncLock. The owner approved
-   skipping the entire If/Do construct on a failed condition; an enabled handler
-   still receives control. A failed Boolean conversion is not False.
+1. Select Case header continuation and explicit Resume targets beyond If/Do.
+   Under the owner's delegated implementation choice on 2026-11-27, default
+   failure in While/For/For Each/SyncLock headers skips the complete construct;
+   enabled handlers still receive control. The selected rule is recorded in
+   `../lang-doc/error-handling.md`; executable qualification remains pending.
 2. Exact return/diagnostic behavior for event dispatch, raw native callbacks,
    UI-thread routing and module startup/finalization boundaries. Worker-entry
    completion and waiting were settled separately below.
@@ -162,7 +163,7 @@ Do not implement caller behavior merely by testing Err at procedure return.
 | Scalar assignment | Approved: store only after successful RHS evaluation and conversion; FAIL skips the commit. |
 | Invalid array write | Record failure; never modify an unrelated element or fabricate a valid index. |
 | If/Do condition | Skip the whole construct by default, including Until and post-test conditions; enabled handlers receive control. Never substitute False or zero. Resume retries the condition; Resume Next continues after the construct. |
-| Other compound control header | Define the precise default continuation target for For, Select Case and SyncLock. |
+| Other compound control header | While/For/For Each/SyncLock default failure skips the construct under the 2026-11-27 delegated choice; qualify execution. Select Case and additional explicit Resume targets remain open. |
 | Failed allocation/resize | Preserve the destination where the operation promises it; release only unpublished partial work. |
 | Two potential failures in one expression | Approved: the first failure abandons the statement; a later operand is not evaluated. Separate later statements may record newer errors. |
 | Error while already running a handler | Approved: a received FAIL skips the failed statement and continues silently in the handler; update Err but do not re-enter or automatically propagate. Explicit Err.Raise still exits its containing procedure. |

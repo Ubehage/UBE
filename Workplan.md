@@ -44,11 +44,18 @@ bootstrap may remain sequential. The concrete architecture requirement is in
   classic suffixes and shortest round-trip text are reflected in the definitions.
   Exact scope, commands, evidence and remaining limits are in
   `compiler/FLOATING-POINT.md` (2026-11-27).
-- [ ] Implement the owner-approved UBE 1.0 `Exit Loop` contract recorded in
+- [x] Implement the owner-approved UBE 1.0 `Exit Loop` contract recorded in
   language-spec.md section 9.1 and the EBNF. It exits the outermost enclosing
   loop of the current invocation, never caller/recursive-invocation loops.
   Mixed loop kinds, nested non-loop blocks, invalid placement and cleanup need
-  dedicated acceptance tests. This definition update does not claim execution.
+  dedicated acceptance tests. Both compiler paths now pass focused Do/While
+  and counted For O0/O2 execution and diagnostic gates. The UBE compiler now
+  passes hardened mixed-array For Each, invocation-isolation, exact enumeration
+  lease/root cleanup and structured lock-release gates. Final integrated
+  self-host/conformance/concurrency qualification passes on corrected compiler
+  68e264aa, with final focused controls and clause-by-clause acceptance recorded
+  in compiler/LOOP-CONTROL.md. Manual examples and structural/logic gates pass;
+  fresh browser rendering remains unverified due to automation access limits.
 
 ### Managed text qualification
 
@@ -284,8 +291,9 @@ Compiler acceptance criteria and the immediate handoff are in
   recorded in docs/ROADMAP.md. The latest offline archive passed extraction/hash
   and static checks (350 reader files plus unchanged LICENSE). All 766 displayed
   blocks have individual review/evidence records; exact block hashes agree.
-  Exit Loop is documented as specified, pending
-  implementation; its mixed-loop example is not execution-qualified.
+  At that documentation checkpoint Exit Loop was specified but unimplemented.
+  The active compiler increment above supersedes that status; its mixed-loop
+  and cleanup evidence is recorded in compiler/LOOP-CONTROL.md.
 - [ ] Complete example auditing/execution and browser, all-page rendering,
   keyboard, screen-reader and preference/offline acceptance. Headless Firefox
   checks work; native Firefox control is stopped by unsupported URL-policy

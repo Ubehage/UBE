@@ -7,13 +7,14 @@ Attribute ResizeValues.UBE_Primitive = "Array.TryResize"
 End Function
 
 ' A capsule's scalar slot holds the converted parameter value, never an unconverted source handle.
-Private Function CapturedText(ByRef E() As ExpressionBinder.BoundExpression, ByVal Node As Long) As Boolean
+Private Function CapturedManagedScalar(ByRef E() As ExpressionBinder.BoundExpression, ByVal Node As Long) As Boolean
     Dim TypeCode As Long
     On Error GoTo Failed
-    If E(Node - 1).ArgumentMode <> 1 Or E(Node - 1).ArrayRank <> 0 Or E(Node - 1).TypeSymbol <> 0 Then Exit Function
+    If E(Node - 1).ArgumentMode <> 1 Or E(Node - 1).ArrayRank <> 0 Then Exit Function
+    If ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then Exit Function
     TypeCode = E(Node - 1).ConvertedType
     If TypeCode = 0 Then TypeCode = E(Node - 1).TypeCode
-    CapturedText = TypeCode = SyntaxTokens.KwString
+    CapturedManagedScalar = ManagedLayouts.IsManagedScalar(TypeCode)
     Exit Function
 Failed:
     Err.Raise Err.Number
@@ -31,7 +32,7 @@ Private Function EmitCaptureLayout(ByRef N() As SourceParser.SyntaxNode, ByRef E
     On Error GoTo Failed
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0
-        If CapturedText(E, Argument) Then References = References + 1
+        If CapturedManagedScalar(E, Argument) Then References = References + 1
         If F(Argument - 1).NeedsOwner Then Owners = Owners + 1
         Count = Count + 1
         Argument = N(Argument - 1).NextSibling
@@ -39,7 +40,7 @@ Private Function EmitCaptureLayout(ByRef N() As SourceParser.SyntaxNode, ByRef E
     If Not Fragment(S, B, Token, Catalog, LLVMTemplates.ManagedCaptureOffsetsStart, Node, References) Then Exit Function
     Argument = N(N(Node - 1).FirstChild - 1).NextSibling
     Do While Argument <> 0
-        If CapturedText(E, Argument) Then
+        If CapturedManagedScalar(E, Argument) Then
             Written = Written + 1
             Template = LLVMTemplates.TextLiteralByte
             If Written = References Then Template = LLVMTemplates.TextLiteralLastByte
@@ -154,8 +155,8 @@ Public Function EmitStart(ByRef N() As SourceParser.SyntaxNode, ByRef E() As Exp
         Pointer = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Payload, Index + Index, 0) = False Then Exit Function
         Template = LLVMTemplates.StoreValue
-        If CapturedText(E, Argument) Then Template = LLVMTemplates.ManagedStoreValue
-        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.StorePointer
+        If CapturedManagedScalar(E, Argument) Then Template = LLVMTemplates.ManagedStoreValue
+        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.StorePointer
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
             Pointer = NativeEmission.NewValue(S)
@@ -231,7 +232,7 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
         Values(Index) = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CaptureAddress, Pointer, Index + Index, 0, 0) = False Then Exit Function
         Template = LLVMTemplates.LoadVolatileValue
-        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.LoadOwnerPointer
+        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.LoadOwnerPointer
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
             Pointer = NativeEmission.NewValue(S)
@@ -259,7 +260,7 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
         Do While Argument <> 0
             If NativeEmission.Charge(S) = False Then Exit Function
             Template = LLVMTemplates.CallValueArgument
-            If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or E(Argument - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.CallReferenceArgument
+            If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.CallReferenceArgument
             If Fragment(S, B, Token, Catalog, Template, Values(Index), 0) = False Then Exit Function
             If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
                 If Fragment(S, B, Token, Catalog, LLVMTemplates.CallReferenceArgument, Owners(Index), 0) = False Then Exit Function

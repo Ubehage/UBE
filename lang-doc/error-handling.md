@@ -93,8 +93,24 @@ When a handler is already running, the construct is skipped without reentering
 the handler or replacing its saved resume location.
 
 A failed ordinary statement within a loop body still skips only that statement.
-This decision does not settle the separate control boundaries of For, Select
-Case or SyncLock.
+The following header rule extends this behavior to the loop dependencies and
+structured locking. Select Case remains a separate decision.
+
+## Other loop and lock headers
+
+On 2026-11-27 the owner delegated the remaining implementation choices for the
+Exit Loop dependencies, requiring preservation of established definitions.
+The selected rule follows the existing If/Do behavior: fresh FAIL while
+evaluating a While condition, a For initial value/bound/step, a For Each
+enumeration source, or a SyncLock target/acquisition abandons that complete
+construct under default continuation. Remaining header operands and the body
+are not evaluated. Completed effects remain completed; no failed value is
+substituted. An enabled handler receives control under the existing handler
+rules. A lock that was not acquired must not be released.
+
+This is the semantic contract for implementation and tests, not evidence that
+these constructs have been implemented or qualified. Select Case and detailed
+Resume targets beyond the already approved If/Do cases remain open.
 
 ## Failure while a handler is running
 
@@ -144,7 +160,7 @@ applies; continuing with corrupt state is forbidden.
 This settles Err.Raise, fresh FAIL status, default statement continuation,
 caller label handling, assignment preservation and cleanup responsibility.
 Full Err member signatures, explicit Error statement equivalence,
-control-statement resume targets other than If and Do,
+explicit Resume targets other than If and Do,
 Try-style record-only APIs and remaining cross-thread/foreign lifecycle boundaries still
 require the detailed decisions listed in the project review. They must not
 silently weaken the approved behavior above.

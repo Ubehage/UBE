@@ -2,7 +2,7 @@
 <html lang="en" data-article-id="language.word.next" data-doc-path="language/words/n/next.html" data-doc-root="../../../">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Next — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
 <body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/n/next.html" target="_top">Search</a></nav>
-<main id="content" class="article"><p class="breadcrumbs">UBE language help / Next</p><section id="overview"><h1>Next</h1><div class="metadata"><span class="badge status">Specified</span><span>Keyword</span></div>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Next</p><section id="overview"><h1>Next</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
 
 
 
@@ -14,7 +14,14 @@ Next [counter]
 
 On Error Resume Next
 Resume Next</code></pre><dl><dt><code>counter</code></dt><dd>The assignable numeric loop variable.</dd><dt><code>first</code></dt><dd>The initial counter value.</dd><dt><code>last</code></dt><dd>The inclusive counter limit.</dd><dt><code>statements</code></dt><dd>The statements executed in this body.</dd></dl></section><section id="details"><h2>Details</h2>
-    <p>The name after Next is optional. If supplied, it must identify the active loop variable.</p>
+    <p>The name after Next is optional. If supplied, it must identify the active loop variable. A list such as Next inner, outer closes nested For loops in that order. For Each uses Next to advance through its retained array storage. Explicit Resume Next remains unimplemented.</p>
 
 
-  <p>In On Error Resume Next, Next selects continuation after a failed statement without clearing Err. Resume Next is used inside an active handler to continue after its failed statement and clear Err. Neither form advances a For loop.</p></section><section id="example"><h2>Example</h2><p>For-loop form:</p><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../f/for.html">For</a><a href="../e/each.html">Each</a><a href="../s/step.html">Step</a><a href="../r/resume.html">Resume</a><a href="../o/on.html">On</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/new.html" data-doc-path="language/words/n/new.html">← Previous: New</a><a href="../n/not.html" data-doc-path="language/words/n/not.html">Next: Not →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>
+  <p>In On Error Resume Next, Next selects continuation after a failed statement without clearing Err. Resume Next is used inside an active handler to continue after its failed statement and clear Err. Neither form advances a For loop.</p></section><section id="example"><h2>Example</h2><p>For-loop form:</p><pre><code>Public Function Main() As Long
+    Dim Index As Long
+    Dim Total As Long
+    For Index = 1 To 3
+        Total = Total + Index
+    Next Index
+    Main = Total
+End Function</code></pre><p>Main returns 6.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../d/dim.html">Dim</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a><a href="../f/for.html">For</a><a href="../e/each.html">Each</a><a href="../s/step.html">Step</a><a href="../r/resume.html">Resume</a><a href="../o/on.html">On</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/new.html" data-doc-path="language/words/n/new.html">← Previous: New</a><a href="../n/not.html" data-doc-path="language/words/n/not.html">Next: Not →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

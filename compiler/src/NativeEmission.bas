@@ -15,6 +15,12 @@ Public Type EmissionState
     CurrentNext As Long
     ResultSymbol As Long
     LoopExit As Long
+    WhileExit As Long
+    ForExit As Long
+    OutermostLoopExit As Long
+    LoopDepth As Long
+    FirstConstruct As Long
+    LastConstruct As Long
     FailureCount As Long
     CountedDepth As Boolean
     ErrorNode As Long
@@ -55,6 +61,12 @@ Public Sub BeginFunction(ByRef State As EmissionState, ByVal Symbol As Long, ByV
     State.CurrentNode = 0
     State.CurrentNext = 0
     State.LoopExit = 0
+    State.WhileExit = 0
+    State.ForExit = 0
+    State.OutermostLoopExit = 0
+    State.LoopDepth = 0
+    State.FirstConstruct = 0
+    State.LastConstruct = 0
     State.ValueNumber = 0
     State.BlockNumber = NodeCount
     State.FailureCount = 0
@@ -86,6 +98,10 @@ Public Function TryLine(ByRef State As EmissionState, ByRef Buffer() As Byte, By
     If Template = LLVMTemplates.ManagedTextSlots Then Cells = P0 + 4
     If Template = LLVMTemplates.ManagedSymbolRoot Or Template = LLVMTemplates.ManagedArraySymbolRoot Or Template = LLVMTemplates.ManagedTemporaryRoot Or Template = LLVMTemplates.ManagedArrayTemporaryRoot Then Cells = 4
     If Template = LLVMTemplates.ManagedLocalOwnerRoot Or Template = LLVMTemplates.ManagedTemporaryOwnerRoot Or Template = LLVMTemplates.ManagedPinRoot Then Cells = 4
+    If Template = LLVMTemplates.EnumerationRoot Then Cells = 4
+    If Template = LLVMTemplates.MonitorSlots Then Cells = 6
+    If Template = LLVMTemplates.ConstructState Then Cells = 1
+    If Template = LLVMTemplates.AllocateVariantConversion Then Cells = 1
     If Template = LLVMTemplates.ManagedIncomingOwnerRoot Then Cells = 5
     If Template = LLVMTemplates.ManagedTemporaryTable Then Cells = P0
     If Cells <> 0 Then

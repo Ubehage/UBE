@@ -58,13 +58,22 @@ Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As 
     End If
     Header = NativeEmission.NewBlock(S)
     BodyEntry = SequenceEntry(N, Body, Header)
-    PreviousExit = S.LoopExit
-    S.LoopExit = Continuation
+    If N(Node - 1).Kind = SourceParser.WhileNode Then
+        PreviousExit = S.WhileExit
+        S.WhileExit = Continuation
+    Else
+        PreviousExit = S.LoopExit
+        S.LoopExit = Continuation
+    End If
+    ' A zero continuation is a valid procedure return, not an absent loop.
+    If S.LoopDepth = 0 Then S.OutermostLoopExit = Continuation
+    S.LoopDepth = S.LoopDepth + 1
     Value = BodyEntry
     If Mode = 1 Or Mode = 2 Then Value = Header
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Value, 0, 0, 0) = False Then Exit Function
     If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Body, Header) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Header, 0, 0, 0) = False Then Exit Function
+    If Not NativeFrames.TryLeaveConstructs(N, E, S, B, Token, Catalog, Node, True, False) Then Exit Function
     S.CurrentNode = Node
     S.ErrorNode = Node
     S.CurrentNext = Continuation
@@ -85,8 +94,264 @@ Private Function TryEmitLoop(ByRef N() As SourceParser.SyntaxNode, ByRef A() As 
     Else
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, BodyEntry, 0, 0, 0) = False Then Exit Function
     End If
-    S.LoopExit = PreviousExit
+    If N(Node - 1).Kind = SourceParser.WhileNode Then
+        S.WhileExit = PreviousExit
+    Else
+        S.LoopExit = PreviousExit
+    End If
+    S.LoopDepth = S.LoopDepth - 1
     TryEmitLoop = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Compares already converted loop operands without changing their numeric family.
+Private Function CompareLoop(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal LeftValue As Long, ByVal RightValue As Long, ByVal TypeCode As Long, ByVal LessEqual As Boolean) As Long
+    Dim Operator As Long = SyntaxTokens.SymGreaterEqual
+    Dim Template As Long = LLVMTemplates.CompareGreaterEqual
+    Dim Result As Long
+    If LessEqual Then Operator = SyntaxTokens.SymLessEqual: Template = LLVMTemplates.CompareLessEqual
+    If ConstantValues.IsFloating(TypeCode) Then
+        CompareLoop = NativeValues.FloatingCompare(S, B, Token, Catalog, LeftValue, RightValue, TypeCode, Operator)
+        Exit Function
+    End If
+    Result = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Result, LeftValue, RightValue, 0) Then Exit Function
+    CompareLoop = Result
+End Function
+
+' Reads one cell from invocation-owned enumeration state without carrying SSA addresses across branches.
+Private Function EnumerationValue(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long, ByVal Cell As Long) As Long
+    Dim Value As Long
+    Value = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationLoad, Value, Node, Cell, 0) Then Exit Function
+    EnumerationValue = Value
+End Function
+
+' Retains the evaluated array storage, not a copy of its elements, until the construct is left.
+Private Function TryEmitEach(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
+    Dim Target As Long
+    Dim Collection As Long
+    Dim Body As Long
+    Dim Header As Long
+    Dim Increment As Long
+    Dim Advance As Long
+    Dim Assign As Long
+    Dim BodyEntry As Long
+    Dim PreviousExit As Long
+    Dim Address As Long
+    Dim Index As Long
+    Dim Limit As Long
+    Dim Lower As Long
+    Dim Value As Long
+    Dim One As Long
+    Dim Test As Long
+    Dim Pointer As Long
+    Dim Data As Long
+    Dim Offset As Long
+    Dim Relative As Long
+    Dim Template As Long
+    Dim Terminated As Boolean
+    On Error GoTo Failed
+    Target = N(Node - 1).FirstChild
+    Collection = N(Target - 1).NextSibling
+    Body = N(Collection - 1).NextSibling
+    Header = NativeEmission.NewBlock(S)
+    Increment = NativeEmission.NewBlock(S)
+    Advance = NativeEmission.NewBlock(S)
+    Assign = NativeEmission.NewBlock(S)
+    BodyEntry = SequenceEntry(N, Body, Increment)
+    PreviousExit = S.ForExit
+    S.ForExit = Continuation
+    If S.LoopDepth = 0 Then S.OutermostLoopExit = Continuation
+    S.LoopDepth = S.LoopDepth + 1
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Collection, Terminated)
+    If Address = 0 Or Terminated Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationCapture, Node, Address, 0, 0) Then Exit Function
+    If Not NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Header, 0, 0, 0) Then Exit Function
+    If Not TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Body, Increment) Then Exit Function
+    S.CurrentNode = Node
+    S.ErrorNode = Node
+    S.CurrentNext = Continuation
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Increment, 0, 0, 0) Then Exit Function
+    If Not NativeFrames.TryLeaveConstructs(N, E, S, B, Token, Catalog, Node, True, False) Then Exit Function
+    Index = EnumerationValue(S, B, Token, Catalog, Node, 4)
+    Limit = EnumerationValue(S, B, Token, Catalog, Node, 1)
+    Test = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareGreaterEqual, Test, Index, Limit, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, Continuation, Advance, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Advance, 0, 0, 0) Then Exit Function
+    One = NativeEmission.Literal(S, B, Token, Catalog, -1)
+    Value = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.RelativeIndex, Value, Index, One, 0) Then Exit Function
+    Pointer = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationStoreIndex, Pointer, Node, Value, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Header, 0, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Header, 0, 0, 0) Then Exit Function
+    If Not NativeFrames.TryLeaveConstructs(N, E, S, B, Token, Catalog, Node, True, False) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) Then Exit Function
+    If Not NativeFrames.TryRetireTemporaries(P, S, B, Token, Catalog) Then Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
+    Index = EnumerationValue(S, B, Token, Catalog, Node, 4)
+    Limit = EnumerationValue(S, B, Token, Catalog, Node, 1)
+    Test = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareLessEqual, Test, Index, Limit, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, Assign, Continuation, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Assign, 0, 0, 0) Then Exit Function
+    Lower = EnumerationValue(S, B, Token, Catalog, Node, 0)
+    Relative = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.RelativeIndex, Relative, Index, Lower, 0) Then Exit Function
+    Offset = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ElementOffset, Offset, Relative, L(Collection - 1).ElementCells, 0) Then Exit Function
+    Data = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationPayload, Data, Node, 0, 0) Then Exit Function
+    Address = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.IndexedAddress, Address, Data, Offset, 0) Then Exit Function
+    If ManagedLayouts.IsRecordValue(E(Collection - 1).TypeCode, E(Collection - 1).TypeSymbol) Then
+        Value = NativeStorage.BoxRecord(A, L, S, B, Token, Catalog, Seen, Nexts, Target, Address, E(Collection - 1).TypeSymbol)
+    Else
+        Value = NativeEmission.NewValue(S)
+        Template = LLVMTemplates.LoadValue
+        If ManagedLayouts.IsManagedScalar(E(Collection - 1).TypeCode) Then Template = LLVMTemplates.TextRootLoad
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Address, Target, 0) Then Exit Function
+        If E(Collection - 1).TypeCode = SyntaxTokens.KwObject Then
+            Value = NativeStorage.BoxReference(S, B, Token, Catalog, Seen, Nexts, Target, Value, E(Collection - 1).TypeSymbol)
+        Else
+            Value = NativeText.ConvertVariant(A, S, B, Token, Catalog, Seen, Nexts, Target, Value, E(Collection - 1).TypeCode, SyntaxTokens.KwVariant)
+        End If
+    End If
+    If Value = 0 Then Exit Function
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
+    If Address = 0 Or Terminated Then Exit Function
+    If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Address, Value, SyntaxTokens.KwVariant) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, BodyEntry, 0, 0, 0) Then Exit Function
+    S.ForExit = PreviousExit
+    S.LoopDepth = S.LoopDepth - 1
+    TryEmitEach = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Bounds and steps live in the checked invocation frame, surviving body calls and recursion.
+Private Function TryEmitFor(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Continuation As Long) As Boolean
+    Dim Target As Long
+    Dim Initial As Long
+    Dim Limit As Long
+    Dim StepNode As Long
+    Dim Body As Long
+    Dim TypeCode As Long
+    Dim ArithmeticType As Long
+    Dim Address As Long
+    Dim Slots As Long
+    Dim StepAddress As Long
+    Dim InitialValue As Long
+    Dim LimitValue As Long
+    Dim StepValue As Long
+    Dim Value As Long
+    Dim Zero As Long
+    Dim Test As Long
+    Dim Header As Long
+    Dim Increment As Long
+    Dim Ascending As Long
+    Dim Descending As Long
+    Dim BodyEntry As Long
+    Dim PreviousExit As Long
+    Dim Terminated As Boolean
+    On Error GoTo Failed
+    Target = N(Node - 1).FirstChild
+    Initial = N(Target - 1).NextSibling
+    Limit = N(Initial - 1).NextSibling
+    Body = N(Limit - 1).NextSibling
+    If N(Node - 1).Value <> 0 Then StepNode = Body: Body = N(Body - 1).NextSibling
+    TypeCode = E(Node - 1).TypeCode
+    ArithmeticType = TypeCode
+    If TypeCode = SyntaxTokens.KwByte Then ArithmeticType = SyntaxTokens.KwInteger
+    Header = NativeEmission.NewBlock(S)
+    Increment = NativeEmission.NewBlock(S)
+    Ascending = NativeEmission.NewBlock(S)
+    Descending = NativeEmission.NewBlock(S)
+    BodyEntry = SequenceEntry(N, Body, Increment)
+    PreviousExit = S.ForExit
+    S.ForExit = Continuation
+    If S.LoopDepth = 0 Then S.OutermostLoopExit = Continuation
+    S.LoopDepth = S.LoopDepth + 1
+    Slots = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+    StepAddress = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, StepAddress, Slots, 1, 0) Then Exit Function
+    InitialValue = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Initial, TypeCode, Terminated)
+    If Not Terminated Then LimitValue = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Limit, TypeCode, Terminated)
+    If Not Terminated Then
+        If StepNode <> 0 Then
+            StepValue = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, StepNode, TypeCode, Terminated)
+        Else
+            StepValue = NativeEmission.Literal(S, B, Token, Catalog, 1)
+            StepValue = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, StepValue, SyntaxTokens.KwLong, TypeCode)
+        End If
+    End If
+    If S.Text.Failed Then Exit Function
+    If Not Terminated Then
+        Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
+        If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Address, InitialValue, TypeCode) Then Exit Function
+        If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Slots, LimitValue, TypeCode) Then Exit Function
+        If Not NativeStorage.StoreScalar(S, B, Token, Catalog, StepAddress, StepValue, TypeCode) Then Exit Function
+        If Not NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Header, 0, 0, 0) Then Exit Function
+    End If
+    If Not TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Body, Increment) Then Exit Function
+    S.CurrentNode = Node
+    S.ErrorNode = Node
+    S.CurrentNext = Continuation
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Increment, 0, 0, 0) Then Exit Function
+    If Not NativeFrames.TryLeaveConstructs(N, E, S, B, Token, Catalog, Node, True, False) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) Then Exit Function
+    If Not NativeFrames.TryRetireTemporaries(P, S, B, Token, Catalog) Then Exit Function
+    If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
+    ' Re-materialize addresses here so arbitrary source branches cannot bypass SSA definitions.
+    Slots = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+    StepAddress = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, StepAddress, Slots, 1, 0) Then Exit Function
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
+    Value = NativeEmission.NewValue(S)
+    StepValue = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Value, Address, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, StepValue, StepAddress, 0, 0) Then Exit Function
+    Value = NativeValues.CheckedArithmetic(S, B, Token, Catalog, Seen, Nexts, Value, StepValue, ArithmeticType, False)
+    Value = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, Value, ArithmeticType, TypeCode)
+    If S.Text.Failed Then Exit Function
+    If Not NativeStorage.StoreScalar(S, B, Token, Catalog, Address, Value, TypeCode) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Header, 0, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Header, 0, 0, 0) Then Exit Function
+    Slots = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+    StepAddress = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, StepAddress, Slots, 1, 0) Then Exit Function
+    Address = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Target, Terminated)
+    Value = NativeEmission.NewValue(S)
+    StepValue = NativeEmission.NewValue(S)
+    LimitValue = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, Value, Address, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, StepValue, StepAddress, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadValue, LimitValue, Slots, 0, 0) Then Exit Function
+    Zero = NativeEmission.Literal(S, B, Token, Catalog, 0)
+    Test = CompareLoop(S, B, Token, Catalog, StepValue, Zero, TypeCode, False)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, Ascending, Descending, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Ascending, 0, 0, 0) Then Exit Function
+    Test = CompareLoop(S, B, Token, Catalog, Value, LimitValue, TypeCode, True)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, BodyEntry, Continuation, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Descending, 0, 0, 0) Then Exit Function
+    Test = CompareLoop(S, B, Token, Catalog, Value, LimitValue, TypeCode, False)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, BodyEntry, Continuation, 0) Then Exit Function
+    S.ForExit = PreviousExit
+    S.LoopDepth = S.LoopDepth - 1
+    TryEmitFor = True
     Exit Function
 Failed:
     S.Text.Failed = True
@@ -135,8 +400,14 @@ Private Function TryEmitAssignment(ByRef N() As SourceParser.SyntaxNode, ByRef A
         End If
     End If
     If ValueNode <> 0 And Terminated = False Then
-        If E(Target - 1).ArrayRank <> 0 Or E(Target - 1).TypeSymbol <> 0 Then
-            SourceAddress = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ValueNode, Terminated)
+        If E(Target - 1).ArrayRank <> 0 Or ManagedLayouts.IsRecordValue(E(Target - 1).TypeCode, E(Target - 1).TypeSymbol) Then
+            If E(ValueNode - 1).TypeCode = SyntaxTokens.KwVariant And E(ValueNode - 1).ArrayRank = 0 Then
+                Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ValueNode, Terminated)
+                If Value = 0 Or Terminated Then Exit Function
+                SourceAddress = NativeStorage.VariantRecordAddress(A, L, S, B, Token, Catalog, Seen, Nexts, Value, E(Target - 1).TypeSymbol)
+            Else
+                SourceAddress = NativeStorage.EmitAddress(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ValueNode, Terminated)
+            End If
             If S.Text.Failed Then Exit Function
             If Terminated = False Then
                 If E(Target - 1).ArrayRank = 1 Then
@@ -190,6 +461,7 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
     Kind = N(Node - 1).Kind
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.SourceLocation, S.CurrentModule, Node, N(Node - 1).Line, N(Node - 1).Column) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Node, 0, 0, 0) = False Then Exit Function
+    If Not NativeFrames.TryLeaveConstructs(N, E, S, B, Token, Catalog, Node, False, False) Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ControlSite, Node, 0, 0, 0) = False Then Exit Function
     If Not NativeFrames.TryRetireTemporaries(P, S, B, Token, Catalog) Then Exit Function
     If Not NativeEmission.Safepoint(S, B, Token, Catalog) Then Exit Function
@@ -204,6 +476,12 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
             Target = A(E(Node - 1).SymbolIndex - 1).DeclarationNode
         ElseIf N(Node - 1).Value = SyntaxTokens.KwDo Then
             Target = S.LoopExit
+        ElseIf N(Node - 1).Value = SyntaxTokens.KwWhile Then
+            Target = S.WhileExit
+        ElseIf N(Node - 1).Value = SyntaxTokens.KwFor Then
+            Target = S.ForExit
+        ElseIf N(Node - 1).Value = SyntaxTokens.KwLoop Then
+            Target = S.OutermostLoopExit
         End If
         If NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) = False Then Exit Function
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Target, 0, 0, 0) = False Then Exit Function
@@ -227,8 +505,33 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
         If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ThenNode, Continuation) = False Then Exit Function
         If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ElseNode, Continuation) = False Then Exit Function
         Terminated = True
-    ElseIf Kind = SourceParser.DoNode Then
+    ElseIf Kind = SourceParser.SyncLockNode Then
+        Child = N(Node - 1).FirstChild
+        ThenNode = N(Child - 1).NextSibling
+        Value = NativeExpressions.EmitExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, Terminated)
+        If S.Text.Failed Then Exit Function
+        If Not Terminated Then
+            If S.ManagedRoles.MonitorEnterSymbol = 0 Then S.Text.Failed = True: Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorCapture, Node, Value, 0, 0) Then Exit Function
+            Test = NativeEmission.NewValue(S)
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorAcquire, Test, S.ManagedRoles.MonitorEnterSymbol, Value, 0) Then Exit Function
+            If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Test) Then Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorAcquired, Node, 0, 0, 0) Then Exit Function
+            If Not NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) Then Exit Function
+            ThenEntry = SequenceEntry(N, ThenNode, Continuation)
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, ThenEntry, 0, 0, 0) Then Exit Function
+        End If
+        If Not TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ThenNode, Continuation) Then Exit Function
+        Terminated = True
+    ElseIf Kind = SourceParser.DoNode Or Kind = SourceParser.WhileNode Then
         If TryEmitLoop(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Continuation) = False Then Exit Function
+        Terminated = True
+    ElseIf Kind = SourceParser.ForNode Then
+        If N(Node - 1).Value = 2 Then
+            If Not TryEmitEach(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Continuation) Then Exit Function
+        Else
+            If Not TryEmitFor(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Node, Continuation) Then Exit Function
+        End If
         Terminated = True
     ElseIf Kind <> SourceParser.ConstantNode And Kind <> SourceParser.LabelNode Then
         S.Text.Failed = True

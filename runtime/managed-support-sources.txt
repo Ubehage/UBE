@@ -13,3 +13,5 @@ std-lib/src/portable/BinaryFloatValues.bas
 std-lib/src/portable/BinaryFloatText.bas
 std-lib/src/portable/BinaryFloatPower.bas
 std-lib/src/portable/FilePrimitives.bas
+std-lib/src/portable/ObjectPrimitives.bas
+std-lib/src/portable/MonitorSupport.bas

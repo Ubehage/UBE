@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 230936
-Private Const RuntimeByteSum As Long = 18813585
+Private Const RuntimeLength As Long = 252654
+Private Const RuntimeByteSum As Long = 20564321
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -213,7 +213,7 @@ Public Function TryEmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Sym
     Symbol = FirstSymbol
     Do While Symbol <= LastSymbol
         If NativeEmission.Charge(State) = False Then GoTo Rejected
-        If Symbols(Symbol - 1).Kind = SourceParser.ModuleNode Then
+        If Symbols(Symbol - 1).Kind = SourceParser.ModuleNode Or Symbols(Symbol - 1).Kind = SourceParser.ClassNode Then
             If NativeFrames.TryModuleStart(Nodes, Symbols, Expressions, Layouts, Plans, Escapes, State, Buffer, Token, Catalog, Symbol, NodeCount, Node) = False Then GoTo Rejected
             Do While Node <> 0
                 NextNode = Nodes(Node - 1).NextSibling

@@ -21,6 +21,10 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal 
             Stride = 0
             LayoutSymbol = 0
             If Role = PrimitiveRoles.MemoryCollect Then Template = LLVMTemplates.IntrinsicMemoryCollect
+            If Role = PrimitiveRoles.VariantTag Then Template = LLVMTemplates.IntrinsicVariantTag
+            If Role = PrimitiveRoles.ObjectMonitorTryEnter Then Template = LLVMTemplates.IntrinsicMonitorTryEnter
+            If Role = PrimitiveRoles.ObjectMonitorLeave Then Template = LLVMTemplates.IntrinsicMonitorLeave
+            If Role = PrimitiveRoles.ObjectMonitorYield Then Template = LLVMTemplates.IntrinsicMonitorYield
             If Role = PrimitiveRoles.ManagedWorkspace Then Template = LLVMTemplates.IntrinsicManagedWorkspace
             If Role = PrimitiveRoles.ArrayLength Then Template = LLVMTemplates.IntrinsicArrayLength
             If Role = PrimitiveRoles.MemoryCopyBytes Then Template = LLVMTemplates.IntrinsicMemoryCopyBytes

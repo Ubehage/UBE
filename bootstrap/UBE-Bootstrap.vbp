@@ -11,6 +11,7 @@ Module=NativeFileRuntime; src\NativeFileRuntime.bas
 Module=NativeProcessRuntime; src\NativeProcessRuntime.bas
 Module=NativeThreadRuntime; ..\runtime\bootstrap\NativeThreadRuntime.bas
 Module=NativeManagedRuntime; ..\runtime\bootstrap\NativeManagedRuntime.bas
+Module=NativeObjectRuntime; ..\runtime\bootstrap\NativeObjectRuntime.bas
 Module=NativeBackend; src\NativeBackend.bas
 Startup="Sub Main"
 Name="UBEBootstrap"

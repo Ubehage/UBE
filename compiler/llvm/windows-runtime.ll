@@ -3239,7 +3239,7 @@ failed:
 }
 %ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }
 %ube.managed.array = type { i64, ptr }
-%ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64 }
+%ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64, ptr }
 %ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64 }
 @ube.managed.next = internal global i64 1
 
@@ -3701,11 +3701,12 @@ bad:
   store atomic i64 5, ptr %ctx monotonic, align 8
   ret ptr null
 }
-define internal ptr @ube.text.candidate(ptr %ctx, i64 %identity) {
+define internal ptr @ube.managed.candidate(ptr %ctx, i64 %identity) {
 entry:
-  %record = call ptr @ube.text.find(ptr %ctx, i64 %identity)
+  %state = call ptr @ube.managed.state(ptr %ctx)
+  %record = call ptr @ube.managed.find(ptr %state, i64 %identity)
   %exists = icmp ne ptr %record, null
-  br i1 %exists, label %owner, label %failed
+  br i1 %exists, label %owner, label %bad
 owner:
   %thread.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 10
   %thread = load ptr, ptr %thread.ptr, align 8
@@ -3723,7 +3724,18 @@ bad:
 failed:
   ret ptr null
 }
-define internal void @ube.text.unlink(ptr %ctx, ptr %record) {
+define internal ptr @ube.text.candidate(ptr %ctx, i64 %identity) {
+entry:
+  %record = call ptr @ube.text.find(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %candidate, label %failed
+candidate:
+  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)
+  ret ptr %owned
+failed:
+  ret ptr null
+}
+define internal void @ube.managed.unlink(ptr %ctx, ptr %record) {
 entry:
   %head = getelementptr %ube.thread, ptr %ctx, i32 0, i32 5
   br label %scan
@@ -3900,6 +3912,19 @@ zero:
   store i64 0, ptr %output, align 8
   ret i1 true
 owner:
+  %created = call i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 %scalars, i64 1, ptr %output)
+  ret i1 %created
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  ret i1 false
+}
+define internal i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 %scalars, i64 %kind, ptr %output) {
+entry:
+  %positive = icmp sgt i64 %bytes, 0
+  %kind.valid = icmp sgt i64 %kind, 0
+  %valid = and i1 %positive, %kind.valid
+  br i1 %valid, label %owner, label %bad
+owner:
   %state = call ptr @ube.managed.state(ptr %ctx)
   %ready = icmp ne ptr %state, null
   %frame.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 4
@@ -3945,7 +3970,7 @@ initialize:
   store i64 %scalars, ptr %scalars.ptr, align 8
   store ptr %payload, ptr %payload.ptr, align 8
   store ptr %ctx, ptr %thread.ptr, align 8
-  store i64 1, ptr %kind.ptr, align 8
+  store i64 %kind, ptr %kind.ptr, align 8
   %registered = call i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record)
   br i1 %registered, label %candidate, label %discard
 candidate:
@@ -4001,7 +4026,7 @@ find:
   br i1 %exists, label %commit, label %failed
 commit:
   call void @ube.managed.store(ptr %ctx, ptr %destination, i64 %identity)
-  call void @ube.text.unlink(ptr %ctx, ptr %record)
+  call void @ube.managed.unlink(ptr %ctx, ptr %record)
   ret i1 true
 zero:
   call void @ube.managed.store(ptr %ctx, ptr %destination, i64 0)
@@ -4018,10 +4043,306 @@ find:
   %exists = icmp ne ptr %record, null
   br i1 %exists, label %unlink, label %failed
 unlink:
-  call void @ube.text.unlink(ptr %ctx, ptr %record)
+  call void @ube.managed.unlink(ptr %ctx, ptr %record)
   br label %done
 done:
   ret i1 true
+failed:
+  ret i1 false
+}
+; Variant payload headers are immutable; exact layout metadata describes only data.
+define internal ptr @ube.variant.find(ptr %ctx, i64 %identity) {
+entry:
+  %state = call ptr @ube.managed.state(ptr %ctx)
+  %record = call ptr @ube.managed.find(ptr %state, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %kind, label %bad
+kind:
+  %kind.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 11
+  %kind.value = load i64, ptr %kind.ptr, align 8
+  %variant = icmp eq i64 %kind.value, 2
+  br i1 %variant, label %done, label %bad
+done:
+  ret ptr %record
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  ret ptr null
+}
+define ptr @ube.variant.payload(ptr %ctx, i64 %identity) {
+entry:
+  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %read, label %failed
+read:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %data = load ptr, ptr %data.ptr, align 8
+  ret ptr %data
+failed:
+  ret ptr null
+}
+define i1 @ube.variant.create(ptr %ctx, i64 %tag, i64 %nominal, i64 %rank, i64 %cells, ptr %layout, ptr %cleanup, ptr %output) {
+entry:
+  %positive = icmp sgt i64 %tag, 0
+  %tag.bounded = icmp ult i64 %tag, 16384
+  %nominal.valid = icmp sge i64 %nominal, 0
+  %rank.valid = icmp sge i64 %rank, 0
+  %a = and i1 %positive, %tag.bounded
+  %b = and i1 %nominal.valid, %rank.valid
+  %valid = and i1 %a, %b
+  br i1 %valid, label %extent, label %bad
+extent:
+  %fits = icmp ule i64 %cells, 1152921504606846971
+  br i1 %fits, label %allocate, label %memory
+allocate:
+  %payload.bytes = mul i64 %cells, 8
+  %bytes = add i64 %payload.bytes, 32
+  %allocated = call i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 0, i64 2, ptr %output)
+  br i1 %allocated, label %initialize, label %failed
+initialize:
+  %identity = load i64, ptr %output, align 8
+  %record = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %header = load ptr, ptr %data.ptr, align 8
+  %nominal.ptr = getelementptr i64, ptr %header, i64 1
+  %rank.ptr = getelementptr i64, ptr %header, i64 2
+  %cells.ptr = getelementptr i64, ptr %header, i64 3
+  %data = getelementptr i64, ptr %header, i64 4
+  store i64 %tag, ptr %header, align 8
+  store i64 %nominal, ptr %nominal.ptr, align 8
+  store i64 %rank, ptr %rank.ptr, align 8
+  store i64 %cells, ptr %cells.ptr, align 8
+  store ptr %data, ptr %data.ptr, align 8
+  %layout.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 7
+  %repeat.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 8
+  %cleanup.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 12
+  store ptr %layout, ptr %layout.ptr, align 8
+  %has.layout = icmp ne ptr %layout, null
+  %repeat = select i1 %has.layout, i64 1, i64 0
+  store i64 %repeat, ptr %repeat.ptr, align 8
+  store ptr %cleanup, ptr %cleanup.ptr, align 8
+  ret i1 true
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  ret i1 false
+memory:
+  store atomic i64 7, ptr %ctx monotonic, align 8
+  ret i1 false
+failed:
+  ret i1 false
+}
+define i1 @ube.variant.info(ptr %ctx, i64 %identity, ptr %tag.out, ptr %nominal.out, ptr %rank.out, ptr %cells.out) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %read
+read:
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  %valid = icmp ne ptr %data, null
+  br i1 %valid, label %header, label %failed
+header:
+  %tag.ptr = getelementptr i64, ptr %data, i64 -4
+  %nominal.ptr = getelementptr i64, ptr %data, i64 -3
+  %rank.ptr = getelementptr i64, ptr %data, i64 -2
+  %cells.ptr = getelementptr i64, ptr %data, i64 -1
+  %tag.value = load i64, ptr %tag.ptr, align 8
+  %nominal.value = load i64, ptr %nominal.ptr, align 8
+  %rank.value = load i64, ptr %rank.ptr, align 8
+  %cells.value = load i64, ptr %cells.ptr, align 8
+  br label %commit
+zero:
+  br label %commit
+commit:
+  %tag = phi i64 [0, %zero], [%tag.value, %header]
+  %nominal = phi i64 [0, %zero], [%nominal.value, %header]
+  %rank = phi i64 [0, %zero], [%rank.value, %header]
+  %cells = phi i64 [0, %zero], [%cells.value, %header]
+  store i64 %tag, ptr %tag.out, align 8
+  store i64 %nominal, ptr %nominal.out, align 8
+  store i64 %rank, ptr %rank.out, align 8
+  store i64 %cells, ptr %cells.out, align 8
+  ret i1 true
+failed:
+  ret i1 false
+}
+define {i1,i64} @ube.variant.tag(ptr %ctx, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %read
+read:
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  %valid = icmp ne ptr %data, null
+  br i1 %valid, label %header, label %failed
+header:
+  %tag.ptr = getelementptr i64, ptr %data, i64 -4
+  %tag = load i64, ptr %tag.ptr, align 8
+  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %tag, 1
+  ret {i1,i64} %result
+zero:
+  ret {i1,i64} {i1 true,i64 0}
+failed:
+  ret {i1,i64} {i1 false,i64 0}
+}
+define {i1,i64} @ube.variant.scalar(ptr %ctx, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %read
+read:
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  %valid = icmp ne ptr %data, null
+  br i1 %valid, label %header, label %failed
+header:
+  %tag.ptr = getelementptr i64, ptr %data, i64 -4
+  %rank.ptr = getelementptr i64, ptr %data, i64 -2
+  %cells.ptr = getelementptr i64, ptr %data, i64 -1
+  %tag = load i64, ptr %tag.ptr, align 8
+  %rank = load i64, ptr %rank.ptr, align 8
+  %cells = load i64, ptr %cells.ptr, align 8
+  %one = icmp eq i64 %cells, 1
+  %not.array = icmp eq i64 %rank, 0
+  %simple = icmp ult i64 %tag, 36
+  %not.null = icmp ne i64 %tag, 1
+  %a = and i1 %one, %not.array
+  %b = and i1 %simple, %not.null
+  %scalar = and i1 %a, %b
+  br i1 %scalar, label %payload, label %mismatch
+payload:
+  %value = load i64, ptr %data, align 8
+  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %value, 1
+  ret {i1,i64} %result
+zero:
+  ret {i1,i64} {i1 true,i64 0}
+mismatch:
+  store atomic i64 13, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret {i1,i64} {i1 false,i64 0}
+}
+define i1 @ube.variant.publish(ptr %ctx, ptr %destination, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %find
+find:
+  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %candidate, label %failed
+candidate:
+  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)
+  %private = icmp ne ptr %owned, null
+  br i1 %private, label %commit, label %failed
+commit:
+  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 %identity)
+  call void @ube.managed.unlink(ptr %ctx, ptr %record)
+  ret i1 true
+zero:
+  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 0)
+  ret i1 true
+failed:
+  ret i1 false
+}
+define i1 @ube.variant.abandon(ptr %ctx, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %done, label %find
+find:
+  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %candidate, label %failed
+candidate:
+  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)
+  %private = icmp ne ptr %owned, null
+  br i1 %private, label %unlink, label %failed
+unlink:
+  call void @ube.managed.unlink(ptr %ctx, ptr %record)
+  br label %done
+done:
+  ret i1 true
+failed:
+  ret i1 false
+}
+; Checked nominal extraction never treats structurally equal payloads as the same type.
+define i1 @ube.variant.match(ptr %ctx, i64 %identity, i64 %tag, i64 %nominal, i64 %rank, i64 %cells) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %mismatch, label %find
+find:
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  %valid = icmp ne ptr %data, null
+  br i1 %valid, label %header, label %failed
+header:
+  %tag.ptr = getelementptr i64, ptr %data, i64 -4
+  %nominal.ptr = getelementptr i64, ptr %data, i64 -3
+  %rank.ptr = getelementptr i64, ptr %data, i64 -2
+  %cells.ptr = getelementptr i64, ptr %data, i64 -1
+  %actual.tag = load i64, ptr %tag.ptr, align 8
+  %actual.nominal = load i64, ptr %nominal.ptr, align 8
+  %actual.rank = load i64, ptr %rank.ptr, align 8
+  %actual.cells = load i64, ptr %cells.ptr, align 8
+  %tag.equal = icmp eq i64 %actual.tag, %tag
+  %nominal.equal = icmp eq i64 %actual.nominal, %nominal
+  %rank.equal = icmp eq i64 %actual.rank, %rank
+  %cells.equal = icmp eq i64 %actual.cells, %cells
+  %a = and i1 %tag.equal, %nominal.equal
+  %b = and i1 %rank.equal, %cells.equal
+  %equal = and i1 %a, %b
+  br i1 %equal, label %done, label %mismatch
+done:
+  ret i1 true
+mismatch:
+  store atomic i64 13, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret i1 false
+}
+; Reference extraction preserves object identity; Empty has the neutral reference.
+define {i1,i64} @ube.variant.reference(ptr %ctx, i64 %identity, i64 %expected.nominal) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %find
+find:
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  %valid = icmp ne ptr %data, null
+  br i1 %valid, label %header, label %failed
+header:
+  %nominal.ptr = getelementptr i64, ptr %data, i64 -3
+  %nominal = load i64, ptr %nominal.ptr, align 8
+  %shape = call i1 @ube.variant.match(ptr %ctx, i64 %identity, i64 9, i64 %nominal, i64 0, i64 1)
+  br i1 %shape, label %reference, label %failed
+reference:
+  %value = load i64, ptr %data, align 8
+  %generic = icmp eq i64 %expected.nominal, 0
+  %same = icmp eq i64 %expected.nominal, %nominal
+  %nothing = icmp eq i64 %value, 0
+  %compatible = or i1 %generic, %same
+  %accepted = or i1 %compatible, %nothing
+  br i1 %accepted, label %done, label %mismatch
+done:
+  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %value, 1
+  ret {i1,i64} %result
+zero:
+  ret {i1,i64} {i1 true,i64 0}
+mismatch:
+  store atomic i64 13, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret {i1,i64} {i1 false,i64 0}
+}
+define i1 @ube.variant.box(ptr %ctx, i64 %tag, i64 %value, ptr %layout, ptr %output) {
+entry:
+  %candidate = alloca i64, align 8
+  %empty = icmp eq i64 %tag, 0
+  br i1 %empty, label %zero, label %create
+zero:
+  call void @ube.managed.store(ptr %ctx, ptr %output, i64 0)
+  ret i1 true
+create:
+  %created = call i1 @ube.variant.create(ptr %ctx, i64 %tag, i64 0, i64 0, i64 1, ptr %layout, ptr null, ptr %candidate)
+  br i1 %created, label %initialize, label %failed
+initialize:
+  %identity = load i64, ptr %candidate, align 8
+  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)
+  store i64 %value, ptr %data, align 8
+  call void @ube.managed.publish.range(ptr %ctx, ptr %data, ptr %layout, i64 1)
+  %published = call i1 @ube.variant.publish(ptr %ctx, ptr %output, i64 %identity)
+  ret i1 %published
 failed:
   ret i1 false
 }
@@ -4690,7 +5011,19 @@ inspect:
   %unmarked = icmp eq i64 %mark, 0
   %published = icmp eq ptr %owner, null
   %eligible = and i1 %unmarked, %published
-  br i1 %eligible, label %lock, label %bad
+  br i1 %eligible, label %cleanup, label %bad
+cleanup:
+  %cleanup.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 12
+  %cleanup.function = load ptr, ptr %cleanup.ptr, align 8
+  %has.cleanup = icmp ne ptr %cleanup.function, null
+  br i1 %has.cleanup, label %retire.payload, label %lock
+retire.payload:
+; Retire native owners once, before taking storage locks; failed OS release may retry.
+  %payload.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %payload = load ptr, ptr %payload.ptr, align 8
+  call void %cleanup.function(ptr %ctx, ptr %payload)
+  store ptr null, ptr %cleanup.ptr, align 8
+  br label %lock
 lock:
   %program = call ptr @ube.thread.program(ptr %ctx)
   call void @ube.program.storage.lock(ptr %program)
@@ -5592,6 +5925,243 @@ done:
 busy:
   call void @ube.thread.registry.unlock(ptr %program)
   ret i1 false
+failed:
+  ret i1 false
+}
+; Genuine class identities share precise managed allocation metadata, never value-record identities.
+define internal ptr @ube.object.find(ptr %ctx, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %nothing, label %read.state
+read.state:
+  %state = call ptr @ube.managed.state(ptr %ctx)
+  %installed = icmp ne ptr %state, null
+  br i1 %installed, label %find, label %bad
+find:
+  %record = call ptr @ube.managed.find(ptr %state, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %read.kind, label %bad
+read.kind:
+  %kind.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 11
+  %kind = load i64, ptr %kind.ptr, align 8
+  %object = icmp eq i64 %kind, 3
+  br i1 %object, label %size, label %bad
+size:
+  %bytes.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 5
+  %bytes = load i64, ptr %bytes.ptr, align 8
+  %valid = icmp uge i64 %bytes, 24
+  br i1 %valid, label %done, label %bad
+done:
+  ret ptr %record
+nothing:
+  store atomic i64 91, ptr %ctx monotonic, align 8
+  ret ptr null
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  ret ptr null
+}
+; Header: immutable class descriptor, atomic owning thread context, owner-only recursion.
+define i1 @ube.object.create(ptr %ctx, ptr %descriptor, ptr %layout, i64 %bytes, ptr %cleanup, ptr %output) {
+entry:
+  %identity.slot = alloca i64, align 8
+  %descriptor.valid = icmp ne ptr %descriptor, null
+  %output.valid = icmp ne ptr %output, null
+  %size.valid = icmp ule i64 %bytes, 9223372036854775783
+  %pointers.valid = and i1 %descriptor.valid, %output.valid
+  %valid = and i1 %pointers.valid, %size.valid
+  br i1 %valid, label %allocate, label %bad
+allocate:
+  %total = add i64 %bytes, 24
+  %allocated = call i1 @ube.managed.create(ptr %ctx, i64 %total, i64 0, i64 3, ptr %identity.slot)
+  br i1 %allocated, label %initialize, label %failed
+initialize:
+  %identity = load i64, ptr %identity.slot, align 8
+  ; A rejected candidate stays frame-owned for ordinary cleanup; output is untouched.
+  %record = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)
+  %present = icmp ne ptr %record, null
+  br i1 %present, label %metadata, label %failed
+metadata:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %header = load ptr, ptr %data.ptr, align 8
+  %fields = getelementptr i8, ptr %header, i64 24
+  store ptr %descriptor, ptr %header, align 8
+  store ptr %fields, ptr %data.ptr, align 8
+  %layout.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 7
+  %count.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 8
+  %cleanup.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 12
+  %has.layout = icmp ne ptr %layout, null
+  %count = zext i1 %has.layout to i64
+  store ptr %layout, ptr %layout.ptr, align 8
+  store i64 %count, ptr %count.ptr, align 8
+  store ptr %cleanup, ptr %cleanup.ptr, align 8
+  store i64 %identity, ptr %output, align 8
+  ret i1 true
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret i1 false
+}
+; The caller keeps an exact identity root alive while using the returned field address.
+define ptr @ube.object.address(ptr %ctx, i64 %identity, ptr %descriptor) {
+entry:
+  %record = call ptr @ube.object.find(ptr %ctx, i64 %identity)
+  %present = icmp ne ptr %record, null
+  br i1 %present, label %type, label %failed
+type:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %fields = load ptr, ptr %data.ptr, align 8
+  %header = getelementptr i8, ptr %fields, i64 -24
+  %actual = load ptr, ptr %header, align 8
+  %same = icmp eq ptr %actual, %descriptor
+  br i1 %same, label %done, label %bad
+done:
+  ret ptr %fields
+bad:
+  store atomic i64 13, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret ptr null
+}
+; Source Object may hide its static class, but each instance retains its exact nominal identity.
+define {i1,i64} @ube.object.nominal(ptr %ctx, i64 %identity) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %nothing, label %find
+find:
+  %record = call ptr @ube.object.find(ptr %ctx, i64 %identity)
+  %present = icmp ne ptr %record, null
+  br i1 %present, label %descriptor, label %failed
+descriptor:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %fields = load ptr, ptr %data.ptr, align 8
+  %header = getelementptr i8, ptr %fields, i64 -24
+  %description = load ptr, ptr %header, align 8
+  %described = icmp ne ptr %description, null
+  br i1 %described, label %read.nominal, label %bad
+read.nominal:
+  %nominal = load i64, ptr %description, align 8
+  %valid = icmp sgt i64 %nominal, 0
+  br i1 %valid, label %done, label %bad
+done:
+  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %nominal, 1
+  ret {i1,i64} %result
+nothing:
+  ret {i1,i64} {i1 true,i64 0}
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret {i1,i64} zeroinitializer
+}
+; Rooted callers remain registered UBE threads for the entire acquired/waiting interval.
+define {i1,i64} @ube.monitor.tryenter(ptr %ctx, i64 %identity) {
+entry:
+  %record = call ptr @ube.object.find(ptr %ctx, i64 %identity)
+  %present = icmp ne ptr %record, null
+  br i1 %present, label %inspect, label %failed
+inspect:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %fields = load ptr, ptr %data.ptr, align 8
+  %owner.ptr = getelementptr i8, ptr %fields, i64 -16
+  %depth.ptr = getelementptr i8, ptr %fields, i64 -8
+  %owner = load atomic ptr, ptr %owner.ptr acquire, align 8
+  %mine = icmp eq ptr %owner, %ctx
+  br i1 %mine, label %reenter, label %acquire
+reenter:
+  %depth = load i64, ptr %depth.ptr, align 8
+  %positive = icmp ugt i64 %depth, 0
+  %room = icmp ult i64 %depth, 9223372036854775807
+  %valid = and i1 %positive, %room
+  br i1 %valid, label %increment, label %overflow
+increment:
+  %next = add i64 %depth, 1
+  store i64 %next, ptr %depth.ptr, align 8
+  br label %acquired
+acquire:
+  %pair = cmpxchg ptr %owner.ptr, ptr null, ptr %ctx acquire monotonic
+  %won = extractvalue {ptr,i1} %pair, 1
+  br i1 %won, label %initialize, label %busy
+initialize:
+  store i64 1, ptr %depth.ptr, align 8
+  br label %acquired
+acquired:
+  ret {i1,i64} {i1 true,i64 1}
+busy:
+  ret {i1,i64} {i1 true,i64 0}
+overflow:
+  store atomic i64 6, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret {i1,i64} zeroinitializer
+}
+; Valid compiler-owned release is allocation-free, cannot fail, and preserves Err.
+define i1 @ube.monitor.leave(ptr %ctx, i64 %identity) {
+entry:
+  %record = call ptr @ube.object.find(ptr %ctx, i64 %identity)
+  %present = icmp ne ptr %record, null
+  br i1 %present, label %inspect, label %failed
+inspect:
+  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %fields = load ptr, ptr %data.ptr, align 8
+  %owner.ptr = getelementptr i8, ptr %fields, i64 -16
+  %depth.ptr = getelementptr i8, ptr %fields, i64 -8
+  %owner = load atomic ptr, ptr %owner.ptr acquire, align 8
+  %mine = icmp eq ptr %owner, %ctx
+  br i1 %mine, label %read.depth, label %bad
+read.depth:
+  %depth = load i64, ptr %depth.ptr, align 8
+  %valid = icmp ugt i64 %depth, 0
+  br i1 %valid, label %decrement, label %bad
+decrement:
+  %next = sub i64 %depth, 1
+  store i64 %next, ptr %depth.ptr, align 8
+  %last = icmp eq i64 %next, 0
+  br i1 %last, label %release, label %done
+release:
+  store atomic ptr null, ptr %owner.ptr release, align 8
+  br label %done
+done:
+  ret i1 true
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  br label %failed
+failed:
+  ret i1 false
+}
+; Scheduling backoff only: correctness depends on atomics and roots, never the sleep duration.
+define i1 @ube.monitor.yield(ptr %ctx) {
+entry:
+  call void @ube.managed.safe(ptr %ctx)
+  call void @Sleep(i32 1)
+  call void @ube.managed.enter(ptr %ctx)
+  ret i1 true
+}
+; Structured cleanup retains both slots on an invalid acquired-state release.
+define i1 @ube.monitor.retire(ptr %ctx, ptr %identity.slot, ptr %acquired.slot) {
+entry:
+  %identity.valid = icmp ne ptr %identity.slot, null
+  %acquired.valid = icmp ne ptr %acquired.slot, null
+  %valid = and i1 %identity.valid, %acquired.valid
+  br i1 %valid, label %inspect, label %bad
+inspect:
+  %acquired = load atomic i64, ptr %acquired.slot acquire, align 8
+  %empty = icmp eq i64 %acquired, 0
+  br i1 %empty, label %clear, label %owned
+owned:
+  %held = icmp eq i64 %acquired, 1
+  br i1 %held, label %release, label %bad
+release:
+  %identity = load atomic i64, ptr %identity.slot acquire, align 8
+  %released = call i1 @ube.monitor.leave(ptr %ctx, i64 %identity)
+  br i1 %released, label %clear, label %failed
+clear:
+  store atomic i64 0, ptr %acquired.slot release, align 8
+  call void @ube.managed.store(ptr %ctx, ptr %identity.slot, i64 0)
+  ret i1 true
+bad:
+  store atomic i64 5, ptr %ctx monotonic, align 8
+  br label %failed
 failed:
   ret i1 false
 }

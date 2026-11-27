@@ -1,5 +1,41 @@
 # Compiler development handoff
 
+## Next planned work
+
+The existing owner-approved `IS_IN_IDE` item remains unstarted in Workplan.md.
+Its contract is in [IDE-CONTEXT.md](IDE-CONTEXT.md). No new implementation
+goal has been started by this handoff.
+
+## Completed: Exit Loop and loop dependencies — 2026-11-27
+
+The full approved Exit Loop contract passes on corrected fixed-point compiler
+68e264aa generation 2: outermost lexical exit across all four loop kinds,
+current-invocation isolation, skipped bodies/increments/conditions, invalid
+placement, unchanged nearest named exits, automatic enumeration/monitor cleanup,
+procedure-local lifetime and explicit user-resource ownership.
+
+Both compiler paths admit Do/While/counted For; UBE additionally admits floating
+counters, rank-one array For Each with Variant controls, real managed boxes,
+empty named classes and SyncLock. Broader class/Variant/collection features
+remain outside this increment. Header-failure choices follow the delegated
+rule without changing established Err.Raise semantics.
+
+Qualification: renewed self-host fixed point; 518 common CLI assertions on each
+corrected generation with the unchanged fresh seed corpus explicitly reused;
+current-source concurrency; 340 package assertions; focused O0/O2 loop, diagnostic,
+allocation/failure, exact lease/root and monitor gates. Final monitor suites pass
+24 native runs; all 32 extracted manual-example runs pass. The final nearest-While
+test addition passes eight native controls and ten injected helper-FAIL controls.
+
+Exact commands, artifact hashes, source provenance, scope and clause-by-clause
+evidence are in [LOOP-CONTROL.md](LOOP-CONTROL.md). The compiler remains free of
+the previously unavailable O0 stack-probe dependency after focused helper
+extraction; no runtime shim or suppressed stack checks were introduced.
+
+Documentation structural validation and 13 navigation-logic groups pass. Fresh
+browser rendering remains unverified because browser automation could not
+enforce URL policy; no visual pass is claimed.
+
 ## Completed: Single and Double support — 2026-11-27
 
 The UBE-written Windows x64 compiler now supports Single/Double literals,
@@ -39,11 +75,11 @@ The final compiler is in
 Its source ledger and three native assets were checked against the repository.
 Exact comparison provenance and retained evidence are in FLOATING-POINT.md.
 
-## Next planned language work
+## Language work following the numeric checkpoint
 
 The already approved `Exit Loop` definition exits the outermost enclosing loop
-of the current procedure invocation. Implementation and its mixed-loop,
-invalid-placement and cleanup acceptance tests remain pending in Workplan.md.
+of the current procedure invocation. Its implementation is now active in the
+handoff above; complete mixed-loop and cleanup acceptance remains pending.
 This completed numeric increment does not claim For/For Each/While admission,
 objects/events, Variant/Decimal/Currency, foreign ABI completion, debugging
 or the IDE.

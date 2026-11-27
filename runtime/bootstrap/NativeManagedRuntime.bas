@@ -73,9 +73,10 @@ End Function
 
 Private Function ManagedMetadataIR() As String
     Dim Text As String
+    ' Record field 12 is trusted, compiler-generated native-owner cleanup; never user code or allocation.
     Text = Text & "%ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }" & vbCrLf
     Text = Text & "%ube.managed.array = type { i64, ptr }" & vbCrLf
-    Text = Text & "%ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64 }" & vbCrLf
+    Text = Text & "%ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64, ptr }" & vbCrLf
     Text = Text & "%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64 }" & vbCrLf
     Text = Text & "@ube.managed.next = internal global i64 1" & vbCrLf
     Text = Text & "" & vbCrLf
@@ -562,11 +563,12 @@ Private Function ManagedTextIR() As String
     Text = Text & "  store atomic i64 5, ptr %ctx monotonic, align 8" & vbCrLf
     Text = Text & "  ret ptr null" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal ptr @ube.text.candidate(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "define internal ptr @ube.managed.candidate(ptr %ctx, i64 %identity) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
-    Text = Text & "  %record = call ptr @ube.text.find(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %state = call ptr @ube.managed.state(ptr %ctx)" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.managed.find(ptr %state, i64 %identity)" & vbCrLf
     Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
-    Text = Text & "  br i1 %exists, label %owner, label %failed" & vbCrLf
+    Text = Text & "  br i1 %exists, label %owner, label %bad" & vbCrLf
     Text = Text & "owner:" & vbCrLf
     Text = Text & "  %thread.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 10" & vbCrLf
     Text = Text & "  %thread = load ptr, ptr %thread.ptr, align 8" & vbCrLf
@@ -584,7 +586,18 @@ Private Function ManagedTextIR() As String
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret ptr null" & vbCrLf
     Text = Text & "}" & vbCrLf
-    Text = Text & "define internal void @ube.text.unlink(ptr %ctx, ptr %record) {" & vbCrLf
+    Text = Text & "define internal ptr @ube.text.candidate(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.text.find(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %candidate, label %failed" & vbCrLf
+    Text = Text & "candidate:" & vbCrLf
+    Text = Text & "  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  ret ptr %owned" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret ptr null" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal void @ube.managed.unlink(ptr %ctx, ptr %record) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
     Text = Text & "  %head = getelementptr %ube.thread, ptr %ctx, i32 0, i32 5" & vbCrLf
     Text = Text & "  br label %scan" & vbCrLf
@@ -761,6 +774,19 @@ Private Function ManagedTextIR() As String
     Text = Text & "  store i64 0, ptr %output, align 8" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "owner:" & vbCrLf
+    Text = Text & "  %created = call i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 %scalars, i64 1, ptr %output)" & vbCrLf
+    Text = Text & "  ret i1 %created" & vbCrLf
+    Text = Text & "bad:" & vbCrLf
+    Text = Text & "  store atomic i64 5, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 %scalars, i64 %kind, ptr %output) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %positive = icmp sgt i64 %bytes, 0" & vbCrLf
+    Text = Text & "  %kind.valid = icmp sgt i64 %kind, 0" & vbCrLf
+    Text = Text & "  %valid = and i1 %positive, %kind.valid" & vbCrLf
+    Text = Text & "  br i1 %valid, label %owner, label %bad" & vbCrLf
+    Text = Text & "owner:" & vbCrLf
     Text = Text & "  %state = call ptr @ube.managed.state(ptr %ctx)" & vbCrLf
     Text = Text & "  %ready = icmp ne ptr %state, null" & vbCrLf
     Text = Text & "  %frame.ptr = getelementptr %ube.thread, ptr %ctx, i32 0, i32 4" & vbCrLf
@@ -806,7 +832,7 @@ Private Function ManagedTextIR() As String
     Text = Text & "  store i64 %scalars, ptr %scalars.ptr, align 8" & vbCrLf
     Text = Text & "  store ptr %payload, ptr %payload.ptr, align 8" & vbCrLf
     Text = Text & "  store ptr %ctx, ptr %thread.ptr, align 8" & vbCrLf
-    Text = Text & "  store i64 1, ptr %kind.ptr, align 8" & vbCrLf
+    Text = Text & "  store i64 %kind, ptr %kind.ptr, align 8" & vbCrLf
     Text = Text & "  %registered = call i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record)" & vbCrLf
     Text = Text & "  br i1 %registered, label %candidate, label %discard" & vbCrLf
     Text = Text & "candidate:" & vbCrLf
@@ -862,7 +888,7 @@ Private Function ManagedTextIR() As String
     Text = Text & "  br i1 %exists, label %commit, label %failed" & vbCrLf
     Text = Text & "commit:" & vbCrLf
     Text = Text & "  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 %identity)" & vbCrLf
-    Text = Text & "  call void @ube.text.unlink(ptr %ctx, ptr %record)" & vbCrLf
+    Text = Text & "  call void @ube.managed.unlink(ptr %ctx, ptr %record)" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
     Text = Text & "zero:" & vbCrLf
     Text = Text & "  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 0)" & vbCrLf
@@ -879,10 +905,306 @@ Private Function ManagedTextIR() As String
     Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
     Text = Text & "  br i1 %exists, label %unlink, label %failed" & vbCrLf
     Text = Text & "unlink:" & vbCrLf
-    Text = Text & "  call void @ube.text.unlink(ptr %ctx, ptr %record)" & vbCrLf
+    Text = Text & "  call void @ube.managed.unlink(ptr %ctx, ptr %record)" & vbCrLf
     Text = Text & "  br label %done" & vbCrLf
     Text = Text & "done:" & vbCrLf
     Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "; Variant payload headers are immutable; exact layout metadata describes only data." & vbCrLf
+    Text = Text & "define internal ptr @ube.variant.find(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %state = call ptr @ube.managed.state(ptr %ctx)" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.managed.find(ptr %state, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %kind, label %bad" & vbCrLf
+    Text = Text & "kind:" & vbCrLf
+    Text = Text & "  %kind.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 11" & vbCrLf
+    Text = Text & "  %kind.value = load i64, ptr %kind.ptr, align 8" & vbCrLf
+    Text = Text & "  %variant = icmp eq i64 %kind.value, 2" & vbCrLf
+    Text = Text & "  br i1 %variant, label %done, label %bad" & vbCrLf
+    Text = Text & "done:" & vbCrLf
+    Text = Text & "  ret ptr %record" & vbCrLf
+    Text = Text & "bad:" & vbCrLf
+    Text = Text & "  store atomic i64 5, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  ret ptr null" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define ptr @ube.variant.payload(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %read, label %failed" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9" & vbCrLf
+    Text = Text & "  %data = load ptr, ptr %data.ptr, align 8" & vbCrLf
+    Text = Text & "  ret ptr %data" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret ptr null" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.variant.create(ptr %ctx, i64 %tag, i64 %nominal, i64 %rank, i64 %cells, ptr %layout, ptr %cleanup, ptr %output) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %positive = icmp sgt i64 %tag, 0" & vbCrLf
+    Text = Text & "  %tag.bounded = icmp ult i64 %tag, 16384" & vbCrLf
+    Text = Text & "  %nominal.valid = icmp sge i64 %nominal, 0" & vbCrLf
+    Text = Text & "  %rank.valid = icmp sge i64 %rank, 0" & vbCrLf
+    Text = Text & "  %a = and i1 %positive, %tag.bounded" & vbCrLf
+    Text = Text & "  %b = and i1 %nominal.valid, %rank.valid" & vbCrLf
+    Text = Text & "  %valid = and i1 %a, %b" & vbCrLf
+    Text = Text & "  br i1 %valid, label %extent, label %bad" & vbCrLf
+    Text = Text & "extent:" & vbCrLf
+    Text = Text & "  %fits = icmp ule i64 %cells, 1152921504606846971" & vbCrLf
+    Text = Text & "  br i1 %fits, label %allocate, label %memory" & vbCrLf
+    Text = Text & "allocate:" & vbCrLf
+    Text = Text & "  %payload.bytes = mul i64 %cells, 8" & vbCrLf
+    Text = Text & "  %bytes = add i64 %payload.bytes, 32" & vbCrLf
+    Text = Text & "  %allocated = call i1 @ube.managed.create(ptr %ctx, i64 %bytes, i64 0, i64 2, ptr %output)" & vbCrLf
+    Text = Text & "  br i1 %allocated, label %initialize, label %failed" & vbCrLf
+    Text = Text & "initialize:" & vbCrLf
+    Text = Text & "  %identity = load i64, ptr %output, align 8" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %data.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9" & vbCrLf
+    Text = Text & "  %header = load ptr, ptr %data.ptr, align 8" & vbCrLf
+    Text = Text & "  %nominal.ptr = getelementptr i64, ptr %header, i64 1" & vbCrLf
+    Text = Text & "  %rank.ptr = getelementptr i64, ptr %header, i64 2" & vbCrLf
+    Text = Text & "  %cells.ptr = getelementptr i64, ptr %header, i64 3" & vbCrLf
+    Text = Text & "  %data = getelementptr i64, ptr %header, i64 4" & vbCrLf
+    Text = Text & "  store i64 %tag, ptr %header, align 8" & vbCrLf
+    Text = Text & "  store i64 %nominal, ptr %nominal.ptr, align 8" & vbCrLf
+    Text = Text & "  store i64 %rank, ptr %rank.ptr, align 8" & vbCrLf
+    Text = Text & "  store i64 %cells, ptr %cells.ptr, align 8" & vbCrLf
+    Text = Text & "  store ptr %data, ptr %data.ptr, align 8" & vbCrLf
+    Text = Text & "  %layout.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 7" & vbCrLf
+    Text = Text & "  %repeat.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 8" & vbCrLf
+    Text = Text & "  %cleanup.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 12" & vbCrLf
+    Text = Text & "  store ptr %layout, ptr %layout.ptr, align 8" & vbCrLf
+    Text = Text & "  %has.layout = icmp ne ptr %layout, null" & vbCrLf
+    Text = Text & "  %repeat = select i1 %has.layout, i64 1, i64 0" & vbCrLf
+    Text = Text & "  store i64 %repeat, ptr %repeat.ptr, align 8" & vbCrLf
+    Text = Text & "  store ptr %cleanup, ptr %cleanup.ptr, align 8" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "bad:" & vbCrLf
+    Text = Text & "  store atomic i64 5, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "memory:" & vbCrLf
+    Text = Text & "  store atomic i64 7, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.variant.info(ptr %ctx, i64 %identity, ptr %tag.out, ptr %nominal.out, ptr %rank.out, ptr %cells.out) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %read" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %valid = icmp ne ptr %data, null" & vbCrLf
+    Text = Text & "  br i1 %valid, label %header, label %failed" & vbCrLf
+    Text = Text & "header:" & vbCrLf
+    Text = Text & "  %tag.ptr = getelementptr i64, ptr %data, i64 -4" & vbCrLf
+    Text = Text & "  %nominal.ptr = getelementptr i64, ptr %data, i64 -3" & vbCrLf
+    Text = Text & "  %rank.ptr = getelementptr i64, ptr %data, i64 -2" & vbCrLf
+    Text = Text & "  %cells.ptr = getelementptr i64, ptr %data, i64 -1" & vbCrLf
+    Text = Text & "  %tag.value = load i64, ptr %tag.ptr, align 8" & vbCrLf
+    Text = Text & "  %nominal.value = load i64, ptr %nominal.ptr, align 8" & vbCrLf
+    Text = Text & "  %rank.value = load i64, ptr %rank.ptr, align 8" & vbCrLf
+    Text = Text & "  %cells.value = load i64, ptr %cells.ptr, align 8" & vbCrLf
+    Text = Text & "  br label %commit" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  br label %commit" & vbCrLf
+    Text = Text & "commit:" & vbCrLf
+    Text = Text & "  %tag = phi i64 [0, %zero], [%tag.value, %header]" & vbCrLf
+    Text = Text & "  %nominal = phi i64 [0, %zero], [%nominal.value, %header]" & vbCrLf
+    Text = Text & "  %rank = phi i64 [0, %zero], [%rank.value, %header]" & vbCrLf
+    Text = Text & "  %cells = phi i64 [0, %zero], [%cells.value, %header]" & vbCrLf
+    Text = Text & "  store i64 %tag, ptr %tag.out, align 8" & vbCrLf
+    Text = Text & "  store i64 %nominal, ptr %nominal.out, align 8" & vbCrLf
+    Text = Text & "  store i64 %rank, ptr %rank.out, align 8" & vbCrLf
+    Text = Text & "  store i64 %cells, ptr %cells.out, align 8" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define {i1,i64} @ube.variant.tag(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %read" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %valid = icmp ne ptr %data, null" & vbCrLf
+    Text = Text & "  br i1 %valid, label %header, label %failed" & vbCrLf
+    Text = Text & "header:" & vbCrLf
+    Text = Text & "  %tag.ptr = getelementptr i64, ptr %data, i64 -4" & vbCrLf
+    Text = Text & "  %tag = load i64, ptr %tag.ptr, align 8" & vbCrLf
+    Text = Text & "  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %tag, 1" & vbCrLf
+    Text = Text & "  ret {i1,i64} %result" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 true,i64 0}" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 false,i64 0}" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define {i1,i64} @ube.variant.scalar(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %read" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %valid = icmp ne ptr %data, null" & vbCrLf
+    Text = Text & "  br i1 %valid, label %header, label %failed" & vbCrLf
+    Text = Text & "header:" & vbCrLf
+    Text = Text & "  %tag.ptr = getelementptr i64, ptr %data, i64 -4" & vbCrLf
+    Text = Text & "  %rank.ptr = getelementptr i64, ptr %data, i64 -2" & vbCrLf
+    Text = Text & "  %cells.ptr = getelementptr i64, ptr %data, i64 -1" & vbCrLf
+    Text = Text & "  %tag = load i64, ptr %tag.ptr, align 8" & vbCrLf
+    Text = Text & "  %rank = load i64, ptr %rank.ptr, align 8" & vbCrLf
+    Text = Text & "  %cells = load i64, ptr %cells.ptr, align 8" & vbCrLf
+    Text = Text & "  %one = icmp eq i64 %cells, 1" & vbCrLf
+    Text = Text & "  %not.array = icmp eq i64 %rank, 0" & vbCrLf
+    Text = Text & "  %simple = icmp ult i64 %tag, 36" & vbCrLf
+    Text = Text & "  %not.null = icmp ne i64 %tag, 1" & vbCrLf
+    Text = Text & "  %a = and i1 %one, %not.array" & vbCrLf
+    Text = Text & "  %b = and i1 %simple, %not.null" & vbCrLf
+    Text = Text & "  %scalar = and i1 %a, %b" & vbCrLf
+    Text = Text & "  br i1 %scalar, label %payload, label %mismatch" & vbCrLf
+    Text = Text & "payload:" & vbCrLf
+    Text = Text & "  %value = load i64, ptr %data, align 8" & vbCrLf
+    Text = Text & "  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %value, 1" & vbCrLf
+    Text = Text & "  ret {i1,i64} %result" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 true,i64 0}" & vbCrLf
+    Text = Text & "mismatch:" & vbCrLf
+    Text = Text & "  store atomic i64 13, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  br label %failed" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 false,i64 0}" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.variant.publish(ptr %ctx, ptr %destination, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %find" & vbCrLf
+    Text = Text & "find:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %candidate, label %failed" & vbCrLf
+    Text = Text & "candidate:" & vbCrLf
+    Text = Text & "  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %private = icmp ne ptr %owned, null" & vbCrLf
+    Text = Text & "  br i1 %private, label %commit, label %failed" & vbCrLf
+    Text = Text & "commit:" & vbCrLf
+    Text = Text & "  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 %identity)" & vbCrLf
+    Text = Text & "  call void @ube.managed.unlink(ptr %ctx, ptr %record)" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  call void @ube.managed.store(ptr %ctx, ptr %destination, i64 0)" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.variant.abandon(ptr %ctx, i64 %identity) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %done, label %find" & vbCrLf
+    Text = Text & "find:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.variant.find(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %candidate, label %failed" & vbCrLf
+    Text = Text & "candidate:" & vbCrLf
+    Text = Text & "  %owned = call ptr @ube.managed.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %private = icmp ne ptr %owned, null" & vbCrLf
+    Text = Text & "  br i1 %private, label %unlink, label %failed" & vbCrLf
+    Text = Text & "unlink:" & vbCrLf
+    Text = Text & "  call void @ube.managed.unlink(ptr %ctx, ptr %record)" & vbCrLf
+    Text = Text & "  br label %done" & vbCrLf
+    Text = Text & "done:" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "; Checked nominal extraction never treats structurally equal payloads as the same type." & vbCrLf
+    Text = Text & "define i1 @ube.variant.match(ptr %ctx, i64 %identity, i64 %tag, i64 %nominal, i64 %rank, i64 %cells) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %mismatch, label %find" & vbCrLf
+    Text = Text & "find:" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %valid = icmp ne ptr %data, null" & vbCrLf
+    Text = Text & "  br i1 %valid, label %header, label %failed" & vbCrLf
+    Text = Text & "header:" & vbCrLf
+    Text = Text & "  %tag.ptr = getelementptr i64, ptr %data, i64 -4" & vbCrLf
+    Text = Text & "  %nominal.ptr = getelementptr i64, ptr %data, i64 -3" & vbCrLf
+    Text = Text & "  %rank.ptr = getelementptr i64, ptr %data, i64 -2" & vbCrLf
+    Text = Text & "  %cells.ptr = getelementptr i64, ptr %data, i64 -1" & vbCrLf
+    Text = Text & "  %actual.tag = load i64, ptr %tag.ptr, align 8" & vbCrLf
+    Text = Text & "  %actual.nominal = load i64, ptr %nominal.ptr, align 8" & vbCrLf
+    Text = Text & "  %actual.rank = load i64, ptr %rank.ptr, align 8" & vbCrLf
+    Text = Text & "  %actual.cells = load i64, ptr %cells.ptr, align 8" & vbCrLf
+    Text = Text & "  %tag.equal = icmp eq i64 %actual.tag, %tag" & vbCrLf
+    Text = Text & "  %nominal.equal = icmp eq i64 %actual.nominal, %nominal" & vbCrLf
+    Text = Text & "  %rank.equal = icmp eq i64 %actual.rank, %rank" & vbCrLf
+    Text = Text & "  %cells.equal = icmp eq i64 %actual.cells, %cells" & vbCrLf
+    Text = Text & "  %a = and i1 %tag.equal, %nominal.equal" & vbCrLf
+    Text = Text & "  %b = and i1 %rank.equal, %cells.equal" & vbCrLf
+    Text = Text & "  %equal = and i1 %a, %b" & vbCrLf
+    Text = Text & "  br i1 %equal, label %done, label %mismatch" & vbCrLf
+    Text = Text & "done:" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "mismatch:" & vbCrLf
+    Text = Text & "  store atomic i64 13, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  br label %failed" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "; Reference extraction preserves object identity; Empty has the neutral reference." & vbCrLf
+    Text = Text & "define {i1,i64} @ube.variant.reference(ptr %ctx, i64 %identity, i64 %expected.nominal) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %find" & vbCrLf
+    Text = Text & "find:" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %valid = icmp ne ptr %data, null" & vbCrLf
+    Text = Text & "  br i1 %valid, label %header, label %failed" & vbCrLf
+    Text = Text & "header:" & vbCrLf
+    Text = Text & "  %nominal.ptr = getelementptr i64, ptr %data, i64 -3" & vbCrLf
+    Text = Text & "  %nominal = load i64, ptr %nominal.ptr, align 8" & vbCrLf
+    Text = Text & "  %shape = call i1 @ube.variant.match(ptr %ctx, i64 %identity, i64 9, i64 %nominal, i64 0, i64 1)" & vbCrLf
+    Text = Text & "  br i1 %shape, label %reference, label %failed" & vbCrLf
+    Text = Text & "reference:" & vbCrLf
+    Text = Text & "  %value = load i64, ptr %data, align 8" & vbCrLf
+    Text = Text & "  %generic = icmp eq i64 %expected.nominal, 0" & vbCrLf
+    Text = Text & "  %same = icmp eq i64 %expected.nominal, %nominal" & vbCrLf
+    Text = Text & "  %nothing = icmp eq i64 %value, 0" & vbCrLf
+    Text = Text & "  %compatible = or i1 %generic, %same" & vbCrLf
+    Text = Text & "  %accepted = or i1 %compatible, %nothing" & vbCrLf
+    Text = Text & "  br i1 %accepted, label %done, label %mismatch" & vbCrLf
+    Text = Text & "done:" & vbCrLf
+    Text = Text & "  %result = insertvalue {i1,i64} {i1 true,i64 0}, i64 %value, 1" & vbCrLf
+    Text = Text & "  ret {i1,i64} %result" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 true,i64 0}" & vbCrLf
+    Text = Text & "mismatch:" & vbCrLf
+    Text = Text & "  store atomic i64 13, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  br label %failed" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret {i1,i64} {i1 false,i64 0}" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.variant.box(ptr %ctx, i64 %tag, i64 %value, ptr %layout, ptr %output) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %candidate = alloca i64, align 8" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %tag, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %create" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  call void @ube.managed.store(ptr %ctx, ptr %output, i64 0)" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "create:" & vbCrLf
+    Text = Text & "  %created = call i1 @ube.variant.create(ptr %ctx, i64 %tag, i64 0, i64 0, i64 1, ptr %layout, ptr null, ptr %candidate)" & vbCrLf
+    Text = Text & "  br i1 %created, label %initialize, label %failed" & vbCrLf
+    Text = Text & "initialize:" & vbCrLf
+    Text = Text & "  %identity = load i64, ptr %candidate, align 8" & vbCrLf
+    Text = Text & "  %data = call ptr @ube.variant.payload(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  store i64 %value, ptr %data, align 8" & vbCrLf
+    Text = Text & "  call void @ube.managed.publish.range(ptr %ctx, ptr %data, ptr %layout, i64 1)" & vbCrLf
+    Text = Text & "  %published = call i1 @ube.variant.publish(ptr %ctx, ptr %output, i64 %identity)" & vbCrLf
+    Text = Text & "  ret i1 %published" & vbCrLf
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
@@ -1576,7 +1898,19 @@ Private Function ManagedReclamationIR() As String
     Text = Text & "  %unmarked = icmp eq i64 %mark, 0" & vbCrLf
     Text = Text & "  %published = icmp eq ptr %owner, null" & vbCrLf
     Text = Text & "  %eligible = and i1 %unmarked, %published" & vbCrLf
-    Text = Text & "  br i1 %eligible, label %lock, label %bad" & vbCrLf
+    Text = Text & "  br i1 %eligible, label %cleanup, label %bad" & vbCrLf
+    Text = Text & "cleanup:" & vbCrLf
+    Text = Text & "  %cleanup.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 12" & vbCrLf
+    Text = Text & "  %cleanup.function = load ptr, ptr %cleanup.ptr, align 8" & vbCrLf
+    Text = Text & "  %has.cleanup = icmp ne ptr %cleanup.function, null" & vbCrLf
+    Text = Text & "  br i1 %has.cleanup, label %retire.payload, label %lock" & vbCrLf
+    Text = Text & "retire.payload:" & vbCrLf
+    Text = Text & "; Retire native owners once, before taking storage locks; failed OS release may retry." & vbCrLf
+    Text = Text & "  %payload.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9" & vbCrLf
+    Text = Text & "  %payload = load ptr, ptr %payload.ptr, align 8" & vbCrLf
+    Text = Text & "  call void %cleanup.function(ptr %ctx, ptr %payload)" & vbCrLf
+    Text = Text & "  store ptr null, ptr %cleanup.ptr, align 8" & vbCrLf
+    Text = Text & "  br label %lock" & vbCrLf
     Text = Text & "lock:" & vbCrLf
     Text = Text & "  %program = call ptr @ube.thread.program(ptr %ctx)" & vbCrLf
     Text = Text & "  call void @ube.program.storage.lock(ptr %program)" & vbCrLf

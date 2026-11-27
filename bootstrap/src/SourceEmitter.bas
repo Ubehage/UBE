@@ -26,6 +26,10 @@ Private Type EmissionState
     ResultSymbol As Long
     CountedDepth As Boolean
     LoopExit As String
+    WhileExit As String
+    ForExit As String
+    OutermostLoopExit As String
+    LoopDepth As Long
     FieldIndex() As Long
     FieldCount As Long
     FailureSites() As Long
@@ -374,7 +378,7 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
             CheckEmissionProfile = EmissionError(Project, Parsed, Node, Diagnostic, "E_LIMIT", "native scope indexing work limit exceeded")
             Exit Function
         End If
-        If Bound.Nodes(Node).ArgumentMode = "temp" Or (Bound.Nodes(Node).ArgumentMode = "value" And (Bound.Nodes(Node).ArrayRank <> 0 Or Bound.Nodes(Node).TypeSymbol <> 0)) Then
+        If Parsed.Nodes(Node).Kind = "for" Or Bound.Nodes(Node).ArgumentMode = "temp" Or (Bound.Nodes(Node).ArgumentMode = "value" And (Bound.Nodes(Node).ArrayRank <> 0 Or Bound.Nodes(Node).TypeSymbol <> 0)) Then
             Scope = Bound.Nodes(Node).ScopeSymbol
             State.NextTemporary(Node) = State.FirstTemporary(Scope)
             State.FirstTemporary(Scope) = Node
@@ -426,6 +430,9 @@ Private Function CheckEmissionProfile(ByRef Project As ProjectContext, ByRef Par
     For Node = 1 To Parsed.NodeCount
         State.ErrorNode = Node
         Scope = Bound.Nodes(Node).ScopeSymbol
+        If Parsed.Nodes(Node).Kind = "for" Then
+            If Not AddFrameCells(Project, Parsed, Slots, Scope, 2, Node, Diagnostic) Then Exit Function
+        End If
         If Bound.Nodes(Node).ArgumentMode = "temp" Then
             If Not AddFrameCells(Project, Parsed, Slots, Scope, 1, Node, Diagnostic) Then Exit Function
         ElseIf Bound.Nodes(Node).ArgumentMode = "value" Then
@@ -1219,8 +1226,15 @@ Private Sub EmitLoop(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject,
     End If
     Header = BlockName(State, "loop.condition")
     BodyEntry = SequenceEntry(Parsed, Body, Header)
-    PreviousExit = State.LoopExit
-    State.LoopExit = Continuation
+    If Parsed.Nodes(Node).Kind = "while" Then
+        PreviousExit = State.WhileExit
+        State.WhileExit = Continuation
+    Else
+        PreviousExit = State.LoopExit
+        State.LoopExit = Continuation
+    End If
+    If State.LoopDepth = 0 Then State.OutermostLoopExit = Continuation
+    State.LoopDepth = State.LoopDepth + 1
     If Left$(Mode, 4) = "pre-" Then
         Call AddLine(State, "  br label %" & Header)
     Else
@@ -1244,7 +1258,86 @@ Private Sub EmitLoop(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject,
     Else
         Call AddLine(State, "  br label %" & BodyEntry)
     End If
-    State.LoopExit = PreviousExit
+    If Parsed.Nodes(Node).Kind = "while" Then
+        State.WhileExit = PreviousExit
+    Else
+        State.LoopExit = PreviousExit
+    End If
+    State.LoopDepth = State.LoopDepth - 1
+End Sub
+
+' Counted bounds/steps are invocation-local cells; body branches never depend on header SSA values.
+Private Sub EmitFor(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As EmissionState, ByVal Node As Long, ByVal Continuation As String)
+    Dim Target As Long, Initial As Long, Limit As Long, StepNode As Long, Body As Long
+    Dim Header As String, Increment As String, Ascending As String, Descending As String, BodyEntry As String
+    Dim InitialValue As String, LimitValue As String, StepValue As String, Address As String, Value As String, Test As String
+    Dim LimitSlot As String, StepSlot As String, TypeName As String, ArithmeticType As String, PreviousExit As String
+    Target = Parsed.Nodes(Node).FirstChild
+    Initial = Parsed.Nodes(Target).NextSibling
+    Limit = Parsed.Nodes(Initial).NextSibling
+    Body = Parsed.Nodes(Limit).NextSibling
+    If Parsed.Nodes(Node).Text = "step" Then StepNode = Body: Body = Parsed.Nodes(Body).NextSibling
+    TypeName = Bound.Nodes(Node).TypeName
+    ArithmeticType = TypeName
+    If TypeName = "Byte" Then ArithmeticType = "Integer"
+    Header = BlockName(State, "for.check")
+    Increment = BlockName(State, "for.increment")
+    Ascending = BlockName(State, "for.ascending")
+    Descending = BlockName(State, "for.descending")
+    BodyEntry = SequenceEntry(Parsed, Body, Increment)
+    LimitSlot = "%for.limit." & CStr(Node)
+    StepSlot = "%for.step." & CStr(Node)
+    PreviousExit = State.ForExit
+    State.ForExit = Continuation
+    If State.LoopDepth = 0 Then State.OutermostLoopExit = Continuation
+    State.LoopDepth = State.LoopDepth + 1
+    InitialValue = EmitExpression(Parsed, Bound, State, Initial)
+    InitialValue = ConvertNative(State, InitialValue, Bound.Nodes(Initial).TypeName, TypeName)
+    LimitValue = EmitExpression(Parsed, Bound, State, Limit)
+    LimitValue = ConvertNative(State, LimitValue, Bound.Nodes(Limit).TypeName, TypeName)
+    StepValue = "1"
+    If StepNode <> 0 Then
+        StepValue = EmitExpression(Parsed, Bound, State, StepNode)
+        StepValue = ConvertNative(State, StepValue, Bound.Nodes(StepNode).TypeName, TypeName)
+    End If
+    Address = EmitAddress(Parsed, Bound, State, Target)
+    Call AddLine(State, "  store atomic i64 " & InitialValue & ", ptr " & Address & " monotonic, align 8")
+    Call AddLine(State, "  store i64 " & LimitValue & ", ptr " & LimitSlot & ", align 8")
+    Call AddLine(State, "  store i64 " & StepValue & ", ptr " & StepSlot & ", align 8")
+    Call ReleaseAllPins(Parsed, Bound, State)
+    Call AddLine(State, "  br label %" & Header)
+    Call EmitSequence(Parsed, Bound, State, Body, Increment)
+    State.CurrentNode = Node
+    State.ErrorNode = Node
+    State.CurrentNext = Continuation
+    Call AddLine(State, Increment & ":")
+    Call AddLine(State, "  store i32 " & CStr(Node) & ", ptr %failure.site")
+    Address = EmitAddress(Parsed, Bound, State, Target)
+    Value = ValueName(State): StepValue = ValueName(State)
+    Call AddLine(State, "  " & Value & " = load atomic i64, ptr " & Address & " monotonic, align 8")
+    Call AddLine(State, "  " & StepValue & " = load i64, ptr " & StepSlot & ", align 8")
+    Value = CheckedArithmetic(State, Value, StepValue, ArithmeticType, "sadd")
+    Value = ConvertNative(State, Value, ArithmeticType, TypeName)
+    Call AddLine(State, "  store atomic i64 " & Value & ", ptr " & Address & " monotonic, align 8")
+    Call AddLine(State, "  br label %" & Header)
+    Call AddLine(State, Header & ":")
+    Address = EmitAddress(Parsed, Bound, State, Target)
+    Value = ValueName(State): StepValue = ValueName(State): LimitValue = ValueName(State): Test = ValueName(State)
+    Call AddLine(State, "  " & Value & " = load atomic i64, ptr " & Address & " monotonic, align 8")
+    Call AddLine(State, "  " & StepValue & " = load i64, ptr " & StepSlot & ", align 8")
+    Call AddLine(State, "  " & LimitValue & " = load i64, ptr " & LimitSlot & ", align 8")
+    Call AddLine(State, "  " & Test & " = icmp sge i64 " & StepValue & ", 0")
+    Call AddLine(State, "  br i1 " & Test & ", label %" & Ascending & ", label %" & Descending)
+    Call AddLine(State, Ascending & ":")
+    Test = ValueName(State)
+    Call AddLine(State, "  " & Test & " = icmp sle i64 " & Value & ", " & LimitValue)
+    Call AddLine(State, "  br i1 " & Test & ", label %" & BodyEntry & ", label %" & Continuation)
+    Call AddLine(State, Descending & ":")
+    Test = ValueName(State)
+    Call AddLine(State, "  " & Test & " = icmp sge i64 " & Value & ", " & LimitValue)
+    Call AddLine(State, "  br i1 " & Test & ", label %" & BodyEntry & ", label %" & Continuation)
+    State.ForExit = PreviousExit
+    State.LoopDepth = State.LoopDepth - 1
 End Sub
 
 ' Emits a source statement and its explicit continuation; incomplete assignments never store.
@@ -1322,7 +1415,16 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Call AddLine(State, "  br label %" & StatementLabel(Bound.Symbols(Bound.Nodes(Node).SymbolIndex).DeclarationNode))
         Terminated = True
     Case "exit"
-        If Parsed.Nodes(Node).Text = "do" Then
+        If Parsed.Nodes(Node).Text = "loop" Then
+            Call ReleaseAllPins(Parsed, Bound, State)
+            Call AddLine(State, "  br label %" & State.OutermostLoopExit)
+        ElseIf Parsed.Nodes(Node).Text = "while" Then
+            Call ReleaseAllPins(Parsed, Bound, State)
+            Call AddLine(State, "  br label %" & State.WhileExit)
+        ElseIf Parsed.Nodes(Node).Text = "for" Then
+            Call ReleaseAllPins(Parsed, Bound, State)
+            Call AddLine(State, "  br label %" & State.ForExit)
+        ElseIf Parsed.Nodes(Node).Text = "do" Then
             Call ReleaseAllPins(Parsed, Bound, State)
             Call AddLine(State, "  br label %" & State.LoopExit)
         Else
@@ -1344,8 +1446,11 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Call EmitSequence(Parsed, Bound, State, ThenNode, Continuation)
         If ElseNode <> 0 Then Call EmitSequence(Parsed, Bound, State, ElseNode, Continuation)
         Terminated = True
-    Case "do"
+    Case "do", "while"
         Call EmitLoop(Parsed, Bound, State, Node, Continuation)
+        Terminated = True
+    Case "for"
+        Call EmitFor(Parsed, Bound, State, Node, Continuation)
         Terminated = True
     Case "constant", "label"
         ' Constants have no runtime storage; a label remains an actual branch target.
@@ -1463,7 +1568,12 @@ Private Sub EmitFrame(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject
     Index = State.FirstTemporary(State.CurrentSymbol)
     Do While Index <> 0
         If Not EmissionWork(State) Then Exit Sub
-        If BoxedTemporary(State, Index) Then
+        If Parsed.Nodes(Index).Kind = "for" Then
+            Call AddLine(State, "  %for.limit." & CStr(Index) & " = alloca i64, align 8")
+            Call AddLine(State, "  %for.step." & CStr(Index) & " = alloca i64, align 8")
+            Call AddLine(State, "  store i64 0, ptr %for.limit." & CStr(Index) & ", align 8")
+            Call AddLine(State, "  store i64 0, ptr %for.step." & CStr(Index) & ", align 8")
+        ElseIf BoxedTemporary(State, Index) Then
             Call AddLine(State, "  %owner.temp." & CStr(Index) & " = alloca ptr, align 8")
             Call AddLine(State, "  store ptr null, ptr %owner.temp." & CStr(Index))
         ElseIf Bound.Nodes(Index).ScopeSymbol = State.CurrentSymbol And Bound.Nodes(Index).ArgumentMode = "temp" Then
@@ -2732,7 +2842,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
     Call AddLine(State, "")
     Call EmitContext(Parsed, Bound, State)
     Call EmitMemoryRuntime(State)
-    FileLines = Split(NativeFileIR() & NativeProcessIR() & NativeManagedIR() & NativeThreadIR(), vbCrLf)
+    FileLines = Split(NativeFileIR() & NativeProcessIR() & NativeManagedIR() & NativeThreadIR() & NativeObjectIR(), vbCrLf)
     For Index = 0 To UBound(FileLines)
         Call AddLine(State, FileLines(Index))
     Next Index

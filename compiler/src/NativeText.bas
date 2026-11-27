@@ -2,6 +2,111 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeText"
 ' Emits immutable byte inputs and calls ordinary UBE text support by bound identity.
 
+' Stable language value tags are independent of parser keyword numbering.
+Public Function VariantTag(ByVal TypeCode As Long) As Long
+    If TypeCode = SyntaxTokens.KwBoolean Then VariantTag = 11
+    If TypeCode = SyntaxTokens.KwByte Then VariantTag = 17
+    If TypeCode = SyntaxTokens.KwInteger Then VariantTag = 2
+    If TypeCode = SyntaxTokens.KwLong Then VariantTag = 3
+    If TypeCode = SyntaxTokens.KwLongLong Then VariantTag = 20
+    If TypeCode = SyntaxTokens.KwSingle Then VariantTag = 4
+    If TypeCode = SyntaxTokens.KwDouble Then VariantTag = 5
+    If TypeCode = SyntaxTokens.KwString Then VariantTag = 8
+End Function
+
+Private Function VariantScalarType(ByVal Index As Long) As Long
+    If Index = 0 Or Index = 4 Then VariantScalarType = SyntaxTokens.KwLong
+    If Index = 1 Then VariantScalarType = SyntaxTokens.KwBoolean
+    If Index = 2 Then VariantScalarType = SyntaxTokens.KwByte
+    If Index = 3 Then VariantScalarType = SyntaxTokens.KwInteger
+    If Index = 5 Then VariantScalarType = SyntaxTokens.KwLongLong
+    If Index = 6 Then VariantScalarType = SyntaxTokens.KwSingle
+    If Index = 7 Then VariantScalarType = SyntaxTokens.KwDouble
+    If Index = 8 Then VariantScalarType = SyntaxTokens.KwString
+End Function
+
+' Boxes exact scalar values; fixed-type extraction reuses the existing checked conversion algorithms.
+Public Function ConvertVariant(ByRef A() As DeclarationBinder.BoundSymbol, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Value As Long, ByVal SourceType As Long, ByVal DestinationType As Long) As Long
+    Dim Pair As Long
+    Dim Tag As Long
+    Dim Scalar As Long
+    Dim TypeCode As Long
+    Dim TagCode As Long
+    Dim Literal As Long
+    Dim Test As Long
+    Dim Accepted As Long
+    Dim NextCase As Long
+    Dim Finish As Long
+    Dim Converted As Long
+    Dim Template As Long
+    Dim Index As Long
+    On Error GoTo Failed
+    If SourceType = DestinationType Then ConvertVariant = Value: Exit Function
+    If DestinationType = SyntaxTokens.KwVariant Then
+        TagCode = VariantTag(SourceType)
+        If TagCode = 0 Then Call InvalidFacts(S, Node): Exit Function
+        Template = LLVMTemplates.VariantBoxValue
+        If ManagedLayouts.IsManagedScalar(SourceType) Then Template = LLVMTemplates.VariantBoxReference
+        Pair = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Pair, TagCode, Value, Node) Then Exit Function
+        If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+        Converted = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadManagedExpression, Converted, Node, 0, 0) Then Exit Function
+        ConvertVariant = Converted
+        Exit Function
+    End If
+    Pair = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantTag, Pair, Value, 0, 0) Then Exit Function
+    If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+    Tag = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Tag, Pair, 0, 0) Then Exit Function
+    Pair = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantScalar, Pair, Value, 0, 0) Then Exit Function
+    If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+    Scalar = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Scalar, Pair, 0, 0) Then Exit Function
+    Finish = NativeEmission.NewBlock(S)
+    Do While Index <= 8
+        TypeCode = VariantScalarType(Index)
+        TagCode = VariantTag(TypeCode)
+        If Index = 0 Then TagCode = 0
+        Literal = NativeEmission.Literal(S, B, Token, Catalog, TagCode)
+        Test = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CompareEqual, Test, Tag, Literal, 0) Then Exit Function
+        Accepted = NativeEmission.NewBlock(S)
+        NextCase = NativeEmission.NewBlock(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, Accepted, NextCase, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Accepted, 0, 0, 0) Then Exit Function
+        If Index = 0 And DestinationType = SyntaxTokens.KwString Then
+            Converted = Scalar
+        ElseIf TypeCode = SyntaxTokens.KwString Or DestinationType = SyntaxTokens.KwString Then
+            Converted = ConvertValue(A, S, B, Token, Catalog, Seen, Nexts, Node, Scalar, TypeCode, DestinationType)
+        Else
+            Converted = NativeValues.ConvertValue(S, B, Token, Catalog, Seen, Nexts, Scalar, TypeCode, DestinationType)
+        End If
+        If Converted = 0 Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.StoreVariantConversion, Node, Converted, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Finish, 0, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, NextCase, 0, 0, 0) Then Exit Function
+        Index = Index + 1
+    Loop
+    Literal = NativeEmission.Literal(S, B, Token, Catalog, 1)
+    Test = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ValueNonzero, Test, Literal, 0, 0) Then Exit Function
+    If Not NativeEmission.GuardError(S, B, Token, Catalog, Seen, Nexts, Test, 13) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Branch, Finish, 0, 0, 0) Then Exit Function
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, Finish, 0, 0, 0) Then Exit Function
+    Converted = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadVariantConversion, Converted, Node, 0, 0) Then Exit Function
+    ConvertVariant = Converted
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = Node
+End Function
+
 ' Rejects invalid internal facts before a private output can be published.
 Private Function InvalidFacts(ByRef S As NativeEmission.EmissionState, ByVal Node As Long) As Boolean
     S.Text.Failed = True

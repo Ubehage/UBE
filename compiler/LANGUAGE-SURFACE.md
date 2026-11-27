@@ -6,6 +6,21 @@ runtime inventory. It does not add keywords or change semantics. The
 [directive grammar](../lang-doc/grammar/conditional-compilation.ebnf) and
 [specification](../lang-doc/language-spec.md) remain authoritative.
 
+The table below assigns responsibility for the full language; it is not an
+implementation-admission checklist. The current admitted subset is recorded in
+[the bootstrap source profile](../lang-doc/bootstrap-profile.md).
+
+The current Exit Loop dependency admits Do, While and counted For in both
+compiler paths. The UBE-written compiler additionally admits rank-one array
+For Each with a Variant control variable, real boxed scalar/record/reference
+values, genuine empty named classes and SyncLock. Retained enumeration storage
+and acquired monitors are cleaned up on actual control transfers; procedure
+locals retain their declaring-scope lifetime. Hardened O0/O2 enumeration and
+owner/root checks and final integrated regression qualification pass, as recorded
+in [the loop completion audit](LOOP-CONTROL.md). This does not admit
+object-collection enumeration, full Variant arithmetic/library coverage,
+class members or lifecycle hooks, or extend the VB6 seed to managed values.
+
 ## Compiler responsibilities
 
 The owner-approved [IDE execution-context constant](IDE-CONTEXT.md),

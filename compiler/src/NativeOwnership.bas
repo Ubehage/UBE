@@ -6,7 +6,7 @@ Attribute UBE_Name = "NativeOwnership"
 Public Function HasIncomingOwner(ByRef A() As DeclarationBinder.BoundSymbol, ByRef P() As NativePlanning.NativeSymbolPlan, ByVal Symbol As Long) As Boolean
     If A(Symbol - 1).Kind <> SourceParser.ParameterNode Then Exit Function
     If P(Symbol - 1).StorageEscapes = False Then Exit Function
-    HasIncomingOwner = A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Or A(Symbol - 1).ArrayRank <> 0 Or A(Symbol - 1).TypeSymbol <> 0
+    HasIncomingOwner = A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Or A(Symbol - 1).ArrayRank <> 0 Or ManagedLayouts.IsRecordValue(A(Symbol - 1).TypeCode, A(Symbol - 1).TypeSymbol)
 End Function
 
 ' Locals and scalar value parameters own boxes; pointer parameters borrow an incoming owner.
@@ -71,10 +71,12 @@ Public Function TryAllocateTemporary(ByRef E() As ExpressionBinder.BoundExpressi
     Dim Address As Long
     Dim Template As Long
     Dim Managed As Boolean
+    Dim LayoutSymbol As Long
     On Error GoTo Failed
     Cells = 1
-    If E(Node - 1).TypeSymbol <> 0 Then Cells = L(Node - 1).StorageCells
+    If ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) Then Cells = L(Node - 1).StorageCells
     If E(Node - 1).ArrayRank <> 0 Then Cells = 4
+    If E(Node - 1).ArgumentMode = 3 And ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) Then Cells = 1
     Block = NativeEmission.NewValue(S)
     Accepted = NativeEmission.NewValue(S)
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.NewOwner, Block, Cells, 0, 0) = False Then Exit Function
@@ -85,11 +87,13 @@ Public Function TryAllocateTemporary(ByRef E() As ExpressionBinder.BoundExpressi
         Managed = L(Node - 1).ManagedReferences > 0
         ' A grouped ByRef box stores the converted parameter type.
         ' A numeric conversion must not retain the source String's root layout.
-        If E(Node - 1).ArgumentMode = 3 Then Managed = E(Node - 1).ConvertedType = SyntaxTokens.KwString
+        If E(Node - 1).ArgumentMode = 3 Then Managed = ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType)
         If Managed Then
+            LayoutSymbol = E(Node - 1).TypeSymbol
+            If E(Node - 1).ArgumentMode = 3 Then LayoutSymbol = 0
             Template = LLVMTemplates.AttachManagedOwner
             If E(Node - 1).ArrayRank <> 0 Then Template = LLVMTemplates.AttachManagedArrayOwner
-            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Block, E(Node - 1).TypeSymbol, 1, 0) Then Exit Function
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Block, LayoutSymbol, 1, 0) Then Exit Function
         End If
     End If
     If E(Node - 1).ArrayRank <> 0 Then

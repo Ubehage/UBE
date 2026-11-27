@@ -1677,6 +1677,68 @@ Private Function BindAssignment(ByRef Project As ProjectContext, ByRef Parsed As
     BindAssignment = True
 End Function
 
+' Recognizes the exact same stable scalar/record receiver path for Next matching.
+Private Function SameLoopVariable(ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByVal LeftNode As Long, ByVal RightNode As Long) As Boolean
+    Do
+        If Bound.Nodes(LeftNode).AccessKind <> Bound.Nodes(RightNode).AccessKind Or Bound.Nodes(LeftNode).SymbolIndex <> Bound.Nodes(RightNode).SymbolIndex Then Exit Function
+        If Bound.Nodes(LeftNode).AccessKind <> "field" Then SameLoopVariable = Bound.Nodes(LeftNode).AccessKind <> "index": Exit Function
+        LeftNode = Parsed.Nodes(LeftNode).FirstChild
+        RightNode = Parsed.Nodes(RightNode).FirstChild
+    Loop
+End Function
+
+Private Function BindFor(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByRef Diagnostic As String) As Boolean
+    Dim Target As Long, Child As Long, Parent As Long, Other As Long
+    Dim TypeName As String
+    If Parsed.Nodes(Node).Text = "each" Then
+        BindFor = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "For Each requires Variant values and retained enumeration storage")
+        Exit Function
+    End If
+    Target = Parsed.Nodes(Node).FirstChild
+    If ResolveReference(Project, Parsed, Bound, State, Target, True, Diagnostic) = 0 Then Exit Function
+    TypeName = Bound.Nodes(Target).TypeName
+    If Not Bound.Nodes(Target).Writable Or AggregateValue(Bound, Target) Or IntegerWidth(TypeName) = 0 Then
+        BindFor = BindingError(Project, Parsed, Target, Diagnostic, "E_TYPE", "For requires writable numeric scalar storage")
+        Exit Function
+    End If
+    Child = Target
+    Do While Bound.Nodes(Child).AccessKind = "field"
+        Child = Parsed.Nodes(Child).FirstChild
+    Loop
+    If Bound.Nodes(Child).AccessKind = "index" Then
+        BindFor = BindingError(Project, Parsed, Target, Diagnostic, "E_UNSUPPORTED", "array-element loop counters require retained alias ownership")
+        Exit Function
+    End If
+    Parent = Parsed.Nodes(Node).Parent
+    Do While Parent <> 0
+        If Parsed.Nodes(Parent).Kind = "sub" Or Parsed.Nodes(Parent).Kind = "function" Then Exit Do
+        If Parsed.Nodes(Parent).Kind = "for" Then
+            Other = Parsed.Nodes(Parent).FirstChild
+            If SameLoopVariable(Parsed, Bound, Other, Target) Then
+                BindFor = BindingError(Project, Parsed, Target, Diagnostic, "E_TYPE", "nested For cannot reuse an active counter")
+                Exit Function
+            End If
+        End If
+        Parent = Parsed.Nodes(Parent).Parent
+    Loop
+    Bound.Nodes(Node).TypeName = TypeName
+    Child = Parsed.Nodes(Target).NextSibling
+    Do While Parsed.Nodes(Child).Kind <> "body"
+        If Not BindExpression(Project, Parsed, Bound, State, Child, 0, Diagnostic, TypeName) Then Exit Function
+        If Not ConvertValue(Project, Parsed, Bound, Child, TypeName, Diagnostic) Then Exit Function
+        Child = Parsed.Nodes(Child).NextSibling
+    Loop
+    Child = Parsed.Nodes(Child).NextSibling
+    If Child <> 0 Then
+        If ResolveReference(Project, Parsed, Bound, State, Child, True, Diagnostic) = 0 Then Exit Function
+        If Not SameLoopVariable(Parsed, Bound, Child, Target) Then
+            BindFor = BindingError(Project, Parsed, Child, Diagnostic, "E_TYPE", "Next variable must match its For counter")
+            Exit Function
+        End If
+    End If
+    BindFor = True
+End Function
+
 ' Resolves both ordinary and handler branches in the separate procedure-local label region.
 Private Function BindBranch(ByRef Project As ProjectContext, ByRef Parsed As ParsedProject, ByRef Bound As BoundProject, ByRef State As BindingState, ByVal Node As Long, ByRef Diagnostic As String) As Boolean
     Dim Name As String
@@ -1750,21 +1812,27 @@ Private Function CheckNodes(ByRef Project As ProjectContext, ByRef Parsed As Par
         Select Case Kind
         Case "variable", "assignment"
             If Not BindAssignment(Project, Parsed, Bound, State, Node, Diagnostic) Then Exit Function
-        Case "if", "do"
+        Case "for"
+            If Not BindFor(Project, Parsed, Bound, State, Node, Diagnostic) Then Exit Function
+        Case "if", "do", "while"
             Child = Parsed.Nodes(Node).FirstChild
             If Parsed.Nodes(Child).Kind <> "body" Then
                 If Not BindExpression(Project, Parsed, Bound, State, Child, 0, Diagnostic) Then Exit Function
                 If Not ConvertValue(Project, Parsed, Bound, Child, "Boolean", Diagnostic) Then Exit Function
             End If
         Case "exit"
-            If Parsed.Nodes(Node).Text = "do" Then
+            If Parsed.Nodes(Node).Text = "do" Or Parsed.Nodes(Node).Text = "loop" Or Parsed.Nodes(Node).Text = "while" Or Parsed.Nodes(Node).Text = "for" Then
                 Parent = Parsed.Nodes(Node).Parent
                 Do While Parent <> 0
-                    If Parsed.Nodes(Parent).Kind = "do" Then Exit Do
+                    If Parsed.Nodes(Parent).Kind = "sub" Or Parsed.Nodes(Parent).Kind = "function" Then Exit Do
+                    If (Parsed.Nodes(Parent).Kind = "do" Or Parsed.Nodes(Parent).Kind = "while" Or Parsed.Nodes(Parent).Kind = "for") And (Parsed.Nodes(Node).Text = Parsed.Nodes(Parent).Kind Or Parsed.Nodes(Node).Text = "loop") Then Exit Do
                     Parent = Parsed.Nodes(Parent).Parent
                 Loop
+                If Parent <> 0 Then
+                    If Parsed.Nodes(Parent).Kind <> "do" And Parsed.Nodes(Parent).Kind <> "while" And Parsed.Nodes(Parent).Kind <> "for" Then Parent = 0
+                End If
                 If Parent = 0 Then
-                    CheckNodes = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Exit Do requires an enclosing Do loop")
+                    CheckNodes = BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "Loop exit requires an enclosing loop")
                     Exit Function
                 End If
             End If

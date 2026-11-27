@@ -61,6 +61,10 @@ Public Const TextPublish As Long = 54
 Public Const TextAbandon As Long = 55
 Public Const MemoryCollect As Long = 56
 Public Const ManagedWorkspace As Long = 57
+Public Const VariantTag As Long = 58
+Public Const ObjectMonitorTryEnter As Long = 59
+Public Const ObjectMonitorLeave As Long = 60
+Public Const ObjectMonitorYield As Long = 61
 
 Private Function CollectionRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
     CollectionRoleCharacter = -1
@@ -108,7 +112,94 @@ Attribute ResizeRoles.UBE_Primitive = "Array.TryResize"
 End Function
 
 ' Supplies the reviewed ASCII spelling table; source text is decoded only by SyntaxTokens.
+Private Function ObjectRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    ObjectRoleCharacter = -1
+    If Role = ObjectMonitorTryEnter Then
+        If Position = 0 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 1 Then ObjectRoleCharacter = 98: Exit Function
+        If Position = 2 Then ObjectRoleCharacter = 106: Exit Function
+        If Position = 3 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 4 Then ObjectRoleCharacter = 99: Exit Function
+        If Position = 5 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 6 Then ObjectRoleCharacter = 46: Exit Function
+        If Position = 7 Then ObjectRoleCharacter = 109: Exit Function
+        If Position = 8 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 9 Then ObjectRoleCharacter = 110: Exit Function
+        If Position = 10 Then ObjectRoleCharacter = 105: Exit Function
+        If Position = 11 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 12 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 13 Then ObjectRoleCharacter = 114: Exit Function
+        If Position = 14 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 15 Then ObjectRoleCharacter = 114: Exit Function
+        If Position = 16 Then ObjectRoleCharacter = 121: Exit Function
+        If Position = 17 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 18 Then ObjectRoleCharacter = 110: Exit Function
+        If Position = 19 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 20 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 21 Then ObjectRoleCharacter = 114: Exit Function
+    End If
+    If Role = ObjectMonitorLeave Then
+        If Position = 0 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 1 Then ObjectRoleCharacter = 98: Exit Function
+        If Position = 2 Then ObjectRoleCharacter = 106: Exit Function
+        If Position = 3 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 4 Then ObjectRoleCharacter = 99: Exit Function
+        If Position = 5 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 6 Then ObjectRoleCharacter = 46: Exit Function
+        If Position = 7 Then ObjectRoleCharacter = 109: Exit Function
+        If Position = 8 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 9 Then ObjectRoleCharacter = 110: Exit Function
+        If Position = 10 Then ObjectRoleCharacter = 105: Exit Function
+        If Position = 11 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 12 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 13 Then ObjectRoleCharacter = 114: Exit Function
+        If Position = 14 Then ObjectRoleCharacter = 108: Exit Function
+        If Position = 15 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 16 Then ObjectRoleCharacter = 97: Exit Function
+        If Position = 17 Then ObjectRoleCharacter = 118: Exit Function
+        If Position = 18 Then ObjectRoleCharacter = 101: Exit Function
+    End If
+    If Role = ObjectMonitorYield Then
+        If Position = 0 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 1 Then ObjectRoleCharacter = 98: Exit Function
+        If Position = 2 Then ObjectRoleCharacter = 106: Exit Function
+        If Position = 3 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 4 Then ObjectRoleCharacter = 99: Exit Function
+        If Position = 5 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 6 Then ObjectRoleCharacter = 46: Exit Function
+        If Position = 7 Then ObjectRoleCharacter = 109: Exit Function
+        If Position = 8 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 9 Then ObjectRoleCharacter = 110: Exit Function
+        If Position = 10 Then ObjectRoleCharacter = 105: Exit Function
+        If Position = 11 Then ObjectRoleCharacter = 116: Exit Function
+        If Position = 12 Then ObjectRoleCharacter = 111: Exit Function
+        If Position = 13 Then ObjectRoleCharacter = 114: Exit Function
+        If Position = 14 Then ObjectRoleCharacter = 121: Exit Function
+        If Position = 15 Then ObjectRoleCharacter = 105: Exit Function
+        If Position = 16 Then ObjectRoleCharacter = 101: Exit Function
+        If Position = 17 Then ObjectRoleCharacter = 108: Exit Function
+        If Position = 18 Then ObjectRoleCharacter = 100: Exit Function
+    End If
+End Function
+
+
 Private Function RoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role >= ObjectMonitorTryEnter And Role <= ObjectMonitorYield Then RoleCharacter = ObjectRoleCharacter(Role, Position): Exit Function
+    If Role = VariantTag Then
+        RoleCharacter = -1
+        If Position = 0 Then RoleCharacter = 118
+        If Position = 1 Then RoleCharacter = 97
+        If Position = 2 Then RoleCharacter = 114
+        If Position = 3 Then RoleCharacter = 105
+        If Position = 4 Then RoleCharacter = 97
+        If Position = 5 Then RoleCharacter = 110
+        If Position = 6 Then RoleCharacter = 116
+        If Position = 7 Then RoleCharacter = 46
+        If Position = 8 Then RoleCharacter = 116
+        If Position = 9 Then RoleCharacter = 97
+        If Position = 10 Then RoleCharacter = 103
+        Exit Function
+    End If
     If Role = MemoryCollect Or Role = ManagedWorkspace Then RoleCharacter = CollectionRoleCharacter(Role, Position): Exit Function
     If Role >= ManagedBeginCollection And Role <= ManagedReclaim Then RoleCharacter = ManagedRoleCharacter(Role, Position): Exit Function
     If Role >= TextByteLength And Role <= TextAbandon Then RoleCharacter = TextRoleCharacter(Role, Position): Exit Function
@@ -1216,7 +1307,7 @@ Private Function ReadRole(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Actual As Long
     On Error GoTo Failed
     Role = 1
-    Do While Role <= ManagedWorkspace
+    Do While Role <= ObjectMonitorYield
         Position = 0
         Do
             Expected = RoleCharacter(Role, Position)
@@ -1251,6 +1342,9 @@ End Function
 
 ' Returns exact arity for each reviewed primitive role.
 Private Function ParameterCount(ByVal Role As Long) As Long
+    If Role = ObjectMonitorTryEnter Or Role = ObjectMonitorLeave Then ParameterCount = 1: Exit Function
+    If Role = ObjectMonitorYield Then ParameterCount = 0: Exit Function
+    If Role = VariantTag Then ParameterCount = 1: Exit Function
     If Role = MemoryCollect Then ParameterCount = 0: Exit Function
     If Role = ManagedWorkspace Then ParameterCount = 3: Exit Function
     If Role >= ManagedBeginCollection And Role <= TextAbandon Then ParameterCount = ManagedParameterCount(Role): Exit Function
@@ -1281,6 +1375,8 @@ End Function
 
 ' Classifies each formal as generic array, byte array, value Long, reference Long, or value Boolean.
 Private Function ParameterShape(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role = ObjectMonitorTryEnter Or Role = ObjectMonitorLeave Then ParameterShape = 7: Exit Function
+    If Role = VariantTag Then ParameterShape = 13: Exit Function
     If Role = ManagedWorkspace Then
         If Position = 1 Then ParameterShape = 12: Exit Function
         If Position = 2 Then ParameterShape = 3: Exit Function
@@ -1444,6 +1540,7 @@ Private Function MatchesParameter(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If Shape = 9 Then ExpectedType = SyntaxTokens.KwString: ExpectedMode = SyntaxTokens.KwByref
     If Shape = 10 Then ExpectedType = SyntaxTokens.KwByte: ExpectedMode = SyntaxTokens.KwByref
     If Shape = 11 Then ExpectedType = SyntaxTokens.KwByte
+    If Shape = 13 Then ExpectedType = SyntaxTokens.KwVariant
     MatchesParameter = A(Symbol - 1).TypeCode = ExpectedType And A(Symbol - 1).PassingMode = ExpectedMode
     Exit Function
 Failed:
@@ -1464,6 +1561,8 @@ Private Function MatchesSignature(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If Role = ThreadCurrentId Then ExpectedType = SyntaxTokens.KwLonglong
     If Role = ThreadWait Or Role = ThreadRequestStop Then ExpectedType = SyntaxTokens.KwLong
     If Role = ArrayLength Then ExpectedType = SyntaxTokens.KwLong
+    If Role = VariantTag Then ExpectedType = SyntaxTokens.KwLong
+    If Role = ObjectMonitorTryEnter Then ExpectedType = SyntaxTokens.KwLong
     If A(Symbol - 1).TypeCode <> ExpectedType Then Exit Function
     If A(Symbol - 1).ParameterCount <> ParameterCount(Role) Then Exit Function
     Parameter = A(Symbol - 1).FirstParameter

@@ -1,5 +1,98 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeStorage"
+' Boxes a record using its authoritative nominal layout and the ordinary typed copy barrier.
+Public Function BoxRecord(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Source As Long, ByVal TypeSymbol As Long) As Long
+    Dim Cells As Long
+    Dim References As Long
+    Dim Template As Long
+    Dim Status As Long
+    Dim Identity As Long
+    Dim Address As Long
+    Dim Values() As Long
+    On Error GoTo Failed
+    Cells = L(A(TypeSymbol - 1).DeclarationNode - 1).ElementCells
+    References = L(A(TypeSymbol - 1).DeclarationNode - 1).ManagedReferences
+    Template = LLVMTemplates.VariantCreatePlainRecord
+    If References > 0 Then Template = LLVMTemplates.VariantCreateRecord
+    Status = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Status, TypeSymbol, Cells, Node) Then Exit Function
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
+    Identity = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadManagedExpression, Identity, Node, 0, 0) Then Exit Function
+    Address = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantPayload, Address, Identity, 0, 0) Then Exit Function
+    If Not SnapshotCells(S, B, Token, Catalog, Source, Cells, Values) Then Exit Function
+    If Not StoreTypedCells(A, L, 0, TypeSymbol, References, S, B, Token, Catalog, Address, Values) Then Exit Function
+    Status = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantPublish, Status, Node, Identity, 0) Then Exit Function
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
+    BoxRecord = Identity
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Boxes an object identity without cloning the object and retains its exact declared nominal type.
+Public Function BoxReference(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Node As Long, ByVal Value As Long, ByVal TypeSymbol As Long) As Long
+    Dim Status As Long
+    Dim Identity As Long
+    Dim Address As Long
+    Dim Pair As Long
+    Dim Nominal As Long
+    On Error GoTo Failed
+    Status = NativeEmission.NewValue(S)
+    If TypeSymbol = 0 Then
+        Pair = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ObjectNominal, Pair, Value, 0, 0) Then Exit Function
+        If Not NativeEmission.GuardCall(S, B, Token, Catalog, Seen, Nexts, Pair) Then Exit Function
+        Nominal = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CallValue, Nominal, Pair, 0, 0) Then Exit Function
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantCreateObjectDynamic, Status, Nominal, Node, 0) Then Exit Function
+    Else
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantCreateObject, Status, TypeSymbol, Node, 0) Then Exit Function
+    End If
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
+    Identity = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.LoadManagedExpression, Identity, Node, 0, 0) Then Exit Function
+    Address = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantPayload, Address, Identity, 0, 0) Then Exit Function
+    If Not StoreScalar(S, B, Token, Catalog, Address, Value, SyntaxTokens.KwObject) Then Exit Function
+    Status = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantPublish, Status, Node, Identity, 0) Then Exit Function
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
+    BoxReference = Identity
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
+' Exposes immutable record cells only after exact tag, nominal identity and extent checks succeed.
+Public Function VariantRecordAddress(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long, ByVal Value As Long, ByVal TypeSymbol As Long) As Long
+    Dim Status As Long
+    Dim Address As Long
+    Dim Cells As Long
+    On Error GoTo Failed
+    Cells = L(A(TypeSymbol - 1).DeclarationNode - 1).ElementCells
+    Status = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantMatchRecord, Status, Value, TypeSymbol, Cells) Then Exit Function
+    If Not NativeEmission.GuardStatus(S, B, Token, Catalog, Seen, Nexts, Status) Then Exit Function
+    Address = NativeEmission.NewValue(S)
+    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.VariantPayload, Address, Value, 0, 0) Then Exit Function
+    VariantRecordAddress = Address
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
 ' Supplies exact element layout before native array publication, including an empty destination.
 Public Function CopyArray(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L() As AggregateLayout.StorageFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Result As Long, ByVal Destination As Long, ByVal Source As Long, ByVal Stride As Long, ByVal ManagedReferences As Long, ByVal TypeCode As Long, ByVal TypeSymbol As Long) As Boolean
     On Error GoTo Failed
@@ -75,7 +168,7 @@ End Function
 Public Function StoreScalar(ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Address As Long, ByVal Value As Long, ByVal TypeCode As Long) As Boolean
     Dim Template As Long = LLVMTemplates.StoreValue
     On Error GoTo Failed
-    If TypeCode = SyntaxTokens.KwString Then Template = LLVMTemplates.ManagedStoreValue
+    If ManagedLayouts.IsManagedScalar(TypeCode) Then Template = LLVMTemplates.ManagedStoreValue
     StoreScalar = NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Address, 0, 0)
     Exit Function
 Failed:
@@ -127,7 +220,7 @@ Public Function StorageAddress(ByRef A() As DeclarationBinder.BoundSymbol, ByRef
         Template = LLVMTemplates.SlotAddress
         If NativeOwnership.HasLocalBox(A, P, Symbol) Then Template = LLVMTemplates.BoxAddress
         If A(Symbol - 1).Kind = SourceParser.ParameterNode Then
-            If A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Or A(Symbol - 1).ArrayRank = 1 Or A(Symbol - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.ArgumentAddress
+            If A(Symbol - 1).PassingMode = SyntaxTokens.KwByRef Or A(Symbol - 1).ArrayRank = 1 Or ManagedLayouts.IsRecordValue(A(Symbol - 1).TypeCode, A(Symbol - 1).TypeSymbol) Then Template = LLVMTemplates.ArgumentAddress
         End If
         If Not NativeEmission.TryLine(S, B, Token, Catalog, Template, Value, Symbol, 0, 0) Then Exit Function
     End If

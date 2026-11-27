@@ -13,6 +13,7 @@ Public Type RolePlan
     FromFloatingSymbol As Long
     ToFloatingSymbol As Long
     PowerSymbol As Long
+    MonitorEnterSymbol As Long
 End Type
 
 ' Uses retained syntax, not source text searches or user procedure names.
@@ -20,12 +21,13 @@ Public Function NeedsSource(ByRef Bytes() As Byte, ByRef Tokens() As SourceScann
     Dim Index As Long
     Dim Token As Long
     Do While Index < Counts.NodeCount
+        If Nodes(Index).Kind = SourceParser.ClassNode Or Nodes(Index).Kind = SourceParser.NewObjectNode Or Nodes(Index).Kind = SourceParser.SyncLockNode Then NeedsSource = True: Exit Function
         If Nodes(Index).Kind = SourceParser.StringNode Or Nodes(Index).Suffix = SyntaxTokens.KwString Then NeedsSource = True: Exit Function
         If Nodes(Index).Kind = SourceParser.BinaryNode And Nodes(Index).Value = SyntaxTokens.SymAmpersand Then NeedsSource = True: Exit Function
         If Nodes(Index).Kind = SourceParser.BinaryNode And Nodes(Index).Value = SyntaxTokens.SymCaret Then NeedsSource = True: Exit Function
         Token = Nodes(Index).TypeFirstToken
         If Token >= 0 Then
-            If SyntaxTokens.TokenCode(Bytes, Tokens, Token, Counts.TokenCount) = SyntaxTokens.KwString Then NeedsSource = True: Exit Function
+            If ManagedLayouts.IsManagedScalar(SyntaxTokens.TokenCode(Bytes, Tokens, Token, Counts.TokenCount)) Then NeedsSource = True: Exit Function
         End If
         If Nodes(Index).Kind = SourceParser.PrimitiveNode Then
             Token = Nodes(Index).NameToken
@@ -42,6 +44,31 @@ End Function
 
 Private Function NameByte(ByVal Identity As Long, ByVal Position As Long) As Long
     NameByte = -1
+    If Identity = 12 Then
+        If Position = 0 Then NameByte = 101: Exit Function
+        If Position = 1 Then NameByte = 110: Exit Function
+        If Position = 2 Then NameByte = 116: Exit Function
+        If Position = 3 Then NameByte = 101: Exit Function
+        If Position = 4 Then NameByte = 114: Exit Function
+        Exit Function
+    End If
+    If Identity = 16 Then
+        If Position = 0 Then NameByte = 109: Exit Function
+        If Position = 1 Then NameByte = 111: Exit Function
+        If Position = 2 Then NameByte = 110: Exit Function
+        If Position = 3 Then NameByte = 105: Exit Function
+        If Position = 4 Then NameByte = 116: Exit Function
+        If Position = 5 Then NameByte = 111: Exit Function
+        If Position = 6 Then NameByte = 114: Exit Function
+        If Position = 7 Then NameByte = 115: Exit Function
+        If Position = 8 Then NameByte = 117: Exit Function
+        If Position = 9 Then NameByte = 112: Exit Function
+        If Position = 10 Then NameByte = 112: Exit Function
+        If Position = 11 Then NameByte = 111: Exit Function
+        If Position = 12 Then NameByte = 114: Exit Function
+        If Position = 13 Then NameByte = 116: Exit Function
+        Exit Function
+    End If
     If Identity = 11 Then
         If Position = 0 Then NameByte = 101: Exit Function
         If Position = 1 Then NameByte = 118: Exit Function
@@ -272,12 +299,12 @@ Private Function ResultType(ByVal Role As Long) As Long
     ResultType = SyntaxTokens.KwString
     If Role = 2 Or Role = 8 Then ResultType = SyntaxTokens.KwLong
     If Role = 5 Or Role = 10 Or Role = 11 Then ResultType = SyntaxTokens.KwLongLong
-    If Role = 6 Then ResultType = SyntaxTokens.KwBoolean
+    If Role = 6 Or Role = 12 Then ResultType = SyntaxTokens.KwBoolean
 End Function
 
 Private Function ParameterType(ByVal Role As Long, ByVal Index As Long) As Long
     ParameterType = SyntaxTokens.KwString
-    If Role = 3 Or (Role = 5 And Index > 0) Then ParameterType = SyntaxTokens.KwLongLong
+    If Role = 3 Or Role = 12 Or (Role = 5 And Index > 0) Then ParameterType = SyntaxTokens.KwLongLong
     If Role = 4 Or Role = 8 Then ParameterType = SyntaxTokens.KwBoolean
     If Role = 9 Or Role = 11 Then ParameterType = SyntaxTokens.KwLongLong
     If (Role = 9 Or Role = 10) And Index = 1 Then ParameterType = SyntaxTokens.KwLong
@@ -318,7 +345,7 @@ End Function
 ' Plan changes only after every required role and support initialization boundary succeeds.
 Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Plan As RolePlan, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Candidate As RolePlan
-    Dim Found(0 To 10) As Long
+    Dim Found(0 To 11) As Long
     Dim Index As Long
     Dim Node As Long
     Dim ModuleIndex As Long
@@ -326,6 +353,7 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
     Dim Role As Long
     Dim ModuleName As Long
     Dim Needed As Boolean
+    Dim NeedsMonitor As Boolean
     Dim FirstNode As Long
     On Error GoTo Failed
     If Not ProjectSyntax.IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, 0, 80): Exit Function
@@ -335,7 +363,7 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
         ModuleIndex = Symbols(Index).ModuleIndex
         If Node < 1 Or Node > Counts.NodeCount Or ModuleIndex < 0 Or ModuleIndex >= Counts.ModuleCount Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, 0, 80): Exit Function
         If Symbols(Index).LookupDomain <> Modules(ModuleIndex).LookupDomain Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, Node, 80): Exit Function
-        If Symbols(Index).TypeCode = SyntaxTokens.KwString Or Symbols(Index).LookupDomain = 1 Then
+        If ManagedLayouts.IsManagedScalar(Symbols(Index).TypeCode) Or Symbols(Index).LookupDomain = 1 Then
             Needed = True
             If FirstNode = 0 Then FirstNode = Node
         End If
@@ -348,10 +376,11 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
                     End If
                     If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.SubNode Then
                         Role = 1
-                        Do While Role <= 11
+                        Do While Role <= 12
                             ModuleName = 13
                             If Role = 8 Then ModuleName = 14
                             If Role = 11 Then ModuleName = 15
+                            If Role = 12 Then ModuleName = 16
                             If Matches(Bytes, Tokens, Counts.TokenCount, Symbols(ModuleSymbol - 1).NameToken, ModuleName) Then
                                 If Matches(Bytes, Tokens, Counts.TokenCount, Symbols(Index).NameToken, Role) Then
                                     If Found(Role - 1) <> 0 Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, Node, 82): Exit Function
@@ -369,6 +398,7 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
     Loop
     Index = 0
     Do While Index < Counts.NodeCount
+        If Nodes(Index).Kind = SourceParser.SyncLockNode Then NeedsMonitor = True
         If Nodes(Index).Kind = SourceParser.StringNode Then
             Needed = True
             If FirstNode = 0 Then FirstNode = Index + 1
@@ -392,6 +422,8 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
         Candidate.ToFloatingSymbol = Found(9)
         Candidate.PowerSymbol = Found(10)
         Candidate.CollectSymbol = Found(7)
+        If NeedsMonitor And Found(11) = 0 Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, FirstNode, 81): Exit Function
+        Candidate.MonitorEnterSymbol = Found(11)
     End If
     Plan = Candidate
     TryResolve = True

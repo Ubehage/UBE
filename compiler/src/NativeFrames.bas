@@ -67,14 +67,19 @@ Private Function RegisterTemporary(ByRef N() As SourceParser.SyntaxNode, ByRef E
     Dim Index As Long
     Dim Zero As Long
     Dim Pointer As Long
+    Dim LayoutSymbol As Long
     On Error GoTo Failed
     If S.ManagedRoles.CollectSymbol = 0 Then RegisterTemporary = True: Exit Function
     If Escapes(Node - 1).NeedsOwner Then RegisterTemporary = True: Exit Function
-    If E(Node - 1).ArgumentMode = 1 And E(Node - 1).ArrayRank = 0 And E(Node - 1).TypeSymbol = 0 Then RegisterTemporary = True: Exit Function
+    If E(Node - 1).ArgumentMode = 1 And E(Node - 1).ArrayRank = 0 Then
+        If Not ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) Or E(Node - 1).ConvertedType = SyntaxTokens.KwVariant Then RegisterTemporary = True: Exit Function
+    End If
     Cells = L(Node - 1).StorageCells
+    LayoutSymbol = E(Node - 1).TypeSymbol
     If E(Node - 1).ArgumentMode = 3 Then
-        If E(Node - 1).ConvertedType <> SyntaxTokens.KwString Then RegisterTemporary = True: Exit Function
+        If Not ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) Then RegisterTemporary = True: Exit Function
         Cells = 1
+        LayoutSymbol = 0
     ElseIf E(Node - 1).ArgumentMode <> 1 Or L(Node - 1).ManagedReferences = 0 Then
         If Not ManagedLayouts.NeedsRecordSnapshot(N, E, L, Node) Then RegisterTemporary = True: Exit Function
     End If
@@ -94,7 +99,7 @@ Private Function RegisterTemporary(ByRef N() As SourceParser.SyntaxNode, ByRef E
             Index = Index + 1
         Loop
     End If
-    RegisterTemporary = NativeEmission.TryLine(S, B, Token, Catalog, Template, Node, Address, E(Node - 1).TypeSymbol, 0)
+    RegisterTemporary = NativeEmission.TryLine(S, B, Token, Catalog, Template, Node, Address, LayoutSymbol, 0)
     Exit Function
 Failed:
     S.Text.Failed = True
@@ -166,7 +171,7 @@ Private Function EmitTemporaryTable(ByRef N() As SourceParser.SyntaxNode, ByRef 
                 Index = 0
                 Do While Index < Count
                     Offset = 0
-                    If E(Node - 1).TypeSymbol <> 0 Then
+                    If ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) And E(Node - 1).ArgumentMode <> 3 Then
                         If Not ManagedLayouts.TryReferenceOffset(A, L, E(Node - 1).TypeCode, E(Node - 1).TypeSymbol, Index, Offset) Then GoTo Failed
                     End If
                     Pointer = NativeEmission.NewValue(S)
@@ -214,6 +219,70 @@ Failed:
     S.ErrorNode = S.CurrentNode
 End Function
 
+' Emits one node's temporary owners, construct cells and precise roots in their existing order.
+Private Function EmitNodeStorage(ByRef N() As SourceParser.SyntaxNode, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Node As Long) As Boolean
+    Dim Address As Long
+    Dim Cells As Long
+    Dim Collection As Long
+    On Error GoTo Failed
+    If E(Node - 1).ScopeSymbol = S.CurrentSymbol And Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateTemporaryOwner, Node, 0, 0, 0) = False Then Exit Function
+        If S.ManagedRoles.CollectSymbol <> 0 Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedTemporaryOwnerRoot, Node, 0, 0, 0) Then Exit Function
+        End If
+    ElseIf E(Node - 1).ScopeSymbol = S.CurrentSymbol And E(Node - 1).ArgumentMode = 3 Then
+        If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateTemporary, Node, 0, 0, 0) = False Then Exit Function
+    ElseIf E(Node - 1).ScopeSymbol = S.CurrentSymbol And E(Node - 1).ArgumentMode = 1 Then
+        Cells = 0
+        If E(Node - 1).ArrayRank <> 0 Then
+            Cells = 4
+        ElseIf ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then
+            Cells = L(Node - 1).StorageCells
+        End If
+        If Cells <> 0 Then
+            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateAggregateTemporary, Node, Cells, 0, 0) = False Then Exit Function
+            If E(Node - 1).ArrayRank <> 0 Then
+                Address = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+                If Address = 0 Then Exit Function
+                If NativeStorage.TryInitializeEmptyArray(S, B, Token, Catalog, Address) = False Then Exit Function
+            End If
+        End If
+    End If
+    If E(Node - 1).ScopeSymbol = S.CurrentSymbol Then
+        If N(Node - 1).Kind = SourceParser.SyncLockNode Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorSlots, Node, 0, 0, 0) Then Exit Function
+        End If
+        If E(Node - 1).TypeCode = SyntaxTokens.KwVariant And E(Node - 1).ConvertedType <> 0 And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateVariantConversion, Node, 0, 0, 0) Then Exit Function
+        End If
+        If N(Node - 1).Kind = SourceParser.ForNode Then
+            Cells = 2
+            If N(Node - 1).Value = 2 Then Cells = 5
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateAggregateTemporary, Node, Cells, 0, 0) Then Exit Function
+            If N(Node - 1).Value = 2 Then
+                If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationRoot, Node, 0, 0, 0) Then Exit Function
+                Collection = N(Node - 1).FirstChild
+                Collection = N(Collection - 1).NextSibling
+                If L(Collection - 1).ManagedReferences > 0 Then
+                    Address = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
+                    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedArrayTemporaryRoot, Node, Address, E(Collection - 1).TypeSymbol, 0) Then Exit Function
+                End If
+            End If
+        End If
+        If ManagedLayouts.NeedsRecordSnapshot(N, E, L, Node) Then
+            If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateAggregateTemporary, Node, L(Node - 1).StorageCells, 0, 0) Then Exit Function
+        End If
+        If Not RegisterTemporary(N, E, L, Escapes, S, B, Token, Catalog, Node) Then Exit Function
+    End If
+    EmitNodeStorage = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
 ' Allocates each local owner, value parameter, grouped temporary and borrow slot once at native entry.
 Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
     Dim Symbol As Long
@@ -222,7 +291,6 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Dim Root As Long
     Dim Address As Long
     Dim Slot As Long
-    Dim Cells As Long
     Dim FrameTemplate As Long
     On Error GoTo Failed
     S.FrameCells = P(S.CurrentSymbol - 1).FrameCells
@@ -232,6 +300,9 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     If S.FrameCells <= 128 Then FrameTemplate = LLVMTemplates.StackFrame
     If Not NativeEmission.TryLine(S, B, Token, Catalog, FrameTemplate, S.FrameCells, 0, 0, 0) Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.FrameControls, 0, 0, 0, 0) = False Then Exit Function
+    If P(S.CurrentSymbol - 1).FirstConstruct <> 0 Then
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConstructState, 0, 0, 0, 0) Then Exit Function
+    End If
     If S.ManagedRoles.CollectSymbol <> 0 Then
         If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedEntryFrame, 0, 0, 0, 0) Then Exit Function
     End If
@@ -239,7 +310,7 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Do While Symbol <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
         Kind = A(Symbol - 1).Kind
-        If Kind = SourceParser.VariableNode Or Kind = DeclarationBinder.ResultSymbol Or (Kind = SourceParser.ParameterNode And A(Symbol - 1).PassingMode = SyntaxTokens.KwByVal And A(Symbol - 1).ArrayRank = 0 And A(Symbol - 1).TypeSymbol = 0) Then
+        If Kind = SourceParser.VariableNode Or Kind = DeclarationBinder.ResultSymbol Or (Kind = SourceParser.ParameterNode And A(Symbol - 1).PassingMode = SyntaxTokens.KwByVal And A(Symbol - 1).ArrayRank = 0 And Not ManagedLayouts.IsRecordValue(A(Symbol - 1).TypeCode, A(Symbol - 1).TypeSymbol)) Then
             Node = A(Symbol - 1).DeclarationNode
             If P(Symbol - 1).ContextOffset < 0 Then
                 If NativeOwnership.HasLocalBox(A, P, Symbol) Then
@@ -271,35 +342,7 @@ Private Function EmitFrame(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Node = Root
     Do While Node <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
-        If E(Node - 1).ScopeSymbol = S.CurrentSymbol And Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
-            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateTemporaryOwner, Node, 0, 0, 0) = False Then Exit Function
-            If S.ManagedRoles.CollectSymbol <> 0 Then
-                If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedTemporaryOwnerRoot, Node, 0, 0, 0) Then Exit Function
-            End If
-        ElseIf E(Node - 1).ScopeSymbol = S.CurrentSymbol And E(Node - 1).ArgumentMode = 3 Then
-            If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateTemporary, Node, 0, 0, 0) = False Then Exit Function
-        ElseIf E(Node - 1).ScopeSymbol = S.CurrentSymbol And E(Node - 1).ArgumentMode = 1 Then
-            Cells = 0
-            If E(Node - 1).ArrayRank <> 0 Then
-                Cells = 4
-            ElseIf E(Node - 1).TypeSymbol <> 0 Then
-                Cells = L(Node - 1).StorageCells
-            End If
-            If Cells <> 0 Then
-                If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateAggregateTemporary, Node, Cells, 0, 0) = False Then Exit Function
-                If E(Node - 1).ArrayRank <> 0 Then
-                    Address = NativeStorage.TempAddress(Escapes, S, B, Token, Catalog, Node)
-                    If Address = 0 Then Exit Function
-                    If NativeStorage.TryInitializeEmptyArray(S, B, Token, Catalog, Address) = False Then Exit Function
-                End If
-            End If
-        End If
-        If E(Node - 1).ScopeSymbol = S.CurrentSymbol Then
-            If ManagedLayouts.NeedsRecordSnapshot(N, E, L, Node) Then
-                If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.AllocateAggregateTemporary, Node, L(Node - 1).StorageCells, 0, 0) Then Exit Function
-            End If
-            If Not RegisterTemporary(N, E, L, Escapes, S, B, Token, Catalog, Node) Then Exit Function
-        End If
+        If Not EmitNodeStorage(N, E, L, Escapes, S, B, Token, Catalog, Node) Then Exit Function
         Node = NextInScope(N, Root, Node)
     Loop
     Slot = 1
@@ -333,13 +376,15 @@ Public Function TryProcedureStart(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     Body = 0
     If S.Text.Failed Then Exit Function
     NativeEmission.BeginFunction S, Symbol, A(Symbol - 1).ModuleIndex, NodeCount, P(Symbol - 1).ResultSymbol, True
+    S.FirstConstruct = P(Symbol - 1).FirstConstruct
+    S.LastConstruct = P(Symbol - 1).LastConstruct
     S.CurrentNode = A(Symbol - 1).DeclarationNode
     If Fragment(S, B, Token, Catalog, LLVMTemplates.ProcedureStart, Symbol) = False Then Exit Function
     Parameter = A(Symbol - 1).FirstParameter
     Do While Parameter <> 0
         If NativeEmission.Charge(S) = False Then Exit Function
         Template = LLVMTemplates.ValueParameter
-        If A(Parameter - 1).PassingMode = SyntaxTokens.KwByRef Or A(Parameter - 1).ArrayRank <> 0 Or A(Parameter - 1).TypeSymbol <> 0 Then Template = LLVMTemplates.ReferenceParameter
+        If A(Parameter - 1).PassingMode = SyntaxTokens.KwByRef Or A(Parameter - 1).ArrayRank <> 0 Or ManagedLayouts.IsRecordValue(A(Parameter - 1).TypeCode, A(Parameter - 1).TypeSymbol) Then Template = LLVMTemplates.ReferenceParameter
         If Fragment(S, B, Token, Catalog, Template, Parameter) = False Then Exit Function
         If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
             If Fragment(S, B, Token, Catalog, LLVMTemplates.OwnerParameter, Parameter) = False Then Exit Function
@@ -433,6 +478,54 @@ Failed:
     S.ErrorNode = S.CurrentNode
 End Function
 
+' Retires construct-owned leases at each destination, retaining only enclosing active enumerators.
+' Reverse source-node order releases nested constructs before their owners; zero owner slots are harmless.
+Public Function TryLeaveConstructs(ByRef N() As SourceParser.SyntaxNode, ByRef E() As ExpressionBinder.BoundExpression, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByVal Destination As Long, ByVal IncludeSelf As Boolean, ByVal TerminalFailure As Boolean) As Boolean
+    Dim Node As Long
+    Dim Ancestor As Long
+    Dim Keep As Boolean
+    Dim Value As Long
+    On Error GoTo Failed
+    If S.FirstConstruct = 0 Then TryLeaveConstructs = True: Exit Function
+    Node = S.LastConstruct
+    Do While Node >= S.FirstConstruct
+        If Not NativeEmission.Charge(S) Then Exit Function
+        If E(Node - 1).ScopeSymbol = S.CurrentSymbol And (N(Node - 1).Kind = SourceParser.SyncLockNode Or (N(Node - 1).Kind = SourceParser.ForNode And N(Node - 1).Value = 2)) Then
+            Keep = False
+            Ancestor = Destination
+            If Not IncludeSelf And Ancestor <> 0 Then Ancestor = N(Ancestor - 1).Parent
+            Do While Ancestor <> 0
+                If Not NativeEmission.Charge(S) Then Exit Function
+                If Ancestor = Node Then Keep = True: Exit Do
+                Ancestor = N(Ancestor - 1).Parent
+            Loop
+            If Not Keep Then
+                Value = NativeEmission.NewValue(S)
+                If N(Node - 1).Kind = SourceParser.SyncLockNode Then
+                    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorRelease, Value, Node, 0, 0) Then Exit Function
+                Else
+                    If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.EnumerationRelease, Value, Node, 0, 0) Then Exit Function
+                End If
+            ElseIf N(Node - 1).Kind = SourceParser.SyncLockNode Then
+                Value = NativeEmission.NewValue(S)
+                If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.MonitorRequire, Value, Node, 0, 0) Then Exit Function
+            End If
+        End If
+        Node = Node - 1
+    Loop
+    If Not TerminalFailure Then
+        Value = NativeEmission.NewValue(S)
+        If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConstructGuard, Value, 0, 0, 0) Then Exit Function
+    End If
+    TryLeaveConstructs = True
+    Exit Function
+Failed:
+    S.Text.Failed = True
+    S.Text.Failure = 1
+    S.Text.ErrorNumber = Err.Number
+    S.ErrorNode = S.CurrentNode
+End Function
+
 ' Dispatches fresh failures after releasing abandoned borrows and private argument snapshots.
 Public Function TryFailureDispatch(ByRef N() As SourceParser.SyntaxNode, ByRef A() As DeclarationBinder.BoundSymbol, ByRef E() As ExpressionBinder.BoundExpression, ByRef P() As NativePlanning.NativeSymbolPlan, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte, ByRef Seen() As Long, ByRef Nexts() As Long) As Boolean
     Dim Symbol As Long
@@ -480,6 +573,7 @@ Public Function TryReturns(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     On Error GoTo Failed
     If S.Text.Failed Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.Label, 0, 0, 0, 0) = False Then Exit Function
+    If Not TryLeaveConstructs(N, E, S, B, Token, Catalog, 0, False, False) Then Exit Function
     If NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) = False Then Exit Function
     If TryReleaseArgumentArrays(N, E, P, Escapes, S, B, Token, Catalog, A(S.CurrentSymbol - 1).DeclarationNode) = False Then Exit Function
     If NativeStorage.ReleaseLocalArrays(A, P, S, B, Token, Catalog, SymbolCount) = False Then Exit Function
@@ -497,7 +591,7 @@ Public Function TryReturns(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     End If
     If S.ManagedRoles.CollectSymbol <> 0 Then
         If S.ResultSymbol <> 0 Then
-            If A(S.ResultSymbol - 1).TypeCode = SyntaxTokens.KwString Then
+            If ManagedLayouts.IsManagedScalar(A(S.ResultSymbol - 1).TypeCode) Then
                 If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ManagedReturnValue, Value, 0, 0, 0) Then Exit Function
             End If
         End If
@@ -508,6 +602,7 @@ Public Function TryReturns(ByRef N() As SourceParser.SyntaxNode, ByRef A() As De
     Result = NativeEmission.NewValue(S)
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnSuccessValue, Result, Value, 0, 0) = False Then Exit Function
     If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ReturnFailureLabel, 0, 0, 0, 0) = False Then Exit Function
+    If Not TryLeaveConstructs(N, E, S, B, Token, Catalog, 0, False, True) Then Exit Function
     If NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) = False Then Exit Function
     If TryReleaseArgumentArrays(N, E, P, Escapes, S, B, Token, Catalog, A(S.CurrentSymbol - 1).DeclarationNode) = False Then Exit Function
     If NativeStorage.ReleaseLocalArrays(A, P, S, B, Token, Catalog, SymbolCount) = False Then Exit Function

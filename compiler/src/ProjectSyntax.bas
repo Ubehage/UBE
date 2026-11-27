@@ -83,7 +83,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If M.ByteCount <= 0 Or M.TokenCount < 2 Or M.NodeCount < 1 Then Exit Function
     If M.RootNode <> M.NodeBase + 1 Then Exit Function
     If M.NameToken < M.TokenBase Or M.NameToken >= M.TokenBase + M.TokenCount Then Exit Function
-    If N(M.NodeBase).Kind <> SourceParser.ModuleNode Then Exit Function
+    If N(M.NodeBase).Kind <> SourceParser.ModuleNode And N(M.NodeBase).Kind <> SourceParser.ClassNode Then Exit Function
     If N(M.NodeBase).NameToken <> M.NameToken Then Exit Function
     I = M.TokenBase
     Finish = I + M.TokenCount
@@ -103,7 +103,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     I = M.NodeBase
     Finish = I + M.NodeCount
     Do While I < Finish
-        If N(I).Kind < 1 Or N(I).Kind > SourceParser.StringNode Then Exit Function
+        If N(I).Kind < 1 Or N(I).Kind > SourceParser.SyncLockNode Then Exit Function
         If N(I).Utf16Start < 1 Or N(I).Utf16Length < 0 Or N(I).Line < 1 Or N(I).Column < 1 Then Exit Function
         If Not SpanFits(N(I).ByteStart, N(I).ByteLength, M.ByteBase, M.ByteCount) Then Exit Function
         If N(I).FirstToken < M.TokenBase Or N(I).FirstToken >= M.TokenBase + M.TokenCount Then Exit Function

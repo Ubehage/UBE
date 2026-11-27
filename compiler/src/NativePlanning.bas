@@ -7,6 +7,8 @@ Public Type NativeSymbolPlan
     TemporaryTextCount As Long
     TextSlotCount As Long
     PinCount As Long
+    FirstConstruct As Long
+    LastConstruct As Long
     ResultSymbol As Long
     FirstScopeSymbol As Long
     NextScopeSymbol As Long
@@ -147,7 +149,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Do While Index < Count
         Plans(Index).ContextOffset = -1
         Kind = A(Index).Kind
-        If Kind = SourceParser.ModuleNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
+        If Kind = SourceParser.ModuleNode Or Kind = SourceParser.ClassNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
             Plans(Index).FrameCells = 4
             If ManagedRequired Then Plans(Index).FrameCells = 8
         End If
@@ -181,7 +183,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                 Borrowed = False
                 If Plans(Index).StorageEscapes Then Cells = 1
                 If Kind = SourceParser.ParameterNode Then
-                    If A(Index).PassingMode = SyntaxTokens.KwByRef Or A(Index).ArrayRank <> 0 Or A(Index).TypeSymbol <> 0 Then
+                    If A(Index).PassingMode = SyntaxTokens.KwByRef Or A(Index).ArrayRank <> 0 Or ManagedLayouts.IsRecordValue(A(Index).TypeCode, A(Index).TypeSymbol) Then
                         Borrowed = True
                         Cells = 0
                         If ManagedRequired And Plans(Index).StorageEscapes Then Cells = 1
@@ -262,6 +264,77 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Charges loop, monitor and Variant conversion storage in source-node order.
+Private Function PlanConstructStorage(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Scope As Long) As Boolean
+    Dim Kind As Long
+    Dim Child As Long
+    Dim Cells As Long
+    On Error GoTo Failed
+    Kind = N(Node - 1).Kind
+    If E(Node - 1).TypeCode = SyntaxTokens.KwVariant And E(Node - 1).ConvertedType <> 0 And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then
+        If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+    End If
+    If Kind = SourceParser.ForNode Then
+        Cells = 2
+        If N(Node - 1).Value = 2 Then
+            Cells = 9
+            Child = N(Node - 1).FirstChild
+            Child = N(Child - 1).NextSibling
+            If L(Child - 1).ManagedReferences > 0 Then Cells = 13
+            If Plans(Scope - 1).FirstConstruct = 0 Then
+                If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+                Plans(Scope - 1).FirstConstruct = Node
+            End If
+            Plans(Scope - 1).LastConstruct = Node
+        End If
+        If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
+    End If
+    If Kind = SourceParser.SyncLockNode Then
+        If Plans(Scope - 1).FirstConstruct = 0 Then
+            If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+            Plans(Scope - 1).FirstConstruct = Node
+        End If
+        Plans(Scope - 1).LastConstruct = Node
+        If Not AddCells(N, M, C, Plans, D, Scope, 6, Node) Then Exit Function
+    End If
+    PlanConstructStorage = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Charges one argument's owner, grouped temporary or aggregate snapshot storage.
+Private Function PlanArgumentStorage(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Scope As Long, ByRef Escapes() As NativeEscapes.EscapeFact) As Boolean
+    Dim Cells As Long
+    On Error GoTo Failed
+    If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
+        If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+    ElseIf E(Node - 1).ArgumentMode = 3 Then
+        If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
+        If ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) And Not Escapes(Node - 1).NeedsOwner Then
+            If Not AddCells(N, M, C, Plans, D, Scope, 4, Node) Then Exit Function
+        End If
+    ElseIf E(Node - 1).ArgumentMode = 1 Then
+        Cells = 0
+        If E(Node - 1).ArrayRank <> 0 Then
+            Cells = 4
+            If Escapes(Node - 1).NeedsOwner Then Cells = 1
+            Plans(Scope - 1).ArgumentArrayCount = Plans(Scope - 1).ArgumentArrayCount + 1
+        ElseIf ManagedLayouts.IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant Then
+            Cells = L(Node - 1).StorageCells
+            If Escapes(Node - 1).NeedsOwner Then Cells = 1
+        End If
+        If Cells <> 0 Then
+            If L(Node - 1).ManagedReferences > 0 And Not Escapes(Node - 1).NeedsOwner Then Cells = Cells + 4
+            If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
+        End If
+    End If
+    PlanArgumentStorage = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Charges ordinary temporary values, statement pins and record evaluation snapshots.
 Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal ManagedRequired As Boolean) As Boolean
     Dim StatementPins() As Long
@@ -270,7 +343,6 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
     Dim Statement As Long
     Dim Parent As Long
     Dim Kind As Long
-    Dim Child As Long
     Dim Cells As Long
     Dim Work As Long
     On Error GoTo Failed
@@ -278,28 +350,8 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
     Do While Node <= C.NodeCount
         Scope = E(Node - 1).ScopeSymbol
         Kind = N(Node - 1).Kind
-        If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
-            If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
-        ElseIf E(Node - 1).ArgumentMode = 3 Then
-            If Not AddCells(N, M, C, Plans, D, Scope, 1, Node) Then Exit Function
-            If E(Node - 1).ConvertedType = SyntaxTokens.KwString And Not Escapes(Node - 1).NeedsOwner Then
-                If Not AddCells(N, M, C, Plans, D, Scope, 4, Node) Then Exit Function
-            End If
-        ElseIf E(Node - 1).ArgumentMode = 1 Then
-            Cells = 0
-            If E(Node - 1).ArrayRank <> 0 Then
-                Cells = 4
-                If Escapes(Node - 1).NeedsOwner Then Cells = 1
-                Plans(Scope - 1).ArgumentArrayCount = Plans(Scope - 1).ArgumentArrayCount + 1
-            ElseIf E(Node - 1).TypeSymbol <> 0 Then
-                Cells = L(Node - 1).StorageCells
-                If Escapes(Node - 1).NeedsOwner Then Cells = 1
-            End If
-            If Cells <> 0 Then
-                If L(Node - 1).ManagedReferences > 0 And Not Escapes(Node - 1).NeedsOwner Then Cells = Cells + 4
-                If Not AddCells(N, M, C, Plans, D, Scope, Cells, Node) Then Exit Function
-            End If
-        End If
+        If Not PlanConstructStorage(N, M, C, E, L, Plans, D, Node, Scope) Then Exit Function
+        If Not PlanArgumentStorage(N, M, C, E, L, Plans, D, Node, Scope, Escapes) Then Exit Function
         If E(Node - 1).AccessKind = 2 Then
             Statement = Node
             Parent = N(Statement - 1).Parent
@@ -470,12 +522,12 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     ' Any managed expression requires precise roots, including implicit text conversions.
     Symbol = 1
     Do While Symbol <= SymbolCount
-        If A(Symbol - 1).TypeCode = SyntaxTokens.KwString Then ManagedRequired = True
+        If ManagedLayouts.IsManagedScalar(A(Symbol - 1).TypeCode) Then ManagedRequired = True
         Symbol = Symbol + 1
     Loop
     Node = 1
     Do While Node <= C.NodeCount
-        If E(Node - 1).TypeCode = SyntaxTokens.KwString Or E(Node - 1).ConvertedType = SyntaxTokens.KwString Then ManagedRequired = True
+        If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Or ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) Then ManagedRequired = True
         Node = Node + 1
     Loop
     If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure

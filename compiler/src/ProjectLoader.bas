@@ -264,6 +264,19 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
         Diagnostic.Utf16Offset = SourceError.Utf16Offset
         GoTo Rejected
     End If
+    Length = BufferPrimitives.ByteStorageLength(Relative)
+    Status = False
+    If Length >= 4 Then Status = Relative(Length - 3) = 67 Or Relative(Length - 3) = 99
+    If Status <> (Nodes(Modules(Index).RootNode - 1).Kind = SourceParser.ClassNode) Then
+        Diagnostic.Code = 2
+        Diagnostic.Reason = 43
+        Diagnostic.SourceStage = 2
+        Diagnostic.Line = 1
+        Diagnostic.Column = 14
+        Diagnostic.ByteOffset = 13
+        Diagnostic.Utf16Offset = 14
+        GoTo Rejected
+    End If
     TryLoadSource = True
     Exit Function
 IOFailed:

@@ -558,7 +558,14 @@ Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByR
                         Diagnostic.Code = 6
                         If ValueLength < 4 Then Exit Function
                         Scan = ValueStart + ValueLength - 4
-                        If Text(Scan) <> 46 Or Fold(Text(Scan + 1)) <> 98 Or Fold(Text(Scan + 2)) <> 97 Or Fold(Text(Scan + 3)) <> 115 Then Exit Function
+                        If Text(Scan) <> 46 Or Fold(Text(Scan + 3)) <> 115 Then Exit Function
+                        If Fold(Text(Scan + 1)) = 98 Then
+                            If Fold(Text(Scan + 2)) <> 97 Then Exit Function
+                        ElseIf Fold(Text(Scan + 1)) = 99 Then
+                            If Fold(Text(Scan + 2)) <> 108 Then Exit Function
+                        Else
+                            Exit Function
+                        End If
                         Diagnostic.Code = 9
                         If NextInfo.SourceCount = 2147483647 Then Exit Function
                         If NextInfo.SourceCount = Capacity Then

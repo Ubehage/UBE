@@ -10,6 +10,9 @@ Private Function EmitValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef L()
     Dim Template As Long
     On Error GoTo Failed
     If TypeSymbol = 0 Then TypeCode = SyntaxTokens.KwString
+    If TypeSymbol <> 0 Then
+        If A(TypeSymbol - 1).Kind = SourceParser.ClassNode Then TypeCode = SyntaxTokens.KwObject
+    End If
     If Not LLVMFormat.TryFormat(S, B, Token, Catalog, LLVMTemplates.ManagedOffsetsStart, TypeSymbol, References, 0, 0) Then Exit Function
     Do While Index < References
         If Not ManagedLayouts.TryReferenceOffset(A, L, TypeCode, TypeSymbol, Index, Offset) Then GoTo Failed
@@ -101,6 +104,7 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef 
     On Error GoTo Failed
     If State.Failed Then Exit Function
     If Summary.ManagedRoles.CollectSymbol = 0 Then TryEmit = True: Exit Function
+    If Not NativeObjects.TryDeclarations(Symbols, Summary.SymbolCount, State, Buffer, Token, Catalog) Then Exit Function
     If Not LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.ManagedRetireDefinition, 0, 0, 0, 0) Then Exit Function
     If Not LLVMWriter.TryEndLine(State, Buffer, Token) Then Exit Function
     If Not EmitValue(Symbols, Layouts, State, Buffer, Token, Catalog, 0, 1, 1) Then Exit Function
@@ -110,6 +114,9 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef 
         Node = Symbols(Index).DeclarationNode
         If Symbols(Index).Kind = SourceParser.TypeNode And Layouts(Node - 1).ManagedReferences > 0 Then
             If Not EmitValue(Symbols, Layouts, State, Buffer, Token, Catalog, Index + 1, Layouts(Node - 1).StorageCells, Layouts(Node - 1).ManagedReferences) Then Exit Function
+        ElseIf Symbols(Index).Kind = SourceParser.ClassNode Then
+            ' This is the layout of a reference to the class, never its instance fields.
+            If Not EmitValue(Symbols, Layouts, State, Buffer, Token, Catalog, Index + 1, 1, 1) Then Exit Function
         End If
         If Plans(Index).ContextOffset >= 0 Then
             If Symbols(Index).ArrayRank = 0 Then

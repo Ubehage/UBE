@@ -124,7 +124,7 @@ Private Function BuildEdges(ByRef N() As SourceParser.SyntaxNode, ByRef A() As D
                     If Charge(Work, D) = False Then Exit Function
                     Mode = E(Argument - 1).ArgumentMode
                     Linked = Mode = 2 Or Mode = 3
-                    If Mode = 1 And (A(Parameter - 1).TypeSymbol <> 0 Or A(Parameter - 1).ArrayRank <> 0) Then Linked = True
+                    If Mode = 1 And (ManagedLayouts.IsRecordValue(A(Parameter - 1).TypeCode, A(Parameter - 1).TypeSymbol) Or A(Parameter - 1).ArrayRank <> 0) Then Linked = True
                     If Linked Then
                         If FindOwner(N, A, E, F, Argument, Work, D) = False Then Exit Function
                         Nexts(Argument - 1) = Heads(Parameter - 1)

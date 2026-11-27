@@ -171,6 +171,7 @@ Public Const KwDefobj As Long = 234
 Public Const KwDefsng As Long = 235
 Public Const KwDefstr As Long = 236
 Public Const KwDefvar As Long = 237
+Public Const KwIn As Long = 238
 Public Const KwUbe As Long = 1000
 Public Const KwSource As Long = 1001
 Public Const KwModule As Long = 1002
@@ -250,6 +251,7 @@ Private Function WordCode(ByRef Source() As Byte, ByVal Start As Long, ByVal Len
     End If
     If Length = 2 Then
         If C0 = 105 And C1 = 102 Then WordCode = KwIf: Exit Function
+        If C0 = 105 And C1 = 110 Then WordCode = KwIn: Exit Function
         If C0 = 97 And C1 = 115 Then WordCode = KwAs: Exit Function
         If C0 = 111 And C1 = 110 Then WordCode = KwOn: Exit Function
         If C0 = 111 And C1 = 114 Then WordCode = KwOr: Exit Function
