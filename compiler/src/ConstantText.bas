@@ -2,6 +2,26 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "ConstantText"
 ' Owns immutable UTF-8 spans in a request-local, zero-based constant arena.
 
+' Formats admitted scalar constants with the ordinary invariant library algorithms.
+Public Function TryAppendScalar(ByVal Number As LongLong, ByVal TypeCode As Long, ByRef Arena() As Byte, ByRef Used As Long, ByRef Start As Long, ByRef Length As Long) As Boolean
+    Dim Scratch(0 To 47) As Byte
+    Dim Count As Long
+    On Error GoTo Failed
+    If TypeCode = SyntaxTokens.KwBoolean Then
+        If Not ByteText.TryAppendBoolean(Scratch, Count, Number <> 0) Then Exit Function
+    ElseIf ConstantValues.IsFloating(TypeCode) Then
+        If Not BinaryFloatText.TryAppend(Scratch, Count, Number, ConstantValues.FloatingWidth(TypeCode)) Then Exit Function
+    ElseIf ConstantValues.IntegerWidth(TypeCode) <> 0 Then
+        If Not ByteText.TryAppendInteger(Scratch, Count, Number) Then Exit Function
+    Else
+        Exit Function
+    End If
+    TryAppendScalar = TryAppendBytes(Scratch, 0, Count, Arena, Used, Start, Length)
+    Exit Function
+Failed:
+    TryAppendScalar = False
+End Function
+
 ' Checks a logical span without overflow; unused arena capacity is not a value.
 Private Function ValidSpan(ByVal Used As Long, ByVal Start As Long, ByVal Length As Long) As Boolean
     If Used < 0 Or Start < 0 Or Length < 0 Or Start > Used Then Exit Function

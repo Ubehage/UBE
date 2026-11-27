@@ -18,6 +18,8 @@ Private ClangA() As Byte
 Private ClangB() As Byte
 Private RequestModeA As Long
 Private RequestModeB As Long
+Private ContextA As Boolean
+Private ContextB As Boolean
 Private DiagnosticA() As Byte
 Private DiagnosticB() As Byte
 Public Type Observation
@@ -106,6 +108,12 @@ Public Function ConfigureMode(ByVal Index As Long, ByVal Mode As Long) As Long
     If Index = 1 Then RequestModeB = Mode
 End Function
 
+' Selects immutable per-request target context before starting either worker.
+Public Function ConfigureContext(ByVal Index As Long, ByVal IsInIDE As Boolean) As Long
+    If Index = 0 Then ContextA = IsInIDE
+    If Index = 1 Then ContextB = IsInIDE
+End Function
+
 ' Runs one complete request and records cleanup independently of success or diagnostics.
 Private Sub RunRequest(ByVal Index As Long, ByVal WorkerCount As Long)
     Dim Resources As CompilationRequest.RequestResources
@@ -118,10 +126,10 @@ Private Sub RunRequest(ByVal Index As Long, ByVal WorkerCount As Long)
     On Error GoTo Failed
     If Index = 0 Then
         If RequestModeA <> 0 Then Mode = RequestModeA
-        Results(Index).Completed = CompilationRequest.TryCompile(ManifestA, OutputA, ClangA, Mode, WorkerCount, Resources, Stage, Ranges, Results(Index).Diagnostic, DiagnosticPath)
+        Results(Index).Completed = CompilationRequest.TryCompileWithContext(ManifestA, OutputA, ClangA, Mode, WorkerCount, ContextA, Resources, Stage, Ranges, Results(Index).Diagnostic, DiagnosticPath)
     Else
         If RequestModeB <> 0 Then Mode = RequestModeB
-        Results(Index).Completed = CompilationRequest.TryCompile(ManifestB, OutputB, ClangB, Mode, WorkerCount, Resources, Stage, Ranges, Results(Index).Diagnostic, DiagnosticPath)
+        Results(Index).Completed = CompilationRequest.TryCompileWithContext(ManifestB, OutputB, ClangB, Mode, WorkerCount, ContextB, Resources, Stage, Ranges, Results(Index).Diagnostic, DiagnosticPath)
     End If
     Results(Index).PathLength = BufferPrimitives.ByteStorageLength(DiagnosticPath)
     If Index = 0 Then Status = BufferPrimitives.TryCopyBytes(DiagnosticA, DiagnosticPath)

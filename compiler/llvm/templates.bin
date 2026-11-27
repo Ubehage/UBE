@@ -113,6 +113,11 @@ entry:
 @ube.entry.context = private global %ube.context zeroinitializer, align 8
 define i32 @main() {
 entry:
+  %host.accepted = call i1 @ube.ide.session.check()
+  br i1 %host.accepted, label %host.ready, label %host.rejected
+host.rejected:
+  ret i32 125
+host.ready:
   call void @ube.context.init(ptr @ube.entry.context)
   %initialized = call i1 @ube.project.init(ptr @ube.entry.context)
   br i1 %initialized, label %invoke, label %unavailable

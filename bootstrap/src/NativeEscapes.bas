@@ -140,6 +140,18 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Checks logical counts against the retained, checked syntax and binding storage.
+Private Function ValidInput(ByRef Parsed As SourceParser.ParsedProject, ByRef Bound As SourceSemantics.BoundProject, ByVal NodeCount As Long, ByVal SymbolCount As Long) As Boolean
+    On Error GoTo Invalid
+    If NodeCount < 1 Or NodeCount = &H7FFFFFFF Or SymbolCount < 1 Or SymbolCount > SourceSemantics.MaximumBoundSymbols Then Exit Function
+    If NodeCount <> Parsed.NodeCount Or NodeCount <> Bound.NodeCount Or SymbolCount <> Bound.SymbolCount Then Exit Function
+    If LBound(Parsed.Nodes) <> 1 Or UBound(Parsed.Nodes) < NodeCount Then Exit Function
+    If LBound(Bound.Nodes) <> 1 Or UBound(Bound.Nodes) < NodeCount Then Exit Function
+    If LBound(Bound.Symbols) <> 1 Or UBound(Bound.Symbols) < SymbolCount Then Exit Function
+    ValidInput = True
+Invalid:
+End Function
+
 ' Publishes one complete plan; failed allocation or bounded work preserves previous facts.
 ' Input syntax and binding identities must come from the checked project pipeline.
 Public Function TryAnalyzeEscapes(ByRef Parsed As SourceParser.ParsedProject, ByRef Bound As SourceSemantics.BoundProject, ByVal NodeCount As Long, ByVal SymbolCount As Long, ByRef Facts() As EscapeFact, ByRef FactCount As Long, ByRef Diagnostic As Long) As Boolean
@@ -156,7 +168,7 @@ Public Function TryAnalyzeEscapes(ByRef Parsed As SourceParser.ParsedProject, By
     On Error GoTo StorageFailure
     FactCount = 0
     Diagnostic = 0
-    If NodeCount < 1 Or NodeCount > 131072 Or SymbolCount < 1 Or SymbolCount > 16384 Then
+    If Not ValidInput(Parsed, Bound, NodeCount, SymbolCount) Then
         Diagnostic = 6
         Exit Function
     End If

@@ -131,6 +131,12 @@ and shared-state rules are in the development plan's concurrency requirement.
   Scope and evidence: `LOOP-CONTROL.md`.
   Class references and source SyncLock now pass focused native and exact
   monitor-release controls, including recursive invocation isolation.
+- [x] Implement the existing owner-approved `IS_IN_IDE` workplan item.
+  Read-only Boolean False/True, conditional selection, guarded host lifetime
+  and simultaneous opposing compilation contexts pass O0/O2 acceptance.
+  Repeated self-build, conformance and full concurrency gates pass. The host
+  fixture qualifies the launch contract; the GUI IDE remains future work.
+  Scope and evidence: `IDE-CONTEXT.md` and `Progress.md`.
 - [~] Prove managed memory, checked arithmetic, conversions, native threads,
   object/event lifetimes and foreign boundaries with focused acceptance tests.
   The admitted String/scalar/finite-aggregate profile is qualified; objects,

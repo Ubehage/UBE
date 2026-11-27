@@ -95,8 +95,11 @@ The former 1 MiB source and 65,536 token/node quotas are removed from the UBE
 scanner/parser storage path. Growth uses checked Long counts and allocation
 failure, with prior trees preserved on failed publication. The 48-level syntax
 guard, 4,096 UTF-16-unit token spelling and 128-unit identifier bounds remain.
-These are distinct from the VB6 host parser's bounds. Fixed record/context
-layout limits also remain. Runtime heap/block and UBE procedure-frame quotas
+These are distinct from the VB6 host parser's bounds.
+The VB6 host retains its per-module node, token and depth limits, but aggregate
+node storage grows with checked Long arithmetic and controlled allocation failure
+instead of a separate project-node quota.
+Fixed record/context layout limits also remain. Runtime heap/block and UBE procedure-frame quotas
 are superseded by the checked storage described in
 [Single/Double support](../compiler/FLOATING-POINT.md); this is not an unlimited
 input or native-stack guarantee.

@@ -114,7 +114,8 @@ Case 'library startup' ($valid.Replace('"Exe"','"Library"')) 5
 Case 'bad opt' ($valid+$nl+'Optimization = "9"') 5
 Case 'bad debug' ($valid+$nl+'DebugInformation = "Unknown"') 5
 foreach($key in @('Reference','LibraryReference','Resource','StartupForm')){Case ('unsupported '+$key) ($valid+$nl+$key+' = "value"') 6}
-Case 'unsupported extension' ($valid.Replace('Main.bas','Main.cls')) 6
+Case 'class source extension' ($valid.Replace('Main.bas','Main.cls')) 0 1 $true 2 2 'Test' 'Main.cls' 'Main.cls'
+Case 'unsupported extension' ($valid.Replace('Main.bas','Main.frm')) 6
 Case 'unknown key' ($valid+$nl+'Surprise = "value"') 7
 Case 'missing name' ($valid.Replace('Name = "Test"'+$nl,'')) 8
 Case 'missing kind' ($valid.Replace('Kind = "Exe"'+$nl,'')) 8

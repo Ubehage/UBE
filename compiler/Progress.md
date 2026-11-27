@@ -1,10 +1,292 @@
 # Compiler development handoff
 
-## Next planned work
+## Completed: IS_IN_IDE — 2026-11-27
 
-The existing owner-approved `IS_IN_IDE` item remains unstarted in Workplan.md.
-Its contract is in [IDE-CONTEXT.md](IDE-CONTEXT.md). No new implementation
-goal has been started by this handoff.
+The global read-only Boolean now works in ordinary expressions and conditional
+compilation: standalone False and explicit IDE-hosted True. The approved Windows
+guard validates a live named-job session before runtime or source initialization.
+A repository host fixture qualifies running and paused/resumed lifetimes; the
+GUI IDE and source-level debugger remain future work.
+
+Final compiler: %TEMP%/ube compiler rebuild 5c66c361-60ad-4cae-9670-1c1ab27e8e10/generation-2/UBE.exe
+SHA256: 3BB5B9E82A39BBEC607F5ED07926FF3B8E30A3B54EA03CD129FAD8E52D492116.
+Use this path for <final compiler> below. All commands use
+`rtk proxy powershell -NoProfile -File`:
+
+- `bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe <b64b7e2f/UBE.exe>`:
+  PASS, 35568/35874 ms; matching source/asset ledgers, identical LLVM SHA256
+  7CB5DC83E83F29B9E121250652BA4DF39EE401471E292FBC34BC6693BA423BFD,
+  native differences only at COFF timestamp offset 128. Evidence: final compiler
+  directory above. Warm compiler b64b7e2f was built from qualified 35885756 and
+  current sources; this repeat gate establishes final qualification.
+- `bootstrap/tests/self-hosting/check.ps1 -CompilerExe <final compiler> -BootstrapExe <e0874b0b seed> -CompilerOnly`:
+  PASS 518 CLI assertions, deterministic O0/O2 results and failure/output preservation;
+  evidence ube compiler conformance 6edf8722-e32e-4531-b2ab-f008e9a4c71a.
+  The earlier 510 seed assertions below are explicitly reused.
+- `bootstrap/tests/concurrent-compilation/check.ps1 -BootstrapExe <e0874b0b seed>`:
+  PASS existing checks plus six context cases, simultaneous opposing requests
+  in both assignment orders at O0/O2, exact LLVM and entry-guard placement;
+  evidence ube concurrent compilation 883b78b0-7350-404a-9f10-d6c7d372c654.
+- `compiler/tests/ide-context/session-check.ps1 -CompilerExe <final compiler>`:
+  PASS 35 checks including exact startup rejection, initializer protection,
+  delayed resume and host-close termination; evidence
+  ube ide session 619cd81c-46a9-4a8a-91a5-d36c1392bd57.
+- `compiler/tests/conditional-compilation/project-check.ps1 -CompilerExe <final compiler>`:
+  PASS 28 recorded checks: 12 native controls, both-context readonly/redefinition
+  rejection, ordinary library emission, both hosted library rejections with
+  E_BACKEND 0/1/1, preserved outputs, Unicode locations and deterministic recovery;
+  evidence ube conditional projects 6ca3c0b6-2604-4713-9dcf-e6b5ffd0fa1c.
+- `bootstrap/tests/command-options/check.ps1 -BootstrapExe <e0874b0b seed>`:
+  PASS 36 vectors at O0/O2, 19 allocation failure/retry sites and negative control;
+  evidence ube command options ec5d4810-4967-4f31-85b3-19b2e1814e35.
+- `bootstrap/tests/self-hosting/package-check.ps1`: PASS 350 packaging assertions;
+  evidence ube self-host sources 126a6382-70f0-4026-a5c2-1b9a2cd51d9c.
+- `runtime/tests/ide-context/guard-check.ps1`: PASS six O0/O2 runs, 16 API-fault
+  cases per positive, changed-expectation and bypassed-membership controls;
+  evidence ube IDE guard 21f7d6c8-6a49-4633-b79d-7a32f588aa85.
+
+Runtime/template/import parity passes: 256588 runtime bytes/sum20872313;
+328 templates/48744 bytes/sum3905817; 45 imports. Focused evaluator, selector,
+binding, scanner, capacity and regression evidence follows with provenance.
+
+Public example checks pass four O0/O2 expected/changed runs on the final compiler
+(ube conditional example 81e96d35-e378-4a12-be6e-1ef38e65d874). Documentation
+validation passes 278 pages/4799 references/191 word pages and 13 navigation unit
+groups. Browser rendering, clicked local-file navigation and clipboard behavior
+remain unverified because browser access is unavailable.
+
+Next handoff: continue the existing complete-language-and-product-support area
+in Roadmap.md. Remaining object/event lifetime, foreign-boundary, library and
+debugger requirements remain open; this completion does not claim full language
+support. Publish the reviewed implementation and concise README update to main
+as requested, excluding the owner's unrelated AGENTS.md edit.
+
+## IS_IN_IDE implementation history — 2026-11-27
+
+The owner requested completion of the existing `IS_IN_IDE` item, followed by
+a concise README update and push to GitHub main. The preceding Exit Loop work
+was published as commit 966b7a9. Its contract and the proposed guarded IDE-run
+artifact behavior are in [IDE-CONTEXT.md](IDE-CONTEXT.md).
+
+Initial inspection finds no conditional-compilation implementation and no
+tracked current IDE launch/debug protocol. The existing request-local compiler
+pipeline is the integration point. A compile-time True artifact needs a defined
+host-only launch boundary to avoid silently executing True standalone. Owner
+approval of that architectural boundary was subsequently granted. Independent conditional
+compilation work proceeds under the existing normative directive grammar:
+request-local expression evaluation reusing ConstantValues/ConstantText, and
+scanner selection that retains original byte/UTF-16 coordinates. No host protocol
+or IDE-run build behavior was implemented before that approval. The owner has now
+approved the separate live-host-guarded executable boundary. Implementation uses
+the named-job lifetime contract recorded in IDE-CONTEXT.md; compilation context
+remains request-local and existing standalone calls default to False.
+
+The reproducible `compiler/tests/ide-context/admission-check.ps1` gate passes
+on the preceding qualified compiler: positive control, two exact unsupported
+diagnostics, preserved outputs and identical recovery. Evidence is
+`%TEMP%/ube ide admission 683c9131-1f1a-448d-b6b0-ccb626b8d139/report.json`.
+This proves the starting boundary only; it is not feature acceptance.
+
+Initial delegated ownership: counted_tests owns ConditionalExpressions.bas,
+the necessary existing ConstantValues operator support and expression tests;
+foreach owns reusable SourceScanner logical-line/range support and scanner
+tests. Root owns directive selection, project integration, builtin binding and
+documentation. All state must remain request-local. Existing core precedence
+must not be changed to match the separate conditional-expression grammar.
+
+Independent implementation checkpoint: SourceScanner has the logical-line,
+range and selected-source APIs; the evaluator and ConditionalSource selector
+are registered in production packages and wired into project loading for
+file-local conditional constants. Target execution-context injection and the
+ordinary IS_IN_IDE builtin were absent from that checkpoint. The ordinary binder shares constant text parsing and
+formatting helpers with the directive evaluator instead of duplicating them.
+
+Focused evaluator gate passes 56 cases at O0/O2 with changed expectations,
+exact diagnostic columns, invalid-input recovery and both zero/sticky Err
+preservation (`ube conditional expressions 3467539e-a25e-4b59-a5c7-5ade465aacce`).
+The hardened scanner gate passes 30 O0/O2 executions, with changed expected
+observations and escaping-helper FAIL controls (`ube conditional scanner
+07137975-4114-41e3-a303-f037d47e13ec`). Production SourceScanner is unchanged
+from the passing 90-group scanner regression.
+
+The first selector gate passes all 25 source cases at O0/O2, plus escaping-FAIL
+controls (`ube conditional selection 965e2b34-5cd9-4a5e-9844-f989cdb7e1fd`).
+Its original nonzero-return control was too weak: selection-check.ps1 now
+changes the first expected source byte and requires assertion exit 2. The
+stronger six-run gate passes at O0/O2 (`ube conditional selection
+be6ab975-58cc-4175-bd08-a22f03cd1177`). The real dependency closure is copied
+once per gate, keeping every optimization/control run on the same sources.
+Constant-values (137 vectors) and constant-text (19 literals plus span/growth/
+concatenation/order) regressions pass. Expression-binding passes 84 cases and
+37,587 assertions at both O0/O2, with the changed expression rejected at
+assertion 759 (`ube expression binding 8026555f-de65-4f4e-b39c-8cfac1f8f45a`).
+The gate captures input sources and applies noinline/optnone only to its
+assertion Main; production LLVM is unchanged and remains optimized at O2.
+Both production assembly checks pass without stack-probe references.
+
+The conditional frontend checkpoint passes the repeated self-build gate in
+`ube compiler rebuild dd683241-8d4f-4bfe-a789-c225b8567806`: builds 35130/36649 ms,
+identical source ledgers and native assets, byte-identical LLVM SHA256
+`3A0B6311F9D9B90186B2B01D18803B080D25D65B7D92B592485E702763A012A6`, native
+differences only at COFF timestamp byte 128. Generation 2 SHA256 is
+`34FA412EBFDEBBEBC27AA9E3692158A2B9092C2C51DFCCDFD3B5F3F0BC2AF3B5`.
+On that compiler, project-check.ps1 passes six native O0/O2 controls plus
+original-coordinate rejection, output preservation and corrected deterministic
+emission (`ube conditional projects 7e114939-875c-4f3d-a035-945b8dc045c5`).
+This qualifies the conditional frontend checkpoint, not the full IS_IN_IDE goal.
+
+The same dd683241 generation-2 compiler passes all 518 common CLI assertions:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1
+-CompilerExe <dd683241 generation-2/UBE.exe> -BootstrapExe <0c4aedea build/UBE-Bootstrap.exe>
+-CompilerOnly`. Evidence: `ube compiler conformance
+c1fec3cc-bc43-4543-8897-e6c195371fc7`. This checks deterministic O0/O2 emission
+and native results, malformed input, output identity and preservation across
+backend failure/timeout. The unchanged seed corpus result is explicitly reused.
+
+Current-source concurrency is not yet qualified. Running
+`rtk proxy powershell -NoProfile -File bootstrap/tests/concurrent-compilation/check.ps1
+-BootstrapExe <0c4aedea build/UBE-Bootstrap.exe>` stops before assertions in
+`ube concurrent compilation e3a3ad06-4cc4-411f-a109-a2032b97f26c`: the bootstrap
+reports E_LIMIT, syntax node limit exceeded, at NativeManagedLayout.bas:106:15
+while binding the enlarged compiler-plus-probe package. Investigate the existing
+bootstrap capacity strategy narrowly before changing any compiler architecture.
+
+Current unqualified implementation adds IsInIDE to parsed module facts and
+explicit TryLoadWithContext/TryAppendModuleWithContext/TryScanWithContext APIs.
+Default loads select False; appends inherit context and reject mixed contexts.
+Conditional selection receives the same Boolean as ordinary binding. No command
+selects True and no host protocol is introduced pending owner approval. Focused
+binder and loader tests are being added before a new compiler qualification.
+The seed failure was aggregate (the isolated reported module has 862 AST nodes).
+The bootstrap now grows its project node array with checked Long arithmetic;
+per-module, token and depth guards remain. The fresh seed in `ube source parsing
+4c2a480f-c671-40b6-9e29-fe22c134c4f7/build/UBE-Bootstrap.exe`, SHA256
+`05913A847293A4E46045FD7547367B5A5BBEA969EA4E44CE9F7073B4650FC696`, passes
+`bootstrap/tests/source-parsing/check.ps1 -BootstrapExe <that seed>`: 46 cases,
+including exact 90013/131072/131073/180025-node trees and rejection/recovery.
+Evidence: `ube source parsing f368869e-58e9-48a2-b45d-66b14ab8ab84`. A stale
+While rejection was corrected to assert its already-supported AST, retaining
+an invalid loop-exit rejection. Concurrency must still be rerun on this seed.
+
+The updated source package passes 350 assertions with
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/package-check.ps1`
+(`ube self-host sources d4858faf-f51c-484d-a62a-6664f4587aea`). The first focused
+builtin binder O0 build exposes two unavailable stack-probe references in
+ResolveReference/BindAssignedValue (4120/4200-byte frames). Their member-selection
+and scalar-assignment bodies were extracted into ResolveMemberValue and
+BindScalarAssignment. Moved-body comparison passes after indentation/result-name
+normalization (`ube binder extraction 74e42e2a-80fd-4a83-99b5-90d1a1dfb006`);
+stack checks are not suppressed. The subsequent O0 build succeeds, but the first
+binder assertion fails in `ube context binding
+3dd42a9e-52b1-4430-8c9d-3be6f2ace822`: instrumentation identifies diagnostic 9/3
+because the fixture supplied an empty package name. The fixture now supplies
+a valid package name; production code is unchanged. The rerun passes all six
+O0/O2 executions: 12 cases each evaluated False/True/False, changed-value exit 1
+and escaping-FAIL exit 99 (`ube context binding
+1bb29981-6b07-4b83-8980-5515010aa833`). The captured O0 assembly has no stack-probe
+references. Run `compiler/tests/ide-context/binding-check.ps1 -CompilerExe
+<dd683241 generation-2/UBE.exe>`. Broader binding regression still needs renewal.
+
+The loader/concurrent-context fixture exposed a separate 4712-byte O0 frame in
+ProjectManifest.TryParse. Its key/value application body is now ApplyValue,
+with exact moved-body comparison (`ube manifest extraction hOlz6e`). The existing
+manifest gate passes 53 vectors at O0/O2, changed-input rejection, seven decoding
+cases and all seven allocation/growth/publication fault sites with recovery and
+zero live blocks. Command: `rtk proxy powershell -NoProfile -File
+bootstrap/tests/project-manifest/check.ps1 -BootstrapExe <4c2a480f seed>`.
+Evidence: `ube manifest 63a3b96b-903e-43a4-9b26-19533b55a7ac`. Its stale .cls
+rejection was replaced with .cls acceptance and .frm rejection, matching existing
+class support. The loader/concurrent-context fixture passes all six O0/O2 runs
+(positive 0, changed observation 1, escaping helper FAIL 99) in `ube context
+loading 812dad30-79e6-4695-936a-0c2072c250a4`. Each of two opposing-context workers
+completes eight fresh loads after a both-ready rendezvous and checks distinct
+100/101 source values with Err zero. The gate also checks default False,
+append inheritance, mixed-context/redefinition rollback, and exact Unicode
+coordinates. Command: `compiler/tests/ide-context/loading-check.ps1 -CompilerExe
+<dd683241 generation-2/UBE.exe>`. This proves concurrent frontend loading, not
+hosted native artifact behavior.
+
+A package named IS_IN_IDE retains its qualified namespace: LookupName selects
+the matching package only in member-receiver position, keeping bare IS_IN_IDE
+as the supplied Boolean. The expanded 13-case binder gate passes all six O0/O2
+executions (`ube context binding 14358ed5-42f4-45d9-bb40-b20201d7173e`). Broad
+expression binding also passes 84 cases/37587 assertions at both O0/O2, its
+changed grouped-argument control at assertion 759, and both production no-probe
+assembly checks (`ube expression binding dca3a83b-3922-441b-aaed-170c7d4e76d9`),
+using the 4c2a480f seed with `bootstrap/tests/expression-binding/check.ps1`.
+
+The renewed repeated build passes in `ube compiler rebuild
+35885756-89b9-40ca-8649-111f08843c75`, using dd683241 generation 2 as initial
+compiler. Builds take 37969/37056 ms, all source/asset ledgers match, LLVM is
+byte-identical with SHA256
+`4EB91034C06D24C88DB7A764DE7D15978BC45BA89F00DB2A1C0B552400A29F5E`, and the
+native files differ only at COFF timestamp byte 128. Generation 2 SHA256 is
+`78663AB109FB58E421826EE18BE8CCEF541341656549BA01E8EFFF0D907C782A`.
+On that compiler, the expanded conditional project gate passes 12 native O0/O2
+runs, four builtin rejection/output-preservation cases, located source errors
+and deterministic recovery (`ube conditional projects
+ab3debff-1f0e-46a9-9f9a-8ec93305df09`). Standalone tests include Full/None debug
+settings, ordinary constant initializers and grouped ByRef temporary execution.
+
+Full conformance passes 1004 assertions across the 4c2a480f seed and this compiler
+(`ube compiler conformance d5355b2c-c76d-4f79-adfb-1bd14131b00a`), including both
+backend timeout/output-preservation paths. Run `bootstrap/tests/self-hosting/check.ps1`
+with `-CompilerExe <35885756 generation 2>` and `-BootstrapExe <4c2a480f seed>`.
+The renewed current-source concurrency gate stops before its runtime assertions:
+`ube concurrent compilation 60bc5b95-1deb-4ce8-860c-b255f81273be/process-2.stderr`
+reports bounded native escape analysis failure. The seed's NativeEscapes still
+rejects NodeCount above 131072; aligning that guard with actual retained storage
+and adding a focused above-ceiling escape-analysis regression is in progress.
+
+The seed escape guard now checks actual retained syntax/binding storage rather
+than the obsolete node ceiling. `bootstrap/tests/native-escapes/capacity-check.ps1`
+passes ownership at 131072/131073/180025 nodes, malformed input preservation/retry,
+and restored-cap/wrong-owner negative controls. Fresh seed:
+`ube escape capacity e0874b0b-5f73-44cd-8072-0af838a0162f/seed/UBE-Bootstrap.exe`,
+SHA256 `91C0A590791FD1120D558EA165C42B47103524BC87DE4B1C500FA1799699D467`.
+It emits the retained full compiler package successfully. The matching existing
+host escape gate also passes against dca3a83b's escapes.UBE (`ube host escapes
+0d0f0ffb-8482-43d6-ab5c-b0fbed26ed96`). Full concurrency and seed-only common
+conformance have been rerun using this seed; the UBE compiler itself is unchanged.
+Seed-only conformance now passes all 510 assertions (`ube compiler conformance
+ae168a65-d29f-4b83-9ebb-31b5621553f3`), including backend timeout preservation.
+The current-source concurrency gate passes completely (`ube concurrent compilation
+38fc6f0f-0f71-4a18-85eb-b1c5f70c8031`): worker/request isolation, cancellation,
+fresh failures, checked quotas, competing publication, retained-close retry,
+simultaneous native backends and isolated timeout/recovery. Command:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/concurrent-compilation/check.ps1
+-BootstrapExe <e0874b0b seed>`.
+
+The source profile and public conditional/lexical articles now distinguish the
+qualified standalone behavior from pending hosted execution. The extracted
+manual example passes four O0/O2 expected-6/changed-7 executions (`ube conditional
+example 4c425246-2310-45bf-a30e-92b1b00d11d1`; exact path is recorded in the docs
+verification record). Static documentation checks pass 278 pages/4797 references/
+191 word pages and 13 navigation unit groups. Browser access is unavailable;
+visual layout, clicked local-file navigation and clipboard checks remain
+unverified. No finished IDE or hosted artifact behavior is claimed.
+
+Pre-approval completion audit (superseded by the owner's approval): standalone Boolean behavior, conditional integration, write
+rejection, frontend context isolation, repeated self-build, common conformance
+and existing compiler concurrency have evidence above. Actual IDE-hosted True
+execution and rejection of out-of-context hosted artifacts remain unimplemented.
+The proposed live-host/separate-artifact boundary in IDE-CONTEXT.md still awaits
+the owner's architectural decision, requested earlier and pending through
+multiple goal turns. No production command selects True. Independent work is
+complete at this checkpoint; the goal is blocked on that decision, not complete.
+After approval, implement the accepted host boundary and its focused acceptance,
+renew affected qualification, complete documentation verification, then update
+the root README, commit and push main and verify the remote commit as requested.
+No completion commit/push has been made for this item. The preceding Exit Loop
+publication remains 966b7a9; the owner's AGENTS.md modification is untouched.
+
+After approval, implementation adds explicit --build-ide/--emit-llvm-ide commands,
+a request-local TryCompileWithContext entry, guarded native launch templates and
+the named-job runtime check. Command parsing passes 36 exact vectors at O0/O2,
+all 19 allocation failure/retry sites and the changed-command control (`ube
+command options ec5d4810-4967-4f31-85b3-19b2e1814e35`). Runtime/templates/import
+parity passes at 256588 bytes/sum20872313, 328 templates/48744 bytes/sum3905817,
+and 45 imports. Hosted native execution tests and renewed qualification are pending.
 
 ## Completed: Exit Loop and loop dependencies — 2026-11-27
 

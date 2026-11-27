@@ -7,6 +7,57 @@ implementation admission; it does not grant exceptions to language semantics.
 Earlier bootstrap gates are retained below as historical qualification, not as
 the current limit of the UBE-written compiler.
 
+## Current conditional compilation and execution context
+
+The UBE-written compiler selects `#Const`, nested `#If`/`#ElseIf`/`#Else` and
+`#End If` before parsing ordinary source. File-local constants become visible
+after declaration and cannot redefine supplied symbols. Comments and physical
+continuations retain their existing rules. Inactive ordinary syntax and names
+are ignored; nested directives still balance, and assembly-block payload stays
+opaque even when discarded. Retained tokens and diagnostics preserve original
+byte, UTF-16, line and column coordinates.
+
+Directive expressions admit Boolean, decimal integer, finite Single/Double and
+String constants with the implemented directive operators and checked constant
+conversions. Hexadecimal/octal signed-width semantics remain deferred here.
+Date, Currency, Decimal and general Variant expression support are not claimed.
+This does not implement target conditional compilation in the VB6 bootstrap.
+
+Standalone builds supply the read-only Boolean `IS_IN_IDE = False` in both
+ordinary expressions and conditional compilation. Starting the compiler from
+an editor, enabling debug information or disabling optimization does not change
+that value. Assignment, shadowing and direct writable ByRef use are rejected;
+an explicitly parenthesized expression may use the ordinary ByRef temporary rule.
+The explicit `--build-ide` and `--emit-llvm-ide` commands supply True and produce
+separate IDE-run artifacts; ordinary `--build` and `--emit-llvm` remain False.
+Hosted library output is rejected. Context is request-owned, including supplied
+conditional symbols and ordinary constant facts, rather than inferred from the
+environment or editor.
+
+An IDE-run executable checks its live host session before context initialization
+or any source initializer or entry procedure. The Windows host owns a named job
+with kill-on-last-close and no breakaway; the child must belong to that job.
+A missing or invalid session prints `E_IDE_CONTEXT`, requests a standalone rebuild
+and exits 125. The host retains the job during debugging pauses; ending the
+session terminates the child. An environment value alone cannot grant membership.
+The repository integration fixture implements this host contract; this is not a
+claim of a finished graphical IDE or source-level debugger.
+
+The final compiler `5c66c361` generation 2 passes the 35-check hosted session gate
+(`ube ide session 619cd81c-46a9-4a8a-91a5-d36c1392bd57`), including actual
+hosted True and standalone False execution and refusal/lifecycle checks.
+The hosted runtime/session gates and current compiler identity are recorded in
+[IDE-CONTEXT.md](../compiler/IDE-CONTEXT.md). The following standalone checkpoint
+is retained as earlier evidence:
+Compiler `35885756` generation 2 passes successive self-build fixed-point checks
+and `compiler/tests/conditional-compilation/project-check.ps1`: 12 O0/O2 native
+runs, four builtin rejection cases, original-coordinate diagnostics, output
+preservation and deterministic recovery. Evidence is
+`ube conditional projects ab3debff-1f0e-46a9-9f9a-8ec93305df09`.
+Compiler SHA256 is `78663AB109FB58E421826EE18BE8CCEF541341656549BA01E8EFFF0D907C782A`.
+Detailed frontend and host-session gates are in
+[IDE-CONTEXT.md](../compiler/IDE-CONTEXT.md).
+
 ## Current Single and Double admission
 
 The UBE-written compiler admits finite `Single` and `Double` literals,

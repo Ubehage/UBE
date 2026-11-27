@@ -3,6 +3,7 @@ Attribute UBE_Name = "ProjectSyntax"
 ' Arena counts and source coordinates use Long; additions are checked before allocation.
 ' Retains module syntax in caller-owned flat arenas with committed logical prefixes.
 Public Type ParsedModule
+    IsInIDE As Boolean
     LookupDomain As Long
     ByteBase As Long
     ByteCount As Long
@@ -157,6 +158,7 @@ Public Function IsValidProject(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
         If M(I).ByteCount < 0 Or M(I).ByteCount > C.ByteCount - Seen.ByteCount Then Exit Function
         If M(I).TokenCount < 0 Or M(I).TokenCount > C.TokenCount - Seen.TokenCount Then Exit Function
         If M(I).NodeCount < 0 Or M(I).NodeCount > C.NodeCount - Seen.NodeCount Then Exit Function
+        If M(I).IsInIDE <> M(0).IsInIDE Then Exit Function
         If Not ValidModule(B, T, N, M(I)) Then Exit Function
         Seen.ByteCount = Seen.ByteCount + M(I).ByteCount
         Seen.TokenCount = Seen.TokenCount + M(I).TokenCount
@@ -235,6 +237,18 @@ End Function
 ' The compiler loader supplies provenance; source text never selects its lookup domain.
 ' Counts publish only after every source span and identity has been retained.
 Public Function TryAppendModuleInDomain(ByRef Source() As Byte, ByVal LookupDomain As Long, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ParsedModule, ByRef Counts As ProjectCounts, ByRef Diagnostic As ProjectDiagnostic) As Boolean
+    Dim IsInIDE As Boolean
+    On Error GoTo Failed
+    If Counts.ModuleCount > 0 Then IsInIDE = Modules(0).IsInIDE
+    TryAppendModuleInDomain = TryAppendModuleWithContext(Source, LookupDomain, IsInIDE, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic)
+    Exit Function
+Failed:
+    Diagnostic.Code = 6
+    Diagnostic.Reason = 2
+End Function
+
+' Retains the target context with parsed facts; mixed-context appends are rejected.
+Public Function TryAppendModuleWithContext(ByRef Source() As Byte, ByVal LookupDomain As Long, ByVal IsInIDE As Boolean, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ParsedModule, ByRef Counts As ProjectCounts, ByRef Diagnostic As ProjectDiagnostic) As Boolean
     Dim CandidateTokens() As SourceScanner.SourceToken
     Dim CandidateNodes() As SourceParser.SyntaxNode
     Dim ScanError As SourceScanner.ScanDiagnostic
@@ -252,9 +266,13 @@ Public Function TryAppendModuleInDomain(ByRef Source() As Byte, ByVal LookupDoma
     Diagnostic.Column = 1
     If LookupDomain < 0 Or LookupDomain > 1 Then Exit Function
     If Not IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then Exit Function
+    If Counts.ModuleCount > 0 Then
+        If Modules(0).IsInIDE <> IsInIDE Then Exit Function
+    End If
+    Added.IsInIDE = IsInIDE
     Added.LookupDomain = LookupDomain
     Added.ByteCount = BufferPrimitives.ByteStorageLength(Source)
-    If Not SourceScanner.TryScan(Source, CandidateTokens, Added.TokenCount, ScanError) Then
+    If Not ConditionalSource.TryScanWithContext(Source, IsInIDE, CandidateTokens, Added.TokenCount, ScanError) Then
         Diagnostic.Stage = 1
         Diagnostic.Code = ScanError.Code
         Diagnostic.Reason = ScanError.Reason
@@ -314,7 +332,7 @@ Public Function TryAppendModuleInDomain(ByRef Source() As Byte, ByVal LookupDoma
     Counts.ModuleCount = Counts.ModuleCount + 1
     Diagnostic.Code = 0
     Diagnostic.Reason = 0
-    TryAppendModuleInDomain = True
+    TryAppendModuleWithContext = True
     Exit Function
 Failed:
     Diagnostic.Stage = 3

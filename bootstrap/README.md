@@ -100,9 +100,11 @@ Parsing does not resolve names or types, check that Main exists, implement FAIL
 behavior or generate executable code. The [bootstrap profile](../lang-doc/bootstrap-profile.md)
 distinguishes this syntax support from later semantic requirements.
 
-Limits: 65,536 tokens per module, 262,144 tokens per project, 65,536 syntax nodes,
+Limits: 65,536 tokens per module, 262,144 tokens per project, 65,536 syntax nodes per module,
 64 recursive parsing levels, 4,096 UTF-16 code units per token and 128 decoded
-ASCII characters per identifier. One diagnostic ends a failed invocation.
+ASCII characters per identifier. Aggregate syntax storage grows with checked Long
+arithmetic and controlled allocation failure; it has no separate project-node quota.
+One diagnostic ends a failed invocation.
 See [pipeline design](DESIGN.md) for ownership, spans and the dump format.
 
 Run the [source-parsing assertion gate](tests/source-parsing/README.md):

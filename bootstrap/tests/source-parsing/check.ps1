@@ -431,7 +431,7 @@ $invalidCases = @(
     @{ Name='unexpected else'; Body="Sub Main()`nElse`nEnd Sub"; Code='E_PARSE'; Location='Example.bas:4:' },
     @{ Name='missing operand'; Body="Sub Main()`nDim X As Long`nX = 1 +`nEnd Sub"; Code='E_PARSE'; Location='Example.bas:5:' },
     @{ Name='continued physical error line'; Body="Sub Main()`nDim X As Long`nX = 1 + _`n    ?`nEnd Sub"; Code='E_LEXICAL'; Location='Example.bas:6:' },
-    @{ Name='unsupported loop'; Body="Sub Main()`nWhile True`nWend`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:4:' },
+    @{ Name='loop exit outside loop'; Body="Sub Main()`nExit Loop`nEnd Sub"; Code='E_PARSE'; Location='Example.bas:4:' },
     @{ Name='unsupported string storage'; Body="Sub Main()`nDim X As String`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:4:' },
     @{ Name='unsupported asm'; Body="Sub Main()`nAsm`nEnd Asm`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:4:' },
     @{ Name='reserved procedure name'; Body="Sub Empty()`nEnd Sub"; Code='E_UNSUPPORTED'; Location='Example.bas:3:' },
@@ -445,6 +445,12 @@ foreach ($case in $invalidCases) {
     $manifest = New-Fixture $case.Name @($case.Body)
     Assert-Rejected $case.Name $manifest $case.Code $case.Location
 }
+$manifest = New-Fixture 'while loop structure' @("Sub Main()`nWhile True`nWend`nEnd Sub")
+$whileAst = Read-Ast $manifest
+$whileNode = Find-One $whileAst 'while' 'pre-while'
+Require ((Shape $whileAst $whileNode) -eq 'while:pre-while(boolean:true,body:)') 'While condition/body order changed'
+$script:passed++
+Write-Output 'PASS: While retains pretest condition and body'
 $manifest = New-Fixture 'second module syntax error' @("Sub First()`nEnd Sub", "Sub Second()`nElse`nEnd Sub") @('First','Second')
 Assert-Rejected 'second module location and no published success' $manifest 'E_PARSE' 'Second.bas:4:'
 $dumpFailure = Invoke-BoundedProcess $BootstrapExe @('--dump-ast', $manifest)
@@ -477,7 +483,15 @@ $script:passed++
 Write-Output 'PASS: exactly131072 project nodes retained'
 $lastBody = $lastBody.Replace('Dim Y As Long', "Dim Y As Long`nDim Z As Long")
 $manifest = New-Fixture 'excess project node bound' @($largeBody,$largeBody,$largeBody,$largeBody,$lastBody) @('NodesA','NodesB','NodesC','NodesD','NodesE')
-Assert-Rejected 'project AST node131073 refused' $manifest 'E_LIMIT' 'NodesE.bas:'
+$expanded = Invoke-BoundedProcess $BootstrapExe @('--dump-ast', $manifest)
+Require ($expanded.ExitCode -eq 0 -and $expanded.Stderr -eq '' -and ([regex]::Matches($expanded.Stdout, '(?m)^NODE ')).Count -eq 131073) 'Project node131073 was not retained beyond the former ceiling'
+$script:passed++
+Write-Output 'PASS: 131073 project nodes accepted beyond former ceiling'
+$manifest = New-Fixture 'checked project node growth' @($largeBody,$largeBody,$largeBody,$largeBody,$largeBody,$largeBody) @('NodesA','NodesB','NodesC','NodesD','NodesE','NodesF')
+$expanded = Invoke-BoundedProcess $BootstrapExe @('--dump-ast', $manifest)
+Require ($expanded.ExitCode -eq 0 -and $expanded.Stderr -eq '' -and ([regex]::Matches($expanded.Stdout, '(?m)^NODE ')).Count -eq 180025) 'Checked project growth did not retain180025 nodes'
+$script:passed++
+Write-Output 'PASS: 180025 project nodes accepted across six modules'
 
 $blankBody = ("`n" * 50000) + "Sub EmptyBody()`nEnd Sub"
 $manifest = New-Fixture 'near aggregate token bound' @($blankBody,$blankBody,$blankBody,$blankBody,$blankBody) @('TokensA','TokensB','TokensC','TokensD','TokensE')

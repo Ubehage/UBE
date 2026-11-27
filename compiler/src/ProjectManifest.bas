@@ -391,6 +391,81 @@ Private Function ValidSourcePath(ByRef Text() As Byte, ByVal Start As Long, ByVa
     ValidSourcePath = True
 End Function
 
+' Applies a validated key/value span without publishing partial manifest results.
+Private Function ApplyValue(ByRef Text() As Byte, ByVal Key As Long, ByVal ValueStart As Long, ByVal ValueLength As Long, ByRef Candidate() As ValueSpan, ByRef Capacity As Long, ByRef NextInfo As ManifestInfo, ByRef Diagnostic As ManifestDiagnostic) As Boolean
+    Dim Scan As Long
+    Dim Character As Long
+    On Error GoTo Failed
+    Diagnostic.Code = 5
+    If Key = 1 Then
+        Diagnostic.Code = 4
+        If IsIdentifier(Text, ValueStart, ValueLength) = False Then Exit Function
+        NextInfo.NameStart = ValueStart
+        NextInfo.NameLength = ValueLength
+    ElseIf Key = 2 Then
+        If MatchesWord(Text, ValueStart, ValueLength, 11) Then
+            NextInfo.IsExecutable = True
+        ElseIf MatchesWord(Text, ValueStart, ValueLength, 12) = False Then
+            Exit Function
+        End If
+    ElseIf Key = 3 Then
+        If MatchesWord(Text, ValueStart, ValueLength, 13) = False Then Exit Function
+    ElseIf Key = 4 Then
+        Diagnostic.Code = 11
+        If ValidSourcePath(Text, ValueStart, ValueLength) = False Then Exit Function
+        Diagnostic.Code = 6
+        If ValueLength < 4 Then Exit Function
+        Scan = ValueStart + ValueLength - 4
+        If Text(Scan) <> 46 Or Fold(Text(Scan + 3)) <> 115 Then Exit Function
+        If Fold(Text(Scan + 1)) = 98 Then
+            If Fold(Text(Scan + 2)) <> 97 Then Exit Function
+        ElseIf Fold(Text(Scan + 1)) = 99 Then
+            If Fold(Text(Scan + 2)) <> 108 Then Exit Function
+        Else
+            Exit Function
+        End If
+        Diagnostic.Code = 9
+        If NextInfo.SourceCount = 2147483647 Then Exit Function
+        If NextInfo.SourceCount = Capacity Then
+            If Capacity > 1073741823 Then
+                Capacity = 2147483647
+            Else
+                Capacity = Capacity + Capacity
+            End If
+            Diagnostic.Code = 12
+            If Not ResizeSpans(Candidate, Capacity, True) Then Exit Function
+        End If
+        Candidate(NextInfo.SourceCount).Start = ValueStart
+        Candidate(NextInfo.SourceCount).Length = ValueLength
+        Candidate(NextInfo.SourceCount).Line = Diagnostic.Line
+        NextInfo.SourceCount = NextInfo.SourceCount + 1
+    ElseIf Key = 5 Then
+        If MatchesWord(Text, ValueStart, ValueLength, 14) Then
+            NextInfo.Optimization = 4
+        Else
+            If ValueLength <> 1 Then Exit Function
+            Character = Text(ValueStart)
+            If Character < 48 Or Character > 51 Then Exit Function
+            NextInfo.Optimization = Character - 48
+        End If
+    ElseIf Key = 6 Then
+        If MatchesWord(Text, ValueStart, ValueLength, 15) Then
+            NextInfo.DebugInformation = 0
+        ElseIf MatchesWord(Text, ValueStart, ValueLength, 16) Then
+            NextInfo.DebugInformation = 1
+        ElseIf MatchesWord(Text, ValueStart, ValueLength, 17) = False Then
+            Exit Function
+        End If
+    Else
+        Diagnostic.Code = 6
+        Exit Function
+    End If
+    ApplyValue = True
+    Exit Function
+Failed:
+    Diagnostic.Code = 12
+End Function
+
 ' Codes: 1 header, 2 syntax, 3 duplicate key, 4 identifier, 5 value,
 ' 6 unsupported, 7 unknown key, 8 required, 9 limit, 10 encoding,
 ' 11 path, 12 storage/runtime. Columns are one-based byte positions for syntax.
@@ -538,70 +613,7 @@ Public Function TryParse(ByRef Text() As Byte, ByRef Sources() As ValueSpan, ByR
                     Diagnostic.Code = 3
                     If Key <> 4 And Seen(Key) Then Exit Function
                     Seen(Key) = True
-                    Diagnostic.Code = 5
-                    If Key = 1 Then
-                        Diagnostic.Code = 4
-                        If IsIdentifier(Text, ValueStart, ValueLength) = False Then Exit Function
-                        NextInfo.NameStart = ValueStart
-                        NextInfo.NameLength = ValueLength
-                    ElseIf Key = 2 Then
-                        If MatchesWord(Text, ValueStart, ValueLength, 11) Then
-                            NextInfo.IsExecutable = True
-                        ElseIf MatchesWord(Text, ValueStart, ValueLength, 12) = False Then
-                            Exit Function
-                        End If
-                    ElseIf Key = 3 Then
-                        If MatchesWord(Text, ValueStart, ValueLength, 13) = False Then Exit Function
-                    ElseIf Key = 4 Then
-                        Diagnostic.Code = 11
-                        If ValidSourcePath(Text, ValueStart, ValueLength) = False Then Exit Function
-                        Diagnostic.Code = 6
-                        If ValueLength < 4 Then Exit Function
-                        Scan = ValueStart + ValueLength - 4
-                        If Text(Scan) <> 46 Or Fold(Text(Scan + 3)) <> 115 Then Exit Function
-                        If Fold(Text(Scan + 1)) = 98 Then
-                            If Fold(Text(Scan + 2)) <> 97 Then Exit Function
-                        ElseIf Fold(Text(Scan + 1)) = 99 Then
-                            If Fold(Text(Scan + 2)) <> 108 Then Exit Function
-                        Else
-                            Exit Function
-                        End If
-                        Diagnostic.Code = 9
-                        If NextInfo.SourceCount = 2147483647 Then Exit Function
-                        If NextInfo.SourceCount = Capacity Then
-                            If Capacity > 1073741823 Then
-                                Capacity = 2147483647
-                            Else
-                                Capacity = Capacity + Capacity
-                            End If
-                            Diagnostic.Code = 12
-                            If Not ResizeSpans(Candidate, Capacity, True) Then Exit Function
-                        End If
-                        Candidate(NextInfo.SourceCount).Start = ValueStart
-                        Candidate(NextInfo.SourceCount).Length = ValueLength
-                        Candidate(NextInfo.SourceCount).Line = Diagnostic.Line
-                        NextInfo.SourceCount = NextInfo.SourceCount + 1
-                    ElseIf Key = 5 Then
-                        If MatchesWord(Text, ValueStart, ValueLength, 14) Then
-                            NextInfo.Optimization = 4
-                        Else
-                            If ValueLength <> 1 Then Exit Function
-                            Character = Text(ValueStart)
-                            If Character < 48 Or Character > 51 Then Exit Function
-                            NextInfo.Optimization = Character - 48
-                        End If
-                    ElseIf Key = 6 Then
-                        If MatchesWord(Text, ValueStart, ValueLength, 15) Then
-                            NextInfo.DebugInformation = 0
-                        ElseIf MatchesWord(Text, ValueStart, ValueLength, 16) Then
-                            NextInfo.DebugInformation = 1
-                        ElseIf MatchesWord(Text, ValueStart, ValueLength, 17) = False Then
-                            Exit Function
-                        End If
-                    Else
-                        Diagnostic.Code = 6
-                        Exit Function
-                    End If
+                    If Not ApplyValue(Text, Key, ValueStart, ValueLength, Candidate, Capacity, NextInfo, Diagnostic) Then Exit Function
                 End If
             End If
         End If

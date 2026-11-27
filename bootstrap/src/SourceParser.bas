@@ -3,7 +3,6 @@ Option Explicit
 
 ' Retained syntax belongs to the caller; no parse state is shared between projects.
 Public Const MaximumSyntaxNodes As Long = 65536
-Public Const MaximumProjectSyntaxNodes As Long = 131072
 Public Const MaximumSyntaxDepth As Long = 64
 Public Const MaximumProjectTokens As Long = 262144
 
@@ -157,17 +156,21 @@ Private Function ReadName(ByRef P As ParsedProject, ByRef S As ParserState, ByRe
     ReadName = True
 End Function
 
-' Allocates a stable one-based node index, bounded over the whole project.
+' Allocates a stable one-based node index with checked project storage growth.
 Private Function NewNode(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Kind As String, ByVal Text As String, ByVal Start As Long, ByRef Diagnostic As String) As Long
     Dim Capacity As Long
     Dim Index As Long
-    If P.NodeCount >= MaximumProjectSyntaxNodes Or P.NodeCount - S.NodeBase >= MaximumSyntaxNodes Then
+    If P.NodeCount = &H7FFFFFFF Or P.NodeCount - S.NodeBase >= MaximumSyntaxNodes Then
         Call SyntaxError(P, S, Diagnostic, "syntax node limit exceeded", "E_LIMIT")
         Exit Function
     End If
     If P.NodeCount = UBound(P.Nodes) Then
-        Capacity = UBound(P.Nodes) * 2
-        If Capacity > MaximumProjectSyntaxNodes Then Capacity = MaximumProjectSyntaxNodes
+        Capacity = UBound(P.Nodes)
+        If Capacity > &H3FFFFFFF Then
+            Capacity = &H7FFFFFFF
+        Else
+            Capacity = Capacity * 2
+        End If
         ReDim Preserve P.Nodes(1 To Capacity)
     End If
     P.NodeCount = P.NodeCount + 1

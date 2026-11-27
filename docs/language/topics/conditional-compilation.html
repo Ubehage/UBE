@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en" data-article-id="language.conditional-compilation" data-doc-path="language/topics/conditional-compilation.html" data-doc-root="../../">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conditional compilation — UBE help</title><link rel="stylesheet" href="../../assets/css/help.css"><script src="../../assets/js/article.js" defer></script></head>
-<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="../../about/contents.html" class="global">Contents</a><a href="../../language/words/index.html">Index</a><a href="../../index.html#language/topics/conditional-compilation.html" target="_top">Search</a></nav>
-<main id="content" class="article"><p class="breadcrumbs">UBE language help / Conditional compilation</p><section id="overview"><h1>Conditional compilation</h1><div class="metadata"><span class="badge status">Specified</span></div>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../about/contents.html" class="global">Contents</a><a href="../../language/words/index.html">Index</a><a href="../../index.html#language/topics/conditional-compilation.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Conditional compilation</p><section id="overview"><h1>Conditional compilation</h1><div class="metadata"><span class="badge status">Partially implemented</span></div>
 
 
 
@@ -22,4 +22,14 @@
     <p>Conditions may use literals, conditional constants, parentheses, comparisons, scalar arithmetic, and Boolean operators. They cannot call procedures, access members, create objects, or inspect runtime state.</p>
     <h3>Inactive source</h3>
     <p>UBE parses only the selected branch as program source. An inactive branch must still balance nested conditional directives, but other syntax and unresolved names inside it are ignored. Line positions remain stable for diagnostics.</p>
-    <p class="availability callout">Not yet implemented. This feature may change.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../words/c/const.html">Const</a><a href="../words/i/if.html">If</a><a href="lexical-structure.html">Lexical structure</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>
+    <p>Assembly-block payload is opaque, including in inactive branches: apparent directives inside it do not change the surrounding conditional nesting. This does not enable assembly execution.</p>
+    <h3>Current support</h3>
+    <p>The development compiler supports Boolean, decimal integer, finite Single/Double and String constant expressions. Hexadecimal/octal signed-width rules in directives remain deferred. Date, Currency, Decimal and general Variant expressions are not implemented.</p>
+    <p><code>IS_IN_IDE</code> is a supplied read-only Boolean constant. Standalone builds use False in both ordinary code and directives, even when the compiler is started from an editor or debug information is enabled. You cannot redefine or assign it. <a href="../../tools/command-line.html">IDE-run builds</a> use True in both places and require a live UBE host session before any source initializer or entry procedure runs. The current host is an integration fixture, not a finished graphical IDE or source debugger.</p>
+    </section><section id="example"><h2>Example</h2><pre><code data-example="conditional-context">Public Function Main() As Long
+#If IS_IN_IDE Then
+    Main = 99
+#Else
+    Main = 6
+#End If
+End Function</code></pre><p>A standalone build returns <strong>6</strong>. Only the selected branch is compiled.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../words/c/const.html">Const</a><a href="../words/i/if.html">If</a><a href="lexical-structure.html">Lexical structure</a><a href="../words/f/function.html">Function</a><a href="../words/l/long.html">Long</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

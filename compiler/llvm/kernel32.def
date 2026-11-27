@@ -14,6 +14,7 @@ DuplicateHandle
 FlushFileBuffers
 GetCommandLineW
 GetCurrentProcess
+GetEnvironmentVariableW
 GetExitCodeProcess
 GetFileAttributesW
 GetFileInformationByHandle
@@ -26,8 +27,10 @@ GetModuleFileNameW
 GetStdHandle
 GetTickCount64
 InitializeProcThreadAttributeList
+IsProcessInJob
 MoveFileExW
 MultiByteToWideChar
+OpenJobObjectW
 QueryInformationJobObject
 ReadFile
 RemoveDirectoryW

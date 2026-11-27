@@ -8,7 +8,7 @@ source-module parsing, backend invocation or output publication.
 
 `ProjectManifest.TryParse(Text, Sources, Info, Diagnostic) As Boolean` accepts
 a zero-based counted Byte array containing an entire UTF-8 manifest. Inputs
-are limited to 65,536 bytes and 128 Source entries. UTF-8 may start with a BOM;
+grow with available storage, using checked Long counts and coordinates. UTF-8 may start with a BOM;
 LF and CRLF are accepted. Invalid UTF-8, NUL, DEL, other unapproved control
 characters and bare CR are rejected.
 
@@ -29,7 +29,8 @@ The caller must keep the manifest bytes intact while using these spans.
 
 Only Name, Kind, Startup, Source, Optimization and DebugInformation are
 admitted. Scalar duplicates, missing required fields, unknown keys, unsupported
-features and invalid values receive fresh diagnostics. Startup must be Main
+features and invalid values receive fresh diagnostics. Source paths admit .bas
+and .cls extensions. Startup must be Main
 for Exe and is forbidden for Library. Names follow the bounded ASCII identifier
 profile. Case folding is ASCII and independent of host locale.
 

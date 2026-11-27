@@ -5,6 +5,7 @@ param(
     [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
     [switch]$Measure,
     [switch]$MeasureOnly,
+    [switch]$ContextOnly,
     [string]$MeasurementManifest = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -126,7 +127,7 @@ foreach($line in ($bound.Stdout -split '\r?\n')) {
         if($f[1] -eq 'parameter'){$parameters[$f[6]+'/'+$f[2]]=[int]$f[0]}
     }
 }
-foreach($name in @('ConfigurePath','ConfigureMode','SetPathByte','Run','Observe','WriteObservation','SeedQuota')) {Require ($symbols.ContainsKey($name)) "Missing probe $name"}
+foreach($name in @('ConfigurePath','ConfigureContext','ConfigureMode','SetPathByte','Run','Observe','WriteObservation','SeedQuota')) {Require ($symbols.ContainsKey($name)) "Missing probe $name"}
 foreach($line in ($bound.Stdout -split '\r?\n')) {
     if($line.StartsWith('SYMBOL ')) {
         $f=$line.Substring(7).Split('|')
@@ -249,7 +250,7 @@ $releaseFault
 }
 
 # Exercises production request APIs with independently checked success, failure and cleanup fields.
-function Run-Requests([string]$Name,[int]$Mode,[string]$First,[string]$Second,[string]$OutputA,[string]$OutputB,[int]$ExpectedA=1,[int]$ExpectedB=1,[int]$Delay=0,[string]$Level='O0',[bool]$WorkerFailure=$false,[bool]$ObserveOverlap=$true,[int]$WorkerError=73,[bool]$CompletionFailure=$false,[int]$QuotaField=0,[int]$QuotaValue=0,[int]$TimeoutMilliseconds=120000,[int]$RequestMode=1,[string]$FirstClang=$Clang,[string]$SecondClang=$Clang,[int]$FaultNodeCount=0,[bool]$BackendEarlyFailure=$false,[bool]$CatalogCopyFailure=$false) {
+function Run-Requests([string]$Name,[int]$Mode,[string]$First,[string]$Second,[string]$OutputA,[string]$OutputB,[int]$ExpectedA=1,[int]$ExpectedB=1,[int]$Delay=0,[string]$Level='O0',[bool]$WorkerFailure=$false,[bool]$ObserveOverlap=$true,[int]$WorkerError=73,[bool]$CompletionFailure=$false,[int]$QuotaField=0,[int]$QuotaValue=0,[int]$TimeoutMilliseconds=120000,[int]$RequestMode=1,[string]$FirstClang=$Clang,[string]$SecondClang=$Clang,[int]$FaultNodeCount=0,[bool]$BackendEarlyFailure=$false,[bool]$CatalogCopyFailure=$false,[bool]$ContextA=$false,[bool]$ContextB=$false) {
     $lines=New-Object Collections.Generic.List[string]
     $lines.Add('@test.context = private global %ube.context zeroinitializer, align 8')
     $lines.Add('define i32 @main() {');$lines.Add('entry:')
@@ -262,6 +263,7 @@ function Run-Requests([string]$Name,[int]$Mode,[string]$First,[string]$Second,[s
         for($i=0;$i -lt $bytes.Length;$i++) {$lines.Add(('  call {{ i1, i64 }} @ube.proc.{0}(ptr @test.context, i64 {1}, i64 {2}, i64 {3})' -f $symbols['SetPathByte'],$kind,$i,$bytes[$i]))}
     }
     for($request=0;$request -lt 2;$request++) {$lines.Add(('  call {{ i1, i64 }} @ube.proc.{0}(ptr @test.context, i64 {1}, i64 {2})' -f $symbols['ConfigureMode'],$request,$RequestMode))}
+    foreach($request in @(0,1)) {$contextValue=0;if(($request -eq 0 -and $ContextA) -or ($request -eq 1 -and $ContextB)){$contextValue=-1};$lines.Add(('  call {{ i1, i64 }} @ube.proc.{0}(ptr @test.context, i64 {1}, i64 {2})' -f $symbols['ConfigureContext'],$request,$contextValue))}
     $lines.Add(('  %run = call {{ i1, i64 }} @ube.proc.{0}(ptr @test.context, i64 {1})' -f $symbols['Run'],$Mode))
     $lines.Add('  %fresh = extractvalue { i1, i64 } %run, 0');$lines.Add('  %value = extractvalue { i1, i64 } %run, 1')
     $lines.Add('  %zero = icmp eq i64 %value, 0');$lines.Add('  %initial = and i1 %fresh, %zero');$lines.Add('  %started = and i1 %init, %initial')
@@ -645,7 +647,7 @@ $parallel=Join-Path $artifacts 'parallel.ll'
 $simultaneousA=Join-Path $artifacts 'simultaneous-a.ll'
 $simultaneousB=Join-Path $artifacts 'simultaneous-b.ll'
 $secondBaseline=Join-Path $artifacts 'second-baseline.ll'
-if(-not $MeasureOnly) {
+if(-not $MeasureOnly -and -not $ContextOnly) {
 Run-Requests 'single worker' 1 $first $second $baseline $simultaneousB
 Run-Requests 'two workers' 2 $first $second $parallel $simultaneousB
 $parallelMetrics=($script:lastReport -split '\r?\n')[0].Split(',')
@@ -742,6 +744,30 @@ Require ($timeoutFailure[2] -eq '6' -and $timeoutFailure[3] -eq '100') 'Backend 
 Require ((Get-FileHash -LiteralPath $nativeA).Hash -ceq $nativePreserved) 'Timed-out backend replaced prior executable'
 $runB=Invoke-BoundedProcess $nativeB @()
 Require ($runB.ExitCode -eq 21) 'Subsequent same-process native request was unusable after timeout cleanup'
+}
+# Opposing complete requests use the existing observed worker/request barriers.
+if(-not $MeasureOnly) {
+    $contextInput=New-Project 'context input' 7 $false $true
+    Write-Text (Join-Path ([IO.Path]::GetDirectoryName($contextInput)) 'First.bas') "UBE SOURCE 1 MODULE`r`nAttribute UBE_Name = `"First`"`r`nPublic Function Value(ByVal Seed As Long) As Long`r`n#If IS_IN_IDE Then`r`nValue = Seed + 901733`r`n#Else`r`nValue = Seed + 901729`r`n#End If`r`nEnd Function`r`n"
+    $ordinary=Join-Path $artifacts 'context-ordinary-baseline.ll'
+    $hosted=Join-Path $artifacts 'context-hosted-baseline.ll'
+    $contextA=Join-Path $artifacts 'context-a.ll'
+    $contextB=Join-Path $artifacts 'context-b.ll'
+    Run-Requests -Name 'standalone context baseline' -Mode 1 -First $contextInput -Second $contextInput -OutputA $ordinary -OutputB $contextB
+    Run-Requests -Name 'hosted context baseline' -Mode 1 -First $contextInput -Second $contextInput -OutputA $hosted -OutputB $contextB -ContextA $true
+    $ordinaryText=[IO.File]::ReadAllText($ordinary,$utf8)
+    $hostedText=[IO.File]::ReadAllText($hosted,$utf8)
+    $guard='%host.accepted = call i1 @ube.ide.session.check()'
+    Require (-not $ordinaryText.Contains($guard) -and $ordinaryText -match '\b901729\b' -and $ordinaryText -notmatch '\b901733\b') 'Standalone request selected wrong context or launcher'
+    Require ($hostedText.Contains($guard) -and $hostedText -match '\b901733\b' -and $hostedText -notmatch '\b901729\b') 'Hosted request selected wrong context or launcher'
+    Require ($hostedText.IndexOf($guard) -lt $hostedText.IndexOf('call void @ube.context.init(ptr @ube.entry.context)')) 'Hosted guard executes after initialization'
+    foreach($level in @('O0','O2')) {
+        Run-Requests -Name ('opposing contexts '+$level) -Mode 3 -First $contextInput -Second $contextInput -OutputA $contextA -OutputB $contextB -ContextB $true -Level $level
+        Require ((Get-FileHash $contextA).Hash -ceq (Get-FileHash $ordinary).Hash -and (Get-FileHash $contextB).Hash -ceq (Get-FileHash $hosted).Hash) 'Concurrent context selection changed either baseline'
+        Run-Requests -Name ('swapped opposing contexts '+$level) -Mode 3 -First $contextInput -Second $contextInput -OutputA $contextA -OutputB $contextB -ContextA $true -Level $level
+        Require ((Get-FileHash $contextA).Hash -ceq (Get-FileHash $hosted).Hash -and (Get-FileHash $contextB).Hash -ceq (Get-FileHash $ordinary).Hash) 'Swapped contexts leaked between complete requests'
+    }
+    Write-Output 'PASS: complete opposing contexts, guarded entry, conditional selection and exact independent IR baselines'
 }
 if($Measure -or $MeasureOnly) {
     $measurementPackage=$package

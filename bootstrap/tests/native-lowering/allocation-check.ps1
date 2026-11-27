@@ -113,7 +113,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/runtime-text.ps1')
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
 $files=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')|ForEach-Object {Join-Path $root ('std-lib/src/portable/'+$_+'.bas')}
-$files+=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','NativeEscapes','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeControl','NativeFrames','NativeContext','NativeIntrinsics','NativeLowering')|ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
+$files+=@('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ConstantText','ProjectSyntax','DeclarationBinder','ConstantValues','ExpressionBinder','AggregateLayout','PrimitiveRoles','NativeEscapes','NativePlanning','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeControl','NativeFrames','NativeContext','NativeIntrinsics','NativeLowering')|ForEach-Object {Join-Path $root ('compiler/src/'+$_+'.bas')}
 $files+=Join-Path $PSScriptRoot 'AllocationProbe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'
 $library=Join-Path $artifacts 'emitter.ll'

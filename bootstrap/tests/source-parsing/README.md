@@ -41,7 +41,7 @@ the `Arithmetic.Answer()` member/call tree; this does not assert name binding.
 Negative inputs cover lexical truncation/invalid characters, malformed syntax,
 required keyword spacing, reserved declaration names, Option Explicit Off,
 unsupported constructs, a failure in the second module, and token-length,
-token-count, aggregate-token, nesting and project-node limits. Sixty nested
+token-count, aggregate-token and nesting limits, plus checked project-node growth. Sixty nested
 groups and approximately 250,000 aggregate tokens must still pass. Each
 rejection must return exit 1 with the
 expected category/location and no PARSE OK. A failed AST dump must publish no
@@ -50,6 +50,20 @@ process must succeed. This does not qualify editor-style multi-error recovery.
 
 The 2026-11-13 node-capacity regression passed39 cases with the host at
 `C:\Users\Ubehage\AppData\Local\Temp\ube source parsing 03d40ecc-0bae-45e3-b426-228d589ea920\build\UBE-Bootstrap.exe`.
-The gate retains90,013 nodes, accepts exactly131,072 including the host's project
-root, refuses131,073, and recovers. Run with `check.ps1 -BootstrapExe <host>`.
+That historical gate retained90,013 nodes, accepted exactly131,072 including the host's
+project root, refused131,073, and recovered. The current gate retains those two
+acceptance counts and additionally accepts131,073 and180,025 nodes. Aggregate
+node storage now uses checked Long growth and controlled allocation failure;
+per-module node, token and depth bounds remain. Run with `check.ps1 -BootstrapExe <host>`.
 Evidence: `C:\Users\Ubehage\AppData\Local\Temp\ube source parsing cc880f3a-2c12-482a-9a23-6b6e2ecf8f0a`.
+
+The checked aggregate-growth gate passed 46 cases on 2026-11-27 with:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-parsing/check.ps1 -BootstrapExe "C:/Users/Ubehage/AppData/Local/Temp/ube source parsing 4c2a480f-c671-40b6-9e29-fe22c134c4f7/build/UBE-Bootstrap.exe"`.
+The seed SHA256 is `05913A847293A4E46045FD7547367B5A5BBEA969EA4E44CE9F7073B4650FC696`.
+Evidence: `%TEMP%\ube source parsing f368869e-58e9-48a2-b45d-66b14ab8ab84`.
+The fresh build first exposed an obsolete rejection of supported While syntax;
+the gate now checks its exact pretest condition/body AST and separately rejects
+Exit Loop outside a loop. An initial expected-shape spelling omitted the empty
+body's colon and was corrected against the retained AST dump. The final gate
+checks all four node counts, retained token/depth guards and recovery. These are
+parser assertions, not native execution or compiler concurrency qualification.

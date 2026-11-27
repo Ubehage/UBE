@@ -3237,6 +3237,90 @@ success:
 failed:
   ret i1 false
 }
+; Hosted startup validates a live named job before any UBE source initialization.
+declare dllimport i32 @GetEnvironmentVariableW(ptr, ptr, i32)
+declare dllimport ptr @OpenJobObjectW(i32, i32, ptr)
+declare dllimport i32 @IsProcessInJob(ptr, ptr, ptr)
+@ube.ide.session.variable = private constant [16 x i16] [i16 85, i16 66, i16 69, i16 95, i16 73, i16 68, i16 69, i16 95, i16 83, i16 69, i16 83, i16 83, i16 73, i16 79, i16 78, i16 0]
+@ube.ide.session.prefix = private constant [14 x i16] [i16 76, i16 111, i16 99, i16 97, i16 108, i16 92, i16 85, i16 66, i16 69, i16 46, i16 73, i16 68, i16 69, i16 46]
+@ube.ide.session.diagnostic = private constant [112 x i8] c"UBE: E_IDE_CONTEXT: this IDE-run executable requires a live UBE IDE session; rebuild for standalone execution.\0D\0A"
+define i1 @ube.ide.session.check() {
+entry:
+  %name = alloca [47 x i16], align 2
+  %member = alloca i32, align 4
+  %limit.info = alloca [144 x i8], align 8
+  %written = alloca i32, align 4
+  %length = call i32 @GetEnvironmentVariableW(ptr @ube.ide.session.variable, ptr %name, i32 47)
+  %exact = icmp eq i32 %length, 46
+  br i1 %exact, label %character, label %failed
+character:
+  %index = phi i64 [ 0, %entry ], [ %next, %advance ]
+  %address = getelementptr i16, ptr %name, i64 %index
+  %value = load i16, ptr %address, align 2
+  %is.prefix = icmp ult i64 %index, 14
+  br i1 %is.prefix, label %prefix, label %hex
+prefix:
+  %expected.address = getelementptr i16, ptr @ube.ide.session.prefix, i64 %index
+  %expected = load i16, ptr %expected.address, align 2
+  %matches = icmp eq i16 %value, %expected
+  br i1 %matches, label %advance, label %failed
+hex:
+  %digit.low = icmp uge i16 %value, 48
+  %digit.high = icmp ule i16 %value, 57
+  %digit = and i1 %digit.low, %digit.high
+  %lower.low = icmp uge i16 %value, 97
+  %lower.high = icmp ule i16 %value, 102
+  %lower = and i1 %lower.low, %lower.high
+  %upper.low = icmp uge i16 %value, 65
+  %upper.high = icmp ule i16 %value, 70
+  %upper = and i1 %upper.low, %upper.high
+  %letter = or i1 %lower, %upper
+  %valid = or i1 %digit, %letter
+  br i1 %valid, label %advance, label %failed
+advance:
+  %next = add i64 %index, 1
+  %done = icmp eq i64 %next, 46
+  br i1 %done, label %open, label %character
+open:
+  %job = call ptr @OpenJobObjectW(i32 4, i32 0, ptr %name)
+  %opened = icmp ne ptr %job, null
+  br i1 %opened, label %membership, label %failed
+membership:
+  store i32 0, ptr %member, align 4
+  %self = call ptr @GetCurrentProcess()
+  %queried.member = call i32 @IsProcessInJob(ptr %self, ptr %job, ptr %member)
+  %member.value = load i32, ptr %member, align 4
+  %member.api.ok = icmp ne i32 %queried.member, 0
+  %member.yes = icmp ne i32 %member.value, 0
+  %member.ok = and i1 %member.api.ok, %member.yes
+  br i1 %member.ok, label %limits, label %close
+limits:
+  %queried.limits = call i32 @QueryInformationJobObject(ptr %job, i32 9, ptr %limit.info, i32 144, ptr null)
+  %limits.ok = icmp ne i32 %queried.limits, 0
+  br i1 %limits.ok, label %flags, label %close
+flags:
+  %flags.address = getelementptr i8, ptr %limit.info, i64 16
+  %flags.value = load i32, ptr %flags.address, align 4
+  %kill.bit = and i32 %flags.value, 8192
+  %kill = icmp ne i32 %kill.bit, 0
+  %breakaway.bits = and i32 %flags.value, 6144
+  %contained = icmp eq i32 %breakaway.bits, 0
+  %flags.ok = and i1 %kill, %contained
+  br label %close
+close:
+  %allowed = phi i1 [ false, %membership ], [ false, %limits ], [ %flags.ok, %flags ]
+  %closed = call i32 @CloseHandle(ptr %job)
+  %close.ok = icmp ne i32 %closed, 0
+  %accepted = and i1 %allowed, %close.ok
+  br i1 %accepted, label %success, label %failed
+success:
+  ret i1 true
+failed:
+  store i32 0, ptr %written, align 4
+  %stderr = call ptr @GetStdHandle(i32 -12)
+  %reported = call i32 @WriteFile(ptr %stderr, ptr @ube.ide.session.diagnostic, i32 112, ptr %written, ptr null)
+  ret i1 false
+}
 %ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }
 %ube.managed.array = type { i64, ptr }
 %ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64, ptr }

@@ -21,6 +21,7 @@ Public Type BoundExpression
     UpperBound As LongLong
     ConstantTextStart As Long
     ConstantTextLength As Long
+    IsIDEContextConstant As Boolean
 End Type
 
 Private Type ExpressionState
@@ -49,59 +50,16 @@ Private Intrinsic Function MoveBytes(ByRef Destination() As Byte, ByRef Source()
 Attribute MoveBytes.UBE_Primitive = "Array.Move"
 End Function
 
-' Constant rejection must not replace the caller's existing error record.
-Private Intrinsic Function RecordError(ByVal Number As Long) As Boolean
-Attribute RecordError.UBE_Primitive = "Error.Set"
-End Function
-
-' Reuses the exact runtime byte parser while retaining compile-time error-record isolation.
-Private Function TextNumber(ByRef X() As Byte, ByVal Start As Long, ByVal Length As Long, ByVal Destination As Long, ByRef Value As LongLong) As Boolean
-    Dim PriorError As Long
-    Dim Status As Boolean
-    Dim Restored As Boolean
-    Dim Truth As Boolean
-    Dim Candidate As LongLong
-    On Error GoTo Failed
-    PriorError = Err.Number
-    If Destination = SyntaxTokens.KwBoolean Then
-        Status = InvariantNumbers.TryParseBoolean(X, Start, Length, Truth)
-        If Truth Then Candidate = -1
-    ElseIf ConstantValues.IsFloating(Destination) Then
-        Status = ConstantValues.TryFloatingText(X, Start, Length, Destination, Candidate)
-    Else
-        Status = InvariantNumbers.TryParseInteger(X, Start, Length, ConstantValues.Minimum(Destination), ConstantValues.Maximum(Destination), Candidate)
-    End If
-    Restored = RecordError(PriorError)
-    If Not Status Then Exit Function
-    Value = Candidate
-    TextNumber = True
-    Exit Function
-Failed:
-    Restored = RecordError(PriorError)
-End Function
-
 ' Formats only known scalar values into the same immutable arena used by quoted literals.
 Private Function AsText(ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S As ExpressionState, ByVal Node As Long, ByRef Start As Long, ByRef Length As Long) As Boolean
-    Dim Scratch(0 To 47) As Byte
-    Dim Used As Long
-    On Error GoTo Failed
     If Not F(Node - 1).ConstantKnown Then Exit Function
     If F(Node - 1).TypeCode = SyntaxTokens.KwString Then
         Start = F(Node - 1).ConstantTextStart
         Length = F(Node - 1).ConstantTextLength
-        AsText = True: Exit Function
+        AsText = True
+        Exit Function
     End If
-    If F(Node - 1).TypeCode = SyntaxTokens.KwBoolean Then
-        If Not ByteText.TryAppendBoolean(Scratch, Used, F(Node - 1).ConstantValue <> 0) Then Exit Function
-    ElseIf ConstantValues.IsFloating(F(Node - 1).TypeCode) Then
-        If Not BinaryFloatText.TryAppend(Scratch, Used, F(Node - 1).ConstantValue, ConstantValues.FloatingWidth(F(Node - 1).TypeCode)) Then Exit Function
-    Else
-        If Not ByteText.TryAppendInteger(Scratch, Used, F(Node - 1).ConstantValue) Then Exit Function
-    End If
-    AsText = ConstantText.TryAppendBytes(Scratch, 0, Used, X, S.TextUsed, Start, Length)
-    Exit Function
-Failed:
-    AsText = False
+    AsText = ConstantText.TryAppendScalar(F(Node - 1).ConstantValue, F(Node - 1).TypeCode, X, S.TextUsed, Start, Length)
 End Function
 
 ' Locates the source module through the already assigned lexical container.
@@ -158,6 +116,7 @@ Private Sub CopyValue(ByRef F() As BoundExpression, ByVal Destination As Long, B
     F(Destination - 1).ArrayRank = F(Source - 1).ArrayRank
     F(Destination - 1).Writable = F(Source - 1).Writable
     F(Destination - 1).ConstantKnown = F(Source - 1).ConstantKnown
+    F(Destination - 1).IsIDEContextConstant = F(Source - 1).IsIDEContextConstant
     F(Destination - 1).ConstantValue = F(Source - 1).ConstantValue
     F(Destination - 1).ConstantTextStart = F(Source - 1).ConstantTextStart
     F(Destination - 1).ConstantTextLength = F(Source - 1).ConstantTextLength
@@ -184,6 +143,7 @@ Private Sub SymbolValue(ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As
     F(Node - 1).ArrayRank = A(Symbol - 1).ArrayRank
     F(Node - 1).Writable = Kind = SourceParser.VariableNode Or Kind = SourceParser.ParameterNode Or Kind = SourceParser.FieldNode Or Kind = DeclarationBinder.ResultSymbol
     F(Node - 1).ConstantKnown = False
+    F(Node - 1).IsIDEContextConstant = False
     F(Node - 1).ConstantValue = 0
     F(Node - 1).ConstantTextStart = 0
     F(Node - 1).ConstantTextLength = 0
@@ -283,6 +243,25 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     ModuleIndex = ModuleOf(A, F, Node)
     Token = N(Node - 1).NameToken
     Parent = N(Node - 1).Parent
+    If SyntaxTokens.IsIDEContextName(B, T, Token, C.TokenCount) Then
+        If Parent <> 0 Then
+            If N(Parent - 1).Kind = SourceParser.MemberNode And N(Parent - 1).FirstChild = Node Then
+                If DeclarationBinder.PackageMatches(B, T, C.TokenCount, Token, P) Then
+                    F(Node - 1).AccessKind = 3
+                    LookupName = True
+                    Exit Function
+                End If
+            End If
+        End If
+        F(Node - 1).TypeCode = SyntaxTokens.KwBoolean
+        F(Node - 1).ConstantKnown = True
+        F(Node - 1).IsIDEContextConstant = True
+        F(Node - 1).ConstantValue = 0
+        If M(ModuleIndex).IsInIDE Then F(Node - 1).ConstantValue = -1
+        F(Node - 1).Writable = False
+        LookupName = True
+        Exit Function
+    End If
     If Parent <> 0 Then
         If N(Parent - 1).FirstChild = Node Then Callable = N(Parent - 1).Kind = SourceParser.CallNode Or N(Parent - 1).Kind = SourceParser.ThreadStartNode
     End If
@@ -363,7 +342,7 @@ Private Function ConvertValue(ByRef N() As SourceParser.SyntaxNode, ByRef M() As
     F(Node - 1).ConvertedType = Destination
     If F(Node - 1).ConstantKnown And Destination <> SyntaxTokens.KwString Then
         If F(Node - 1).TypeCode = SyntaxTokens.KwString Then
-            If Not TextNumber(X, F(Node - 1).ConstantTextStart, F(Node - 1).ConstantTextLength, Destination, Value) Then ConvertValue = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
+            If Not ConstantValues.TryTextValue(X, F(Node - 1).ConstantTextStart, F(Node - 1).ConstantTextLength, Destination, Value) Then ConvertValue = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
         Else
             If ConstantValues.TryConvert(F(Node - 1).ConstantValue, F(Node - 1).TypeCode, Destination, Value, Reason) = False Then ConvertValue = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
         End If
@@ -374,14 +353,57 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Selects a checked member after its receiver has been bound.
+Private Function ResolveMemberValue(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef H() As Long, ByRef L() As Long, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Receiver As Long) As Boolean
+    Dim Symbol As Long
+    Dim Selected As Long
+    Dim Role As Long
+    Dim Field As Boolean
+    On Error GoTo Failed
+    Symbol = F(Receiver - 1).SymbolIndex
+    If F(Receiver - 1).ArrayRank <> 0 Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+    If F(Receiver - 1).TrustedRole = 1 Then
+        Role = SupportName(B, T, N(Node - 1).NameToken, C.TokenCount)
+        If Role < 2 Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 11, Node): Exit Function
+        F(Node - 1).TrustedRole = Role
+        F(Node - 1).SymbolIndex = 0
+        F(Node - 1).Writable = False
+        If Role = 4 Then F(Node - 1).TypeCode = SyntaxTokens.KwLong
+    Else
+        If F(Receiver - 1).AccessKind = 3 Then
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+        ElseIf F(Receiver - 1).TypeSymbol <> 0 Then
+            If Symbol <> 0 Then
+                If A(Symbol - 1).Kind = SourceParser.TypeNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+            End If
+            Field = True
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Receiver - 1).TypeSymbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+        ElseIf Symbol <> 0 Then
+            If A(Symbol - 1).Kind <> SourceParser.ModuleNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, Symbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+        Else
+            ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
+        End If
+        If S.Lookup.Work >= 4000000 Then ResolveMemberValue = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
+        If Selected = 0 Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 11, Node): Exit Function
+        If A(Selected - 1).Visibility = SyntaxTokens.KwPrivate And A(Selected - 1).ModuleIndex <> ModuleOf(A, F, Node) Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 12, Node): Exit Function
+        SymbolValue A, F, S, Node, Selected
+        If Field Then
+            F(Node - 1).AccessKind = 1
+            F(Node - 1).Writable = F(Receiver - 1).Writable
+        End If
+    End If
+    ResolveMemberValue = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Resolves ordinary receivers, fields and the separately reviewed error-support receiver.
 Private Function ResolveReference(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef P() As Byte, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef H() As Long, ByRef L() As Long, ByRef U() As Long, ByRef K() As Long, ByRef X() As Byte, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Assignment As Boolean) As Boolean
     Dim Receiver As Long
     Dim Root As Long
     Dim Symbol As Long
-    Dim Selected As Long
-    Dim Role As Long
-    Dim Field As Boolean
     On Error GoTo Failed
     If EnterBinding(N, M, A, F, S, D, Node) = False Then Exit Function
     If N(Node - 1).Kind = SourceParser.NameNode Then
@@ -405,39 +427,7 @@ Private Function ResolveReference(ByRef B() As Byte, ByRef T() As SourceScanner.
         Else
             If ResolveReference(B, T, N, M, C, P, A, F, H, L, U, K, X, S, D, Receiver, False) = False Then Exit Function
         End If
-        Symbol = F(Receiver - 1).SymbolIndex
-        If F(Receiver - 1).ArrayRank <> 0 Then ResolveReference = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
-        If F(Receiver - 1).TrustedRole = 1 Then
-            Role = SupportName(B, T, N(Node - 1).NameToken, C.TokenCount)
-            If Role < 2 Then ResolveReference = Reject(N, M, A, F, D, 2, 11, Node): Exit Function
-            F(Node - 1).TrustedRole = Role
-            F(Node - 1).SymbolIndex = 0
-            F(Node - 1).Writable = False
-            If Role = 4 Then F(Node - 1).TypeCode = SyntaxTokens.KwLong
-        Else
-            If F(Receiver - 1).AccessKind = 3 Then
-                Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
-            ElseIf F(Receiver - 1).TypeSymbol <> 0 Then
-                If Symbol <> 0 Then
-                    If A(Symbol - 1).Kind = SourceParser.TypeNode Then ResolveReference = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
-                End If
-                Field = True
-                Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Receiver - 1).TypeSymbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
-            ElseIf Symbol <> 0 Then
-                If A(Symbol - 1).Kind <> SourceParser.ModuleNode Then ResolveReference = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
-                Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, Symbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
-            Else
-                ResolveReference = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
-            End If
-            If S.Lookup.Work >= 4000000 Then ResolveReference = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
-            If Selected = 0 Then ResolveReference = Reject(N, M, A, F, D, 2, 11, Node): Exit Function
-            If A(Selected - 1).Visibility = SyntaxTokens.KwPrivate And A(Selected - 1).ModuleIndex <> ModuleOf(A, F, Node) Then ResolveReference = Reject(N, M, A, F, D, 2, 12, Node): Exit Function
-            SymbolValue A, F, S, Node, Selected
-            If Field Then
-                F(Node - 1).AccessKind = 1
-                F(Node - 1).Writable = F(Receiver - 1).Writable
-            End If
-        End If
+        If Not ResolveMemberValue(B, T, N, M, C, A, F, H, L, S, D, Node, Receiver) Then Exit Function
     Else
         ResolveReference = Reject(N, M, A, F, D, 3, 12, Node): Exit Function
     End If
@@ -651,6 +641,7 @@ End Function
 ' Applies the declared earlier-constant rule without inventing cross-module declaration ordering.
 Private Function ConstantDependency(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Symbol As Long, ByVal Required As Long) As Boolean
     On Error GoTo Failed
+    If F(Node - 1).IsIDEContextConstant Then ConstantDependency = True: Exit Function
     If Symbol = 0 Then ConstantDependency = Reject(N, M, A, F, D, 11, 21, Node): Exit Function
     If A(Symbol - 1).Kind <> SourceParser.ConstantNode Then ConstantDependency = Reject(N, M, A, F, D, 11, 21, Node): Exit Function
     If A(Symbol - 1).ModuleIndex <> A(Required - 1).ModuleIndex Then ConstantDependency = Reject(N, M, A, F, D, 8, 12, Node): Exit Function
@@ -681,7 +672,7 @@ Private Function EvaluateConstant(ByRef B() As Byte, ByRef T() As SourceScanner.
     If A(Symbol - 1).TypeCode = SyntaxTokens.KwString Then
         If Not AsText(F, X, S, Initializer, F(Node - 1).ConstantTextStart, F(Node - 1).ConstantTextLength) Then EvaluateConstant = Reject(N, M, A, F, D, 7, 1, Node): Exit Function
     ElseIf F(Initializer - 1).TypeCode = SyntaxTokens.KwString Then
-        If Not TextNumber(X, F(Initializer - 1).ConstantTextStart, F(Initializer - 1).ConstantTextLength, A(Symbol - 1).TypeCode, Value) Then EvaluateConstant = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
+        If Not ConstantValues.TryTextValue(X, F(Initializer - 1).ConstantTextStart, F(Initializer - 1).ConstantTextLength, A(Symbol - 1).TypeCode, Value) Then EvaluateConstant = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
     Else
         If ConstantValues.TryConvert(F(Initializer - 1).ConstantValue, F(Initializer - 1).TypeCode, A(Symbol - 1).TypeCode, Value, Reason) = False Then EvaluateConstant = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
     End If
@@ -903,7 +894,7 @@ Private Function BindExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
         If Required <> 0 Then
             If ConstantDependency(N, M, A, F, D, Node, Symbol, Required) = False Then Exit Function
         End If
-        If F(Node - 1).TrustedRole <> 4 Then
+        If F(Node - 1).TrustedRole <> 4 And Not F(Node - 1).IsIDEContextConstant Then
             If Symbol = 0 Then BindExpression = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
             Kind = A(Symbol - 1).Kind
             If Kind = SourceParser.ConstantNode Then
@@ -977,10 +968,33 @@ Failed:
     Err.Raise Err.Number
 End Function
 
-' Applies assignment conversions after both expressions have been bound in order.
-Private Function BindAssignedValue(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Target As Long, ByVal ValueNode As Long) As Boolean
+' Converts a bound scalar assignment and retains its checked constant value.
+Private Function BindScalarAssignment(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Target As Long, ByVal ValueNode As Long) As Boolean
     Dim Value As LongLong
     Dim Reason As Long
+    On Error GoTo Failed
+    If ConvertValue(N, M, A, F, X, S, D, ValueNode, F(Target - 1).TypeCode) = False Then Exit Function
+    F(Node - 1).TypeCode = F(Target - 1).TypeCode
+    F(Node - 1).SymbolIndex = F(Target - 1).SymbolIndex
+    If F(ValueNode - 1).ConstantKnown And F(Target - 1).TypeCode <> SyntaxTokens.KwVariant Then
+        If F(Target - 1).TypeCode = SyntaxTokens.KwString Then
+            If Not AsText(F, X, S, ValueNode, F(Node - 1).ConstantTextStart, F(Node - 1).ConstantTextLength) Then BindScalarAssignment = Reject(N, M, A, F, D, 7, 1, Node): Exit Function
+        ElseIf F(ValueNode - 1).TypeCode = SyntaxTokens.KwString Then
+            If Not ConstantValues.TryTextValue(X, F(ValueNode - 1).ConstantTextStart, F(ValueNode - 1).ConstantTextLength, F(Target - 1).TypeCode, Value) Then BindScalarAssignment = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
+        Else
+            If ConstantValues.TryConvert(F(ValueNode - 1).ConstantValue, F(ValueNode - 1).TypeCode, F(Target - 1).TypeCode, Value, Reason) = False Then BindScalarAssignment = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
+        End If
+        F(Node - 1).ConstantKnown = True
+        F(Node - 1).ConstantValue = Value
+    End If
+    BindScalarAssignment = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Applies assignment conversions after both expressions have been bound in order.
+Private Function BindAssignedValue(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef X() As Byte, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Target As Long, ByVal ValueNode As Long) As Boolean
     On Error GoTo Failed
     If F(Target - 1).ArrayRank = 0 And (F(Target - 1).TypeCode = SyntaxTokens.KwObject Or F(ValueNode - 1).TypeCode = SyntaxTokens.KwObject Or N(Node - 1).Value = SyntaxTokens.KwSet) Then
         BindAssignedValue = BindReferenceAssignment(N, M, A, F, D, Node, Target, ValueNode): Exit Function
@@ -1005,20 +1019,7 @@ Private Function BindAssignedValue(ByRef N() As SourceParser.SyntaxNode, ByRef M
         F(Node - 1).ConstantKnown = False
         F(ValueNode - 1).ConvertedType = F(Target - 1).TypeCode
     Else
-        If ConvertValue(N, M, A, F, X, S, D, ValueNode, F(Target - 1).TypeCode) = False Then Exit Function
-        F(Node - 1).TypeCode = F(Target - 1).TypeCode
-        F(Node - 1).SymbolIndex = F(Target - 1).SymbolIndex
-        If F(ValueNode - 1).ConstantKnown And F(Target - 1).TypeCode <> SyntaxTokens.KwVariant Then
-            If F(Target - 1).TypeCode = SyntaxTokens.KwString Then
-                If Not AsText(F, X, S, ValueNode, F(Node - 1).ConstantTextStart, F(Node - 1).ConstantTextLength) Then BindAssignedValue = Reject(N, M, A, F, D, 7, 1, Node): Exit Function
-            ElseIf F(ValueNode - 1).TypeCode = SyntaxTokens.KwString Then
-                If Not TextNumber(X, F(ValueNode - 1).ConstantTextStart, F(ValueNode - 1).ConstantTextLength, F(Target - 1).TypeCode, Value) Then BindAssignedValue = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
-            Else
-                If ConstantValues.TryConvert(F(ValueNode - 1).ConstantValue, F(ValueNode - 1).TypeCode, F(Target - 1).TypeCode, Value, Reason) = False Then BindAssignedValue = Reject(N, M, A, F, D, 11, 10, Node): Exit Function
-            End If
-            F(Node - 1).ConstantKnown = True
-            F(Node - 1).ConstantValue = Value
-        End If
+        If Not BindScalarAssignment(N, M, A, F, X, S, D, Node, Target, ValueNode) Then Exit Function
     End If
     BindAssignedValue = True
     Exit Function

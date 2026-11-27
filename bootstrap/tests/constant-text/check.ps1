@@ -121,19 +121,26 @@ foreach($text in @('', 'AZaz', '"', 'a""Z', "N$([char]0)UL", ([char]0xE9).ToStri
 }
 foreach($bytes in @(@(),@(34),@(34,65),@(65,34),@(34,34,34),@(34,10,34),@(34,13,34),@(34,192,128,34),@(34,237,160,128,34),@(34,244,144,128,128,34),@(34,226,130,34))) {Add-Literal ([byte[]]$bytes) ([byte[]]@()) $false}
 $lines.Add('Public Function Main() As Long')
+$lines.Add('On Error GoTo Unexpected')
 foreach($call in $calls){$lines.Add($call)}
 $lines.Add('If Not InvalidSpans() Then Main = 100: Exit Function')
 $lines.Add('If Not Concatenation() Then Main = 101: Exit Function')
+$lines.Add('Exit Function')
+$lines.Add('Unexpected:')
+$lines.Add('Main = 102')
 $lines.Add('End Function')
 $source=Join-Path $artifacts 'Probe.bas'
 $original=($lines -join "`r`n")+"`r`n"
 [IO.File]::WriteAllText($source,$original,$utf8)
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-foreach($relative in @('compiler/src/ConstantText.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/BufferPrimitives.bas')) {Copy-Item -LiteralPath (Join-Path $repo $relative) -Destination $artifacts}
+$compilerModules=@('ConstantText','ConstantValues','SourceScanner','SyntaxTokens')
+$coreModules=@('Utf8','BufferPrimitives','FilePrimitives','ByteText','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')
+foreach($name in $compilerModules){Copy-Item -LiteralPath (Join-Path $repo ('compiler/src/'+$name+'.bas')) -Destination $artifacts}
+foreach($name in $coreModules){Copy-Item -LiteralPath (Join-Path $repo ('std-lib/src/portable/'+$name+'.bas')) -Destination $artifacts}
 foreach($level in @('0','2')) {
  $manifest=Join-Path $artifacts ('Project'+$level+'.UBE')
  $text="UBE-Project 1`r`nName = `"ConstantTextTest`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nOptimization = `"$level`"`r`n"
- foreach($name in @('ConstantText','Utf8','BufferPrimitives','Probe')){$text+="Source = `"$name.bas`"`r`n"}
+ foreach($name in ($compilerModules+$coreModules+@('Probe'))){$text+="Source = `"$name.bas`"`r`n"}
  [IO.File]::WriteAllText($manifest,$text,$utf8)
  $exe=Join-Path $artifacts ('Probe'+$level+'.exe')
  Run $CompilerExe @('--build',$manifest,$exe,'--clang',$Clang)

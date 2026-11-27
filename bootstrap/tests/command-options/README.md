@@ -16,13 +16,16 @@ only these exact, case-sensitive command forms:
 ```text
 <executable> --emit-llvm <project.UBE> <output.ll>
 <executable> --build <project.UBE> <output.exe> [--clang <path>]
+<executable> --emit-llvm-ide <project.UBE> <output.ll>
+<executable> --build-ide <project.UBE> <output.exe> [--clang <path>]
 ```
 
 Quoting and raw UTF-8 validation use `WindowsArguments.TryReadArgument`. The
 caller retains the raw command line. Arguments 2 and 3 identify the project and
 output; accepted text is nonempty but is not normalized, opened or checked for
 an extension here. `CommandRequest.Mode` is 1 for emission or 2 for building.
-`ClangArgument` is zero when absent and 5 when supplied. No other compiler modes
+`ClangArgument` is zero when absent and 5 when supplied. `IsInIDE` is True only for the two explicit IDE forms; ordinary forms set it
+False independently of previous request storage. No other compiler modes
 are admitted by this parser.
 
 `CommandDiagnostic.Code` is zero on success, 1 for a usage error, or 2 when an
@@ -33,7 +36,7 @@ Options field. Usage errors preserve sticky Err; helper failures preserve the
 helper's error, including Err 5 for invalid raw text and Err 7 for allocation
 failure. Request state and scratch storage are caller- or invocation-owned.
 
-The 28 independently specified cases cover both modes, optional Clang, spaces,
+The 36 independently specified cases cover both modes, optional Clang, spaces,
 tabs, Unicode, escaped quotes/trailing slashes, concatenated quoted flag spelling,
 literal path spellings beginning with dashes, missing and empty arguments,
 unknown/case-mismatched flags, unwanted optional flags on emission, trailing

@@ -60,9 +60,9 @@ function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
 }
 
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'));$nl="`r`n"
-$portable=@('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives')
+$portable=@('InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives')
 $windows=@('WindowsArguments','WindowsPaths','WindowsImages')
-$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','ProjectManifest','ProjectLoader','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages')
+$compiler=@('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ConstantValues','ConstantText','ProjectSyntax','ProjectManifest','ProjectLoader','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages')
 $files=@($portable|ForEach-Object{'std-lib/src/portable/'+$_+'.bas'})+@($windows|ForEach-Object{'std-lib/src/win-lib/'+$_+'.bas'})+@($compiler|ForEach-Object{'compiler/src/'+$_+'.bas'})+@('bootstrap/tests/native-backend-ube/Probe.bas')
 $lines=@('UBE-Project 1','Name = "Backend"','Kind = "Library"')
 foreach($file in $files){$leaf=[IO.Path]::GetFileName($file);Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $artifacts $leaf);$lines+='Source = "'+$leaf+'"'}

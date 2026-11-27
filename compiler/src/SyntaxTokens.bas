@@ -659,6 +659,24 @@ Failed:
     Err.Raise Err.Number
 End Function
 
+' Recognizes the supplied execution-context constant with ordinary identifier spelling rules.
+Public Function IsIDEContextName(ByRef Source() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByVal Index As Long, ByVal Count As Long) As Boolean
+    On Error GoTo Failed
+    If SpellingByte(Source, Tokens, Index, Count, 0) <> 105 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 1) <> 115 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 2) <> 95 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 3) <> 105 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 4) <> 110 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 5) <> 95 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 6) <> 105 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 7) <> 100 Then Exit Function
+    If SpellingByte(Source, Tokens, Index, Count, 8) <> 101 Then Exit Function
+    IsIDEContextName = SpellingByte(Source, Tokens, Index, Count, 9) = -1
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Recognizes integral spelling and its optional integer suffix, leaving magnitude checks to binding.
 Public Function IsIntegerToken(ByRef Source() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByVal Index As Long, ByVal Count As Long) As Boolean
     Dim Position As Long

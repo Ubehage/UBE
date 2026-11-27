@@ -123,6 +123,11 @@ End Function
 
 ' Compiles request-owned source facts; resources and private-stage ownership survive failure for cleanup.
 Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput() As Byte, ByRef Clang() As Byte, ByVal Mode As Long, ByVal WorkerCount As Long, ByRef Resources As RequestResources, ByRef Stage() As Byte, ByRef Ranges() As NativeCompilation.RangeResult, ByRef Report As RequestDiagnostic, ByRef DiagnosticPath() As Byte) As Boolean
+    TryCompile = TryCompileWithContext(ManifestPath, RequestedOutput, Clang, Mode, WorkerCount, False, Resources, Stage, Ranges, Report, DiagnosticPath)
+End Function
+
+' An explicit target context belongs to this request, never to the compiler process.
+Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef RequestedOutput() As Byte, ByRef Clang() As Byte, ByVal Mode As Long, ByVal WorkerCount As Long, ByVal IsInIDE As Boolean, ByRef Resources As RequestResources, ByRef Stage() As Byte, ByRef Ranges() As NativeCompilation.RangeResult, ByRef Report As RequestDiagnostic, ByRef DiagnosticPath() As Byte) As Boolean
     Dim Bytes() As Byte
     Dim Tokens() As SourceScanner.SourceToken
     Dim Nodes() As SourceParser.SyntaxNode
@@ -160,7 +165,7 @@ Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput()
     If WorkerCount < 1 Or WorkerCount > NativeCompilation.MaximumWorkers Then Kind = CompilerMessages.UsageError: Code = 1: GoTo Report
     If Resources.FileToken <> 0 Or Resources.ProcessToken <> 0 Or Resources.StageOwned Then Kind = CompilerMessages.OutputError: Code = 1: GoTo Report
     If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, ManifestPath) Then Code = 8: GoTo Report
-    If Not ProjectLoader.TryLoad(ManifestPath, PackageName, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Info, LoadError, Resources.FileToken) Then
+    If Not ProjectLoader.TryLoadWithContext(ManifestPath, IsInIDE, PackageName, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Info, LoadError, Resources.FileToken) Then
         Operation = LoadError.Stage
         Code = LoadError.Code
         Reason = LoadError.Reason
@@ -170,7 +175,7 @@ Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput()
         GoTo Report
     End If
     Kind = CompilerMessages.BackendError
-    If Mode = 2 And Not Info.IsExecutable Then Code = 1: Reason = 1: GoTo Report
+    If (Mode = 2 Or IsInIDE) And Not Info.IsExecutable Then Code = 1: Reason = 1: GoTo Report
     Kind = CompilerMessages.AssetError
     If Not CompilerAssets.TryLoad(Catalog, RuntimeText, ImportDefinition, Resources.FileToken, Failure) Then GoTo FailedOperation
     If ManagedSupport.NeedsSource(Bytes, Tokens, Nodes, Counts) Then
@@ -212,7 +217,7 @@ Public Function TryCompile(ByRef ManifestPath() As Byte, ByRef RequestedOutput()
     If ThreadPrimitives.StopRequested() Then Code = 1: GoTo Report
     If Not ProtectSupport(Output, Clang, Mode, Resources.FileToken, Failure) Then GoTo FailedOperation
     If Not OutputPublication.TryCommit(ManifestPath, PathBytes, Paths, Counts.ModuleCount, Output, Stage, Resources.StageOwned, Artifact, Resources.FileToken, Failure) Then GoTo FailedOperation
-    TryCompile = True
+    TryCompileWithContext = True
     Exit Function
 FailedOperation:
     Code = Failure

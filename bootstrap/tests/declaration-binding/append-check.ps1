@@ -156,7 +156,7 @@ function Read-Procedures([string]$Manifest) {
 # Retains the actual scanner and portable UTF-8 implementation without source rewriting.
 $core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compiler = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$manifest = Copy-Fixtures 'append library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'SourceParser.bas'),(Join-Path $compiler 'ProjectSyntax.bas'),(Join-Path $PSScriptRoot 'AppendProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'append library' @((Join-Path $core 'FilePrimitives.bas'),(Join-Path $core 'ByteText.bas'),(Join-Path $core 'InvariantNumbers.bas'),(Join-Path $core 'BinaryFloat.bas'),(Join-Path $core 'BinaryFloatValues.bas'),(Join-Path $core 'BinaryFloatMath.bas'),(Join-Path $core 'BinaryFloatPower.bas'),(Join-Path $core 'BinaryFloatText.bas'),(Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'SourceParser.bas'),(Join-Path $compiler 'ConditionalExpressions.bas'),(Join-Path $compiler 'ConditionalSource.bas'),(Join-Path $compiler 'ConstantValues.bas'),(Join-Path $compiler 'ConstantText.bas'),(Join-Path $compiler 'ProjectSyntax.bas'),(Join-Path $PSScriptRoot 'AppendProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'append.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'

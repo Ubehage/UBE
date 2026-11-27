@@ -14,10 +14,13 @@ nearer roadmap or progress file.
 
 ## Restart baseline — 2026-11-10
 
-- [ ] Expose the owner-approved global Boolean `IS_IN_IDE` in UBE's compiler
+- [x] Expose the owner-approved global Boolean `IS_IN_IDE` in UBE's compiler
   and IDE execution contract; keep per-compilation state independent. The VB6
   host now detects IDE execution and guards process termination. Scope and
-  implementation boundary: compiler/IDE-CONTEXT.md.
+  implementation boundary: compiler/IDE-CONTEXT.md. Standalone False, guarded
+  hosted True, conditional integration, readonly rejection and concurrent context
+  isolation pass O0/O2 gates. Self-build, conformance and concurrency pass; the
+  host fixture qualifies the launch contract without claiming a finished IDE.
 
 The final UBE-written compiler must be multithreaded, with all compiler code
 thread-safe from the start, as reaffirmed by the owner on 2026-11-10. The VB6

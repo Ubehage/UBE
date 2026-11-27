@@ -31,3 +31,30 @@ runner change (`ube expression allocation f13a2c5c-25a2-454c-8f15-4fabcbe2b58a`)
 
 Real source worker execution belongs to `runtime/tests/callnew/check.ps1`;
 compiler scheduling, parallel requests and performance require additional gates.
+
+The bootstrap analyzer accepts the checked parser's retained node arrays rather
+than imposing the former independent 131,072-node cap. Logical syntax/binding
+counts must agree and fit the actual one-based arrays. The existing symbol and
+graph-work limits remain in place; malformed input resets the published count
+and preserves the previous fact array.
+
+Run the focused host capacity gate with:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/native-escapes/capacity-check.ps1
+```
+
+It analyzes synthetic retained graphs of 131,072, 131,073 and 180,025 nodes,
+including an asynchronous alias at the last node that must promote its local
+storage owner. It checks malformed count/array rejection, every retained fact
+field and successful retry. Restoring the old node cap and changing the expected
+owner both cause the required rejection. The gate also builds a fresh seed from
+copied production modules and the three runtime modules referenced by its VBP.
+
+The 2026-11-27 gate passed all three runs in `ube escape capacity
+e0874b0b-5f73-44cd-8072-0af838a0162f`. Its fresh seed emitted the previously
+rejected full compiler concurrency package successfully (`retained-emit.stdout`
+and `retained-compiler.ll` in that directory). The existing matching host gate
+also passed against the latest expression-binding fixture, with evidence
+`ube host escapes 0d0f0ffb-8482-43d6-ab5c-b0fbed26ed96`. These checks qualify
+escape analysis; the complete concurrency execution gate is separate.

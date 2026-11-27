@@ -15,7 +15,7 @@ $allowed = @(
  'CreateJobObjectW','SetInformationJobObject','AssignProcessToJobObject','ResumeThread',
  'WaitForSingleObject','GetExitCodeProcess','QueryInformationJobObject','TerminateJobObject',
  'TerminateProcess','Sleep','GetLastError','GetFileAttributesW','CreateDirectoryW','RemoveDirectoryW',
- 'DeleteFileW','MoveFileExW','CreateThread'
+ 'DeleteFileW','MoveFileExW','CreateThread','GetEnvironmentVariableW','OpenJobObjectW','IsProcessInJob'
 )
 $names = New-Object Collections.Generic.List[string]
 foreach ($line in ($runtime -split '\r?\n')) {

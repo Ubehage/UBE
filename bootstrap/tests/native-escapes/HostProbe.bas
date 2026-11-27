@@ -31,7 +31,7 @@ Public Sub Main()
         Before = Before + Facts(Index).OwnerKind + Facts(Index).OwnerIdentity
     Next Index
     If Seen(1) < 1 Or Seen(2) < 1 Or Seen(3) < 3 Or Seen(4) < 1 Then GoTo Failed
-    If NativeEscapes.TryAnalyzeEscapes(Parsed, Bound, 131073, Bound.SymbolCount, Facts, FactCount, Diagnostic) Then GoTo Failed
+    If NativeEscapes.TryAnalyzeEscapes(Parsed, Bound, Parsed.NodeCount + 1, Bound.SymbolCount, Facts, FactCount, Diagnostic) Then GoTo Failed
     If FactCount <> 0 Or Diagnostic <> 6 Then GoTo Failed
     For Index = 0 To UBound(Facts)
         Before = Before - Facts(Index).OwnerKind - Facts(Index).OwnerIdentity

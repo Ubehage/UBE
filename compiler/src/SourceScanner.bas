@@ -28,12 +28,26 @@ Public Type ScanDiagnostic
     Column As Long
 End Type
 
-Private Type SourcePosition
+Public Type SourcePosition
     ByteOffset As Long
     Utf16Offset As Long
     [Line] As Long
     Column As Long
 End Type
+
+Public Const EndSpan As Long = 0
+Public Const LogicalLineSpan As Long = 1
+Public Const AssemblySpan As Long = 2
+
+Public Type SourceSpan
+    Start As SourcePosition
+    Finish As SourcePosition
+    Kind As Long
+End Type
+
+Private Intrinsic Function SpanLength(ByRef Values() As SourceSpan) As Long
+Attribute SpanLength.UBE_Primitive = "Array.Length"
+End Function
 
 ' Grows retained token records through the existing typed array storage primitive.
 Private Intrinsic Function ResizeTokens(ByRef Values() As SourceToken, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
@@ -163,9 +177,273 @@ InvalidStorage:
     Err.Raise Err.Number
 End Function
 
-' Scans within representable source coordinates; Count/Diagnostic must not alias Tokens storage.
-' Independent outputs guarantee Count zero and preservation of the previous token array on failure.
+' Skips a UBE comment without consuming its physical newline.
+Private Sub SkipComment(ByRef Source() As Byte, ByVal Length As Long, ByRef Position As SourcePosition)
+    Dim Value As Long
+    On Error GoTo Failed
+    Do While Position.ByteOffset < Length
+        Value = ByteAt(Source, Position.ByteOffset, Length)
+        If Value = 13 Or Value = 10 Then Exit Do
+        Advance Source, Length, Position
+    Loop
+    Exit Sub
+Failed:
+    Err.Raise Err.Number
+End Sub
+
+' Shared explicit-continuation recognition; the caller decides whether EOF is an error.
+Private Function ContinuedLine(ByRef Source() As Byte, ByVal Length As Long, ByRef Position As SourcePosition, ByRef Finish As SourcePosition) As Boolean
+    Dim Value As Long
+    On Error GoTo Failed
+    Finish = Position
+    If ByteAt(Source, Position.ByteOffset, Length) <> 95 Or Position.ByteOffset = 0 Then Exit Function
+    If Not Horizontal(ByteAt(Source, Position.ByteOffset - 1, Length)) Then Exit Function
+    Advance Source, Length, Finish
+    Do While Horizontal(ByteAt(Source, Finish.ByteOffset, Length))
+        Advance Source, Length, Finish
+    Loop
+    Value = ByteAt(Source, Finish.ByteOffset, Length)
+    If Value = 39 Or RemAt(Source, Finish.ByteOffset, Length) Then SkipComment Source, Length, Finish
+    Value = ByteAt(Source, Finish.ByteOffset, Length)
+    If Value = 13 Or Value = 10 Then
+        AdvanceNewline Source, Length, Finish
+        ContinuedLine = True
+    End If
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Validates immutable source once before walking its logical lines.
+Public Function TryBeginSource(ByRef Source() As Byte, ByRef Position As SourcePosition, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    Dim Initial As SourcePosition
+    On Error GoTo Failed
+    Diagnostic.Code = 0
+    Diagnostic.Reason = 0
+    Diagnostic.ByteOffset = 0
+    Diagnostic.Utf16Offset = 1
+    Diagnostic.Line = 1
+    Diagnostic.Column = 1
+    If Not ValidateSource(Source, BufferPrimitives.ByteStorageLength(Source), Initial, Diagnostic) Then Exit Function
+    Position = Initial
+    TryBeginSource = True
+    Exit Function
+Failed:
+    TryBeginSource = Reject(Diagnostic, 6, 1, Initial)
+End Function
+
+' Tests only a complete physical delimiter, before comment or continuation processing.
+Private Function AssemblyBoundary(ByRef Source() As Byte, ByVal Length As Long, ByVal Offset As Long, ByVal Closing As Boolean) As Boolean
+    Dim Index As Long
+    On Error GoTo Failed
+    Index = Offset
+    Do While Horizontal(ByteAt(Source, Index, Length))
+        Index = Index + 1
+    Loop
+    If Closing Then
+        If FoldAscii(ByteAt(Source, Index, Length)) <> 101 Or FoldAscii(ByteAt(Source, Index + 1, Length)) <> 110 Or FoldAscii(ByteAt(Source, Index + 2, Length)) <> 100 Then Exit Function
+        Index = Index + 3
+        If Not Horizontal(ByteAt(Source, Index, Length)) Then Exit Function
+        Do While Horizontal(ByteAt(Source, Index, Length))
+            Index = Index + 1
+        Loop
+    End If
+    If FoldAscii(ByteAt(Source, Index, Length)) <> 97 Or FoldAscii(ByteAt(Source, Index + 1, Length)) <> 115 Or FoldAscii(ByteAt(Source, Index + 2, Length)) <> 109 Then Exit Function
+    Index = Index + 3
+    If ByteAt(Source, Index, Length) = 39 Then AssemblyBoundary = True: Exit Function
+    If Horizontal(ByteAt(Source, Index, Length)) Then
+        Do While Horizontal(ByteAt(Source, Index, Length))
+            Index = Index + 1
+        Loop
+        If RemAt(Source, Index, Length) Then AssemblyBoundary = True: Exit Function
+    End If
+    AssemblyBoundary = ByteAt(Source, Index, Length) = 39 Or ByteAt(Source, Index, Length) = 13 Or ByteAt(Source, Index, Length) = 10 Or ByteAt(Source, Index, Length) = -1
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Consumes an opaque assembly block, including its delimiter lines.
+Private Function ReadAssembly(ByRef Source() As Byte, ByVal Length As Long, ByRef Position As SourcePosition, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    Dim Opening As SourcePosition
+    Dim Closing As Boolean
+    On Error GoTo Failed
+    Opening = Position
+    Do While Horizontal(ByteAt(Source, Opening.ByteOffset, Length))
+        Advance Source, Length, Opening
+    Loop
+    SkipComment Source, Length, Position
+    If Position.ByteOffset < Length Then AdvanceNewline Source, Length, Position
+    Do While Position.ByteOffset < Length
+        Closing = AssemblyBoundary(Source, Length, Position.ByteOffset, True)
+        SkipComment Source, Length, Position
+        If Position.ByteOffset < Length Then AdvanceNewline Source, Length, Position
+        If Closing Then ReadAssembly = True: Exit Function
+    Loop
+    ReadAssembly = Reject(Diagnostic, 2, 5, Opening)
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Finds logical boundaries without imposing ordinary token validity on inactive text.
+Public Function TryReadLogicalLine(ByRef Source() As Byte, ByRef Position As SourcePosition, ByRef Span As SourceSpan, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    Dim Candidate As SourceSpan
+    Dim Cursor As SourcePosition
+    Dim Look As SourcePosition
+    Dim Length As Long
+    Dim Value As Long
+    Dim Closing As Long
+    Dim WordStart As Long
+    Dim Depth As Long
+    Dim StatementStart As Boolean = True
+    Dim MemberWord As Boolean
+    On Error GoTo Failed
+    Length = BufferPrimitives.ByteStorageLength(Source)
+    If Position.ByteOffset < 0 Or Position.ByteOffset > Length Or Position.Line < 1 Or Position.Column < 1 Or Position.Utf16Offset < 1 Then TryReadLogicalLine = Reject(Diagnostic, 2, 6, Position): Exit Function
+    If Position.ByteOffset < Length And Position.Column <> 1 Then TryReadLogicalLine = Reject(Diagnostic, 2, 6, Position): Exit Function
+    Candidate.Start = Position
+    Cursor = Position
+    Candidate.Kind = EndSpan
+    If Cursor.ByteOffset = Length Then GoTo Complete
+    Candidate.Kind = LogicalLineSpan
+    If AssemblyBoundary(Source, Length, Cursor.ByteOffset, False) Then
+        Candidate.Kind = AssemblySpan
+        If Not ReadAssembly(Source, Length, Cursor, Diagnostic) Then Exit Function
+        GoTo Complete
+    End If
+    Do While Cursor.ByteOffset < Length
+        Value = ByteAt(Source, Cursor.ByteOffset, Length)
+        If Value = 13 Or Value = 10 Then
+            AdvanceNewline Source, Length, Cursor
+            Exit Do
+        End If
+        If Closing <> 0 Then
+            Advance Source, Length, Cursor
+            If Value = Closing Then
+                If ByteAt(Source, Cursor.ByteOffset, Length) = Closing Then
+                    Advance Source, Length, Cursor
+                Else
+                    Closing = 0
+                End If
+            End If
+        ElseIf Horizontal(Value) Then
+            Advance Source, Length, Cursor
+        ElseIf Value = 39 Or (StatementStart And RemAt(Source, Cursor.ByteOffset, Length)) Then
+            SkipComment Source, Length, Cursor
+        ElseIf ContinuedLine(Source, Length, Cursor, Look) Then
+            Cursor = Look
+            ' Physical assembly boundaries remain opaque even after malformed continued text.
+            If AssemblyBoundary(Source, Length, Cursor.ByteOffset, False) Then
+                If Not ReadAssembly(Source, Length, Cursor, Diagnostic) Then Exit Function
+                Exit Do
+            End If
+        ElseIf Value = 34 Or Value = 91 Or Value = 35 Then
+            Closing = Value
+            If Value = 91 Then Closing = 93
+            ' A leading # starts a directive rather than a date literal.
+            If Value = 35 Then
+                If StatementStart Or NameStart(ByteAt(Source, Cursor.ByteOffset - 1, Length)) Or Digit(ByteAt(Source, Cursor.ByteOffset - 1, Length)) Or ByteAt(Source, Cursor.ByteOffset - 1, Length) = 93 Then Closing = 0
+            End If
+            StatementStart = False
+            MemberWord = False
+            Advance Source, Length, Cursor
+        ElseIf NameStart(Value) Then
+            WordStart = Cursor.ByteOffset
+            Do
+                Advance Source, Length, Cursor
+            Loop While NameStart(ByteAt(Source, Cursor.ByteOffset, Length)) Or Digit(ByteAt(Source, Cursor.ByteOffset, Length))
+            StatementStart = Not MemberWord And InlineStatementWord(Source, WordStart, Cursor.ByteOffset - WordStart, Length)
+            MemberWord = False
+        ElseIf StatementStart And Digit(Value) Then
+            Do
+                Advance Source, Length, Cursor
+            Loop While Digit(ByteAt(Source, Cursor.ByteOffset, Length))
+            StatementStart = Depth = 0
+        Else
+            If Value = 40 Then Depth = Depth + 1
+            If Value = 41 And Depth > 0 Then Depth = Depth - 1
+            StatementStart = Value = 58 And Depth = 0
+            MemberWord = Value = 46 Or Value = 33
+            Advance Source, Length, Cursor
+        End If
+    Loop
+Complete:
+    Candidate.Finish = Cursor
+    Position = Cursor
+    Span = Candidate
+    TryReadLogicalLine = True
+    Exit Function
+Failed:
+    TryReadLogicalLine = Reject(Diagnostic, 6, 1, Position)
+End Function
+
+' Advances only across complete original scalars and physical newline sequences.
+Private Function ReachPosition(ByRef Source() As Byte, ByVal Length As Long, ByVal Offset As Long, ByRef Position As SourcePosition) As Boolean
+    Dim Value As Long
+    On Error GoTo Failed
+    If Offset < Position.ByteOffset Or Offset > Length Then Exit Function
+    Do While Position.ByteOffset < Offset
+        Value = ByteAt(Source, Position.ByteOffset, Length)
+        If Value = 13 Or Value = 10 Then
+            AdvanceNewline Source, Length, Position
+        Else
+            Advance Source, Length, Position
+        End If
+    Loop
+    ReachPosition = Position.ByteOffset = Offset
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+Private Function SamePosition(ByRef Left As SourcePosition, ByRef Right As SourcePosition) As Boolean
+    SamePosition = Left.ByteOffset = Right.ByteOffset And Left.Utf16Offset = Right.Utf16Offset And Left.Line = Right.Line And Left.Column = Right.Column
+End Function
+
+' Selection comes from logical-line walking; reject stale or forged coordinates before scanning.
+Private Function ValidateSelection(ByRef Source() As Byte, ByVal Length As Long, ByRef Initial As SourcePosition, ByRef Selected() As SourceSpan, ByVal Count As Long) As Boolean
+    Dim Position As SourcePosition
+    Dim Index As Long
+    On Error GoTo Failed
+    If Count < 0 Or Count > SpanLength(Selected) Then Exit Function
+    Position = Initial
+    Do While Index < Count
+        If Selected(Index).Kind <> LogicalLineSpan And Selected(Index).Kind <> AssemblySpan Then Exit Function
+        If Selected(Index).Start.Column <> 1 Then Exit Function
+        If Selected(Index).Finish.ByteOffset <= Selected(Index).Start.ByteOffset Then Exit Function
+        If Not ReachPosition(Source, Length, Selected(Index).Start.ByteOffset, Position) Then Exit Function
+        If Not SamePosition(Position, Selected(Index).Start) Then Exit Function
+        If Not ReachPosition(Source, Length, Selected(Index).Finish.ByteOffset, Position) Then Exit Function
+        If Not SamePosition(Position, Selected(Index).Finish) Then Exit Function
+        If Position.ByteOffset <> Length And Position.Column <> 1 Then Exit Function
+        Index = Index + 1
+    Loop
+    ValidateSelection = True
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
+' Original scanner entry point: its admission and diagnostics are unchanged.
 Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, ByRef Count As Long, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    Dim Selected() As SourceSpan
+    TryScan = ScanSource(Source, 0, -1, Selected, 0, False, Tokens, Count, Diagnostic)
+End Function
+
+' Scans an expression range with original coordinates and conventional newline/End tokens.
+Public Function TryScanRange(ByRef Source() As Byte, ByVal ByteStart As Long, ByVal ByteFinish As Long, ByRef Tokens() As SourceToken, ByRef Count As Long, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    Dim Selected() As SourceSpan
+    TryScanRange = ScanSource(Source, ByteStart, ByteFinish, Selected, 0, False, Tokens, Count, Diagnostic)
+End Function
+
+' Keeps selected complete logical spans and replaces all other text with blank lines.
+Public Function TryScanSelected(ByRef Source() As Byte, ByRef Selected() As SourceSpan, ByVal SelectedCount As Long, ByRef Tokens() As SourceToken, ByRef Count As Long, ByRef Diagnostic As ScanDiagnostic) As Boolean
+    TryScanSelected = ScanSource(Source, 0, -1, Selected, SelectedCount, True, Tokens, Count, Diagnostic)
+End Function
+
+' Scans within representable source coordinates; outputs publish only on success.
+Private Function ScanSource(ByRef Source() As Byte, ByVal RangeStart As Long, ByVal RangeFinish As Long, ByRef Selected() As SourceSpan, ByVal SelectedCount As Long, ByVal Selection As Boolean, ByRef Tokens() As SourceToken, ByRef Count As Long, ByRef Diagnostic As ScanDiagnostic) As Boolean
     Dim Candidate() As SourceToken
     Dim CandidateCount As Long
     Dim Capacity As Long
@@ -184,6 +462,8 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
     Dim StatementStart As Boolean = True
     Dim NumericLabel As Boolean
     Dim MemberWord As Boolean
+    Dim SelectionIndex As Long
+    Dim ScanFinish As Long
     On Error GoTo InvalidStorage
     Position.Utf16Offset = 1
     Position.Line = 1
@@ -197,10 +477,46 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
     Diagnostic.Column = 1
     Length = BufferPrimitives.ByteStorageLength(Source)
     Status = ValidateSource(Source, Length, Initial, Diagnostic)
-    If Status = False Then TryScan = False: Exit Function
+    If Status = False Then ScanSource = False: Exit Function
     Position = Initial
+    If RangeFinish = -1 Then RangeFinish = Length
+    If RangeStart = 0 Then RangeStart = Initial.ByteOffset
+    If RangeStart < Initial.ByteOffset Or RangeFinish < RangeStart Or RangeFinish > Length Then ScanSource = Reject(Diagnostic, 2, 6, Initial): Exit Function
+    If Not ReachPosition(Source, Length, RangeStart, Position) Then ScanSource = Reject(Diagnostic, 2, 6, Initial): Exit Function
+    If RangeFinish <> Length Then
+        Look = Position
+        If Not ReachPosition(Source, Length, RangeFinish, Look) Then ScanSource = Reject(Diagnostic, 2, 6, Initial): Exit Function
+    End If
+    If Selection Then
+        If Not ValidateSelection(Source, Length, Initial, Selected, SelectedCount) Then ScanSource = Reject(Diagnostic, 2, 6, Initial): Exit Function
+    End If
+    Length = RangeFinish
     Do While Position.ByteOffset < Length
         Start = Position
+        ScanFinish = Length
+        If Selection Then
+            Do While SelectionIndex < SelectedCount
+                If Position.ByteOffset < Selected(SelectionIndex).Finish.ByteOffset Then Exit Do
+                SelectionIndex = SelectionIndex + 1
+            Loop
+            Status = False
+            If SelectionIndex < SelectedCount Then
+                Status = Position.ByteOffset >= Selected(SelectionIndex).Start.ByteOffset
+                If Status Then ScanFinish = Selected(SelectionIndex).Finish.ByteOffset
+            End If
+            If Not Status Then
+                Value = ByteAt(Source, Position.ByteOffset, Length)
+                If Value = 13 Or Value = 10 Then
+                    AdvanceNewline Source, Length, Position
+                    If Not AddToken(Candidate, CandidateCount, Capacity, NewlineToken, Start, Position, Diagnostic) Then Exit Function
+                Else
+                    Advance Source, Length, Position
+                End If
+                StatementStart = True
+                Depth = 0
+                GoTo NextPosition
+            End If
+        End If
         Value = ByteAt(Source, Position.ByteOffset, Length)
         If Horizontal(Value) Then
             Advance Source, Length, Position
@@ -209,41 +525,23 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
         If Value = 13 Or Value = 10 Then
             AdvanceNewline Source, Length, Position
             Status = AddToken(Candidate, CandidateCount, Capacity, NewlineToken, Start, Position, Diagnostic)
-            If Status = False Then TryScan = False: Exit Function
+            If Status = False Then ScanSource = False: Exit Function
             StatementStart = True
             GoTo NextPosition
         End If
         If Value = 39 Or (StatementStart And RemAt(Source, Position.ByteOffset, Length)) Then
-            Do While Position.ByteOffset < Length
-                Value = ByteAt(Source, Position.ByteOffset, Length)
-                If Value = 13 Or Value = 10 Then Exit Do
-                Advance Source, Length, Position
-            Loop
+            SkipComment Source, ScanFinish, Position
             GoTo NextPosition
         End If
         If Value = 95 And Position.ByteOffset > Initial.ByteOffset Then
             Previous = ByteAt(Source, Position.ByteOffset - 1, Length)
             If Horizontal(Previous) Then
-                Look = Position
-                Advance Source, Length, Look
-                Do While Horizontal(ByteAt(Source, Look.ByteOffset, Length))
-                    Advance Source, Length, Look
-                Loop
-                Following = ByteAt(Source, Look.ByteOffset, Length)
-                If Following = 39 Or RemAt(Source, Look.ByteOffset, Length) Then
-                    Do While Look.ByteOffset < Length
-                        Following = ByteAt(Source, Look.ByteOffset, Length)
-                        If Following = 13 Or Following = 10 Then Exit Do
-                        Advance Source, Length, Look
-                    Loop
-                End If
-                Following = ByteAt(Source, Look.ByteOffset, Length)
-                If Following = -1 Then TryScan = Reject(Diagnostic, 2, 3, Start): Exit Function
-                If Following = 13 Or Following = 10 Then
-                    AdvanceNewline Source, Length, Look
+                Status = ContinuedLine(Source, ScanFinish, Position, Look)
+                If Status Then
                     Position = Look
                     GoTo NextPosition
                 End If
+                If Look.ByteOffset = ScanFinish Then ScanSource = Reject(Diagnostic, 2, 3, Start): Exit Function
             End If
         End If
         Kind = SymbolToken
@@ -251,33 +549,33 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
             Kind = StringToken
             If Value = 91 Then Kind = IdentifierToken
             Status = ScanQuoted(Source, Length, Position, Kind, Diagnostic)
-            If Status = False Then TryScan = False: Exit Function
+            If Status = False Then ScanSource = False: Exit Function
         Else
             If NameStart(Value) Then
                 Kind = WordToken
                 Do
                     Advance Source, Length, Position
-                    If Position.ByteOffset - Start.ByteOffset > 128 Then TryScan = Reject(Diagnostic, 4, 4, Start): Exit Function
+                    If Position.ByteOffset - Start.ByteOffset > 128 Then ScanSource = Reject(Diagnostic, 4, 4, Start): Exit Function
                     Following = ByteAt(Source, Position.ByteOffset, Length)
                 Loop While NameStart(Following) Or Digit(Following)
-                If Position.ByteOffset - Start.ByteOffset > 128 Then TryScan = Reject(Diagnostic, 4, 4, Start): Exit Function
+                If Position.ByteOffset - Start.ByteOffset > 128 Then ScanSource = Reject(Diagnostic, 4, 4, Start): Exit Function
                 If StatementStart And Position.ByteOffset - Start.ByteOffset = 3 Then
-                    If FoldAscii(Value) = 97 And FoldAscii(ByteAt(Source, Start.ByteOffset + 1, Length)) = 115 And FoldAscii(ByteAt(Source, Start.ByteOffset + 2, Length)) = 109 Then TryScan = Reject(Diagnostic, 3, 1, Start): Exit Function
+                    If FoldAscii(Value) = 97 And FoldAscii(ByteAt(Source, Start.ByteOffset + 1, Length)) = 115 And FoldAscii(ByteAt(Source, Start.ByteOffset + 2, Length)) = 109 Then ScanSource = Reject(Diagnostic, 3, 1, Start): Exit Function
                 End If
             Else
                 Following = FoldAscii(ByteAt(Source, Position.ByteOffset + 1, Length))
                 If Digit(Value) Or (Value = 46 And Digit(Following)) Or (Value = 38 And (Following = 104 Or Following = 111)) Then
                     Kind = NumberToken
                     Status = ScanNumber(Source, Length, Position, Diagnostic)
-                    If Status = False Then TryScan = False: Exit Function
+                    If Status = False Then ScanSource = False: Exit Function
                 Else
-                    If Value > 127 Then TryScan = Reject(Diagnostic, 3, 2, Start): Exit Function
+                    If Value > 127 Then ScanSource = Reject(Diagnostic, 3, 2, Start): Exit Function
                     If Value = 35 Then
-                        If CandidateCount = 0 Then TryScan = Reject(Diagnostic, 3, 2, Start): Exit Function
-                        If Candidate(CandidateCount - 1).Kind <> WordToken And Candidate(CandidateCount - 1).Kind <> IdentifierToken Then TryScan = Reject(Diagnostic, 3, 2, Start): Exit Function
-                        If Candidate(CandidateCount - 1).ByteStart + Candidate(CandidateCount - 1).ByteLength <> Start.ByteOffset Then TryScan = Reject(Diagnostic, 3, 2, Start): Exit Function
+                        If CandidateCount = 0 Then ScanSource = Reject(Diagnostic, 3, 2, Start): Exit Function
+                        If Candidate(CandidateCount - 1).Kind <> WordToken And Candidate(CandidateCount - 1).Kind <> IdentifierToken Then ScanSource = Reject(Diagnostic, 3, 2, Start): Exit Function
+                        If Candidate(CandidateCount - 1).ByteStart + Candidate(CandidateCount - 1).ByteLength <> Start.ByteOffset Then ScanSource = Reject(Diagnostic, 3, 2, Start): Exit Function
                     End If
-                    If Not SymbolCharacter(Value) Then TryScan = Reject(Diagnostic, 2, 4, Start): Exit Function
+                    If Not SymbolCharacter(Value) Then ScanSource = Reject(Diagnostic, 2, 4, Start): Exit Function
                     Advance Source, Length, Position
                     Following = ByteAt(Source, Position.ByteOffset, Length)
                     If ((Value = 60 Or Value = 62 Or Value = 58) And Following = 61) Or (Value = 60 And Following = 62) Then Advance Source, Length, Position
@@ -285,7 +583,7 @@ Public Function TryScan(ByRef Source() As Byte, ByRef Tokens() As SourceToken, B
             End If
         End If
         Status = AddToken(Candidate, CandidateCount, Capacity, Kind, Start, Position, Diagnostic)
-        If Status = False Then TryScan = False: Exit Function
+        If Status = False Then ScanSource = False: Exit Function
         MemberWord = False
         If CandidateCount > 1 Then
             Previous = Candidate(CandidateCount - 2).ByteStart
@@ -311,16 +609,16 @@ NextPosition:
     If CandidateCount > 0 Then Kind = Candidate(CandidateCount - 1).Kind
     If Kind <> NewlineToken Then
         Status = AddToken(Candidate, CandidateCount, Capacity, NewlineToken, Position, Position, Diagnostic)
-        If Status = False Then TryScan = False: Exit Function
+        If Status = False Then ScanSource = False: Exit Function
     End If
     Status = AddToken(Candidate, CandidateCount, Capacity, EndToken, Position, Position, Diagnostic)
-    If Status = False Then TryScan = False: Exit Function
+    If Status = False Then ScanSource = False: Exit Function
     Status = ResizeTokens(Candidate, CandidateCount, True)
-    If Status = False Then TryScan = Reject(Diagnostic, 5, 1, Position): Exit Function
+    If Status = False Then ScanSource = Reject(Diagnostic, 5, 1, Position): Exit Function
     Status = CopyTokens(Tokens, Candidate)
-    If Status = False Then TryScan = Reject(Diagnostic, 5, 1, Position): Exit Function
+    If Status = False Then ScanSource = Reject(Diagnostic, 5, 1, Position): Exit Function
     Count = CandidateCount
-    TryScan = True
+    ScanSource = True
     Exit Function
 InvalidStorage:
     Count = 0
@@ -330,7 +628,7 @@ InvalidStorage:
     Diagnostic.Utf16Offset = Position.Utf16Offset
     Diagnostic.Line = Position.Line
     Diagnostic.Column = Position.Column
-    TryScan = False
+    ScanSource = False
 End Function
 
 ' Publishes a complete token sequence as an independent array value.

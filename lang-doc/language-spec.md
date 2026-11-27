@@ -171,6 +171,20 @@ names within it are ignored. Removed lines are replaced by blank logical lines
 so source locations remain stable. The directive phrase grammar is normative
 in [`grammar/conditional-compilation.ebnf`](grammar/conditional-compilation.ebnf).
 
+`IS_IN_IDE` is a global, read-only Boolean constant supplied by the compiler to
+ordinary expressions and conditional compilation. It describes the target
+program's execution context: False for normal standalone execution, True when
+hosted by the UBE IDE. Starting the compiler from an editor, selecting an
+optimization level, or enabling debug information does not determine this value.
+The selected value belongs to one compilation and must not leak to another.
+Source cannot assign to or shadow the supplied constant; ordinary argument rules
+still permit an explicitly grouped expression to supply a ByRef temporary.
+The program must not silently retain True outside its intended IDE context.
+This adds no reserved word or new expression syntax. Current implementation
+admission and the guarded hosted-launch contract are recorded in
+[`bootstrap-profile.md`](bootstrap-profile.md) and
+[`../compiler/IDE-CONTEXT.md`](../compiler/IDE-CONTEXT.md).
+
 ## 3. Grammar conventions and disambiguation
 
 The EBNF is normative for phrase structure. These rules settle intentional

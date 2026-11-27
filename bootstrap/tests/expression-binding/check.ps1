@@ -243,9 +243,12 @@ function Constant-Equals([string]$Node,[string]$Expected,[string]$Description) {
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
 $files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','NativeEscapes.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','NativeEscapes.bas','ManagedLayouts.bas','AggregateLayout.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'ExpressionProbe.bas'
+$files+=@('ConditionalExpressions.bas','ConditionalSource.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
+# Runtime source analysis must inspect the same immutable snapshot compiled into the driver.
+$files=@($files | ForEach-Object { Join-Path (Split-Path -Parent $manifest) ([IO.Path]::GetFileName($_)) })
 $procedures=Read-Procedures $manifest
 $libraryIR=Join-Path $artifacts 'binding.ll'
 $null=Invoke-Compiler @('--emit-llvm',$manifest,$libraryIR) 'EMIT OK'
@@ -1000,7 +1003,11 @@ Check-Value '%disposed.wide' 1 'all syntax/declaration/expression owners dispose
 $lines.Add("  ret i32 $script:failure")
 $lines.Add('}')
 $harness=Join-Path $artifacts 'expressions.ll'
-Write-Text $harness ($emitted+"`r`n@test.context = private global %ube.context zeroinitializer, align 8`r`n"+($lines -join "`r`n")+"`r`n")
+# Optimize the production binder, not the enormous linear assertion graph, as in constant-values.
+# Production-only assembly checks above retain the requested optimization level unchanged.
+$driver=($lines -join "`r`n").Replace('define i32 @main() {','define i32 @main() noinline optnone {')
+Require ($driver.Contains('define i32 @main() noinline optnone {')) 'Missing assertion driver entry point'
+Write-Text $harness ($emitted+"`r`n@test.context = private global %ube.context zeroinitializer, align 8`r`n"+$driver+"`r`n")
 Write-Text (Join-Path $artifacts 'assertions.txt') ($assertions -join "`r`n")
 foreach ($level in @('O0','O2')) {
     $exe=Join-Path $artifacts ("expressions-$level.exe")

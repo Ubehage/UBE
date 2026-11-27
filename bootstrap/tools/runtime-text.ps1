@@ -57,7 +57,7 @@ $managed = [IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap/NativeMana
 $objects = [IO.File]::ReadAllText((Join-Path $root 'runtime/bootstrap/NativeObjectRuntime.bas'), $encoding)
 $packages = @(
     @{Source=$files; Entry='NativeFileIR'; Parts='FileTargetsAndRegistryIR,FileAcquisitionIR,FileTransferAndReleaseIR,SystemOperationsIR,PathOperationsIR,FileMetadataIR,SystemIntrospectionIR,NamespaceOperationsIR'},
-    @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease'},
+    @{Source=$process; Entry='NativeProcessIR'; Parts='NativeProcessTargets,NativeProcessOwners,NativeProcessStart,NativeProcessWait,NativeProcessRelease,NativeIDESession'},
     @{Source=$managed; Entry='NativeManagedIR'; Parts='ManagedMetadataIR,ManagedSnapshotIR,ManagedPublicationIR,ManagedThreadsIR,ManagedInstallationIR,ManagedTextIR,ManagedOwnersIR,ManagedLayoutsIR,ManagedRootsIR,ManagedCollectionIR,ManagedReclamationIR,ManagedCallbackIR,ManagedWorkspaceIR,ManagedShutdownIR'},
     @{Source=$threads; Entry='NativeThreadIR'; Parts='NativeThreadTargets,NativeThreadIdentity,NativeThreadExecution,NativeThreadWaitOwners,NativeThreadWaiting,NativeThreadControl,NativeThreadShutdown'},
     @{Source=$objects; Entry='NativeObjectIR'; Parts='ObjectIdentityIR,ObjectMonitorIR'}

@@ -265,6 +265,9 @@ Private Function AddDeclaration(ByRef B() As Byte, ByRef T() As SourceScanner.So
     If Scope <> 0 Then Item.LookupDomain = A(Scope - 1).LookupDomain
     If DeclarationFacts(N, Item) = False Then Exit Function
     If Item.NameToken < 0 Or Item.NameToken >= TokenCount Then Reject T, N, D, 9, 1, ModuleIndex, Node: Exit Function
+    If Region = ModuleRegion Or (Region = ValueRegion And Kind <> SourceParser.FieldNode) Then
+        If SyntaxTokens.IsIDEContextName(B, T, Item.NameToken, TokenCount) Then Reject T, N, D, 1, 2, ModuleIndex, Node: Exit Function
+    End If
     If Kind = SourceParser.ModuleNode Or Kind = SourceParser.ClassNode Then
         Item.Visibility = SyntaxTokens.KwPublic
     ElseIf Region = ValueRegion Then

@@ -36,7 +36,7 @@ function Build([string]$IR,[string]$Exe,[string]$Level){
  Require ($r.ExitCode -eq 0) "Native build failed: $($r.Evidence)"
 }
 $nl=[Environment]::NewLine
-$files=@('std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/Utf8.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/PrimitiveRoles.bas','runtime/tests/managed-text/ManagedRolesProbe.bas')
+$files=@('std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/ByteText.bas','std-lib/src/portable/InvariantNumbers.bas','std-lib/src/portable/BinaryFloat.bas','std-lib/src/portable/BinaryFloatValues.bas','std-lib/src/portable/BinaryFloatMath.bas','std-lib/src/portable/BinaryFloatPower.bas','std-lib/src/portable/BinaryFloatText.bas','std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/Utf8.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ConditionalExpressions.bas','compiler/src/ConditionalSource.bas','compiler/src/ConstantValues.bas','compiler/src/ConstantText.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/PrimitiveRoles.bas','runtime/tests/managed-text/ManagedRolesProbe.bas')
 $manifest=@('UBE-Project 1','Name="PrimitiveTests"','Kind="Library"')
 foreach($file in $files){$leaf=[IO.Path]::GetFileName($file);Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $artifacts $leaf);$manifest+='Source="'+$leaf+'"'}
 $project=Join-Path $artifacts 'project.UBE'

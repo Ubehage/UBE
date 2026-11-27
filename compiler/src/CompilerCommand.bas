@@ -71,7 +71,7 @@ Private Function TryExecute(ByRef CommandLine() As Byte, ByRef Options As Comman
         End If
         If Not WindowsPaths.TryAbsolutePath(ClangInput, Clang, Failure) Then GoTo Failed
     End If
-    Completed = CompilationRequest.TryCompile(ManifestPath, OutputPath, Clang, Options.Mode, NativeCompilation.MaximumWorkers, Resources, Stage, Ranges, Report, DiagnosticPath)
+    Completed = CompilationRequest.TryCompileWithContext(ManifestPath, OutputPath, Clang, Options.Mode, NativeCompilation.MaximumWorkers, Options.IsInIDE, Resources, Stage, Ranges, Report, DiagnosticPath)
     If Not Completed Then Status = CompilerMessages.TryWriteError(Report.Kind, Report.Operation, Report.Code, Report.Reason, DiagnosticPath, Report.SourceLine, Report.SourceColumn)
     TryExecute = Completed
     Exit Function

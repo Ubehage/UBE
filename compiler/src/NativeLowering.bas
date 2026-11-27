@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 252654
-Private Const RuntimeByteSum As Long = 20564321
+Private Const RuntimeLength As Long = 256588
+Private Const RuntimeByteSum As Long = 20872313
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -255,13 +255,17 @@ End Function
 
 ' Emits the single executable entry after all ordered ranges, then flushes the private stream.
 Public Function TryEnd(ByVal IsExecutable As Boolean, ByVal EntrySymbol As Long, ByRef Catalog() As Byte, ByVal Token As Long, ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte) As Boolean
+    TryEnd = TryEndWithContext(IsExecutable, EntrySymbol, False, Catalog, Token, State, Buffer)
+End Function
+
+Public Function TryEndWithContext(ByVal IsExecutable As Boolean, ByVal EntrySymbol As Long, ByVal IsInIDE As Boolean, ByRef Catalog() As Byte, ByVal Token As Long, ByRef State As NativeEmission.EmissionState, ByRef Buffer() As Byte) As Boolean
     On Error GoTo Failed
     If State.Text.Failed Then Exit Function
     If IsExecutable Then
-        If NativeContext.TryEmitEntry(EntrySymbol, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
+        If NativeContext.TryEmitEntryWithContext(EntrySymbol, IsInIDE, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
     End If
     If LLVMWriter.TryFinish(State.Text, Buffer, Token) = False Then GoTo Rejected
-    TryEnd = True
+    TryEndWithContext = True
     Exit Function
 Rejected:
     State.Text.Failed = True
@@ -308,7 +312,7 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
     If TryBegin(Symbols, SymbolCount, Layouts, Plans, Roles, Summary, Counts.NodeCount, Catalog, RuntimeText, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
     If Not NativeText.TryEmitLiterals(Expressions, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
     If TryEmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, 1, SymbolCount, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
-    If TryEnd(IsExecutable, EntrySymbol, Catalog, Token, State, Buffer) = False Then GoTo Rejected
+    If TryEndWithContext(IsExecutable, EntrySymbol, Modules(0).IsInIDE, Catalog, Token, State, Buffer) = False Then GoTo Rejected
     TryEmit = True
     Exit Function
 Rejected:

@@ -277,7 +277,7 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
         State.ErrorNode = Ranges(Index).State.ErrorNode
         Index = Index + 1
     Loop
-    If Not NativeLowering.TryEnd(IsExecutable, EntrySymbol, Catalog, Token, State, Buffer) Then GoTo Rejected
+    If Not NativeLowering.TryEndWithContext(IsExecutable, EntrySymbol, Modules(0).IsInIDE, Catalog, Token, State, Buffer) Then GoTo Rejected
     Accepted = True
 Cleanup:
     If Not TryCleanup(Ranges, Failure) Then Accepted = False

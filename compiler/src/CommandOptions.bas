@@ -4,6 +4,7 @@ Attribute UBE_Name = "CommandOptions"
 Public Type CommandRequest
     Mode As Long
     ClangArgument As Long
+    IsInIDE As Boolean
 End Type
 
 Public Type CommandDiagnostic
@@ -14,7 +15,16 @@ End Type
 ' Compares complete case-sensitive flag spellings after establishing their byte bounds.
 Private Function MatchesFlag(ByRef Value() As Byte, ByVal Flag As Long) As Boolean
     Dim Length As Long
+    Dim Prefix As Long
     Length = BufferPrimitives.ByteStorageLength(Value)
+    If Flag = 4 Or Flag = 5 Then
+        Prefix = 7
+        If Flag = 5 Then Prefix = 11
+        If Length <> Prefix + 4 Then Exit Function
+        If Value(Prefix) <> 45 Or Value(Prefix + 1) <> 105 Or Value(Prefix + 2) <> 100 Or Value(Prefix + 3) <> 101 Then Exit Function
+        Length = Prefix
+        If Flag = 4 Then Flag = 2 Else Flag = 1
+    End If
     If Flag = 1 Then
         If Length <> 11 Then Exit Function
         If Value(0) <> 45 Or Value(1) <> 45 Or Value(2) <> 101 Or Value(3) <> 109 Then Exit Function
@@ -51,6 +61,8 @@ Public Function TryParse(ByRef CommandLine() As Byte, ByRef Options As CommandRe
             If Not Found Then GoTo Usage
             If MatchesFlag(Value, 1) Then Candidate.Mode = 1
             If MatchesFlag(Value, 2) Then Candidate.Mode = 2
+            If MatchesFlag(Value, 4) Then Candidate.Mode = 2: Candidate.IsInIDE = True
+            If MatchesFlag(Value, 5) Then Candidate.Mode = 1: Candidate.IsInIDE = True
             If Candidate.Mode = 0 Then GoTo Usage
         ElseIf Index = 2 Or Index = 3 Then
             If Not Found Then GoTo Usage

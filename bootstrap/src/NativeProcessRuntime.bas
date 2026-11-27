@@ -10,7 +10,99 @@ Public Function NativeProcessIR() As String
     NativeProcessIR = NativeProcessIR & NativeProcessStart()
     NativeProcessIR = NativeProcessIR & NativeProcessWait()
     NativeProcessIR = NativeProcessIR & NativeProcessRelease()
+    NativeProcessIR = NativeProcessIR & NativeIDESession()
 End Function
+
+' Validates the per-launch job capability without creating UBE runtime or source state.
+Private Function NativeIDESession() As String
+    Dim Text As String
+    Text = Text & "; Hosted startup validates a live named job before any UBE source initialization." & vbCrLf
+    Text = Text & "declare dllimport i32 @GetEnvironmentVariableW(ptr, ptr, i32)" & vbCrLf
+    Text = Text & "declare dllimport ptr @OpenJobObjectW(i32, i32, ptr)" & vbCrLf
+    Text = Text & "declare dllimport i32 @IsProcessInJob(ptr, ptr, ptr)" & vbCrLf
+    Text = Text & "@ube.ide.session.variable = private constant [16 x i16] [i16 85, i16 66, i16 69, i16 95, i16 73, i16 68, i16 69, i16 95, i16 83, i16 69, i16 83, i16 83, i16 73, i16 79, i16 78, i16 0]" & vbCrLf
+    Text = Text & "@ube.ide.session.prefix = private constant [14 x i16] [i16 76, i16 111, i16 99, i16 97, i16 108, i16 92, i16 85, i16 66, i16 69, i16 46, i16 73, i16 68, i16 69, i16 46]" & vbCrLf
+    Text = Text & "@ube.ide.session.diagnostic = private constant [112 x i8] c""UBE: E_IDE_CONTEXT: this IDE-run executable requires a live UBE IDE session; rebuild for standalone execution.\0D\0A""" & vbCrLf
+    Text = Text & "define i1 @ube.ide.session.check() {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %name = alloca [47 x i16], align 2" & vbCrLf
+    Text = Text & "  %member = alloca i32, align 4" & vbCrLf
+    Text = Text & "  %limit.info = alloca [144 x i8], align 8" & vbCrLf
+    Text = Text & "  %written = alloca i32, align 4" & vbCrLf
+    Text = Text & "  %length = call i32 @GetEnvironmentVariableW(ptr @ube.ide.session.variable, ptr %name, i32 47)" & vbCrLf
+    Text = Text & "  %exact = icmp eq i32 %length, 46" & vbCrLf
+    Text = Text & "  br i1 %exact, label %character, label %failed" & vbCrLf
+    Text = Text & "character:" & vbCrLf
+    Text = Text & "  %index = phi i64 [ 0, %entry ], [ %next, %advance ]" & vbCrLf
+    Text = Text & "  %address = getelementptr i16, ptr %name, i64 %index" & vbCrLf
+    Text = Text & "  %value = load i16, ptr %address, align 2" & vbCrLf
+    Text = Text & "  %is.prefix = icmp ult i64 %index, 14" & vbCrLf
+    Text = Text & "  br i1 %is.prefix, label %prefix, label %hex" & vbCrLf
+    Text = Text & "prefix:" & vbCrLf
+    Text = Text & "  %expected.address = getelementptr i16, ptr @ube.ide.session.prefix, i64 %index" & vbCrLf
+    Text = Text & "  %expected = load i16, ptr %expected.address, align 2" & vbCrLf
+    Text = Text & "  %matches = icmp eq i16 %value, %expected" & vbCrLf
+    Text = Text & "  br i1 %matches, label %advance, label %failed" & vbCrLf
+    Text = Text & "hex:" & vbCrLf
+    Text = Text & "  %digit.low = icmp uge i16 %value, 48" & vbCrLf
+    Text = Text & "  %digit.high = icmp ule i16 %value, 57" & vbCrLf
+    Text = Text & "  %digit = and i1 %digit.low, %digit.high" & vbCrLf
+    Text = Text & "  %lower.low = icmp uge i16 %value, 97" & vbCrLf
+    Text = Text & "  %lower.high = icmp ule i16 %value, 102" & vbCrLf
+    Text = Text & "  %lower = and i1 %lower.low, %lower.high" & vbCrLf
+    Text = Text & "  %upper.low = icmp uge i16 %value, 65" & vbCrLf
+    Text = Text & "  %upper.high = icmp ule i16 %value, 70" & vbCrLf
+    Text = Text & "  %upper = and i1 %upper.low, %upper.high" & vbCrLf
+    Text = Text & "  %letter = or i1 %lower, %upper" & vbCrLf
+    Text = Text & "  %valid = or i1 %digit, %letter" & vbCrLf
+    Text = Text & "  br i1 %valid, label %advance, label %failed" & vbCrLf
+    Text = Text & "advance:" & vbCrLf
+    Text = Text & "  %next = add i64 %index, 1" & vbCrLf
+    Text = Text & "  %done = icmp eq i64 %next, 46" & vbCrLf
+    Text = Text & "  br i1 %done, label %open, label %character" & vbCrLf
+    Text = Text & "open:" & vbCrLf
+    Text = Text & "  %job = call ptr @OpenJobObjectW(i32 4, i32 0, ptr %name)" & vbCrLf
+    Text = Text & "  %opened = icmp ne ptr %job, null" & vbCrLf
+    Text = Text & "  br i1 %opened, label %membership, label %failed" & vbCrLf
+    Text = Text & "membership:" & vbCrLf
+    Text = Text & "  store i32 0, ptr %member, align 4" & vbCrLf
+    Text = Text & "  %self = call ptr @GetCurrentProcess()" & vbCrLf
+    Text = Text & "  %queried.member = call i32 @IsProcessInJob(ptr %self, ptr %job, ptr %member)" & vbCrLf
+    Text = Text & "  %member.value = load i32, ptr %member, align 4" & vbCrLf
+    Text = Text & "  %member.api.ok = icmp ne i32 %queried.member, 0" & vbCrLf
+    Text = Text & "  %member.yes = icmp ne i32 %member.value, 0" & vbCrLf
+    Text = Text & "  %member.ok = and i1 %member.api.ok, %member.yes" & vbCrLf
+    Text = Text & "  br i1 %member.ok, label %limits, label %close" & vbCrLf
+    Text = Text & "limits:" & vbCrLf
+    Text = Text & "  %queried.limits = call i32 @QueryInformationJobObject(ptr %job, i32 9, ptr %limit.info, i32 144, ptr null)" & vbCrLf
+    Text = Text & "  %limits.ok = icmp ne i32 %queried.limits, 0" & vbCrLf
+    Text = Text & "  br i1 %limits.ok, label %flags, label %close" & vbCrLf
+    Text = Text & "flags:" & vbCrLf
+    Text = Text & "  %flags.address = getelementptr i8, ptr %limit.info, i64 16" & vbCrLf
+    Text = Text & "  %flags.value = load i32, ptr %flags.address, align 4" & vbCrLf
+    Text = Text & "  %kill.bit = and i32 %flags.value, 8192" & vbCrLf
+    Text = Text & "  %kill = icmp ne i32 %kill.bit, 0" & vbCrLf
+    Text = Text & "  %breakaway.bits = and i32 %flags.value, 6144" & vbCrLf
+    Text = Text & "  %contained = icmp eq i32 %breakaway.bits, 0" & vbCrLf
+    Text = Text & "  %flags.ok = and i1 %kill, %contained" & vbCrLf
+    Text = Text & "  br label %close" & vbCrLf
+    Text = Text & "close:" & vbCrLf
+    Text = Text & "  %allowed = phi i1 [ false, %membership ], [ false, %limits ], [ %flags.ok, %flags ]" & vbCrLf
+    Text = Text & "  %closed = call i32 @CloseHandle(ptr %job)" & vbCrLf
+    Text = Text & "  %close.ok = icmp ne i32 %closed, 0" & vbCrLf
+    Text = Text & "  %accepted = and i1 %allowed, %close.ok" & vbCrLf
+    Text = Text & "  br i1 %accepted, label %success, label %failed" & vbCrLf
+    Text = Text & "success:" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  store i32 0, ptr %written, align 4" & vbCrLf
+    Text = Text & "  %stderr = call ptr @GetStdHandle(i32 -12)" & vbCrLf
+    Text = Text & "  %reported = call i32 @WriteFile(ptr %stderr, ptr @ube.ide.session.diagnostic, i32 112, ptr %written, ptr null)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    NativeIDESession = Text
+End Function
+
 
 ' Emits the reviewed NativeProcessTargets target definitions.
 Private Function NativeProcessTargets() As String
