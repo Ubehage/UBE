@@ -1,15 +1,15 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.function">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Declares a procedure that returns a value."><title>Function — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
-<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/f/function.html">UBE documentation</a></header><main id="content" class="article">
-<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/f/index.html">F</a> / Function</nav><h1>Function</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Procedure word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Declares a procedure that returns a value.</p>
+<html lang="en" data-article-id="language.word.function" data-doc-path="language/words/f/function.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Function — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/f/function.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Function</p><section id="overview"><h1>Function</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
+<p class="lede">Declares a procedure that returns a value.</p>
 <h2>Syntax</h2><pre><code>[modifiers] Function name(parameters) As type
     statements
-End Function</code></pre><h2>Example</h2><pre><code>Function Square(ByVal Value As Long) As Long
-    Square = Value * Value
+End Function</code></pre><dl><dt><code>modifiers</code></dt><dd>Applicable declaration modifiers, including visibility and supported procedure modifiers.</dd><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>parameters</code></dt><dd>Comma-separated parameter declarations, each with its name, explicit type and any passing modifier.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd><dt><code>statements</code></dt><dd>The statements executed in this body.</dd></dl></section><section id="details"><h2>Details</h2><p>Declare an explicit result type and assign the result to the function’s own name. End Function or Exit Function returns the current result value. A Function can be used as an expression or called as a statement to discard its result. Parameters follow ordinary ByVal, ByRef and optional-argument rules.</p></section><section id="example"><h2>Example</h2><pre><code>Private Function DoubleValue(ByVal Value As Long) As Long
+    DoubleValue = Value * 2
 End Function
 
-Sub Main()
-    Print Square(5)
-End Sub</code></pre><h3>Expected result</h3><p>25</p><h2>Important rules</h2><p>Assign the return value to the function name. Every function result must declare a type.</p>
-<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="friend.html" data-doc-path="language/words/f/friend.html">← Previous: Friend</a><a href="../g/get.html" data-doc-path="language/words/g/get.html">Next: Get →</a></nav><footer class="article-footer">Article ID: language.word.function · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>
+Public Function Main() As Long
+    Main = DoubleValue(6)
+End Function</code></pre><p>Main returns 12.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/private.html">Private</a><a href="../b/byval.html">ByVal</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a><a href="../p/public.html">Public</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="friend.html" data-doc-path="language/words/f/friend.html">← Previous: Friend</a><a href="../g/get.html" data-doc-path="language/words/g/get.html">Next: Get →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

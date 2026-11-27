@@ -1,0 +1,47 @@
+/* Shared compact overview and index styling. */
+.landing-page { max-width: 1040px; padding: 24px 32px 32px; }
+.landing-page h1 { font-size: clamp(32px, 4.8vw, 50px); line-height: 1.12; margin: 8px 0 14px; }
+.landing-page h2 { font-size: 25px; margin: 28px 0 16px; }
+.landing-page .metadata { gap: 8px; margin: 0 0 24px; }
+.landing-page .badge { display: inline-block; padding: 4px 9px; border: 1px solid var(--line); border-radius: 18px; font-size: 12px; font-weight: 600; }
+.landing-page .badge.status { color: #69e5b1; border-color: #69e5b1; }
+.landing-page .lede { color: var(--muted); font-size: 19px; margin-bottom: 20px; }
+.landing-page p { max-width: 76ch; }
+.landing-page .callout { margin: 24px 0; padding: 16px 18px; border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0; }
+.landing-page .callout strong { margin-bottom: 6px; }
+.landing-page .callout p { max-width: none; margin: 0; }
+.landing-page .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; margin: 0; }
+.landing-page .card { padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); }
+.landing-page .card strong { margin-bottom: 8px; }
+.landing-page .card span { line-height: 1.7; }
+.landing-page .card:hover { border-color: var(--accent); background: #29252f; }
+.landing-page .card:hover strong { color: var(--accent-hover); }
+.landing-page .letter-list { gap: 7px; margin: 18px 0 20px; }
+.landing-page .letter-list a { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; min-height: 38px; padding: 4px 10px; background: var(--surface); border-radius: 4px; font-weight: 600; }
+.landing-page .letter-list a:hover { border-color: var(--accent); background: var(--selected); }
+.landing-page > .see-also { border: 0; margin-top: 24px; padding-top: 0; }
+.landing-page .see-also h2 { font-size: 18px; margin: 0 0 8px; }
+.landing-page:has(.letter-list) .callout { margin: 18px 0; }
+@media (max-width: 650px) {
+  .landing-page { padding: 20px 18px; }
+}
+@media print {
+  .landing-page .badge.status { color: black; border-color: #777; }
+  .landing-page .card { break-inside: avoid; }
+}
+
+/* Keep the main directory compact without clipping or shrinking its text. */
+.contents-page .metadata { margin-bottom: 16px; }
+.contents-page .lede { margin-bottom: 20px; }
+.contents-page .card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.contents-page .card { padding: 12px 16px; }
+.contents-page .card strong { margin-bottom: 4px; }
+.contents-page .card span { line-height: 1.5; }
+.contents-page .article-footer { margin-top: 20px; }
+
+/* Letter indexes use compact classified links, with alphabetical DOM order. */
+.letter-page .word-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 8px; columns: auto; margin: 18px 0; }
+.letter-page .word-list li { margin: 0; padding: 0; }
+.letter-page .word-list a { display: block; height: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-decoration: none; }
+.letter-page .word-list a:hover { border-color: var(--accent); background: var(--selected); }
+.letter-page .word-kind { display: block; margin: 2px 0 0; font-size: 12px; }

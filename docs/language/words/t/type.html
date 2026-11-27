@@ -1,47 +1,24 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.type">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Declares a custom value type with named fields.">
-  <title>Type — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/t/type.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/t/index.html">T</a> / Type</nav>
-    <h1>Type</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Declaration word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.type" data-doc-path="language/words/t/type.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Type — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/t/type.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Type</p><section id="overview"><h1>Type</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Declares a custom value type with named fields.</p>
     <h2>Syntax</h2>
-    <pre><code>Type name
-    field declarations
-End Type</code></pre>
-    <h2>Example</h2>
-    <pre><code>Type Point
+<pre><code>Type name
+    fieldName As fieldType
+End Type</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>fieldName</code></dt><dd>The name of a value field; declare one explicitly typed field per line.</dd><dt><code>fieldType</code></dt><dd>The explicit type of this value field.</dd></dl></section><section id="details"><h2>Details</h2><p>Declare a Type at module scope. Its fields have explicit types and no executable bodies or initializers. Assignment copies value data; object fields retain object identity where object support is available.</p>
+
+  <aside class="callout"><p>Finite records and supported array/String fields are available. Opaque native values can use the supported Byte, Integer or Long representation bindings. Recursive values and other managed native representations remain unavailable.</p></aside><p>An opaque native declaration uses <code>Type name As representationType</code> followed by <code>End Type</code>. It has no public fields; exact <a href="../i/intrinsic.html">Pack and Unpack bindings</a> connect its representation to UBE procedures.</p></section><section id="example"><h2>Example</h2><pre><code>Private Type Point
     X As Long
     Y As Long
 End Type
 
-Sub Main()
+Public Function Main() As Long
     Dim Position As Point
     Position.X = 4
-    Print Position.X
-End Sub</code></pre>
-    <h3>Expected result</h3><p>4</p>
-    <h2>Important rules</h2>
-    <p>A Type declaration belongs at module scope. Its members are data fields.</p>
-    <h2>Native representation form</h2>
-    <pre><code>Type Octet As Byte
-End Type</code></pre>
-    <p>The As form declares an opaque native value with synthesized zero initialization and value copying, not a record with a public field. Current v2 tests Byte, Integer and Long representations. Existing field-only Type declarations keep their rules. See <a href="../../topics/types.html#native-values" data-doc-path="language/topics/types.html">opaque native values</a> and <a href="../i/intrinsic.html" data-doc-path="language/words/i/intrinsic.html">explicit Pack/Unpack bindings</a>.</p>
-    <h2>UBE 1.0 rules</h2><p>A custom <code>Type</code> is a value type. Assignment copies its value, including managed fields; object fields keep the same object identity. A type may contain a field of its own type. That recursive field begins empty and materializes automatically only as deeply as code reads or writes it.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../t/true.html" data-doc-path="language/words/t/true.html">← Previous: True</a><a href="../t/typeof.html" data-doc-path="language/words/t/typeof.html">Next: TypeOf →</a></nav>
-    <footer class="article-footer">Article ID: language.word.type · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+    Main = Position.X
+End Function</code></pre><p>Main returns 4.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/private.html">Private</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../d/dim.html">Dim</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../t/true.html" data-doc-path="language/words/t/true.html">← Previous: True</a><a href="../t/typeof.html" data-doc-path="language/words/t/typeof.html">Next: TypeOf →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

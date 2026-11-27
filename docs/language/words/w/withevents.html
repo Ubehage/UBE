@@ -1,33 +1,11 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.withevents">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Declares an object field whose events are handled by matching field_event procedures.">
-  <title>WithEvents — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/w/withevents.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/w/index.html">W</a> / WithEvents</nav>
-    <h1>WithEvents</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Field declaration modifier</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.withevents" data-doc-path="language/words/w/withevents.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WithEvents — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/w/withevents.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / WithEvents</p><section id="overview"><h1>WithEvents</h1><div class="metadata"><span class="badge status">Specified</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Declares an object field whose events are handled by matching field_event procedures.</p>
     <h2>Syntax</h2>
-    <pre><code>Private WithEvents fieldName As eventSourceType</code></pre>
-    <h2>Example</h2>
-    <pre><code>UBE SOURCE 1 CLASS\nAttribute UBE_Name = \"Listener\"\nPrivate WithEvents Source As Button\n\nPrivate Sub Source_Click()\n    Print \"Clicked\"\nEnd Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>After Source is assigned with Set, its Click event invokes Source_Click.</p>
-    <h2>Important rules</h2>
-    <p>This is specified UBE 1.0 behavior. The fresh Compiler v3 does not yet execute this feature; archived compiler results do not establish current support.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../w/with.html" data-doc-path="language/words/w/with.html">← Previous: With</a><a href="../w/write.html" data-doc-path="language/words/w/write.html">Next: Write →</a></nav>
-    <footer class="article-footer">Article ID: language.word.withevents · Status verified against UBE 1.0 · Last reviewed 2026-11-01</footer>
-  </main>
-</body>
-</html>
+<pre><code>Private WithEvents fieldName As eventSourceType</code></pre><dl><dt><code>fieldName</code></dt><dd>The scalar object field that owns the event connection.</dd><dt><code>eventSourceType</code></dt><dd>A declared class, interface, form or control type that exposes the required events.</dd></dl></section><section id="details"><h2>Details</h2><p>Use one scalar field in a module, class, form or control. Its declared type must expose events; Object, local variables, parameters, arrays and custom Type fields are not allowed. A matching Private Sub fieldName_eventName must have exactly the event’s parameter list. Set connects the new instance and disconnects the old; Set to Nothing disconnects without unloading it. WithEvents cannot combine with As New or a declaration initializer.</p></section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../e/event.html">Event</a><a href="../r/raiseevent.html">RaiseEvent</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../w/with.html" data-doc-path="language/words/w/with.html">← Previous: With</a><a href="../w/write.html" data-doc-path="language/words/w/write.html">Next: Write →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

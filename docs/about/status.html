@@ -1,47 +1,5 @@
 <!doctype html>
-<html lang="en" data-article-id="about.status">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Current development and platform status of UBE.">
-  <title>Project status — UBE documentation</title>
-  <link rel="stylesheet" href="../assets/css/tokens.css">
-  <link rel="stylesheet" href="../assets/css/base.css">
-  <link rel="stylesheet" href="../assets/css/article.css">
-  <script src="../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../index.html#about/status.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="about/index.html">About UBE</a> / Project status</nav>
-    <h1>Project status</h1>
-    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Windows development host</span></div>
-    <p class="lede">UBE is under active development and is not ready for production use.</p>
-
-    <h2>What works today</h2>
-    <p>The fresh Compiler v3 reads native module source, checks a bounded syntax subset, loads executable project manifests with one explicit UBECore source reference, and processes sources with one through four workers. The bounded semantic implementation checks selected scalar declarations, names, assignments, calls and procedure bodies; wholly supported input can pass with exit zero after the current CLI qualification and local replay. See <a href="../tools/source-checking.html" data-doc-path="tools/source-checking.html">checking scope and prerequisites</a>. It does not generate executable programs.</p>
-    <p>Current UBECore has qualified source foundations for owned bytes, UTF-8 decoding, Unicode operations, file input, path handling and bounded thread operations. A full released library, general String replacement and complete synchronization catalog are not available. See the <a href="../library/index.html" data-doc-path="library/index.html">library reference</a> for exact source scope.</p>
-
-    <h2>What comes next</h2>
-    <p>Current work qualifies the bounded semantic implementation against its independent native and process gates. Unsupported datatypes, declarations and bodies remain deferred and prevent a successful check. Complete language support, native code generation, library packaging, source-level debugging and the native IDE remain unfinished.</p>
-    <p>The earlier v3/v4 implementations and release previews are archived. Their results are historical and do not establish what the fresh compiler supports.</p>
-    <div class="callout">
-      <strong>Documentation status</strong>
-      <strong>Specified</strong> means that UBE 1.0 behavior is settled. It does not mean compiler v3 implements it yet. Each page separately states implementation availability.
-    </div>
-
-    <h2>Platform status</h2>
-    <p>Development currently takes place on 64-bit Windows. UBE 1.0 requires platform-independent language behavior, but Linux and macOS toolchains are planned and not yet verified.</p>
-
-    <h2>Should I use UBE for a project?</h2>
-    <p>Not for production yet. You can follow development, inspect the compiler sources, and experiment with the bootstrap toolchain, but source compatibility and public APIs may still change before the first release.</p>
-
-    <nav class="article-nav" aria-label="Adjacent articles">
-      <a href="goals.html" data-doc-path="about/goals.html">← Previous: Goals and principles</a>
-      <a href="compiler-generations.html" data-doc-path="about/compiler-generations.html">Next: Development and releases →</a>
-    </nav>
-    <footer class="article-footer">Article ID: about.status · Last reviewed 2026-11-02</footer>
-  </main>
-</body>
-</html>
+<html lang="en" data-article-id="about.status" data-doc-path="about/status.html" data-doc-root="../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project status — UBE help</title><link rel="stylesheet" href="../assets/css/help.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="../about/contents.html" class="global">Contents</a><a href="../language/words/index.html">Index</a><a href="../index.html#about/status.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Project status</p><section id="overview"><h1>Project status</h1><div class="metadata"><span class="badge status">Partially implemented</span></div><p class="lede">UBE builds native Windows x64 programs. The language and core library are still under development.</p></section><section id="details"><h2>Details</h2><h3>Available now</h3><p>Use Boolean, Byte, Integer, Long, LongLong, Single, Double and variable-length String values; procedures, checked conversions and arithmetic; If/ElseIf/Else and Do/Loop; and supported error handling. One-dimensional arrays, nonrecursive records and CallNew workers are also supported. The <a href="../library/index.html">core library</a> provides text, bytes, files and thread operations.</p><h3>Not yet available</h3><p>Currency, Decimal, Date, Variant, fixed-length strings, multidimensional arrays, recursive types, For/For Each, standalone While, classes, events and forms remain incomplete. General foreign-library interfaces, source-level debugging, the IDE and a complete VB6 importer also remain future work.</p><aside class="callout"><strong>Note</strong><p>Windows x64 is the current host and target. Linux and macOS support is planned. UBE is development software; a supported feature does not make the full language complete.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="compiler.html">Compiler availability</a><a href="documentation-status.html">Documentation status</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

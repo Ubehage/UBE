@@ -1,33 +1,11 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.defsng">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Marks a classic VB Single implicit-type directive for migration.">
-  <title>DefSng — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/d/defsng.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / DefSng</nav>
-    <h1>DefSng</h1>
-    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">Rejected migration syntax</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.defsng" data-doc-path="language/words/d/defsng.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DefSng — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/d/defsng.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / DefSng</p><section id="overview"><h1>DefSng</h1><div class="metadata"><span class="badge status">Compatibility only</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Marks a classic VB Single implicit-type directive for migration.</p>
     <h2>Syntax</h2>
-    <pre><code>DefSng letterRange [, letterRange ...]</code></pre>
-    <h2>Example</h2>
-    <pre><code>UBE SOURCE 1 MODULE\nAttribute UBE_Name = \"LegacyTypes\"\nDefSng S</code></pre>
-    <h3>Expected result</h3>
-    <p>The compiler rejects implicit typing and requests explicit As Single declarations.</p>
-    <h2>Important rules</h2>
-    <p>This syntax exists for classic VB compatibility. It does not weaken UBE's explicit typing, portability, or resource-cleanup rules.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/defobj.html" data-doc-path="language/words/d/defobj.html">← Previous: DefObj</a><a href="../d/defstr.html" data-doc-path="language/words/d/defstr.html">Next: DefStr →</a></nav>
-    <footer class="article-footer">Article ID: language.word.defsng · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+<pre><code>DefSng letterRange [, letterRange ...]</code></pre><dl><dt><code>letterRange</code></dt><dd>One initial letter or an inclusive range such as A-C; comma-separated ranges are permitted.</dd></dl></section><section id="details"><h2>Details</h2><p>Recognized for imported classic VB source, where initial-letter ranges selected implicit variable types. UBE still requires an explicit type or permitted identifier type character; this directive does not create implicit typing. Replace affected declarations with explicit types during migration.</p></section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="dim.html">Dim</a><a href="../a/as.html">As</a><a href="../e/explicit.html">Explicit</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/defobj.html" data-doc-path="language/words/d/defobj.html">← Previous: DefObj</a><a href="../d/defstr.html" data-doc-path="language/words/d/defstr.html">Next: DefStr →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

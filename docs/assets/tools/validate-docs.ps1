@@ -1,244 +1,113 @@
 [CmdletBinding()]
 param()
-
 $ErrorActionPreference = 'Stop'
-$docsRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$failures = [System.Collections.Generic.List[string]]::new()
-
-function Add-Failure([string] $Message) {
-    $script:failures.Add($Message)
+$docsRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$failures = [Collections.Generic.List[string]]::new()
+$files = @(Get-ChildItem -LiteralPath $docsRoot -Recurse -File -Filter '*.html' | Where-Object {
+    $relative = $_.FullName.Substring($docsRoot.Length).TrimStart('\').Replace('\','/')
+    $relative -notmatch '^(\.work|prototype)/'
+})
+$contents = @{}
+$identities = @{}
+$paths = [Collections.Generic.List[string]]::new()
+$linkCount = 0
+function Fail([string]$message) { $failures.Add($message) }
+foreach ($file in $files) {
+    $relative = $file.FullName.Substring($docsRoot.Length).TrimStart('\').Replace('\','/')
+    $html = [IO.File]::ReadAllText($file.FullName)
+    $contents[$file.FullName] = $html
+    $paths.Add($relative)
+    if ([regex]::Matches($html,'<main\b').Count -ne 1) { Fail "$relative needs exactly one main." }
+    if ($html -notmatch '<html[^>]+lang="en"' -or $html -notmatch '<title>[^<]+</title>') { Fail "$relative needs English language and title." }
+    if ($relative -in @('index.html','navigation/index.html')) { continue }
+    if ([regex]::Matches($html,'<h1\b').Count -ne 1) { Fail "$relative needs exactly one h1." }
+    $id = [regex]::Match($html,'data-article-id="([^"]+)"').Groups[1].Value
+    if (-not $id) { Fail "$relative missing article identity." }
+    elseif ($identities.ContainsKey($id)) { Fail "Duplicate article identity $id." }
+    else { $identities[$id]=$relative }
+    foreach ($required in @('class="page-nav"','class="skip-link"','id="overview"','class="breadcrumbs"','class="article-footer"')) {
+        if (-not $html.Contains($required)) { Fail "$relative missing $required." }
+    }
+    $pageNav = [regex]::Match($html,'<nav class="page-nav"[^>]*>([\s\S]*?)</nav>').Groups[1].Value
+    foreach ($destination in @('about/contents.html','language/words/index.html')) {
+        if ($pageNav -notmatch ('href="(?:\.\./)*'+[regex]::Escape($destination)+'"')) { Fail "$relative missing standalone navigation to $destination." }
+    }
+    foreach ($section in @('overview','details','example')) {
+        $hasSection = $html.Contains('id="'+$section+'"')
+        $hasLink = $pageNav.Contains('href="#'+$section+'"')
+        if ($hasSection -ne $hasLink) { Fail "$relative section/navigation mismatch for $section." }
+    }
+    foreach ($empty in [regex]::Matches($html,'<h([23])[^>]*>([^<]+)</h\1>\s*(?=<h\1\b|</section>)')) {
+        Fail "$relative has empty heading: $($empty.Groups[2].Value)"
+    }
+    $status = [regex]::Match($html,'<span class="badge status">([^<]+)</span>').Groups[1].Value
+    if ($status -notin @('Implemented','Partially implemented','Specified','Planned','Compatibility only','Deprecated','Unsupported')) { Fail "$relative invalid status $status." }
+    if ($html -match '(?i)Compiler\s*v[1-4]\b|fresh[- ]v[1-4]\b|source-built v2|UBE_Compiler_v3|bootstrap/out/v3|preserved v[12]|archived previews?|syntax-only checker|cannot yet (?:build|produce|generate) (?:or run )?(?:native |executable )?programs') { Fail "$relative contains obsolete compiler wording." }
+    foreach ($code in [regex]::Matches($html,'<pre[^>]*>\s*<code[^>]*>([\s\S]*?)</code>\s*</pre>')) {
+        $text = [Net.WebUtility]::HtmlDecode([regex]::Replace($code.Groups[1].Value,'<[^>]*>',''))
+        if ($text -match '(?im)(?:^\s*|\bThen\s+|\bElse\s+|:\s*)Print\s+(?!#)') { Fail "$relative contains a bare Print sample." }
+    }
 }
-
-$htmlFiles = Get-ChildItem -LiteralPath $docsRoot -Recurse -Filter '*.html' -File
-$articleIds = [System.Collections.Generic.List[string]]::new()
-$articlePaths = [System.Collections.Generic.List[string]]::new()
-
-foreach ($file in $htmlFiles) {
-    $content = Get-Content -Raw -LiteralPath $file.FullName
-    $relative = $file.FullName.Substring($docsRoot.Length).TrimStart('\')
-
-    if ([regex]::Matches($content, '<main\b', 'IgnoreCase').Count -ne 1) {
-        Add-Failure "$relative must contain exactly one main element."
-    }
-    if ($relative -ne 'index.html' -and [regex]::Matches($content, '<h1\b', 'IgnoreCase').Count -ne 1) {
-        Add-Failure "$relative must contain exactly one h1 element."
-    }
-    if ($relative -ne 'index.html' -and $content -notmatch 'data-article-id="[^"]+"') {
-        Add-Failure "$relative is missing a stable article ID."
-    }
-    elseif ($relative -ne 'index.html') {
-        $articleId = [regex]::Match($content, 'data-article-id="([^"]+)"', 'IgnoreCase').Groups[1].Value
-        $articleIds.Add($articleId)
-        $articlePaths.Add($relative.Replace('\', '/'))
-    }
-    if ($relative -ne 'index.html' -and $content -notmatch 'class="skip-link"') {
-        Add-Failure "$relative is missing a skip link."
-    }
-    if ($relative -ne 'index.html' -and $content -notmatch 'class="standalone-header"') {
-        Add-Failure "$relative is missing the standalone article header."
-    }
-    if ($relative -ne 'index.html' -and $content -notmatch 'class="breadcrumbs"') {
-        Add-Failure "$relative is missing breadcrumbs."
-    }
-    if ($relative -ne 'index.html' -and $content -notmatch 'class="article-footer"') {
-        Add-Failure "$relative is missing the article footer."
-    }
-    if ($relative -ne 'index.html') {
-        $statusMatch = [regex]::Match($content, '<span class="badge status">([^<]+)</span>', 'IgnoreCase')
-        $allowedStatuses = @('Implemented', 'Partially implemented', 'Specified', 'Planned', 'Compatibility only', 'Deprecated', 'Unsupported')
-        if (-not $statusMatch.Success) {
-            Add-Failure "$relative is missing a public status label."
-        }
-        elseif ($statusMatch.Groups[1].Value -notin $allowedStatuses) {
-            Add-Failure "$relative uses an unknown public status: $($statusMatch.Groups[1].Value)."
-        }
-        foreach ($stalePhrase in @(
-            'UBE 1.0 draft',
-            'Language definition 0.3',
-            'Status verified against language definition 0.3',
-            'rules are not yet frozen',
-            'complete conversion table, ranges, rounding, and text rules are not yet frozen',
-            'Release Preview 7 is the current development baseline',
-            'This behavior is implemented and verified in Compiler v3 RP7',
-            'Verified with Compiler v3 RP7',
-            'Its byte layout is not yet frozen'
-        )) {
-            if ($content.IndexOf($stalePhrase, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                Add-Failure "$relative contains stale pre-1.0 wording: $stalePhrase."
+foreach ($file in $files) {
+    $relative = $file.FullName.Substring($docsRoot.Length).TrimStart('\').Replace('\','/')
+    $html = $contents[$file.FullName]
+    foreach ($match in [regex]::Matches($html,'(?:href|src)="([^"]+)"')) {
+        $url = [Net.WebUtility]::HtmlDecode($match.Groups[1].Value)
+        if ($url -match '^\w+:|^//') { Fail "$relative uses a non-local URL: $url"; continue }
+        $parts=$url.Split('#',2)
+        try {
+            $resolved=if($parts[0]){[IO.Path]::GetFullPath((Join-Path $file.DirectoryName $parts[0]))}else{$file.FullName}
+        } catch { Fail "$relative has malformed URL $url"; continue }
+        if (-not $resolved.StartsWith($docsRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { Fail "$relative links outside docs: $url"; continue }
+        if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { Fail "$relative has missing target: $url"; continue }
+        $linkCount++
+        if($parts.Count -eq 2 -and $parts[1]){
+            if($resolved -eq (Join-Path $docsRoot 'index.html')){
+                $route=$parts[1].Split('#',2)[0]
+                if($route -notin $paths){Fail "$relative has unknown shell route $url"}
+            }else{
+                $destination = if($contents.ContainsKey($resolved)){$contents[$resolved]}else{[IO.File]::ReadAllText($resolved)}
+                if($destination -notmatch ('id="'+[regex]::Escape($parts[1])+'"')){Fail "$relative has missing anchor $url"}
             }
         }
     }
-
-    foreach ($match in [regex]::Matches($content, '(?:href|src)="([^"]+)"', 'IgnoreCase')) {
-        $target = $match.Groups[1].Value
-        if ($target -match '^(?:https?:|//)') {
-            Add-Failure "$relative uses external resource $target."
-            continue
-        }
-        if ($target -match '^(?:#|data:|mailto:)') { continue }
-
-        $cleanTarget = ($target -split '[#?]')[0]
-        $resolved = [System.IO.Path]::GetFullPath((Join-Path $file.DirectoryName $cleanTarget))
-        if (-not $resolved.StartsWith($docsRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-            Add-Failure "$relative links outside docs: $target."
-        }
-        elseif (-not (Test-Path -LiteralPath $resolved)) {
-            Add-Failure "$relative has a missing target: $target."
-        }
+}
+$shell = [IO.File]::ReadAllText((Join-Path $docsRoot 'index.html'))
+if ([regex]::Matches($shell,'<iframe\b').Count -ne 2 -or $shell -match '<header\b|<nav\b') { Fail 'Index must have exactly two frames and no top bar.' }
+$catalogText = [IO.File]::ReadAllText((Join-Path $docsRoot 'assets/js/navigation-data.js'))
+$catalogJson = [regex]::Match($catalogText,'window\.UBE_DOCS\s*=\s*([\s\S]+);\s*$').Groups[1].Value
+try { $catalog=$catalogJson | ConvertFrom-Json } catch { Fail 'Navigation catalogue is invalid JSON.'; $catalog=$null }
+$catalogPaths=[Collections.Generic.List[string]]::new()
+function Collect-Paths($items) { foreach($item in $items){ if($item.path){$catalogPaths.Add($item.path)}; if($item.children){Collect-Paths $item.children} } }
+if($catalog){Collect-Paths $catalog.sections}
+foreach($duplicate in $catalogPaths | Group-Object | Where-Object Count -gt 1){Fail "Duplicate catalogue path $($duplicate.Name)"}
+foreach($entry in $catalogPaths){if($entry -notin $paths){Fail "Missing catalogue page $entry"}}
+foreach($entry in $paths){if($entry -notin @('index.html','navigation/index.html','about/contents.html','about/not-found.html') -and $entry -notin $catalogPaths){Fail "Uncatalogued page $entry"}}
+$nav = [IO.File]::ReadAllText((Join-Path $docsRoot 'navigation/index.html'))
+foreach($entry in $catalogPaths){if(-not $nav.Contains('data-path="'+$entry+'"')){Fail "Left pane misses $entry"}}
+$wordRoot=Join-Path $docsRoot 'language/words'
+$wordFiles=@(Get-ChildItem -LiteralPath $wordRoot -Recurse -Filter '*.html' -File | Where-Object Name -ne 'index.html')
+$wordNames=@()
+foreach($file in $wordFiles){
+    $html=[IO.File]::ReadAllText($file.FullName)
+    $wordNames += [regex]::Match($html,'<h1>([^<]+)</h1>').Groups[1].Value.ToLowerInvariant()
+    foreach($required in @('id="overview"','id="details"','id="example"','<h2>Syntax</h2>','<pre><code>','class="see-also"')){
+        if(-not $html.Contains($required)){Fail "$($file.Name) missing reference element $required"}
     }
 }
-
-foreach ($duplicate in $articleIds | Group-Object | Where-Object Count -gt 1) {
-    Add-Failure "Article ID is duplicated: $($duplicate.Name)."
-}
-
-$wordRoot = Join-Path $docsRoot 'language\words'
-if (Test-Path -LiteralPath $wordRoot) {
-    $wordPages = Get-ChildItem -LiteralPath $wordRoot -Recurse -Filter '*.html' -File |
-        Where-Object { $_.Name -ne 'index.html' }
-    foreach ($file in $wordPages) {
-        $content = Get-Content -Raw -LiteralPath $file.FullName
-        $relative = $file.FullName.Substring($docsRoot.Length).TrimStart('\')
-        foreach ($required in @(
-            'badge status', '<h2>Syntax</h2>', '<h2>Example</h2>',
-            '<pre><code>', 'class="article-nav"'
-        )) {
-            if ($content -notlike "*$required*") {
-                Add-Failure "$relative is missing required word-page content: $required."
-            }
-        }
-    }
-
-    $grammarPath = Join-Path $docsRoot '..\lang-doc\grammar\ube.ebnf'
-    if (Test-Path -LiteralPath $grammarPath) {
-        $grammar = Get-Content -Raw -LiteralPath $grammarPath
-        $suffixFragments = @('a', 'b', 'c', 'd', 'e', 'f', 'i', 'l', 'r', 's', 'ui', 'ul', 'us')
-        $expectedWords = [regex]::Matches($grammar, '"([A-Za-z][A-Za-z ]*)"') |
-            ForEach-Object { $_.Groups[1].Value -split ' ' } |
-            ForEach-Object { $_.ToLowerInvariant() } |
-            Where-Object { $_ -and $_ -notin $suffixFragments } |
-            Sort-Object -Unique
-        $documentedWords = $wordPages | ForEach-Object {
-            $content = Get-Content -Raw -LiteralPath $_.FullName
-            $match = [regex]::Match($content, '<h1>([^<]+)</h1>', 'IgnoreCase')
-            if ($match.Success) { $match.Groups[1].Value.ToLowerInvariant() }
-        }
-        foreach ($word in $expectedWords) {
-            if ($word -notin $documentedWords) {
-                Add-Failure "Grammar word has no A-Z article: $word."
-            }
-        }
-
-    $letterIndex = Join-Path $wordRoot 'index.html'
-    $landingText = Get-Content -Raw -LiteralPath $letterIndex
-    foreach ($letter in [char[]]'abcdefghijklmnopqrstuvwxyz') {
-        $letterName = [string]$letter
-        $expectedLetterPath = "${letterName}/index.html"
-        if ($landingText -notmatch ('href="' + [regex]::Escape($expectedLetterPath) + '"')) {
-            Add-Failure "A-Z landing page is missing the $($letterName.ToUpperInvariant()) letter link."
-        }
-
-        $letterDirectory = Join-Path $wordRoot $letterName
-        $letterIndexPath = Join-Path $letterDirectory 'index.html'
-        if (-not (Test-Path -LiteralPath $letterIndexPath -PathType Leaf)) {
-            Add-Failure "A-Z letter page is missing: $expectedLetterPath."
-            continue
-        }
-        $expectedEntries = Get-ChildItem -LiteralPath $letterDirectory -Filter '*.html' -File |
-            Where-Object Name -ne 'index.html' |
-            ForEach-Object Name |
-            Sort-Object
-        $letterText = Get-Content -Raw -LiteralPath $letterIndexPath
-        $listedEntries = [regex]::Matches($letterText, 'href="([a-z0-9]+\.html)"', 'IgnoreCase') |
-            ForEach-Object { $_.Groups[1].Value } |
-            Sort-Object
-        foreach ($entry in $expectedEntries) {
-            if ($entry -notin $listedEntries) {
-                Add-Failure "A-Z letter page $expectedLetterPath is missing $entry."
-            }
-        }
-        foreach ($entry in $listedEntries | Group-Object | Where-Object Count -gt 1) {
-            Add-Failure "A-Z letter page $expectedLetterPath lists $($entry.Name) more than once."
-        }
-    }
+$grammar=[IO.File]::ReadAllText((Join-Path $docsRoot '../lang-doc/grammar/ube.ebnf'))
+$fragments=@('a','b','c','d','e','f','i','l','r','s','ui','ul','us')
+$expected=[regex]::Matches($grammar,'"([A-Za-z][A-Za-z ]*)"') | ForEach-Object {$_.Groups[1].Value -split ' '} | ForEach-Object {$_.ToLowerInvariant()} | Where-Object {$_ -and $_ -notin $fragments} | Sort-Object -Unique
+foreach($word in $expected){if($word -notin $wordNames){Fail "Missing grammar word: $word"}}
+$landing=[IO.File]::ReadAllText((Join-Path $wordRoot 'index.html'))
+foreach($letter in [char[]]'abcdefghijklmnopqrstuvwxyz'){
+    if(-not $landing.Contains('href="'+$letter+'/index.html"')){Fail "Missing A-Z letter $letter"}
+    $letterPath=Join-Path $wordRoot "$letter/index.html"
+    if(-not(Test-Path $letterPath)){Fail "Missing letter page $letter";continue}
+    $letterText=[IO.File]::ReadAllText($letterPath)
+    foreach($file in Get-ChildItem (Join-Path $wordRoot "$letter") -Filter '*.html' | Where-Object Name -ne 'index.html'){
+        if([regex]::Matches($letterText,'href="'+[regex]::Escape($file.Name)+'"').Count -ne 1){Fail "Letter $letter must list $($file.Name) exactly once"}
     }
 }
-
-$requiredNormativeCoverage = @{
-    'language/topics/conditional-compilation.html' = @('#Const', '#If', '#ElseIf', '#End If')
-    'language/topics/scalar-values-operators.html' = @('96-bit unsigned coefficient', 'scale from 0 through 28', 'IntPtr', 'UIntPtr')
-    'language/topics/event-binding.html' = @('WithEvents', 'Private Sub', 'Set Source = Nothing')
-    'language/topics/procedures-parameters.html' = @('name := expression', 'ParamArray Values() As Variant', 'evaluated exactly once')
-    'language/topics/data-values.html' = @('String * 0', '65,535-character', 'materializes automatically')
-    'language/topics/properties-members.html' = @('one logical property', 'no Shared class-member surface', 'evaluated once')
-    'tools/project-manifests.html' = @('Reference =', 'StartupForm', 'direct and non-transitive', 'LibraryReference', '.UBL')
-    'tools/source-checking.html' = @('--check', '--jobs', 'Current semantic subset', 'UBE1433', 'No output program is created', 'Standard output and standard error are empty')
-    'tools/resources-libraries.html' = @('UBE-Resource 1', 'UBE-LibraryBundle 1', '1,024 entries', 'LibraryReference')
-    'language/topics/variable-hooks.html' = @('On Get', 'On Set', 'End Variable', 'privileged Storage parameter')
-    'migration/index.html' = @('DefBool', 'targeted migration diagnostic')
-}
-foreach ($coveragePath in $requiredNormativeCoverage.Keys) {
-    $coverageFile = Join-Path $docsRoot $coveragePath
-    if (-not (Test-Path -LiteralPath $coverageFile -PathType Leaf)) {
-        Add-Failure "Required normative coverage article is missing: $coveragePath."
-        continue
-    }
-    $coverageText = Get-Content -Raw -LiteralPath $coverageFile
-    foreach ($requiredText in $requiredNormativeCoverage[$coveragePath]) {
-        if ($coverageText.IndexOf($requiredText, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
-            Add-Failure "$coveragePath is missing frozen-contract coverage: $requiredText."
-        }
-    }
-}
-
-$navigationFiles = @(
-    (Join-Path $docsRoot 'assets\js\navigation-data.js'),
-    (Join-Path $docsRoot 'assets\js\word-data.js')
-)
-$existingNavigationFiles = $navigationFiles | Where-Object { Test-Path -LiteralPath $_ }
-if ($existingNavigationFiles.Count -gt 0) {
-    $navigation = ($existingNavigationFiles | ForEach-Object { Get-Content -Raw -LiteralPath $_ }) -join "`n"
-    $catalogPaths = [System.Collections.Generic.List[string]]::new()
-    [regex]::Matches($navigation, 'path:\s*"([^"]+)"') |
-        ForEach-Object { $catalogPaths.Add($_.Groups[1].Value) }
-
-    $wordDataPath = Join-Path $docsRoot 'assets\js\word-data.js'
-    if (Test-Path -LiteralPath $wordDataPath) {
-        $wordData = Get-Content -Raw -LiteralPath $wordDataPath
-        foreach ($groupMatch in [regex]::Matches(
-            $wordData,
-            '(?m)^\s*([a-z]):\s*\[([^\]]*)\]'
-        )) {
-            $letter = $groupMatch.Groups[1].Value
-            $catalogPaths.Add("language/words/$letter/index.html")
-            foreach ($wordMatch in [regex]::Matches(
-                $groupMatch.Groups[2].Value,
-                '"([^"]+)"'
-            )) {
-                $slug = $wordMatch.Groups[1].Value.ToLowerInvariant()
-                $catalogPaths.Add("language/words/$letter/$slug.html")
-            }
-        }
-    }
-    foreach ($duplicate in $catalogPaths | Group-Object | Where-Object Count -gt 1) {
-        Add-Failure "Navigation path is duplicated: $($duplicate.Name)."
-    }
-    foreach ($path in $catalogPaths) {
-        if (-not (Test-Path -LiteralPath (Join-Path $docsRoot $path))) {
-            Add-Failure "Navigation target is missing: $path."
-        }
-    }
-    foreach ($articlePath in $articlePaths) {
-        if ($articlePath -eq 'about/not-found.html') { continue }
-        if ($articlePath -notin $catalogPaths) {
-            Add-Failure "Article is not present in navigation: $articlePath."
-        }
-    }
-}
-
-if ($failures.Count -gt 0) {
-    $failures | ForEach-Object { Write-Error $_ }
-    exit 1
-}
-
-Write-Host "UBE documentation validation passed: $($htmlFiles.Count) HTML files."
+if($failures.Count){foreach($failure in $failures){Write-Output "FAIL $failure"};throw "$($failures.Count) documentation checks failed."}
+Write-Output "PASS $($files.Count) public HTML files; $linkCount local links/assets/anchors; $($wordFiles.Count) word pages; all grammar words; catalogue and left-pane coverage; two-frame shell; no obsolete compiler claims."

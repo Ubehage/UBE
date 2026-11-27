@@ -1,49 +1,14 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.case">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Introduces a branch inside Select Case.">
-  <title>Case — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/c/case.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / Case</nav>
-    <h1>Case</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Selection word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.case" data-doc-path="language/words/c/case.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Case — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/c/case.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Case</p><section id="overview"><h1>Case</h1><div class="metadata"><span class="badge status">Specified</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Introduces a branch inside Select Case.</p>
     <h2>Syntax</h2>
-    <pre><code>Select Case expression
-    Case value
-        statements
-    Case Else
-        statements
-End Select</code></pre>
-    <h2>Example</h2>
-    <pre><code>Sub Main()
-    Dim Number As Long
-    Number = 2
-    Select Case Number
-        Case 1
-            Print "one"
-        Case 2
-            Print "two"
-        Case Else
-            Print "other"
-    End Select
-End Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>two</p>
-    <h2>Important rules</h2>
-    <p>Case clauses are tested within their Select Case block. Case Else handles values not matched earlier.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/callnew.html" data-doc-path="language/words/c/callnew.html">← Previous: CallNew</a><a href="../c/chdir.html" data-doc-path="language/words/c/chdir.html">Next: ChDir →</a></nav>
-    <footer class="article-footer">Article ID: language.word.case · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+<pre><code>Case value [, otherValue]
+Case first To last
+Case Is comparisonOperator value
+Case Else</code></pre><dl><dt><code>value</code></dt><dd>The value supplied to this operation.</dd><dt><code>otherValue</code></dt><dd>Another value matched by the same Case branch.</dd><dt><code>first</code></dt><dd>The inclusive lower endpoint of the range.</dd><dt><code>last</code></dt><dd>The inclusive upper endpoint of the range.</dd><dt><code>comparisonOperator</code></dt><dd>One of =, &lt;&gt;, &lt;, &lt;=, &gt; or &gt;=.</dd></dl></section><section id="details"><h2>Details</h2><p>Use Case inside Select Case. A clause may list comma-separated values, an inclusive first To last range, or Is followed by a comparison operator. The first matching branch runs. A final Case Else handles a value not matched by preceding branches.</p></section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../s/select.html">Select</a><a href="../i/is.html">Is</a><a href="../t/to.html">To</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/callnew.html" data-doc-path="language/words/c/callnew.html">← Previous: CallNew</a><a href="../c/chdir.html" data-doc-path="language/words/c/chdir.html">Next: ChDir →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

@@ -1,33 +1,13 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.beginproperty">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Starts a nested legacy designer-property block in imported form or control source.">
-  <title>BeginProperty — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/b/beginproperty.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/b/index.html">B</a> / BeginProperty</nav>
-    <h1>BeginProperty</h1>
-    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">Legacy designer metadata</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.beginproperty" data-doc-path="language/words/b/beginproperty.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BeginProperty — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/b/beginproperty.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / BeginProperty</p><section id="overview"><h1>BeginProperty</h1><div class="metadata"><span class="badge status">Compatibility only</span><span>Source / metadata word</span></div>
+
+
+
     <p class="lede">Starts a nested legacy designer-property block in imported form or control source.</p>
     <h2>Syntax</h2>
-    <pre><code>BeginProperty propertyName\n    designer properties\nEndProperty</code></pre>
-    <h2>Example</h2>
-    <pre><code>VERSION 5.00\nBegin VB.Form MainForm\n    BeginProperty Font\n        Name = \"Arial\"\n    EndProperty\nEnd</code></pre>
-    <h3>Expected result</h3>
-    <p>Import tooling preserves the nested Font metadata. It has no executable behavior.</p>
-    <h2>Important rules</h2>
-    <p>This syntax exists for classic VB compatibility. It does not weaken UBE's explicit typing, portability, or resource-cleanup rules.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/begin.html" data-doc-path="language/words/b/begin.html">← Previous: Begin</a><a href="../b/binary.html" data-doc-path="language/words/b/binary.html">Next: Binary →</a></nav>
-    <footer class="article-footer">Article ID: language.word.beginproperty · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+<pre><code>BeginProperty propertyName
+    designer properties
+EndProperty</code></pre><dl><dt><code>propertyName</code></dt><dd>The designer property whose nested metadata follows.</dd><dt><code>designer</code></dt><dd>The property assignments stored in the imported designer block.</dd><dt><code>properties</code></dt><dd>The designer property assignments inside the block.</dd></dl></section><section id="details"><h2>Details</h2><p>Starts a nested property-metadata block inside an imported designer file. EndProperty closes this block. These entries describe designer state; they are not executable assignments or ordinary UBE property procedures.</p></section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="begin.html">Begin</a><a href="../e/endproperty.html">EndProperty</a><a href="../p/property.html">Property</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/begin.html" data-doc-path="language/words/b/begin.html">← Previous: Begin</a><a href="../b/binary.html" data-doc-path="language/words/b/binary.html">Next: Binary →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

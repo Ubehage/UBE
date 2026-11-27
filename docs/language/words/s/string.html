@@ -1,35 +1,16 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.string">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Stores Unicode text.">
-  <title>String — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/s/string.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / String</nav>
-    <h1>String</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.string" data-doc-path="language/words/s/string.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>String — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/s/string.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / String</p><section id="overview"><h1>String</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Type</span></div>
+
+
+
     <p class="lede">Stores Unicode text.</p>
     <h2>Syntax</h2>
-    <pre><code>Dim name As String</code></pre>
-    <h2>Example</h2>
-    <pre><code>Sub Main()
-    Dim Greeting As String = "Hello"
-    Print Greeting
-End Sub</code></pre>
-    <h3>Expected result</h3><p>Hello</p>
-    <h2>Important rules</h2>
-    <p>String * n declares fixed-length text. A plain String has variable length.</p>
-    <h2>UBE 1.0 rules</h2><p><code>String * length</code> declares fixed-length text. Its length never grows or shrinks: shorter assignments are padded and longer assignments are truncated according to the defined conversion rules.</p><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/stop.html" data-doc-path="language/words/s/stop.html">← Previous: Stop</a><a href="../s/sub.html" data-doc-path="language/words/s/sub.html">Next: Sub →</a></nav>
-    <footer class="article-footer">Article ID: language.word.string · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+<pre><code>Dim name As String
+Dim name As String * length</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>length</code></dt><dd>The fixed character length used by the String * length declaration.</dd></dl></section><section id="details"><h2>Details</h2><p>A plain String holds variable-length Unicode text with value semantics: assigning it copies the value, so later replacement of one variable does not replace another. Use &amp; to concatenate text. Character lengths count Unicode scalar values. Binary comparison compares those values case-sensitively; supported conversions follow the conversion rules.</p><aside class="callout"><p>The separate fixed-length String * length form is not yet implemented.</p></aside></section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
+    Dim Greeting As String
+    Greeting = "Hello" &amp; ", UBE"
+    If Greeting = "Hello, UBE" Then Main = 1
+End Function</code></pre><p>Greeting becomes "Hello, UBE" and Main returns 1.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../d/dim.html">Dim</a><a href="../i/if.html">If</a><a href="../t/then.html">Then</a><a href="../e/end.html">End</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/stop.html" data-doc-path="language/words/s/stop.html">← Previous: Stop</a><a href="../s/sub.html" data-doc-path="language/words/s/sub.html">Next: Sub →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

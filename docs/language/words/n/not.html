@@ -1,35 +1,17 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.not">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Reverses a Boolean condition.">
-  <title>Not — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/n/not.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/n/index.html">N</a> / Not</nav>
-    <h1>Not</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Logical operator</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.not" data-doc-path="language/words/n/not.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/n/not.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Not</p><section id="overview"><h1>Not</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Operator</span></div>
+
+
+
     <p class="lede">Reverses a Boolean condition.</p>
     <h2>Syntax</h2>
-    <pre><code>Not expression</code></pre>
-    <h2>Example</h2>
-    <pre><code>Sub Main()
-    Dim Finished As Boolean = False
-    If Not Finished Then Print "Still working"
-End Sub</code></pre>
-    <h3>Expected result</h3><p>Still working</p>
-    <h2>Important rules</h2>
-    <p>Not is evaluated before comparison operators in a larger expression; use parentheses when the intended grouping could be unclear.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/next.html" data-doc-path="language/words/n/next.html">← Previous: Next</a><a href="../n/nothing.html" data-doc-path="language/words/n/nothing.html">Next: Nothing →</a></nav>
-    <footer class="article-footer">Article ID: language.word.not · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+<pre><code>Not expression</code></pre><dl><dt><code>expression</code></dt><dd>A Boolean to negate, or an integral value whose bits are complemented.</dd></dl></section><section id="details"><h2>Details</h2><p>Not binds less tightly than comparisons. For example, Not A = B means Not (A = B). On Boolean values it reverses truth; on integer values it complements the bits.</p>
+
+  </section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
+    Dim Finished As Boolean
+    Finished = False
+    If Not Finished Then Main = 1
+End Function</code></pre><p>Main returns 1 because Finished is False.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../d/dim.html">Dim</a><a href="../b/boolean.html">Boolean</a><a href="../f/false.html">False</a><a href="../i/if.html">If</a><a href="../t/then.html">Then</a><a href="../e/end.html">End</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../n/next.html" data-doc-path="language/words/n/next.html">← Previous: Next</a><a href="../n/nothing.html" data-doc-path="language/words/n/nothing.html">Next: Nothing →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

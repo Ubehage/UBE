@@ -1,41 +1,19 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.single">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Stores an IEEE-754 binary32 floating-point number.">
-  <title>Single — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/s/single.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/s/index.html">S</a> / Single</nav>
-    <h1>Single</h1>
-    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Intrinsic type</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span><span class="badge">Windows x64 development compiler</span></div>
+<html lang="en" data-article-id="language.word.single" data-doc-path="language/words/s/single.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Single — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/s/single.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Single</p><section id="overview"><h1>Single</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Type</span></div>
+
+
+
     <p class="lede">Stores an IEEE-754 binary32 floating-point number.</p>
     <h2>Syntax</h2>
-    <pre><code>Dim name As Single</code></pre>
-    <h2>Example</h2>
-    <pre><code>UBE SOURCE 1 MODULE
-Attribute UBE_Name = "SingleExample"
-Public Function Main() As Long
-    Dim Value As Single = 1.5!
-    Value = Value * 2!
-    If Value &lt;&gt; 3! Then Main = 1
-End Function</code></pre>
-    <h3>Expected result</h3><p><code>Value</code> becomes <code>3</code>. The program returns exit code zero.</p>
-    <h2>Important rules</h2>
+<pre><code>Dim name As Single</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd></dl></section><section id="details"><h2>Details</h2>
     <p><code>Single</code> is a 32-bit approximate binary value with about seven significant decimal digits. Its default is zero. A literal ending in <code>!</code>, such as <code>1!</code> or <code>1.5!</code>, has this type. An unsuffixed real literal has type <code>Double</code>.</p>
     <p>Values must be finite. Rounding is to nearest, ties to even; signed zero and subnormal values are preserved. NaN, infinity and overflow fail. Converting a finite value outside the destination range also fails, even when rounding could bring it back into range. Known invalid constant expressions are compile-time errors; runtime failure preserves an unfinished assignment's destination.</p>
-    <p>The development compiler supports Single literals, arithmetic, comparisons, numeric and text conversions, procedure arguments/results, arrays, records and worker captures. Other numeric families and general VB6 compatibility functions have separate support limits.</p>
-    <h2>See also</h2><p><a href="../d/double.html" data-doc-path="language/words/d/double.html">Double</a>, <a href="../../topics/conversions.html" data-doc-path="language/topics/conversions.html">Conversions</a>, and <a href="../../topics/scalar-values-operators.html" data-doc-path="language/topics/scalar-values-operators.html">Scalar values and operators</a>.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/shared.html" data-doc-path="language/words/s/shared.html">← Previous: Shared</a><a href="../s/source.html" data-doc-path="language/words/s/source.html">Next: SOURCE →</a></nav>
-    <footer class="article-footer">Article ID: language.word.single · UBE 1.0 · Last reviewed 2026-11-27</footer>
-  </main>
-</body>
-</html>
+
+    </section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
+    Dim Value As Single
+    Value = 1.5! * 2!
+    If Value = 3! Then Main = 1
+End Function</code></pre><p>Value becomes 3 and Main returns 1.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../d/dim.html">Dim</a><a href="../i/if.html">If</a><a href="../t/then.html">Then</a><a href="../e/end.html">End</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../s/shared.html" data-doc-path="language/words/s/shared.html">← Previous: Shared</a><a href="../s/source.html" data-doc-path="language/words/s/source.html">Next: SOURCE →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

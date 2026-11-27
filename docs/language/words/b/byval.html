@@ -1,43 +1,20 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.byval">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Passes a value to a procedure without allowing assignment to the parameter to replace the caller's variable.">
-  <title>ByVal — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/b/byval.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/b/index.html">B</a> / ByVal</nav>
-    <h1>ByVal</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Parameter modifier</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.byval" data-doc-path="language/words/b/byval.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ByVal — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/b/byval.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / ByVal</p><section id="overview"><h1>ByVal</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Passes a value to a procedure without allowing assignment to the parameter to replace the caller's variable.</p>
     <h2>Syntax</h2>
-    <pre><code>Sub name(ByVal parameter As type)</code></pre>
-    <h2>Example</h2>
-    <pre><code>Sub ChangeCopy(ByVal Value As Long)
+<pre><code>Sub name(ByVal parameter As type)</code></pre><dl><dt><code>name</code></dt><dd>The procedure name.</dd><dt><code>parameter</code></dt><dd>The parameter name used inside the procedure.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd></dl></section><section id="details"><h2>Details</h2><p>The parameter receives its own value. Assigning to it does not replace the caller’s variable. Copying an object reference preserves shared object identity, so changing that object’s members can still be visible to the caller.</p></section><section id="example"><h2>Example</h2><pre><code>Private Sub ChangeCopy(ByVal Value As Long)
     Value = 9
 End Sub
 
-Sub Main()
+Public Function Main() As Long
     Dim Count As Long
     Count = 4
     ChangeCopy Count
-    Print Count
-End Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>4</p>
-    <h2>Important rules</h2>
-    <p>Assignments to a ByVal parameter affect the procedure's local parameter, not the caller's variable.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/bytecode.html" data-doc-path="language/words/b/bytecode.html">← Previous: Bytecode</a><a href="../c/call.html" data-doc-path="language/words/c/call.html">Next: Call →</a></nav>
-    <footer class="article-footer">Article ID: language.word.byval · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
-
+    Main = Count
+End Function</code></pre><p>Main returns 4. Changing the ByVal parameter did not change Count.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/private.html">Private</a><a href="../s/sub.html">Sub</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../d/dim.html">Dim</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../b/bytecode.html" data-doc-path="language/words/b/bytecode.html">← Previous: Bytecode</a><a href="../c/call.html" data-doc-path="language/words/c/call.html">Next: Call →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

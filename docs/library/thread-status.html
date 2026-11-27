@@ -1,42 +1,23 @@
 <!doctype html>
-<html lang="en" data-article-id="library.thread-status">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fresh-status thread operations - UBE documentation</title>
-  <link rel="stylesheet" href="../assets/css/tokens.css">
-  <link rel="stylesheet" href="../assets/css/base.css">
-  <link rel="stylesheet" href="../assets/css/article.css">
-  <script src="../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../index.html#library/thread-status.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / Fresh-status thread operations</nav>
-    <h1>Fresh-status thread operations</h1>
-    <div class="metadata"><span class="badge status">Unsupported</span><span class="badge">Archived API - unavailable in the restarted compiler</span></div>
-<p class="lede">This page records the archived Try-style thread API. These declarations are unavailable in the restarted compiler and do not define the approved public ThreadWait failure behavior.</p>
-<h2>Declarations</h2><pre><code>Function TryCurrentThreadId(ByRef Id As LongLong) As Boolean
-Function TryThreadIsAlive(ByVal Id As LongLong, ByRef Alive As Boolean) As Boolean
-Function TryThreadRequestStop(ByVal Id As LongLong, ByRef Requested As Boolean) As Boolean
-Function TryThreadStopRequested(ByRef Requested As Boolean) As Boolean
-Function TryThreadWait(ByVal Id As LongLong, ByVal Timeout As LongLong, ByRef Completed As Boolean) As Boolean
-Function TryThreadYield() As Boolean</code></pre>
-<p>These explicit Try contracts return an ordinary Boolean status and may record Err without raising a language failure. This record-only behavior is distinct from Err.Raise/FAIL; it must not be inferred for other APIs merely from a Try prefix. The removed implementation&#39;s historical qualification is not evidence of support in the restarted compiler.</p><h2>Return values and errors</h2><p><code>True</code> means the request was processed and any output is fresh. It preserves incoming <code>Err</code>. <code>False</code> preserves the old output and records a new error occurrence. An earlier error number, including the same number as a later error, is not a success test.</p>
-<p>Identities are positive <code>LongLong</code> program values, never operating-system handles or pointers. Zero and unknown identities fail. A completed issued worker can still be queried: a successful liveness query returns <code>Alive = False</code>; a successful stop request can return <code>Requested = False</code> because the worker already completed.</p>
-<h2>Waiting and ownership</h2><p><code>Timeout</code> is milliseconds from 0 through 4,294,967,295, or <code>-1</code> for indefinite waiting. Self-wait and other values fail. A successful request with <code>Completed = False</code> means timeout or interruption. It does not mean the worker finished. Only <code>True</code> with <code>Completed = True</code> permits completion cleanup and provides visibility of the worker's preceding actions.</p>
-<h2>Example</h2><p>This specified caller fragment assumes <code>WorkerId</code> is an issued worker identity. It has not been executed as a manual example with the fresh compiler.</p><pre><code>Dim Completed As Boolean = False
-If TryThreadWait(WorkerId, -1, Completed) Then
-    If Completed Then
-        ' Worker is finished; its retained inputs may now be released.
+<html lang="en" data-article-id="library.thread-status" data-doc-path="library/thread-status.html" data-doc-root="../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ThreadPrimitives — UBE help</title><link rel="stylesheet" href="../assets/css/help.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../about/contents.html" class="global">Contents</a><a href="../language/words/index.html">Index</a><a href="../index.html#library/thread-status.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / ThreadPrimitives</p><section id="overview"><h1>ThreadPrimitives</h1><div class="metadata"><span class="badge status">Implemented</span></div><p class="lede">Identify native UBE workers, wait for completion and request cooperative stopping.</p></section><section id="details"><h2>Details</h2><h3>ThreadPrimitives declarations</h3><pre><code>Public Intrinsic Function CurrentId() As LongLong
+Public Intrinsic Function IsAlive(ByVal Id As LongLong) As Boolean
+Public Intrinsic Function Wait(ByVal Id As LongLong, ByVal Timeout As LongLong) As Long
+Public Intrinsic Function RequestStop(ByVal Id As LongLong) As Long
+Public Intrinsic Function StopRequested() As Boolean
+Public Sub Yield()</code></pre><h3>Identifiers</h3><p><code>CurrentId()</code> returns the calling UBE thread’s LongLong program identity. Identifiers are not operating-system handles, are not reused during the process, and zero is invalid. <code>IsAlive(Id)</code> reports whether an issued worker is still executing.</p><h3 id="wait">Waiting</h3><p><code>Wait(Id, Timeout)</code> requires an explicit timeout in milliseconds: -1 waits indefinitely and 0 polls. It returns 1 for normal completion or 0 for timeout/caller stop. Other negative timeouts, self-waits and unknown identifiers fail. If the worker ends with an unhandled error, Wait fails in the waiting thread with the same error number instead of returning a value. Normal completion with an earlier Err value is still successful. Observing completion makes the worker’s prior writes visible.</p><h3>Stopping and scheduling</h3><p><code>RequestStop(Id)</code> records a stop request that remains set and returns 1 only while the target is running. The target checks <code>StopRequested()</code> and returns through its normal cleanup. <code>Yield()</code> offers another ready native thread a scheduling opportunity. UBE does not forcibly terminate workers.</p><h3>Scope</h3><p><code>CallNew</code> accepts scalar values, Strings and finite records or arrays. <code>ByVal</code> arguments are copied; <code>ByRef</code> storage remains alive until the worker finishes. The broader <a href="threading.html">synchronization library</a> is not yet implemented.</p></section><section id="example"><h2>Example</h2><pre><code>Private Sub Worker(ByRef Value As Long)
+    Value = 7
+End Sub
+
+Public Function Main() As Long
+    Dim Value As Long
+    Dim Id As LongLong
+    Id = CallNew Worker(Value)
+    If ThreadPrimitives.Wait(Id, -1) = 1 Then
+        Main = Value
+    Else
+        Main = -1
     End If
-Else
-    ' Handle the failed request; keep the worker's state alive.
-End If</code></pre>
-<h2>Thread safety and availability</h2><p>Stop requests are sticky and cooperative. Stop admitting work, request stopping where appropriate, then drain workers before releasing shared inputs. These calls borrow output storage for the call and retain no source or compiler state. Callers synchronize shared mutable outputs.</p>
-<p>The old source implementations and their historical tests are not current compiler evidence. Worker-completion failure behavior for this Try-style surface is not settled by its historical Boolean contract. Use the approved public ThreadWait contract described in the <a href="threading.html" data-doc-path="library/threading.html">specified threading and synchronization library</a>. No native concurrency support is claimed here.</p>
-    <footer class="article-footer">Article ID: library.thread-status - Archived API reference; last reviewed 2026-11-13. Current authority: lang-doc/threading.md.</footer>
-  </main>
-</body>
-</html>
+End Function</code></pre><h3>Expected result</h3><p>The program returns 7 after observing the worker’s normal completion.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="#wait">ThreadPrimitives.Wait</a><a href="../language/words/p/private.html">Private</a><a href="../language/words/s/sub.html">Sub</a><a href="../language/words/b/byref.html">ByRef</a><a href="../language/words/a/as.html">As</a><a href="../language/words/l/long.html">Long</a><a href="../language/words/e/end.html">End</a><a href="../language/words/p/public.html">Public</a><a href="../language/words/f/function.html">Function</a><a href="../language/words/d/dim.html">Dim</a><a href="../language/words/l/longlong.html">LongLong</a><a href="../language/words/c/callnew.html">CallNew</a><a href="../language/words/i/if.html">If</a><a href="../language/words/t/then.html">Then</a><a href="../language/words/e/else.html">Else</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

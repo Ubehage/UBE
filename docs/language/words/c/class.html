@@ -1,38 +1,15 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.class">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Identifies an exported classic VB file header as a class file.">
-  <title>CLASS — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/c/class.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/c/index.html">C</a> / CLASS</nav>
-    <h1>CLASS</h1>
-    <div class="metadata"><span class="badge status">Compatibility only</span><span class="badge">VB file-header word</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
-    <p class="lede">Identifies an exported classic VB file header as a class file.</p>
-    <h2>Syntax</h2>
-    <pre><code>VERSION major.minor CLASS</code></pre>
-    <h2>Example</h2>
-    <pre><code>VERSION 1.0 CLASS
+<html lang="en" data-article-id="language.word.class" data-doc-path="language/words/c/class.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CLASS — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/c/class.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / CLASS</p><section id="overview"><h1>CLASS</h1><div class="metadata"><span class="badge status">Specified</span><span>Source / metadata word</span></div>
 
-Sub ShowKind()
-    Print "Class source"
-End Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>Tooling recognizes the source as an exported class file.</p>
-    <h2>Important rules</h2>
-    <p>CLASS appears only in the optional VERSION header. It does not declare a UBE class by itself.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/chdrive.html" data-doc-path="language/words/c/chdrive.html">← Previous: ChDrive</a><a href="../c/close.html" data-doc-path="language/words/c/close.html">Next: Close →</a></nav>
-    <footer class="article-footer">Article ID: language.word.class · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
 
+
+    <p class="lede">Identifies class source in a native or imported file header.</p>
+    <h2>Syntax</h2><pre><code>UBE SOURCE 1 CLASS
+VERSION major.minor CLASS</code></pre><dl><dt><code>major</code></dt><dd>The major part of the imported source-format version.</dd><dt><code>minor</code></dt><dd>The minor part of that version.</dd></dl>
+    </section><section id="details"><h2>Details</h2><p>CLASS is the native source kind for a .cls file. The VERSION form is imported compatibility metadata. CLASS is contextual in these headers; it is not a standalone class-declaration statement. Class instances, members and interfaces follow their separate specified contracts.</p>
+
+
+  </section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../u/ube.html">UBE</a><a href="../s/source.html">SOURCE</a><a href="../m/module.html">Module</a><a href="../f/form.html">Form</a><a href="../a/attribute.html">Attribute</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/chdrive.html" data-doc-path="language/words/c/chdrive.html">← Previous: ChDrive</a><a href="../c/close.html" data-doc-path="language/words/c/close.html">Next: Close →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

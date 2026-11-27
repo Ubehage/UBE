@@ -1,37 +1,17 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.dim">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Declares one or more variables.">
-  <title>Dim — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/d/dim.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/d/index.html">D</a> / Dim</nav>
-    <h1>Dim</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Variable declaration</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.dim" data-doc-path="language/words/d/dim.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dim — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/d/dim.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Dim</p><section id="overview"><h1>Dim</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
+
+
+
     <p class="lede">Declares one or more variables.</p>
     <h2>Syntax</h2>
-    <pre><code>Dim name [()] As type [= expression]</code></pre>
-    <h2>Example</h2>
-    <pre><code>Sub Main()
+<pre><code>Dim name [(bounds)] As type [= expression] [, otherDeclaration]</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>bounds</code></dt><dd>Comma-separated dimensions, each written [lower To] upper; bounds use LongLong values.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd><dt><code>expression</code></dt><dd>The expression whose value the construct uses.</dd><dt><code>otherDeclaration</code></dt><dd>Another separately typed variable declaration; a type does not carry across a comma.</dd></dl></section><section id="details"><h2>Details</h2><p>Every variable requires an explicit type or a compatible identifier type character. A local variable has the scope of its containing block or procedure under the declaration rules. Scalar initialization first creates neutral storage and then evaluates the initializer; failed initialization preserves that neutral value.</p>
+
+  </section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
     Dim Count As Long
     Count = 3
-    Print Count
-End Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>3</p>
-    <h2>Important rules</h2>
-    <p>UBE requires every variable to have an explicit type or compatible identifier type character. A local Dim variable is scoped to its procedure.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/defvar.html" data-doc-path="language/words/d/defvar.html">← Previous: DefVar</a><a href="../d/do.html" data-doc-path="language/words/d/do.html">Next: Do →</a></nav>
-    <footer class="article-footer">Article ID: language.word.dim · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+    Main = Count
+End Function</code></pre><p>Main returns 3.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/public.html">Public</a><a href="../f/function.html">Function</a><a href="../a/as.html">As</a><a href="../l/long.html">Long</a><a href="../e/end.html">End</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../d/defvar.html" data-doc-path="language/words/d/defvar.html">← Previous: DefVar</a><a href="../d/do.html" data-doc-path="language/words/d/do.html">Next: Do →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

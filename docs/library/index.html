@@ -1,54 +1,5 @@
 <!doctype html>
-<html lang="en" data-article-id="library.overview">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Current UBECore source APIs and specified UBE 1.0 library behavior.">
-  <title>Standard library - UBE documentation</title>
-  <link rel="stylesheet" href="../assets/css/tokens.css">
-  <link rel="stylesheet" href="../assets/css/base.css">
-  <link rel="stylesheet" href="../assets/css/article.css">
-  <script src="../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../index.html#library/index.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">UBE documentation / Standard library</nav>
-    <h1>Standard library</h1>
-    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Fresh UBECore source</span><span class="badge">No released library binary</span></div>
-    <p class="lede">UBECore supplies reusable operations for ordinary UBE programs. Its procedures are declared in library source rather than made part of the language grammar.</p>
-    <p>Current UBECore is the fresh <code>std-lib/</code> project. The previous source library is archived; its APIs and preview results do not establish current availability. Bounded source qualification through bootstrap tools does not mean the fresh compiler can execute your program.</p>
-    <h2>Current source reference</h2>
-    <ul>
-      <li><a href="byte-buffer.html" data-doc-path="library/byte-buffer.html">ByteBuffer</a>: owned bytes, geometric growth and independent snapshots.</li>
-      <li><a href="utf8.html" data-doc-path="library/utf8.html">UTF-8 and Unicode scalars</a>: decoding, validation, letter classification and simple folding.</li>
-      <li><a href="file-paths.html" data-doc-path="library/file-paths.html">Counted-byte files and paths</a>: file input, arguments, explicit close, lexical resolution and identity.</li>
-      <li><a href="thread-status.html" data-doc-path="library/thread-status.html">Fresh-status thread operations</a>: identity, liveness, wait, cooperative stop and yield.</li>
-      <li><a href="foundation-utilities.html" data-doc-path="library/foundation-utilities.html">Scalar and byte-key utilities</a>: current source contracts with separate qualification obligations.</li>
-    </ul>
-    <h2 id="byte-buffer">Owned byte buffers</h2>
-    <p>A zero-initialized ByteBuffer is empty. Append arbitrary bytes, including zero, and publish independent snapshots. Capacity and logical length are separate. The <a href="byte-buffer.html" data-doc-path="library/byte-buffer.html">reference</a> describes failure preservation, alias restrictions and caller synchronization.</p>
-    <h2 id="utf8-decoder">Incremental UTF-8 decoding</h2>
-    <p>Feed one byte at a time and use the fresh Complete flag to distinguish a completed scalar from partial input. Finish detects truncation; Reset starts another stream. See <a href="utf8.html" data-doc-path="library/utf8.html">UTF-8 and Unicode scalars</a>.</p>
-    <h2 id="unicode-scalars">Unicode scalar helpers</h2>
-    <p>Current helpers provide versioned letter classification, simple folding and immutable byte-span decoding. They do not normalize text or replace builtin String. Their declarations and ownership rules are on the <a href="utf8.html" data-doc-path="library/utf8.html">Unicode reference page</a>.</p>
-    <h2 id="file-bytes">Counted file bytes and arguments</h2>
-    <p>File tokens own external resources and must be closed explicitly, including after failed cleanup. Paths and arguments use strict counted UTF-8. See <a href="file-paths.html" data-doc-path="library/file-paths.html">files and paths</a> for fresh status, retries and current Windows limits.</p>
-    <h2>Specified UBE 1.0 support</h2>
-    <p>The full language contract also defines scalar conversions, Variant inspection, automatic managed memory, ordinary thread functions, atomic values, thread events, semaphores and message queues. These references describe specified behavior; they are not a claim that the fresh implementation supplies the full catalog:</p>
-    <ul>
-      <li><a href="../language/topics/conversions.html" data-doc-path="language/topics/conversions.html">Conversions</a></li>
-      <li><a href="variant-inspection.html" data-doc-path="library/variant-inspection.html">Variant inspection</a></li>
-      <li><a href="memory.html" data-doc-path="library/memory.html">Managed memory and CollectGarbage</a></li>
-      <li><a href="threading.html" data-doc-path="library/threading.html">Threading and synchronization</a></li>
-    </ul>
-    <p>UBE's native outputs are intended to contain the program-support code they need without a separately installed UBE runtime or virtual machine. Current source tests do not establish a released compiler or library package.</p>
-    <h2>Resources and errors</h2>
-    <p>Managed memory does not close files, sockets or handles opened by your code. Release them on success, failure and cancellation. A successful operation does not clear an old Err. When an API returns fresh Boolean status, use that result and its documented outputs to decide whether this call succeeded.</p>
-    <h2>Remaining catalog</h2>
-    <p>The full public API and individual API A-Z entries remain incomplete. General strings, conversions, collections, console I/O, dates, mathematics, full synchronization, events, processes and networking need their complete declarations and matching evidence. Undefined names, signatures and release commands are not promised by this overview.</p>
-    <footer class="article-footer">Article ID: library.overview - Last reviewed 2026-11-01. Sources: current std-lib contracts and lang-doc/language-spec.md.</footer>
-  </main>
-</body>
-</html>
+<html lang="en" data-article-id="library.overview" data-doc-path="library/index.html" data-doc-root="../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UBECore standard library — UBE help</title><link rel="stylesheet" href="../assets/css/help.css"><script src="../assets/js/article.js" defer></script><link rel="stylesheet" href="../assets/css/landing.css"></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="../about/contents.html" class="global">Contents</a><a href="../language/words/index.html">Index</a><a href="../index.html#library/index.html" target="_top">Search</a></nav>
+<main id="content" class="article landing-page contents-page"><p class="breadcrumbs">UBE language help / UBECore standard library</p><section id="overview"><h1>UBECore standard library</h1><div class="metadata"><span class="badge status">Partially implemented</span></div><p class="lede">UBECore provides typed text, counted byte storage, file and stream I/O, and worker operations for native UBE programs.</p><div class="card-grid"><a class="card" href="text.html"><strong>Text</strong><span>Strings and UTF-8 conversion.</span></a><a class="card" href="byte-buffer.html"><strong>Byte buffers</strong><span>Resize, copy and append bytes.</span></a><a class="card" href="utf8.html"><strong>UTF-8 codecs</strong><span>Encode or decode one character.</span></a><a class="card" href="file-paths.html"><strong>Files and paths</strong><span>Open, read, write and close files.</span></a><a class="card" href="standard-streams.html"><strong>Standard streams</strong><span>Write to standard output or error.</span></a><a class="card" href="foundation-utilities.html"><strong>Text formatting</strong><span>Append numbers and Boolean text.</span></a><a class="card" href="memory.html"><strong>Managed memory</strong><span>Automatic storage and collection.</span></a><a class="card" href="thread-status.html"><strong>ThreadPrimitives</strong><span>Wait for and stop workers.</span></a></div><aside class="callout"><strong>Using the library</strong><p>Include the required UBECore modules in your project and call their qualified names, such as <code>Text.Length</code>. Check each operation’s result and error rules. Current support is Windows x64.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="threading.html">Specified synchronization APIs</a><a href="variant-inspection.html">Specified Variant inspection</a><a href="../learn/errors.html">Errors and Err</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

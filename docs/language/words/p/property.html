@@ -1,41 +1,21 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.property">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Declares a property accessor in a class.">
-  <title>Property — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/p/property.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/p/index.html">P</a> / Property</nav>
-    <h1>Property</h1>
-    <div class="metadata"><span class="badge status">Specified</span><span class="badge">Procedure word</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div>
-    <p class="lede">Declares a property accessor in a class.</p>
-    <h2>Syntax</h2>
-    <pre><code>Property Get name() As type
-    statements
-End Property</code></pre>
-    <h2>Example</h2>
-    <pre><code>Private StoredValue As Long
+<html lang="en" data-article-id="language.word.property" data-doc-path="language/words/p/property.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Property — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/p/property.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Property</p><section id="overview"><h1>Property</h1><div class="metadata"><span class="badge status">Specified</span><span>Keyword</span></div>
 
-Public Property Get Value() As Long
-    Value = StoredValue
+
+
+    <p class="lede">Declares a property accessor in a class, form or control.</p>
+    <h2>Syntax</h2>
+<pre><code>Property Get name([parameters]) As type
+    statements
 End Property
 
-Sub Main()
-End Sub</code></pre>
-    <h3>Expected result</h3><p>The class exposes a readable Value property.</p>
-    <h2>Important rules</h2>
-    <p>Property must be followed by Get, Let, or Set. Each accessor ends with End Property.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../p/private.html" data-doc-path="language/words/p/private.html">← Previous: Private</a><a href="../p/public.html" data-doc-path="language/words/p/public.html">Next: Public →</a></nav>
-    <footer class="article-footer">Article ID: language.word.property · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
+Property Let name([parameters,] ByVal value As type)
+    statements
+End Property
+
+Property Set name([parameters,] ByVal value As objectType)
+    statements
+End Property</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>parameters</code></dt><dd>Comma-separated parameter declarations, each with its name, explicit type and any passing modifier.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd><dt><code>statements</code></dt><dd>The statements executed in this body.</dd><dt><code>value</code></dt><dd>The value supplied to this operation.</dd><dt><code>objectType</code></dt><dd>The declared object-reference type of the property value.</dd></dl></section><section id="details"><h2>Details</h2><p>Get returns the property value by assignment to the property name. Let accepts a value assignment; Set accepts an object-reference assignment. Accessors of one property agree on visibility, index parameters and value type. The final Let or Set parameter supplies the assigned value and is required ByVal, never Optional or ParamArray. Get-only and write-only properties are permitted. Only Variant properties may supply both Let and Set. Each implemented accessor has its own End Property. Interfaces declare accessor signatures without bodies.</p></section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../g/get.html">Get</a><a href="../l/let.html">Let</a><a href="../s/set.html">Set</a><a href="../d/default.html">Default</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../p/private.html" data-doc-path="language/words/p/private.html">← Previous: Private</a><a href="../p/public.html" data-doc-path="language/words/p/public.html">Next: Public →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

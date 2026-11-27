@@ -1,50 +1,16 @@
 <!doctype html>
-<html lang="en" data-article-id="library.byte-buffer">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ByteBuffer - UBE documentation</title>
-  <link rel="stylesheet" href="../assets/css/tokens.css">
-  <link rel="stylesheet" href="../assets/css/base.css">
-  <link rel="stylesheet" href="../assets/css/article.css">
-  <script src="../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../index.html#library/byte-buffer.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html" data-doc-path="library/index.html">Standard library</a> / ByteBuffer</nav>
-    <h1>ByteBuffer</h1>
-    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Current UBECore source - no released library binary</span></div>
-<p class="lede">Build an owned byte sequence incrementally and take independent snapshots without treating zero bytes as terminators.</p><h2>Availability</h2>
-<p>Current ByteBuffer source operations have bounded functional, allocation-failure, ownership and independent-instance concurrency qualification through both accepted bootstrap stages. They supply owned byte storage and independent snapshots. This is source qualification; a standalone released library binary and fresh-v3 execution of user programs are not yet available.</p>
-<p>A zero-initialized <code>ByteBuffer</code> is empty. Logical length and allocated capacity are different: clearing retains capacity. Its fields are reserved implementation state; use these procedures rather than editing them. Assignment, ByVal and results follow independent value semantics. One caller owns each mutable instance; synchronize shared mutation.</p>
-<pre><code>Function ByteBufferLength(ByRef Buffer As ByteBuffer) As Long
-Function ByteBufferCapacity(ByRef Buffer As ByteBuffer) As Long
-Function TryReserveByteBuffer(ByRef Buffer As ByteBuffer, ByVal MinimumCapacity As Long) As Boolean
-Function TryAppendByte(ByRef Buffer As ByteBuffer, ByVal Value As Byte) As Boolean
-Function TryAppendBytes(ByRef Buffer As ByteBuffer, ByRef Source() As Byte, ByVal SourceStart As Long, ByVal ByteCount As Long) As Boolean
-Function ClearByteBuffer(ByRef Buffer As ByteBuffer) As Boolean
-Function TrySnapshotByteBuffer(ByRef Buffer As ByteBuffer, ByRef Result() As Byte) As Boolean
-Function TryCountUtf8Scalars(ByRef Buffer As ByteBuffer, ByRef ScalarCount As Long) As Boolean</code></pre>
-<p>Append accepts every byte, including zero. Range positions are zero-based payload offsets from Source's first stored byte; an empty range is valid at its end. Source may be the buffer's own storage, including overlap. Reserve grows capacity without changing logical bytes. Clear changes logical length to zero without secure erasure. Length and capacity return -1 for detectable malformed state.</p>
-<p>Snapshot publishes exactly the logical bytes into an independent array; later buffer reuse cannot change it. Result must not alias Buffer's storage holder. UTF-8 counting strictly validates the logical input without normalization or replacement. It returns False with a neutral ScalarCount for malformed or truncated UTF-8. ScalarCount must not alias Buffer fields.</p>
-<p>The API returns a fresh False for invalid state/ranges or failed allocation, preserving existing buffer contents, count and capacity. Snapshot failure also preserves the old Result. Domain rejection and success preserve incoming Err; ordinary allocation failure reports Err 7 after collection/retry. Instrumented tests check these results, actual allocation/copy operations at ten input sizes through 65,536 bytes, and four native caller threads using independent builders with shared immutable input. Shared mutable access still requires synchronization. No procedure retains an input reference or owns an external resource.</p>
-<h2>Example</h2><p>This source-contract example has not been executed as a manual example. It requires the explicitly referenced UBECore modules.</p><pre><code>Public Sub Main()
-    Dim Buffer As ByteBuffer
-    Dim Snapshot() As Byte
-    If TryAppendByte(Buffer, 65) Then
-        If TryAppendByte(Buffer, 0) Then
-            If TrySnapshotByteBuffer(Buffer, Snapshot) Then
-                ' Snapshot contains exactly two bytes: 65 and 0.
-                Call ClearByteBuffer(Buffer)
-                ' Snapshot still contains those same two bytes.
-            End If
-        End If
-    End If
-End Sub</code></pre>
-<p><a href="utf8.html" data-doc-path="library/utf8.html">Decode and validate UTF-8</a> when the logical bytes represent text. ByteBuffer itself permits arbitrary bytes.</p>
-    <footer class="article-footer">Article ID: library.byte-buffer - Last reviewed 2026-11-01. Sources: std-lib/BYTE-BUFFER-CONTRACT.md and BYTE-BUFFER-EVIDENCE.md in the repository.</footer>
-  </main>
-</body>
-</html>
+<html lang="en" data-article-id="library.byte-buffer" data-doc-path="library/byte-buffer.html" data-doc-root="../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Byte buffers — UBE help</title><link rel="stylesheet" href="../assets/css/help.css"><script src="../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../about/contents.html" class="global">Contents</a><a href="../language/words/index.html">Index</a><a href="../index.html#library/byte-buffer.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Byte buffers</p><section id="overview"><h1>Byte buffers</h1><div class="metadata"><span class="badge status">Implemented</span></div><p class="lede">Store bytes in a Byte array and keep a separate count of how many bytes contain your data.</p></section><section id="details"><h2>Details</h2><h3>BufferPrimitives declarations</h3><pre><code>Public Intrinsic Function ByteStorageLength(ByRef Values() As Byte) As Long
+Public Intrinsic Function TryMoveBytes(ByRef Destination() As Byte, ByRef Source() As Byte) As Boolean
+Public Intrinsic Function TryResizeBytes(ByRef Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
+Public Intrinsic Function TryCopyBytes(ByRef Destination() As Byte, ByRef Source() As Byte) As Boolean
+Public Intrinsic Function CopyByteRange(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean</code></pre><h3>ByteBuffers declarations</h3><pre><code>Public Function AppendBytes(ByRef Destination() As Byte, ByRef Used As Long, ByRef Source() As Byte, ByVal SourceStart As Long, ByVal Count As Long) As Long</code></pre><h3>Parameters</h3><p><code>Values</code> is the array to inspect or resize. <code>Source</code> supplies bytes and <code>Destination</code> receives them. <code>SourceStart</code> and <code>DestinationStart</code> are byte offsets; <code>Count</code> is a byte count. <code>Used</code> counts meaningful bytes already in Destination. Set <code>Preserve</code> to True to retain existing values during resizing.</p><h3>Storage operations</h3><p><code>ByteStorageLength</code> returns the element count, including zero for an empty dynamic array. <code>TryResizeBytes</code> requests a zero-based array of Count elements. Preserve retains the intersection of old and new indexes; new cells are zero. <code>TryCopyBytes</code> creates an independent copy with the source bounds. A failed replacement leaves the original destination intact.</p><p><code>TryMoveBytes</code> moves the array to Destination and leaves Source empty on success. Use it only when that transfer is intended; it is not an independent copy.</p><h3 id="append-bytes">Copying and appending</h3><p><code>CopyByteRange</code> uses zero-based offsets from the first stored byte, even when language bounds start elsewhere. It handles overlap and validates the complete span before writing. A zero count allows an offset exactly at the end.</p><p><code>AppendBytes</code> writes Count bytes from SourceStart into Destination at Used, updates Used after success, and returns that count. It does not grow the destination. Reserve enough capacity first.</p><h3>Errors</h3><p>Negative resize counts record Err 5. If UBE cannot allocate enough memory, resizing records Err 7. CopyByteRange returns False with Err 5 for invalid count/arguments or Err 9 for invalid spans. Success preserves Err. These Boolean results do not themselves transfer to a handler. AppendBytes raises Err 5 for a negative Used/Count and Err 9 for insufficient capacity or an invalid used count; a failed copy is raised with its recorded error.</p></section><section id="example"><h2>Example</h2><pre><code>Public Function Main() As Long
+    Dim Bytes(0 To 3) As Byte
+    Dim InputBytes(0 To 1) As Byte
+    Dim Used As Long
+    InputBytes(0) = 65
+    InputBytes(1) = 66
+    Main = ByteBuffers.AppendBytes(Bytes, Used, InputBytes, 0, 2)
+End Function</code></pre><h3>Expected result</h3><p>The program returns 2. Used becomes 2 and the first two destination bytes are 65 and 66.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="#append-bytes">ByteBuffers.AppendBytes</a><a href="../language/words/p/public.html">Public</a><a href="../language/words/f/function.html">Function</a><a href="../language/words/a/as.html">As</a><a href="../language/words/l/long.html">Long</a><a href="../language/words/d/dim.html">Dim</a><a href="../language/words/t/to.html">To</a><a href="../language/words/b/byte.html">Byte</a><a href="../language/words/e/end.html">End</a></div></section><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

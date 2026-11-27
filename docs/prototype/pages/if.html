@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>If…Then…Else — UBE help</title><link rel="stylesheet" href="../assets/help.css"><script src="../assets/article.js" defer></script></head><body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="contents.html" class="global">Contents</a><a href="word-index.html">Index</a></nav><main id="content" class="article"><p class="eyebrow">UBE language help / Overview</p><section id="overview"><h1>If…Then…Else</h1><p class="summary">Runs one group of statements when a condition is true, and another when it is false.</p><h2>Syntax</h2><pre><code><b>If</b> condition <b>Then</b>
+    statements
+[<b>Else</b>
+    alternativeStatements]
+<b>End If</b></code></pre><dl class="parts"><dt>condition</dt><dd>The test that decides which statements to run.</dd><dt>statements</dt><dd>The code to run when the condition is true.</dd><dt>alternativeStatements</dt><dd>The code to run when the condition is false. The <code>Else</code> part is optional.</dd></dl><p>Use <code>If</code> when your program needs to make a decision. For example, choose a ticket price based on a person’s age.</p><p class="availability">Specified behavior · See Details for additional forms.</p><section class="see-also"><h2>See also</h2><div class="related"><a href="else.html">Else</a><a href="then.html">Then</a><a href="notation.html">Syntax notation</a></div></section></section><section id="details"><h2>Details</h2><p class="summary">The first true condition selects the branch to run. The remaining branches are skipped.</p><h3>Testing more than one condition</h3><pre><code><b>If</b> condition <b>Then</b>
+    statements
+[<b>ElseIf</b> anotherCondition <b>Then</b>
+    otherStatements]
+[<b>Else</b>
+    alternativeStatements]
+<b>End If</b></code></pre><p>Use <code>ElseIf</code> for an additional test. You can have several <code>ElseIf</code> branches. They are tested in order until one is true.</p><p>If every condition is false, the <code>Else</code> branch runs. Without an <code>Else</code> branch, execution continues after <code>End If</code>.</p><h3>Block and single-line forms</h3><p>A newline immediately after <code>Then</code> starts the block form. Finish that form with <code>End If</code>.</p><pre><code><b>If</b> condition <b>Then</b> statement [<b>Else</b> alternativeStatement]</code></pre><p>The single-line form puts the decision and its statements on one line. It does not use a closing <code>End If</code>.</p><h3>Common mistakes</h3><ul><li>Place <code>Else</code> after all <code>ElseIf</code> branches. An <code>If</code> block has at most one <code>Else</code>.</li><li>Close each nested block with its own <code>End If</code>. Indentation helps show which statements belong together.</li></ul><p class="availability">Specified behavior · This preview does not qualify compiler support.</p></section><section id="example"><h2>Example</h2><p class="summary">Calculate a ticket price. Children under 16 pay 10; everyone else pays 20.</p>
+<button id="copy-example" class="copy-code" type="button" aria-live="polite">Copy code</button>
+<h3>Program</h3><pre><code id="example-source">Public Function Main() As Long
+    Dim Age As Long
+    Dim Price As Long
+    Age = 12
+
+    ' Children under 16 pay 10. Everyone else pays 20.
+    If Age &lt; 16 Then
+        Price = 10
+    Else
+        Price = 20
+    End If
+
+    Main = Price
+End Function
+</code></pre>
+<h3>Result</h3><p>The program returns <code>10</code>.</p>
+<p><code>Age &lt; 16</code> is true when Age is 12, so the first branch sets Price to 10. Assigning Price to Main returns it as the program's exit code.</p>
+<h3>Try changing it</h3><p>Change <code>Age = 12</code> to <code>Age = 30</code>. The program returns <code>20</code>. At exactly 16, the price is also 20.</p>
+
+<section class="see-also"><h3>See also</h3><div class="related"><a href="public.html">Public</a><a href="function.html">Function</a><a href="dim.html">Dim</a><a href="as.html">As</a><a href="long.html">Long</a><a href="if.html">If</a><a href="then.html">Then</a><a href="else.html">Else</a><a href="end.html">End</a></div></section></section><footer class="footer">Design preview · UBE language reference</footer></main></body></html>

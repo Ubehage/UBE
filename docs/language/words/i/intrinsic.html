@@ -1,51 +1,15 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.intrinsic">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Declares a compiler-supplied operation without a UBE procedure body."><title>Intrinsic — UBE documentation</title><link rel="stylesheet" href="../../../assets/css/tokens.css"><link rel="stylesheet" href="../../../assets/css/base.css"><link rel="stylesheet" href="../../../assets/css/article.css"><script src="../../../assets/js/article.js" defer></script></head>
-<body><a class="skip-link" href="#content">Skip to article</a><header class="standalone-header"><a href="../../../index.html#language/words/i/intrinsic.html">UBE documentation</a></header><main id="content" class="article">
-<nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/i/index.html">I</a> / Intrinsic</nav><h1>Intrinsic</h1><div class="metadata"><span class="badge status">Specified</span><span class="badge">Procedure modifier</span><span class="badge">Reserved word</span><span class="badge">UBE 1.0</span></div><p class="lede">Declares a compiler-supplied operation without a UBE procedure body.</p>
+<html lang="en" data-article-id="language.word.intrinsic" data-doc-path="language/words/i/intrinsic.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Intrinsic — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/i/intrinsic.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Intrinsic</p><section id="overview"><h1>Intrinsic</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Keyword</span></div>
+<p class="lede">Declares a compiler-supplied operation without a UBE procedure body.</p>
 <h2>Syntax</h2><pre><code>[visibility] Intrinsic Function name(parameters) As type
-End Function</code></pre><h2>Example</h2><pre><code>Public Intrinsic Function StringLength(ByRef Value As String) As LongLong
-End Function</code></pre><h3>Expected result</h3><p>The declaration names an operation that must be supported for the selected target.</p><h2>Important rules</h2><p>An intrinsic declaration has no UBE body. Missing target support is a compile-time error.</p>
-<h2>Native value operations</h2>
-<p>Explicit attributes bind representation operations without relying on the procedure's spelling. Pack takes exactly one ByVal storage value and returns the native value. Unpack takes exactly one ByVal native value and returns its storage type. The following complete native-source example prints <code>255</code>.</p>
-<pre><code id="native-value-example">UBE SOURCE 1 MODULE
-Attribute UBE_Name = "NativeValues"
-
-Type Octet As Byte
-End Type
-
-Intrinsic Function PackOctet(ByVal Storage As Byte) As Octet
-Attribute PackOctet.UBE_Primitive = "Value.Pack"
+End Function</code></pre><dl><dt><code>visibility</code></dt><dd>Public, Private or Friend, controlling access to the declaration.</dd><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>parameters</code></dt><dd>Comma-separated parameter declarations, each with its name, explicit type and any passing modifier.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd></dl></section><section id="details"><h2>Details</h2><p>An Intrinsic declaration has no UBE body. An explicit UBE_Primitive attribute binds a supported operation by exact declaration and signature; the procedure’s spelling alone never enables it. Unsupported roles, signatures and targets are compile-time errors. Ordinary algorithms belong in UBECore. Use only a documented binding with its exact parameter and result types.</p></section><section id="example"><h2>Example</h2><pre><code>Private Intrinsic Function StorageLength(ByRef Values() As Byte) As Long
+Attribute StorageLength.UBE_Primitive = "Array.Length"
 End Function
 
-Intrinsic Function UnpackOctet(ByVal Value As Octet) As Byte
-Attribute UnpackOctet.UBE_Primitive = "Value.Unpack"
-End Function
-
-Sub Main()
-    Dim Value As Octet = PackOctet(255)
-    Print UnpackOctet(Value)
-End Sub</code></pre>
-<p>The mechanism is tested in source-built v2 using its documented bare-module Bootstrap Profile. The full native header above is the specified source envelope; v2's test input omits those first two header lines. No UBECore API named Octet is published by this example.</p>
-<p>Role and attribute names match without regard to case. Incorrect signatures, targets, conflicting bindings and unsupported representations are compile-time errors. Pack/unpack preserve Err; checked argument conversions follow the ordinary FAIL/Err rules and abandon the failed statement or enter its enabled handler. Neither operation gives raw address access or allocates a heap box.</p>
-<h2>Array storage operations</h2>
-<p>The current source-built v2 bootstrap also tests explicit storage roles for ordinary arrays and records containing arrays. Each declaration has an attribute naming its role, followed by End Function. Procedure names are your choice; a matching name alone never enables an operation. These bindings use one-dimensional arrays and signed Long counts and positions. Value.Pack and Value.Unpack still support only the qualified scalar representations.</p>
-<table><thead><tr><th>Role string</th><th>Required declaration, shown for Byte storage</th></tr></thead><tbody>
-<tr><td><code>Array.Length</code></td><td><code>Function StorageLength(ByRef Values() As Byte) As Long</code></td></tr>
-<tr><td><code>Array.TryResize</code></td><td><code>Function TryResizeStorage(ByRef Values() As Byte, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean</code></td></tr>
-<tr><td><code>Memory.Collect</code></td><td><code>Function CollectStorage() As Long</code></td></tr>
-<tr><td><code>Array.TryCopy</code></td><td><code>Function TryCopyStorage(ByRef Destination() As Byte, ByRef Source() As Byte) As Boolean</code></td></tr>
-<tr><td><code>Memory.CopyBytes</code></td><td><code>Function TryCopyRange(ByRef Source() As Byte, ByVal SourceStart As Long, ByRef Destination() As Byte, ByVal DestinationStart As Long, ByVal Count As Long) As Boolean</code></td></tr>
-</tbody></table>
-<p>Prefix each header with Intrinsic. For example, StorageLength uses <code>Attribute StorageLength.UBE_Primitive = "Array.Length"</code>. Length, resize and whole-array copy can use another supported concrete element type; both copy parameters must have exactly the same element type. CopyBytes always uses Byte arrays. The declaration, attribute and terminator stay in the same source module. Incorrect signatures or passing modes diagnose before code generation.</p>
-<p>Length is zero for a default array. Resize uses a zero-based element count; Preserve retains values at indices present in both old and new bounds, and new elements are zero. For an already zero-based source this retains its existing prefix. Resize and whole-array copy return a fresh Boolean, preserve the old destination on allocation failure, and report Err 7 after collection and one unsuccessful retry. Success preserves an earlier Err. Use the returned status for each operation.</p>
-<p>CopyBytes uses zero-based payload offsets regardless of the array's language lower bound. It validates the entire range, handles overlap from the original input, and allocates nothing. A zero count is valid at the end of an array. Invalid arguments or ranges return False without changing the destination and report Err 5 or 9. Collect requests synchronous collection and returns the cleanup-work status described in <a href="../../../library/memory.html" data-doc-path="library/memory.html">Managed memory</a>.</p>
-<h2>Counted host file I/O</h2>
-<p>The bounded Try storage and file bindings explicitly return fresh Boolean status and may record Err without raising. Their record-only status contract is distinct from Err.Raise and the normal language FAIL path; ordinary checked conversion at a call boundary can still fail.</p>
-<p>The current counted-file increment passed its bounded Windows native gate: 56 cases including O0/O2 execution and injected failures. It validates File.TryOpen, File.TryCreateNew, File.TryRead, File.TryWrite, File.TryFlush, File.TryClose and Error.Set through the same explicit attribute mechanism. Procedure spelling alone gives no authority. Process.TryArgument and native concurrency qualification are outside this increment.</p>
-<pre><code>Public Intrinsic Function TryCreateByteFile(ByRef PathUtf8() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
-Attribute TryCreateByteFile.UBE_Primitive = "File.TryCreateNew"
-End Function</code></pre>
-<p>This approved declaration requires Token zero and a counted strict UTF-8 path. It creates a new writable regular file exclusively; an existing path fails without truncation or modification. File.TryOpen returns a read-only owner. Tokens must be closed explicitly, and a failed close retains ownership for retry. Success sets Failure zero and preserves Err. File contents are uninterpreted bytes, with no automatic newline or encoding conversion. See <a href="../../../library/file-paths.html" data-doc-path="library/file-paths.html">Counted-byte files and paths</a> for exact signatures, bounds, partial progress and cleanup rules. This snippet illustrates the qualified binding form; it is not a separately executed program.</p>
-<p>These tests establish a bounded bootstrap surface, not full builtin String, object, managed opaque-type or foreign-ABI support. A failed operation does not automatically abort later user statements. For ordinary owned storage and byte-file declarations, see the <a href="../../../library/index.html" data-doc-path="library/index.html">UBECore source APIs</a>.</p>
-<nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="intptr.html" data-doc-path="language/words/i/intptr.html">← Previous: IntPtr</a><a href="is.html" data-doc-path="language/words/i/is.html">Next: Is →</a></nav><footer class="article-footer">Article ID: language.word.intrinsic · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer></main></body></html>
+Public Function Main() As Long
+    Dim Values(0 To 2) As Byte
+    Main = StorageLength(Values)
+End Function</code></pre><p>Main returns 3. The explicit Array.Length binding supplies the operation.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../p/private.html">Private</a><a href="../f/function.html">Function</a><a href="../b/byref.html">ByRef</a><a href="../a/as.html">As</a><a href="../b/byte.html">Byte</a><a href="../l/long.html">Long</a><a href="../a/attribute.html">Attribute</a><a href="../e/end.html">End</a><a href="../p/public.html">Public</a><a href="../d/dim.html">Dim</a><a href="../t/to.html">To</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="intptr.html" data-doc-path="language/words/i/intptr.html">← Previous: IntPtr</a><a href="is.html" data-doc-path="language/words/i/is.html">Next: Is →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

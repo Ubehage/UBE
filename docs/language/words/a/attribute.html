@@ -1,41 +1,14 @@
 <!doctype html>
-<html lang="en" data-article-id="language.word.attribute">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Carries source metadata and explicit native value compiler bindings.">
-  <title>Attribute — UBE documentation</title>
-  <link rel="stylesheet" href="../../../assets/css/tokens.css">
-  <link rel="stylesheet" href="../../../assets/css/base.css">
-  <link rel="stylesheet" href="../../../assets/css/article.css">
-  <script src="../../../assets/js/article.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#content">Skip to article</a>
-  <header class="standalone-header"><a href="../../../index.html#language/words/a/attribute.html">UBE documentation</a></header>
-  <main id="content" class="article">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">Language reference / <a href="index.html" data-doc-path="language/words/a/index.html">A</a> / Attribute</nav>
-    <h1>Attribute</h1>
-    <div class="metadata"><span class="badge status">Partially implemented</span><span class="badge">Declaration metadata</span><span class="badge">Contextual word</span><span class="badge">UBE 1.0</span></div>
+<html lang="en" data-article-id="language.word.attribute" data-doc-path="language/words/a/attribute.html" data-doc-root="../../../">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Attribute — UBE help</title><link rel="stylesheet" href="../../../assets/css/help.css"><script src="../../../assets/js/article.js" defer></script></head>
+<body><a class="skip-link" href="#content">Skip to content</a><nav class="page-nav" aria-label="Help navigation"><a href="#overview" aria-current="location">Overview</a><a href="#details">Details</a><a href="#example">Example</a><a href="../../../about/contents.html" class="global">Contents</a><a href="../../../language/words/index.html">Index</a><a href="../../../index.html#language/words/a/attribute.html" target="_top">Search</a></nav>
+<main id="content" class="article"><p class="breadcrumbs">UBE language help / Attribute</p><section id="overview"><h1>Attribute</h1><div class="metadata"><span class="badge status">Partially implemented</span><span>Source / metadata word</span></div>
+
+
+
     <p class="lede">Carries source metadata, including explicit compiler bindings for native value operations.</p>
     <h2>Syntax</h2>
-    <pre><code>Attribute qualifiedName = value [, value]</code></pre>
-    <h2>Example</h2>
-    <pre><code>Attribute VB_Name = "Example"
+<pre><code>Attribute UBE_Name = "ModuleName"
+Attribute qualifiedName = value [, value]</code></pre><dl><dt><code>qualifiedName</code></dt><dd>The member or metadata name, including its owning module or type when required.</dd><dt><code>value</code></dt><dd>The value supplied to this operation.</dd></dl></section><section id="details"><h2>Details</h2><p>Attribute lines carry metadata. Native source uses Attribute UBE_Name. Unknown VB compatibility attributes are retained for tooling; unknown reserved UBE_ attributes are diagnosed. An intrinsic binding attribute must identify its enclosing declaration and a supported role with the required signature.</p>
 
-Sub Main()
-    Print "Hello"
-End Sub</code></pre>
-    <h3>Expected result</h3>
-    <p>Hello</p>
-    <h2>Important rules</h2>
-    <p>Attribute lines are module metadata, not executable statements. Unknown attributes are retained by tooling; names beginning VB_ are compatibility metadata.</p>
-    <h2>Native value bindings</h2>
-    <p>On an <code>Intrinsic Function</code>, <code>Attribute ProcedureName.UBE_Primitive = "Value.Pack"</code> or <code>"Value.Unpack"</code> binds a native value to its declared representation. Names and role identifiers match without regard to case. The target and exact signature are checked. Other designer attributes remain inert; they cannot turn an ordinary procedure into an intrinsic.</p>
-    <p>This form is tested in the current v2 Bootstrap Profile for Byte, Integer and Long representations. See <a href="../i/intrinsic.html" data-doc-path="language/words/i/intrinsic.html">Intrinsic</a> for a complete example.</p>
-    <nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/atomicobject.html" data-doc-path="language/words/a/atomicobject.html">← Previous: AtomicObject</a><a href="../b/base.html" data-doc-path="language/words/b/base.html">Next: Base →</a></nav>
-    <footer class="article-footer">Article ID: language.word.attribute · Status verified against UBE 1.0 · Last reviewed 2026-10-15</footer>
-  </main>
-</body>
-</html>
-
+  </section><section id="example"><h2>Example</h2><p>This is source metadata rather than executable example code. The native header is shown under Syntax.</p></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../u/ube.html">UBE</a><a href="../s/source.html">SOURCE</a><a href="../m/module.html">Module</a><a href="../c/class.html">CLASS</a><a href="../f/form.html">Form</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../a/atomicobject.html" data-doc-path="language/words/a/atomicobject.html">← Previous: AtomicObject</a><a href="../b/base.html" data-doc-path="language/words/b/base.html">Next: Base →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>
