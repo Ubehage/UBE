@@ -81,3 +81,15 @@ Both normalized files have SHA256
 `A86BCD238FEBA41C7F6249CFAF9084C9C7C1E11F45976B6E5978E3762FABFBD1`.
 The raw native hashes and reuse qualification are in
 `C:\Users\Ubehage\AppData\Local\Temp\ube compiler rebuild 88b30588-00d5-4f3c-b649-ffdd273efda0\report.txt`.
+
+## Checked-in compiler project
+
+The root `Compiler.UBE` now owns the ordered compiler source list. Packaging
+reads it and retains the existing flattened Library/Exe fixture support.
+Add `-RepositoryProject` to `rebuild-check.ps1` to compile that checked-in
+manifest directly in both generations. This mode requires Optimization 2,
+matching the manifest; no project settings are silently overridden. Each build
+retains its actual input path, arguments and project hash in `build-input.json`
+and checks that repository project/source hashes remain unchanged.
+`package-check.ps1` compares all root source identities and order against the
+package, in addition to its existing byte/hash and failure-preservation checks.

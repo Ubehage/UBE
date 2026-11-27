@@ -11,6 +11,11 @@ and shared-state rules are in the development plan's concurrency requirement.
 
 ## Bootstrap and self-hosting
 
+- [x] Provide the checked-in root `Compiler.UBE` as the authoritative ordered
+  source project. Direct repository builds and successive self-build comparisons
+  pass; packaging preserves the manifest source list. Commands and evidence
+  are in [Progress.md](Progress.md); build instructions are in [README.md](README.md).
+
 - [x] Prove the owner-selected VB6 bootstrap path using the gate in
   [Progress.md](Progress.md).
 - [~] Define compiler/UBECore ownership and inventory VB6 runtime names before

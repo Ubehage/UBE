@@ -1,5 +1,40 @@
 # Compiler development handoff
 
+## Completed: checked-in compiler project — 2026-11-27
+
+Owner request: make the compiler an actual UBE project and confirm it compiles.
+Root [Compiler.UBE](../Compiler.UBE) owns all 65 ordered inputs. Its root location
+keeps compiler and standard-library sources within the existing manifest tree
+contract. Packaging reads this list; its Library/Exe fixture modes remain.
+`-RepositoryProject` selects direct checked-in input in build/rebuild scripts,
+requires the declared Optimization 2, records the actual invocation/project hash,
+and checks project/source hashes before and after the build.
+
+All commands below use `rtk proxy powershell -NoProfile -File`.
+
+- `bootstrap/tests/self-hosting/package-check.ps1`: PASS 483 assertions, including
+  root-to-package ordered source identity, byte/hash parity and refusal controls.
+  Evidence: `%TEMP%/ube self-host sources 186c7207-6bd2-42f2-acea-92b9b95a8f2c`.
+- `bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube compiler rebuild 97b47838-ae5e-43b6-94dd-45ef39c127d2/generation-2/UBE.exe" -RepositoryProject`:
+  PASS, both generations built directly from root Compiler.UBE in 37010/36718 ms.
+  Sources/assets match current repository; emitted LLVM is byte-identical; native
+  differences are restricted to COFF timestamp at offset 128. Evidence:
+  `%TEMP%/ube compiler rebuild b9d3c241-23a1-46db-8784-8f7377ac18d3`.
+  Both build-input.json records identify the root manifest, SHA256
+  `DF6A9FD2736F72ED756AE108EF5F286DC646C7BDDFA599FA1F32F88C44AEB566`.
+  Final executable SHA256:
+  `6409E61F444993625237C6A7A12AB50DA1B86A32CBB07CE73E8D769206CC58A1`.
+
+- `bootstrap/tests/self-hosting/check.ps1 -CompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube compiler rebuild b9d3c241-23a1-46db-8784-8f7377ac18d3/generation-2/UBE.exe" -BootstrapExe "C:/Users/Ubehage/AppData/Local/Temp/ube escape capacity e0874b0b-5f73-44cd-8072-0af838a0162f/seed/UBE-Bootstrap.exe" -CompilerOnly`:
+  PASS 518 CLI assertions, including source execution, diagnostics, failed-build
+  output preservation and recovery. Earlier seed acceptance is explicitly reused.
+  Evidence: `%TEMP%/ube compiler conformance 917f8223-298f-43b6-b999-dabd76c44860`.
+
+This owner-requested build gap is complete. Resume the existing complete-language
+roadmap when the next increment is selected. Compiler source/language semantics are
+unchanged. Build instructions and initial-compiler/LLVM prerequisites are in
+[README.md](README.md); no compiler binary is bundled in the repository.
+
 ## Completed: class instance members — 2026-11-27
 
 Ordinary instance fields, Sub/Function methods and Me are qualified on compiler

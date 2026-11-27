@@ -1,40 +1,48 @@
-# UBE compiler projects
+# UBE compiler
 
-The VB6 bootstrap in [../bootstrap](../bootstrap/README.md) now compiles the
-admitted scalar language into native Windows x64 programs. This directory
-holds the final UBE-written compiler's contracts, development plan and its
-scanner, token helpers and [module parser](src/SourceParser.bas). They retain
-UTF-8 source positions and independent syntax trees, including for their own
-source files. The [parser gate](../bootstrap/tests/module-parsing/README.md)
-records the bounded admission and native checks. The UBE-written
-[declaration binder](src/DeclarationBinder.bas) now resolves scoped declarations,
-declared types and signatures over ordered [project storage](src/ProjectSyntax.bas).
-Its [acceptance gate](../bootstrap/tests/declaration-binding/README.md) covers
-actual compiler modules, invalid references and independent results.
-The [expression binder](src/ExpressionBinder.bas) now checks references, calls,
-assignments and exact [typed constants](src/ConstantValues.bas), including actual
-compiler/library bodies. Its [native gate](../bootstrap/tests/expression-binding/README.md)
-records both optimization levels and controlled failure cases.
-[PrimitiveRoles](src/PrimitiveRoles.bas) validates the exact declarations that
-may invoke core operations; [AggregateLayout](src/AggregateLayout.bas) computes
-bounded record and array storage facts. Their separate
-[contract](../bootstrap/SEMANTIC-STORAGE.md) and
-[native gate](../bootstrap/tests/semantic-storage/README.md) preserve the
-authority/layout boundary.
+The native Windows x64 compiler is written in UBE. Its checked-in project is
+[Compiler.UBE](../Compiler.UBE), at the repository root so its compiler and
+standard-library sources remain within the project tree. That manifest owns
+the ordered source list; build packages read it rather than maintain another list.
 
-The UBE-written [native lowering implementation](src/NativeLowering.bas) now
-connects these passes to LLVM output. Its [contract](../bootstrap/UBE-LOWERING.md)
-describes private planning, ordered expression/control emission, invocation-local
-frames, primitive wrappers and streamed output. The implementation generates
-project-specific IR from current source facts and uses reviewed
-[LLVM text assets](llvm/README.md) for fixed target support and formatting.
-The [whole-program and failure gates](../bootstrap/tests/native-lowering/README.md)
-pass at O0/O2, including native code generation for the compiler/library source,
-deterministic output, exact negative controls and 160 injected-failure cases.
-Rebuilding the compiler through its own executable remains a separate step.
+## Build
 
-The final compiler will be written in UBE and use LLVM to produce native
-64-bit programs. The owner selected VB6 as the bootstrap host if feasible.
+From the repository root, with an existing qualified UBE compiler and LLVM:
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tools/build-compiler.ps1 -CompilerExe C:\path\to\UBE.exe -Destination C:\path\to\new-build -RepositoryProject
+```
+
+The destination must not already exist. This command compiles the checked-in
+`Compiler.UBE` directly, at its declared Optimization 2, and places `UBE.exe`,
+its LLVM assets and managed support in the destination. The input compiler
+must already have its own `llvm` and `support` directories. LLVM defaults to
+`C:\Program Files\LLVM\bin\clang.exe`; use `-Clang` for another installation.
+
+The underlying compiler invocation is:
+
+```powershell
+& C:\path\to\UBE.exe --build .\Compiler.UBE C:\path\to\output\UBE.exe --clang "C:\Program Files\LLVM\bin\clang.exe"
+```
+
+Use the build script when you need the output compiler packaged with its support
+assets. It retains build logs, the actual invocation and project hash in
+`build-input.json`, plus a source snapshot and hash ledger; it checks that project
+and source inputs did not change during compilation. Existing test fixtures
+can still request flattened packages without `-RepositoryProject`.
+
+A fresh checkout still needs an initial compiler: see the
+[VB6 bootstrap](../bootstrap/README.md). No prebuilt compiler is bundled here.
+
+## Verify self-building
+
+```powershell
+rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe C:\path\to\UBE.exe -RepositoryProject
+```
+
+This builds the repository project twice, the second time with the first output,
+then compares source/assets, emitted LLVM and native images (allowing only the
+PE build timestamp). Full compiler conformance is a separate test gate.
 
 See [Roadmap.md](Roadmap.md) for the development sequence and
 [Progress.md](Progress.md) for the current handoff and bootstrap evidence.

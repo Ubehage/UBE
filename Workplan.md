@@ -39,6 +39,11 @@ bootstrap may remain sequential. The concrete architecture requirement is in
 
 ### Next compiler increment
 
+- [x] Make the compiler a checked-in UBE project and qualify direct compilation,
+  as requested by the owner. Root Compiler.UBE owns the source list; packaging
+  reads it. Two direct self-builds, 483 packaging assertions and 518 conformance
+  assertions pass. Exact commands and evidence are in compiler/Progress.md.
+
 - [x] Extend existing class references with ordinary instance fields and
   Sub/Function methods, including Me, under the complete-language roadmap.
   Preserve per-instance storage, exact managed roots, visibility and FAIL

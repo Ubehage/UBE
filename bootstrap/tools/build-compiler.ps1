@@ -2,6 +2,7 @@
 param(
  [Parameter(Mandatory=$true)][string]$CompilerExe,
  [Parameter(Mandatory=$true)][string]$Destination,
+ [switch]$RepositoryProject,
  [string]$Clang = 'C:\Program Files\LLVM\bin\clang.exe',
  [ValidateSet('0','2')][string]$Optimization = '2',
  [ValidateRange(1000,600000)][int]$TimeoutMilliseconds = 180000
@@ -16,6 +17,9 @@ if(-not [IO.File]::Exists($CompilerExe)){throw "Source compiler is missing: $Com
 & (Join-Path $PSScriptRoot 'llvm-templates.ps1')
 & (Join-Path $PSScriptRoot 'native-imports.ps1')
 & (Join-Path $root 'runtime/managed-source-identities.ps1')
+if ($RepositoryProject -and $Optimization -ne '2') { throw 'Repository Compiler.UBE uses Optimization 2' }
+$project=Join-Path $root 'Compiler.UBE'
+$projectHash=(Get-FileHash -LiteralPath $project -Algorithm SHA256).Hash
 $package=& (Join-Path $PSScriptRoot 'self-host-sources.ps1') -Destination $Destination -Kind Exe -Optimization $Optimization
 $assets=Join-Path $package.Destination 'llvm'
 $null=New-Item -ItemType Directory -Path $assets
@@ -33,7 +37,10 @@ function Quote-Argument([string]$Value){
  $escaped=[regex]::Replace($escaped,'(\\+)$','$1$1')
  return '"'+$escaped+'"'
 }
-$arguments=@('--build',$package.Manifest,$executable,'--clang',$Clang)
+$buildManifest=$package.Manifest
+if ($RepositoryProject) { $buildManifest=$project }
+$arguments=@('--build',$buildManifest,$executable,'--clang',$Clang)
+[IO.File]::WriteAllText((Join-Path $package.Destination 'build-input.json'), ([pscustomobject]@{ Manifest=$buildManifest; RepositoryProjectSHA256=$projectHash; Arguments=$arguments } | ConvertTo-Json), $encoding)
 $timer=[Diagnostics.Stopwatch]::StartNew()
 $process=Start-Process -FilePath $CompilerExe -ArgumentList (($arguments|ForEach-Object{Quote-Argument $_}) -join ' ') -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
 try{
@@ -47,6 +54,10 @@ try{
   throw "Compiler build failed (exit $($process.ExitCode)); evidence: $($package.Destination)`n$errors"
  }
 }finally{$timer.Stop();$process.Dispose()}
+if ((Get-FileHash -LiteralPath $project -Algorithm SHA256).Hash -cne $projectHash) { throw 'Compiler project changed during build' }
+foreach ($source in $package.Sources) {
+ if ((Get-FileHash -LiteralPath $source.OriginalPath -Algorithm SHA256).Hash -cne $source.SHA256) { throw 'Compiler source changed during build' }
+}
 $bytes=[IO.File]::ReadAllBytes($executable)
 if($bytes.Length -lt 90 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90){throw 'Compiler output has no bounded DOS header'}
 $offset=[BitConverter]::ToInt32($bytes,60)
@@ -55,4 +66,4 @@ if([BitConverter]::ToUInt32($bytes,$offset) -ne 17744 -or [BitConverter]::ToUInt
 Write-Output "BUILD: $executable"
 Write-Output "Compiler process elapsed milliseconds: $($timer.ElapsedMilliseconds)"
 Write-Output 'This build alone does not establish self-hosting or compiler conformance.'
-[pscustomobject]@{Executable=$executable;Manifest=$package.Manifest;SourceLedger=(Join-Path $package.Destination 'sources.sha256');SHA256=(Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash}
+[pscustomobject]@{Executable=$executable;Manifest=$buildManifest;SourceLedger=(Join-Path $package.Destination 'sources.sha256');SHA256=(Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash}

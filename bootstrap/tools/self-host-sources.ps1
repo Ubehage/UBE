@@ -34,13 +34,27 @@ function Write-NewBytes([string]$Path, [byte[]]$Bytes) {
 }
 
 Assert-PlainAncestors $target
-$core = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives','ThreadPrimitives')
-$windows = @('WindowsArguments','WindowsPaths','WindowsImages')
-$compiler = @('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ExpressionBinder','AggregateLayout','PrimitiveRoles','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEscapes','NativePlanning','NativeEmission','NativeValues','NativeThreads','NativeOwnership','NativeStorage','NativeExpressions','NativeContext','NativeIntrinsics','NativeFrames','NativeControl','NativeLowering','ProjectManifest','ProjectLoader','CommandOptions','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages','NativeCompilation','CompilationRequest','CompilerCommand')
-$compiler += @('ManagedSupport','ManagedSourceAssets','ManagedLayouts','NativeManagedLayout','NativeText','NativeObjects')
-$paths = @($core | ForEach-Object { Join-Path $root ('std-lib/src/portable/' + $_ + '.bas') })
-$paths += @($windows | ForEach-Object { Join-Path $root ('std-lib/src/win-lib/' + $_ + '.bas') })
-$paths += @($compiler | ForEach-Object { Join-Path $root ('compiler/src/' + $_ + '.bas') })
+# The checked-in project owns source identity and order; packages only relocate it.
+$project = Join-Path $root 'Compiler.UBE'
+$paths = @()
+$projectSettings = @('UBE-Project 1','Name = "Compiler"','Kind = "Exe"','Optimization = "2"','Startup = "Main"')
+$settingIndex = 0
+foreach ($line in [IO.File]::ReadAllLines($project, $encoding)) {
+    if ($line -match '^Source = "([^"\r\n]+)"$') {
+        if ($settingIndex -ne $projectSettings.Count) { throw 'Compiler project sources must follow settings' }
+        $relative = $Matches[1]
+        if ([IO.Path]::IsPathRooted($relative)) { throw 'Compiler project source must be relative' }
+        $absolute = [IO.Path]::GetFullPath((Join-Path $root $relative))
+        if (-not $absolute.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Compiler project source escapes repository' }
+        $paths += $absolute
+    } elseif ($settingIndex -lt $projectSettings.Count -and $line -ceq $projectSettings[$settingIndex]) {
+        $settingIndex++
+    } elseif ($line.Trim().Length -ne 0 -and -not $line.TrimStart().StartsWith("'")) {
+        throw 'Unsupported compiler project entry'
+    }
+}
+if ($settingIndex -ne $projectSettings.Count) { throw 'Compiler project settings are incomplete' }
+if ($paths.Count -eq 0) { throw 'Compiler project has no sources' }
 foreach ($source in $AdditionalSources) {
     if ([string]::IsNullOrWhiteSpace($source)) { throw 'Additional source path is empty' }
     if ([IO.Path]::IsPathRooted($source)) { $paths += $source }
