@@ -20,6 +20,11 @@ Coders spend hours and hours coding in UBE, and a crash loses their work. A malf
 - **Non-test code never panics.**
 - **Prove it.** Every crash fix comes with a small synthetic regression test that panicked before the fix.
 
+## Keep the root clean and stay within your folder
+Agents must never add temporary files, scripts, or similar task artifacts to the repository root. The root must remain the root, nothing more.
+
+All agents working on a task must remain within their assigned folder unless instructions explicitly say otherwise or working outside that folder is necessary to comply with established contracts. These exceptions do not permit temporary artifacts in the repository root.
+
 ## Follow the approved plan and final architecture.
 Before changing code, identify the active roadmap or workplan item being implemented. Keep the change within that item and its stated dependencies. Do not invent new phases, stage labels, compiler generations, subsystems, or architectural boundaries unless they are already part of the documented plan or the owner explicitly approves them.
 Temporary implementation steps must contribute directly to the final architecture. Do not leave milestone-specific behavior, flags, naming, duplication, or dead-end abstractions in production code. Existing documented bootstrap-stage terminology remains valid.
@@ -53,3 +58,8 @@ Reference `Hierarchy.md` for detailed hierarchy rules.
 
 ## 6. Agent permissions
 Reference `Agent-permissions.md` for details on agent permissions.
+
+
+## 7. Spawning new agents and sub-agents
+All agents may spawn new sub-agents when needed.
+Reference `SUBAGENTS.md` for detailed rules on spawning new agents

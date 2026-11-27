@@ -3,6 +3,8 @@
 /media/*
 /GitHub.*
 /docs/*.md
+/docs/assets/tools/
+/docs/.work/
 *.exe
 /Agent-ideas.md
 /Owner-ideas.md
