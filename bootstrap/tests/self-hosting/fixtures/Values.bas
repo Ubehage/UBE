@@ -50,7 +50,7 @@ Public Function Main() As Long
     Dim Copied As Span
     Dim Values() As Byte
     Dim Observed As Long
-    Original.Start = 9223372036854775807^
+    Original.Start = 9223372036854775807&&
     Original.Count = 23
     Copied = Original
     Copied.Count = 99

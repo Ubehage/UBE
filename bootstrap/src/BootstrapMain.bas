@@ -38,6 +38,7 @@ Public Sub Main()
     Dim IRText As String
     Dim ClangPath As String
     Dim NativeMode As Boolean
+    Dim OutputOwner As OutputReservation
     On Error GoTo Unexpected
     RunningInIDE = DetectIDE()
     If Not ReadArguments(Arguments, ArgumentCount, Diagnostic) Then GoTo Usage
@@ -55,6 +56,9 @@ Public Sub Main()
         If ArgumentCount <> 3 Then GoTo Usage
         If Mode <> "--check" And Mode <> "--parse" And Mode <> "--dump-ast" And Mode <> "--analyze" And Mode <> "--dump-bound" Then GoTo Usage
     End If
+    If NativeMode Then
+        If Not ReserveOutput(Arguments(3), OutputOwner, Diagnostic) Then GoTo Failed
+    End If
     If Not LoadProject(Arguments(2), Project, Diagnostic) Then GoTo Failed
     If Mode <> "--check" Then
         If Not ParseProject(Project, Parsed, Diagnostic) Then GoTo Failed
@@ -65,11 +69,12 @@ Public Sub Main()
     If NativeMode Then
         If Not EmitProject(Project, Parsed, Bound, IRText, Diagnostic) Then GoTo Failed
         If Mode = "--emit-llvm" Then
-            If Not WriteLLVMOutput(Project, IRText, Arguments(3), Diagnostic) Then GoTo Failed
+            If Not WriteLLVMOutput(Project, IRText, OutputOwner.Output, OutputOwner, Diagnostic) Then GoTo Failed
         Else
-            If Not BuildNativeProject(Project, IRText, Arguments(3), ClangPath, Diagnostic) Then GoTo Failed
+            If Not BuildNativeProject(Project, IRText, OutputOwner.Output, ClangPath, OutputOwner, Diagnostic) Then GoTo Failed
         End If
     End If
+    If Not ReleaseOutput(OutputOwner, Diagnostic) Then GoTo Failed
     If Not WriteOutput("PROJECT " & Project.ProjectName, False) Then GoTo OutputFailed
     For Index = 0 To Project.SourceCount - 1
         If Not WriteOutput("MODULE " & Project.Sources(Index).ModuleName, False) Then GoTo OutputFailed
@@ -109,6 +114,7 @@ Usage:
 OutputFailed:
     Diagnostic = "UBE: E_IO: cannot write command output"
 Failed:
+    Call ReleaseOutput(OutputOwner, Diagnostic)
     Call WriteOutput(Diagnostic, True)
     ExitProcess 1
     Exit Sub
@@ -117,6 +123,7 @@ Unexpected:
     Resume ReportUnexpected
 ReportUnexpected:
     On Error Resume Next
+    Call ReleaseOutput(OutputOwner, Diagnostic)
     Call WriteOutput("UBE: E_INTERNAL: unable to complete project command", True)
     ExitProcess 1
 End Sub

@@ -240,8 +240,8 @@ function Primitive-Source([string]$Name,[string]$Parameters,[string]$Result,[str
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
-$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ConditionalExpressions.bas','ConditionalSource.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','PrimitiveRoles.bas','AggregateLayout.bas','ManagedLayouts.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas','ThreadPrimitives.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ConditionalExpressions.bas','ConditionalSource.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','PrimitiveRoles.bas','ManagedSourceAssets.bas','AggregateLayout.bas','ManagedLayouts.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'library' $files '2' 'Library'
 $procedures=Read-Procedures $manifest
@@ -496,7 +496,7 @@ foreach($case in @(@('record128',$record128,'Type Wide','Wide',5,128),@('depth64
     $script:passed++
 }
 # Logical array bounds include signed64 extrema without overflowing extent calculation.
-$extreme=Module-Source 'ExtremeBounds' "Dim Low(-9223372036854775808^ To -9223372036854775808^) As Byte`r`nDim High(9223372036854775807^ To 9223372036854775807^) As Long"
+$extreme=Module-Source 'ExtremeBounds' "Dim Low(-9223372036854775808&& To -9223372036854775808&&) As Byte`r`nDim High(9223372036854775807&& To 9223372036854775807&&) As Long"
 Start-Project
 $path=Join-Path $artifacts 'extreme-bounds.bas'; Write-Text $path $extreme; Append-Source $path
 $value=Call-Probe 'Bind' @(1,0); Check-Value $value 0 'single elements at signed64 bounds'

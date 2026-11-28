@@ -74,7 +74,7 @@ Public Function ValidateProject(ByRef Bytes() As Byte, ByRef Modules() As Projec
     If Counts.ModuleCount < 0 Or Counts.ModuleCount > ModuleLength(Modules) Then Exit Function
     If Counts.ByteCount < 0 Or Counts.ByteCount > BufferPrimitives.ByteStorageLength(Bytes) Then Exit Function
     Do While Index < Counts.ModuleCount
-        If Modules(Index).LookupDomain < 0 Or Modules(Index).LookupDomain > 1 Then BadModule = Index: Exit Function
+        If Modules(Index).LookupDomain < 0 Or Modules(Index).LookupDomain > 2 Then BadModule = Index: Exit Function
         If Modules(Index).LookupDomain = 1 Then
             BadModule = Index
             If Modules(Index).ByteBase < 0 Or Modules(Index).ByteBase > Counts.ByteCount Then Exit Function

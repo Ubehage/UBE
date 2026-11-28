@@ -59,7 +59,8 @@ try {
  foreach($mode in @('--emit-llvm','--emit-llvm-ide')) {
   $name='context-valid'+$mode;$manifest=WriteProject $name $bothContexts $other '0';$output=Join-Path $evidence ($name+'.ll')
   $run=Run $CompilerExe @($mode,$manifest,$output) $name
-  if($run.Code -ne 0 -or $run.Error -ne '' -or -not (Test-Path -LiteralPath $output)){throw "Valid context admission failed: $name $($run.Out) $($run.Error)"}
+  $warning="UBE: W_DEBUG_UNAVAILABLE: debug information unavailable (operation/code/reason 0/2/0) $manifest`r`n"
+  if($run.Code -ne 0 -or $run.Error -cne $warning -or -not (Test-Path -LiteralPath $output)){throw "Valid context admission failed: $name $($run.Out) $($run.Error)"}
   $results.Add([pscustomobject]@{Name=$name;Pass=$true})
   foreach($case in @(@('write','IS_IN_IDE = True','E_COMPILE'),@('reference','Change IS_IN_IDE','E_COMPILE'),@('shadow','Dim IS_IN_IDE As Boolean','E_COMPILE'),@('directive','#Const IS_IN_IDE = True','E_LOAD'))) {
    $source=$bothContexts.Replace('Change (IS_IN_IDE)',$case[1])
@@ -74,7 +75,7 @@ try {
  # A hosted launch artifact must be executable; ordinary library LLVM remains admitted.
  $library=Join-Path $evidence 'library.UBE';$librarySource=Join-Path $evidence 'library.bas'
  [IO.File]::WriteAllLines($librarySource,@('UBE SOURCE 1 MODULE','Attribute UBE_Name = "LibraryProbe"','Public Function Value() As Long','Value = 42','End Function'),$utf)
- [IO.File]::WriteAllLines($library,@('UBE-Project 1','Name = "LibraryProbe"','Kind = "Library"','Source = "library.bas"'),$utf)
+ [IO.File]::WriteAllLines($library,@('UBE-Project 1','Name = "LibraryProbe"','Kind = "Library"','DebugInformation = "None"','Source = "library.bas"'),$utf)
  $ordinaryOutput=Join-Path $evidence 'library-ordinary.ll'
  $run=Run $CompilerExe @('--emit-llvm',$library,$ordinaryOutput) 'library-ordinary'
  if($run.Code -ne 0 -or $run.Error -ne '' -or -not (Test-Path -LiteralPath $ordinaryOutput)){throw "Ordinary library emission failed: $($run.Out) $($run.Error)"}

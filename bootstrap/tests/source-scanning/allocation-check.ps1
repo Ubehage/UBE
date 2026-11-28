@@ -156,7 +156,7 @@ function Read-Procedures([string]$Manifest) {
 # Retains the actual scanner and portable UTF-8 implementation without source rewriting.
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $scanner = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src/SourceScanner.bas'))
-$manifest = Copy-Fixtures 'scanner allocation library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),$scanner,(Join-Path $PSScriptRoot 'AllocationProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'scanner allocation library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $coreDirectory 'ThreadPrimitives.bas'),$scanner,(Join-Path $PSScriptRoot 'AllocationProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'scanner.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'

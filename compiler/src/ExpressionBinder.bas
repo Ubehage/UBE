@@ -100,6 +100,7 @@ End Function
 
 ' Bounds every recursive semantic descent before it can reach the native call-frame guard.
 Private Function EnterBinding(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long) As Boolean
+    If Not DeclarationBinder.ContinueBinding(S.Lookup) Then EnterBinding = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
     On Error GoTo Failed
     If S.Depth >= 64 Then EnterBinding = Reject(N, M, A, F, D, 6, 10, Node): Exit Function
     S.Depth = S.Depth + 1
@@ -177,9 +178,11 @@ Private Sub AssignScopes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Proj
     Dim Kind As Long
     On Error GoTo Failed
     Do While ModuleIndex < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then Exit Sub
         Root = M(ModuleIndex).RootNode
         Node = Root
         Do
+            If Not DeclarationBinder.ContinueBinding(S.Lookup) Then Exit Sub
             Scope = F(Node - 1).ScopeSymbol
             Kind = N(Node - 1).Kind
             If I(Node - 1) <> 0 Then SymbolValue A, F, S, Node, I(Node - 1)
@@ -253,6 +256,31 @@ Private Function BindCurrentInstance(ByRef N() As SourceParser.SyntaxNode, ByRef
     BindCurrentInstance = True
 End Function
 
+' Selects the public standard-library fallback; -1 preserves ambiguity distinctly from absence.
+Private Function FindStandardName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByRef H() As Long, ByRef L() As Long, ByRef U() As Long, ByRef Lookup As DeclarationBinder.BindingState, ByVal Token As Long) As Long
+    Dim Index As Long
+    Dim Candidate As Long
+    Dim Selected As Long
+    On Error GoTo Failed
+    Do While Index < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(Lookup) Then Exit Function
+        Candidate = 0
+        If A(U(Index) - 1).LookupDomain = 2 And A(U(Index) - 1).Kind = SourceParser.ModuleNode Then Candidate = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, Lookup, U(Index), DeclarationBinder.ValueRegion, Token, 2)
+        If Candidate <> 0 Then
+            If A(Candidate - 1).Visibility = SyntaxTokens.KwPublic Then
+                If Selected <> 0 Then FindStandardName = -1: Exit Function
+                Selected = Candidate
+            End If
+        End If
+        Index = Index + 1
+    Loop
+    If Selected = 0 Then Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, Lookup, 0, DeclarationBinder.ModuleRegion, Token, 2)
+    FindStandardName = Selected
+    Exit Function
+Failed:
+    Err.Raise Err.Number
+End Function
+
 ' Selects one lexical namespace level; ambiguity and wrong kinds never trigger fallback.
 Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef P() As Byte, ByRef A() As DeclarationBinder.BoundSymbol, ByRef F() As BoundExpression, ByRef H() As Long, ByRef L() As Long, ByRef U() As Long, ByRef S As ExpressionState, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal Node As Long, ByVal Assignment As Boolean) As Boolean
     Dim Scope As Long
@@ -305,6 +333,7 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, U(ModuleIndex), DeclarationBinder.ValueRegion, Token, M(ModuleIndex).LookupDomain)
     If Selected <> 0 Then GoTo Found
     Do While Index < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then LookupName = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         Candidate = 0
         If A(U(Index) - 1).Kind = SourceParser.ModuleNode Then Candidate = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, U(Index), DeclarationBinder.ValueRegion, Token, M(ModuleIndex).LookupDomain)
         If Candidate <> 0 Then
@@ -318,10 +347,20 @@ Private Function LookupName(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     If Selected <> 0 Then GoTo Found
     Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, Token, M(ModuleIndex).LookupDomain)
     If Selected <> 0 Then GoTo Found
+    If S.Lookup.CancelledObserved Then LookupName = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
     If S.Lookup.Work >= 4000000 Then LookupName = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
     If DeclarationBinder.PackageMatches(B, T, C.TokenCount, Token, P) Then F(Node - 1).AccessKind = 3: LookupName = True: Exit Function
+    If M(ModuleIndex).LookupDomain <> 1 Then
+        If DeclarationBinder.StandardPackageMatches(B, T, C.TokenCount, Token) Then F(Node - 1).AccessKind = 5: LookupName = True: Exit Function
+    End If
+    If M(ModuleIndex).LookupDomain = 0 Then
+        Selected = FindStandardName(B, T, C, A, H, L, U, S.Lookup, Token)
+        If Selected = -1 Then LookupName = Reject(N, M, A, F, D, 4, 10, Node): Exit Function
+        If Selected <> 0 Then GoTo Found
+    End If
     If SupportName(B, T, Token, C.TokenCount) = 1 Then F(Node - 1).TrustedRole = 1: LookupName = True: Exit Function
 Found:
+    If S.Lookup.CancelledObserved Then LookupName = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
     If S.Lookup.Work >= 4000000 Then LookupName = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
     If Selected = 0 Then LookupName = Reject(N, M, A, F, D, 2, 10, Node): Exit Function
     If DeclarationBinder.IsInstanceMember(A, Selected) And Not DeclarationBinder.IsInstanceMember(A, Scope) Then LookupName = Reject(N, M, A, F, D, 3, 18, Node): Exit Function
@@ -401,22 +440,28 @@ Private Function ResolveMemberValue(ByRef B() As Byte, ByRef T() As SourceScanne
         F(Node - 1).Writable = False
         If Role = 4 Then F(Node - 1).TypeCode = SyntaxTokens.KwLong
     Else
-        If F(Receiver - 1).AccessKind = 3 Then
+        If F(Receiver - 1).AccessKind = 5 Then
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, N(Node - 1).NameToken, 2)
+        ElseIf F(Receiver - 1).AccessKind = 3 Then
             Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, 0, DeclarationBinder.ModuleRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
         ElseIf F(Receiver - 1).TypeSymbol <> 0 Then
             If Symbol <> 0 Then
                 If A(Symbol - 1).Kind = SourceParser.TypeNode Or A(Symbol - 1).Kind = SourceParser.ClassNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
             End If
             Field = True
-            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Receiver - 1).TypeSymbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Receiver - 1).TypeSymbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(A(F(Receiver - 1).TypeSymbol - 1).ModuleIndex).LookupDomain)
         ElseIf Symbol <> 0 Then
             If A(Symbol - 1).Kind <> SourceParser.ModuleNode Then ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
-            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, Symbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+            Selected = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, Symbol, DeclarationBinder.ValueRegion, N(Node - 1).NameToken, M(A(Symbol - 1).ModuleIndex).LookupDomain)
         Else
             ResolveMemberValue = Reject(N, M, A, F, D, 3, 11, Node): Exit Function
         End If
+        If S.Lookup.CancelledObserved Then ResolveMemberValue = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         If S.Lookup.Work >= 4000000 Then ResolveMemberValue = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
         If Selected = 0 Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 11, Node): Exit Function
+        If M(A(Selected - 1).ModuleIndex).LookupDomain <> M(ModuleOf(A, F, Node)).LookupDomain Then
+            If A(Selected - 1).Kind <> SourceParser.ModuleNode And A(Selected - 1).Visibility <> SyntaxTokens.KwPublic Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 12, Node): Exit Function
+        End If
         If A(Selected - 1).Visibility = SyntaxTokens.KwPrivate And A(Selected - 1).ModuleIndex <> ModuleOf(A, F, Node) Then ResolveMemberValue = Reject(N, M, A, F, D, 2, 12, Node): Exit Function
         SymbolValue A, F, S, Node, Selected
         If Field Then
@@ -466,9 +511,6 @@ Private Function ResolveReference(ByRef B() As Byte, ByRef T() As SourceScanner.
         If Not ResolveMemberValue(B, T, N, M, C, A, F, H, L, S, D, Node, Receiver) Then Exit Function
     Else
         ResolveReference = Reject(N, M, A, F, D, 3, 12, Node): Exit Function
-    End If
-    If N(Node - 1).Suffix <> 0 Then
-        If Aggregate(F, Node) Or F(Node - 1).TypeCode <> N(Node - 1).Suffix Then ResolveReference = Reject(N, M, A, F, D, 3, 13, Node): Exit Function
     End If
     S.Depth = S.Depth - 1
     ResolveReference = True
@@ -631,12 +673,14 @@ Private Function BindCall(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     End If
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then BindCall = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         Count = Count + 1
         Argument = N(Argument - 1).NextSibling
     Loop
     If Count <> Expected Then BindCall = Reject(N, M, A, F, D, 10, 11, Node): Exit Function
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then BindCall = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         Destination = SyntaxTokens.KwLong
         If Parameter <> 0 Then Destination = A(Parameter - 1).TypeCode
         If BindExpression(B, T, N, M, C, P, A, F, H, L, U, K, X, S, D, Argument, 0, Destination) = False Then Exit Function
@@ -820,7 +864,7 @@ Private Function BindBinary(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     If Operator = SyntaxTokens.SymSlash Or Operator = SyntaxTokens.SymBackslash Or Operator = SyntaxTokens.KwMod Then
         If F(RightNode - 1).ConstantKnown Then
             If Not ConstantValues.TryConvert(F(RightNode - 1).ConstantValue, F(RightNode - 1).TypeCode, Selected, Value, Reason) Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
-            If Operator = SyntaxTokens.SymSlash Then Value = Value And 9223372036854775807^
+            If Operator = SyntaxTokens.SymSlash Then Value = Value And 9223372036854775807&&
             If Value = 0 Then BindBinary = Reject(N, M, A, F, D, 11, 25, Node): Exit Function
         End If
     End If
@@ -1097,6 +1141,7 @@ Private Function BindBranch(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     On Error GoTo Failed
     If N(Node - 1).Kind = SourceParser.OnErrorNode And N(Node - 1).Value <> 2 Then BindBranch = True: Exit Function
     Symbol = DeclarationBinder.FindSymbol(B, T, C.TokenCount, A, H, L, S.Lookup, F(Node - 1).ScopeSymbol, DeclarationBinder.LabelRegion, N(Node - 1).NameToken, M(ModuleOf(A, F, Node)).LookupDomain)
+    If S.Lookup.CancelledObserved Then BindBranch = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
     If S.Lookup.Work >= 4000000 Then BindBranch = Reject(N, M, A, F, D, 6, 11, Node): Exit Function
     If Symbol = 0 Then BindBranch = Reject(N, M, A, F, D, 12, 10, Node): Exit Function
     F(Node - 1).SymbolIndex = Symbol
@@ -1154,6 +1199,7 @@ Private Function ShapeEffects(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     On Error GoTo Failed
     S.ShapeMayChange = True
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then ShapeEffects = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         If N(Node - 1).IsIntrinsic Then Changed = True: Exit Do
         If N(Node - 1).Kind = SourceParser.VariableNode And F(Node - 1).ArrayRank <> 0 Then
             If InitializerNode(N, Node) <> 0 Then Changed = True: Exit Do
@@ -1163,6 +1209,7 @@ Private Function ShapeEffects(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Node = 1
     If Changed = False Then
         Do While Node <= C.NodeCount
+            If Not DeclarationBinder.ContinueBinding(S.Lookup) Then ShapeEffects = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
             If N(Node - 1).Kind = SourceParser.AssignmentNode Then
                 Target = N(Node - 1).FirstChild
                 If N(Target - 1).Kind = SourceParser.NameNode Or N(Target - 1).Kind = SourceParser.MemberNode Then
@@ -1258,6 +1305,7 @@ Private Function CheckRoots(ByRef B() As Byte, ByRef T() As SourceScanner.Source
     Dim Found As Boolean
     On Error GoTo Failed
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(S.Lookup) Then CheckRoots = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
         Kind = N(Node - 1).Kind
         If Kind = SourceParser.VariableNode Or Kind = SourceParser.AssignmentNode Then
             If BindAssignment(B, T, N, M, C, P, A, F, H, L, U, K, X, S, D, Node) = False Then Exit Function
@@ -1280,6 +1328,7 @@ Private Function CheckRoots(ByRef B() As Byte, ByRef T() As SourceScanner.Source
                 Parent = N(Node - 1).Parent
                 Found = False
                 Do While Parent <> 0
+                    If Not DeclarationBinder.ContinueBinding(S.Lookup) Then CheckRoots = Reject(N, M, A, F, D, 104, 0, Node): Exit Function
                     If N(Parent - 1).Kind = SourceParser.SubNode Or N(Parent - 1).Kind = SourceParser.FunctionNode Then Exit Do
                     If N(Parent - 1).Kind = SourceParser.DoNode And (N(Node - 1).Value = SyntaxTokens.KwDo Or N(Node - 1).Value = SyntaxTokens.KwLoop) Then Found = True: Exit Do
                     If N(Parent - 1).Kind = SourceParser.WhileNode And (N(Node - 1).Value = SyntaxTokens.KwWhile Or N(Node - 1).Value = SyntaxTokens.KwLoop) Then Found = True: Exit Do
@@ -1324,7 +1373,9 @@ Public Function TryBindExpressions(ByRef Bytes() As Byte, ByRef Tokens() As Sour
     If ResizeFacts(Candidate, Counts.NodeCount, False) = False Then GoTo StorageFailure
     If ResizeStates(ConstantStates, SymbolCount, False) = False Then GoTo StorageFailure
     AssignScopes Nodes, Modules, Counts, Symbols, NodeSymbols, Candidate, State
+    If State.Lookup.CancelledObserved Then GoTo StorageFailure
     Do While Index < SymbolCount
+        If Not DeclarationBinder.ContinueBinding(State.Lookup) Then GoTo StorageFailure
         Node = Symbols(Index).DeclarationNode
         If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.ParameterNode Then
             If ManagedLayouts.IsRecordValue(Symbols(Index).TypeCode, Symbols(Index).TypeSymbol) Or Symbols(Index).ArrayRank <> 0 Then
@@ -1340,6 +1391,7 @@ Public Function TryBindExpressions(ByRef Bytes() As Byte, ByRef Tokens() As Sour
     If ShapeEffects(Bytes, Tokens, Nodes, Modules, Counts, PackageName, Symbols, Candidate, Buckets, Links, ModuleSymbols, ConstantStates, CandidateText, State, Diagnostic) = False Then Exit Function
     Index = 0
     Do While Index < SymbolCount
+        If Not DeclarationBinder.ContinueBinding(State.Lookup) Then GoTo StorageFailure
         If Symbols(Index).ArrayRank <> 0 Then
             If BindBounds(Bytes, Tokens, Nodes, Modules, Counts, PackageName, Symbols, Candidate, Buckets, Links, ModuleSymbols, ConstantStates, CandidateText, State, Diagnostic, Index + 1) = False Then Exit Function
         End If
@@ -1356,6 +1408,7 @@ StorageFailure:
     BindingCount = 0
     TextUsed = 0
     Diagnostic.Code = 7
+    If State.Lookup.CancelledObserved Then Diagnostic.Code = 104
     Diagnostic.Reason = 1
     Diagnostic.ModuleIndex = -1
     Diagnostic.Node = 0

@@ -35,7 +35,7 @@ function Build([string]$IR,[string]$Exe,[string]$Level){
  $r=Invoke-BoundedProcess $Clang (@('--target=x86_64-pc-windows-msvc','-fuse-ld=lld','-nostdlib',('-'+$Level),$IR)+$links+@('-o',$Exe,'-Wl,/entry:main,/subsystem:console,/stack:8388608'))
  Require ($r.ExitCode -eq 0) "Native build failed: $($r.Evidence)"
 }
-$files=@('std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/ByteText.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/InvariantNumbers.bas','std-lib/src/portable/BinaryFloat.bas','std-lib/src/portable/BinaryFloatValues.bas','std-lib/src/portable/BinaryFloatMath.bas','std-lib/src/portable/BinaryFloatPower.bas','std-lib/src/portable/BinaryFloatText.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ConditionalExpressions.bas','compiler/src/ConditionalSource.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/ConstantValues.bas','compiler/src/ConstantText.bas','compiler/src/ExpressionBinder.bas','compiler/src/ManagedSupport.bas','runtime/tests/managed-text/SupportProbe.bas')
+$files=@('std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/ThreadPrimitives.bas','std-lib/src/portable/ByteText.bas','std-lib/src/portable/Utf8.bas','std-lib/src/portable/InvariantNumbers.bas','std-lib/src/portable/BinaryFloat.bas','std-lib/src/portable/BinaryFloatValues.bas','std-lib/src/portable/BinaryFloatMath.bas','std-lib/src/portable/BinaryFloatPower.bas','std-lib/src/portable/BinaryFloatText.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ConditionalExpressions.bas','compiler/src/ConditionalSource.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/ConstantValues.bas','compiler/src/ConstantText.bas','compiler/src/ExpressionBinder.bas','compiler/src/ManagedLayouts.bas','compiler/src/AggregateLayout.bas','compiler/src/ManagedSupport.bas','runtime/tests/managed-text/SupportProbe.bas')
 $files+='compiler/src/ManagedSourceAssets.bas'
 $manifest=@('UBE-Project 1','Name="SupportTests"','Kind="Library"')
 foreach($file in $files){$leaf=[IO.Path]::GetFileName($file);Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $artifacts $leaf);$manifest+='Source="'+$leaf+'"'}
@@ -107,6 +107,13 @@ Public Sub Work()
 Exit Sub
 End Sub
 '@
+$publication=@'
+UBE SOURCE 1 MODULE
+Attribute UBE_Name = "TextPublication"
+Public Function Publish(ByRef Destination As String, ByVal Candidate As LongLong) As Boolean
+Publish = False
+End Function
+'@
 $cases=@(
  @{Name='exact private roles ignore public collisions';Public=$text;Text=$text;Collector=$collector;Domain=1;Reason=0;Expected=@(14,15,16,17,18,19,20,23,21,22,24)},
  @{Name='case folded role identities';Public=$text;Text=$text.Replace('"Text"','"tExT"').Replace('Concat','cOnCaT');Collector=$collector;Domain=1;Reason=0;Expected=@(14,15,16,17,18,19,20,23,21,22,24)},
@@ -139,7 +146,15 @@ $cases+=@(
  @{Name='duplicate formatter source rejected by binder';Public=$text;Text=$text+"`r`nPublic Function FromFloating(ByVal Bits As LongLong, ByVal BitWidth As Long) As String`r`nExit Function`r`nEnd Function`r`n";Collector=$collector;Domain=1;Reason=-1},
  @{Name='duplicate power source rejected by binder';Public=$text;Text=$text;Collector=$collector;Power=$power+"`r`nPublic Function Evaluate(ByVal BaseBits As LongLong, ByVal PowerBits As LongLong) As LongLong`r`nEvaluate = 0`r`nEnd Function`r`n";Domain=1;Reason=-1}
 )
-foreach($case in $cases){if(-not $case.ContainsKey('Power')){$case.Power=$power}}
+foreach($case in $cases){
+ if(-not $case.ContainsKey('Power')){$case.Power=$power}
+ $case.Publication=$publication
+ if($case.Name -eq 'numeric needs no roles'){$case.Publication=''}
+ # One additional module header precedes the independently listed procedure IDs.
+ if($case.ContainsKey('Expected') -and $case.Publication){$case.Expected=@($case.Expected|ForEach-Object{if($_ -gt 0){$_+1}else{0}})}
+}
+$cases+=@{Name='missing checked publisher';Public=$text;Text=$text;Collector=$collector;Power=$power;Publication='';Domain=1;Reason=81}
+$cases+=@{Name='publisher destination must be ByRef';Public=$text;Text=$text;Collector=$collector;Power=$power;Publication=$publication.Replace('ByRef Destination','ByVal Destination');Domain=1;Reason=82}
 # Explicit declaration order is the independent symbol-identity oracle: modules
 # precede their procedures. Expected arrays above are not copied from TryResolve.
 function Descriptor([string]$Name,[long[]]$Values){
@@ -151,10 +166,10 @@ $globals="@test.context = global %ube.context zeroinitializer,align 8`r`n"
 $code=@('define i32 @main(){','entry:','call void @ube.context.init(ptr @test.context)','%init=call i1 @ube.project.init(ptr @test.context)','br i1 %init,label %case0,label %failed')
 for($i=0;$i -lt $cases.Count;$i++){
  $c=$cases[$i]
- foreach($name in @('Public','Text','Collector','Power')){$globals+=Descriptor ($name+$i) ($utf8.GetBytes($c[$name]))}
+ foreach($name in @('Public','Text','Collector','Power','Publication')){$globals+=Descriptor ($name+$i) ($utf8.GetBytes($c[$name]))}
  $expected=@(0,0,0,0,0,0,0,0,0,0,0);if($c.ContainsKey('Expected')){$expected=$c.Expected}
  $globals+=Descriptor ('expected'+$i) $expected
- $code+=@("case$($i):","%r$i=call {i1,i64} @ube.proc.$check(ptr @test.context,ptr @Public$i,ptr @Text$i,ptr @Collector$i,ptr @Power$i,ptr @expected$i,i64 $($c.Domain),i64 $($c.Reason))","%fresh$i=extractvalue {i1,i64} %r$i,0","%value$i=extractvalue {i1,i64} %r$i,1","%zero$i=icmp eq i64 %value$i,0","%ok$i=and i1 %fresh$i,%zero$i","br i1 %ok$i,label %case$($i+1),label %failed$i","failed$($i):","%reason$i=mul i64 %value$i,100","%tag$i=add i64 %reason$i,$($i+1)","%exit$i=trunc i64 %tag$i to i32","ret i32 %exit$i")
+ $code+=@("case$($i):","%r$i=call {i1,i64} @ube.proc.$check(ptr @test.context,ptr @Public$i,ptr @Text$i,ptr @Collector$i,ptr @Power$i,ptr @Publication$i,ptr @expected$i,i64 $($c.Domain),i64 $($c.Reason))","%fresh$i=extractvalue {i1,i64} %r$i,0","%value$i=extractvalue {i1,i64} %r$i,1","%zero$i=icmp eq i64 %value$i,0","%ok$i=and i1 %fresh$i,%zero$i","br i1 %ok$i,label %case$($i+1),label %failed$i","failed$($i):","%reason$i=mul i64 %value$i,100","%tag$i=add i64 %reason$i,$($i+1)","%exit$i=trunc i64 %tag$i to i32","ret i32 %exit$i")
 }
 $nl=[Environment]::NewLine
 $needs=@(
@@ -162,11 +177,11 @@ $needs=@(
  @{Body='Public Intrinsic Function CollectGarbage() As Long'+$nl+'Attribute CollectGarbage.UBE_Primitive = "Memory.CollectMore"'+$nl+'End Function';Expected=0},
  @{Body='Public Value As Long';Expected=0},
  @{Body='Public Value As String';Expected=-1},
- @{Body='Public Value$';Expected=-1},
+ @{Body='Public OtherValue As String';Expected=-1},
  @{Body="Public Sub Work()`r`nDim Value As Double`r`nValue = 2 ^ 3`r`nEnd Sub";Expected=-1},
- @{Body="Public Sub Work()`r`nDim Value As LongLong`r`nValue = 2^`r`nEnd Sub";Expected=0},
- @{Body="Public Sub Work()`r`nDim Value^`r`nValue = 2`r`nEnd Sub";Expected=0},
- @{Body="Public Sub Work()`r`nDim Value As Double`r`nValue = 2^ ^ 3^`r`nEnd Sub";Expected=-1},
+ @{Body="Public Sub Work()`r`nDim Value As LongLong`r`nValue = 2&&`r`nEnd Sub";Expected=0},
+ @{Body="Public Sub Work()`r`nDim Value As LongLong`r`nValue = 2`r`nEnd Sub";Expected=0},
+ @{Body="Public Sub Work()`r`nDim Value As Double`r`nValue = 2&& ^ 3&&`r`nEnd Sub";Expected=-1},
  @{Body="Public Sub Work()`r`nDim Value As Long`r`nValue = 1 & 2`r`nEnd Sub";Expected=-1},
  @{Body="Public Sub Work()`r`nDim Value As Long`r`nValue = `"`"`r`nEnd Sub";Expected=-1},
  @{Body="Public Type Record`r`nValue As String`r`nEnd Type";Expected=-1},
@@ -190,7 +205,7 @@ $normalized=$utf8.GetString($assetCases[0].Bytes).Replace("`r`n","`n")
 $assetCases+=@{Bytes=$utf8.GetBytes($normalized);Identity=0;Expected=-1}
 $assetCases+=@{Bytes=$utf8.GetBytes($normalized.Replace("`n","`r`n"));Identity=0;Expected=-1}
 $assetCases+=@{Bytes=$assetCases[0].Bytes;Identity=-1;Expected=0}
-$assetCases+=@{Bytes=$assetCases[0].Bytes;Identity=13;Expected=0}
+$assetCases+=@{Bytes=$assetCases[0].Bytes;Identity=$assetEntries.Count;Expected=0}
 for($i=0;$i -lt $assetCases.Count;$i++){
  $ordinal=$cases.Count+$needs.Count+$i
  $globals+=Descriptor ('asset'+$i) $assetCases[$i].Bytes
@@ -219,7 +234,7 @@ foreach($level in @('O0','O2')){
  Write-Output "PASS $level : $($cases.Count) role identity/signature/isolation/publication, $($needs.Count) syntax selection, $($assetCases.Count) source identities and 12 project span cases"
 }
 # Wrong independent expected identity must fail the first exact role check.
-$negative=$combined.Replace('@expected0.data = global [11 x i64] [i64 14,','@expected0.data = global [11 x i64] [i64 15,')
+$negative=$combined.Replace('@expected0.data = global [11 x i64] [i64 15,','@expected0.data = global [11 x i64] [i64 16,')
 Require ($negative -cne $combined) 'Missing negative-control substitution'
 $path=Join-Path $artifacts 'negative.ll'
 Write-Text $path $negative

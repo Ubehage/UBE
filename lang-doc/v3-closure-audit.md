@@ -1,14 +1,23 @@
 # UBE 1.0 language-closure audit
 
-**Status:** core language audit closed; implementation evidence remains active  
+**Status:** historical language-closure record; current gaps and implementation evidence remain active
 **Purpose:** preserve the decisions and proof work used to freeze the Compiler
 v3 language specification and EBNF
 
 This is not a public language specification. It records gaps found while
 cross-checking `language-spec.md`, the focused normative contracts, and
 `grammar/ube.ebnf`. Closed semantics have moved into the normative sources;
-remaining checklist work supplies implementation evidence or resolves choices
-explicitly isolated in `deferred-questions.md`.
+remaining checklist work supplies implementation evidence. Current unresolved
+choices and unapproved recommendations are tracked in
+[Architecture-Decisions.md](../project-docs/Architecture-Decisions.md).
+That register is not a reconstruction of the missing historical decision or
+audit files and does not change normative behavior without owner approval.
+
+The completion statements below retain the historical audit's scope. Referenced
+audit files and the original grammar validator/fixture evidence are not retained
+in this checkout; their past results are not current acceptance evidence.
+Later approved amendments and current implementation limits are recorded in
+the normative sources and [bootstrap-profile.md](bootstrap-profile.md).
 
 ## Release-proof rule
 
@@ -74,9 +83,11 @@ The contract is incorporated into `language-spec.md`,
 The promoted contract defines `name := expression`, positional/named
 association, left-to-right evaluate-once behavior, exact direct `ByRef`, VB
 parenthesized temporaries, explicit Optional defaults, and a final
-`ParamArray Values() As Variant`. `CallNew` retains its stricter approved
-capture rules. The complete audit rationale remains in
-`audits/calls-parameters.md`.
+`ParamArray Values() As Variant`. Current `CallNew` argument and lifetime rules
+are in [language-spec.md section 5](language-spec.md#5-procedures-names-and-modules)
+and [threading.md](threading.md). The historical `audits/calls-parameters.md`
+rationale is not retained; the surviving normative calls/parameters clauses
+are the contract, not a recovered copy of that audit.
 
 ### 4. Name resolution and overloads
 
@@ -85,8 +96,9 @@ capture rules. The complete audit rationale remains in
 UBE 1.0 has no user-defined procedure overloading. Declaration regions,
 Unicode-folded identity, local/member/module/reference lookup order,
 qualification, and ambiguity diagnostics are now defined. Property accessor
-selection is not general overloading. Detailed rationale remains in
-`audits/names-callbacks.md`.
+selection is not general overloading. The historical `audits/names-callbacks.md`
+rationale is not retained. Surviving rules are in language-spec.md sections 5
+(name resolution) and 11 (`AddressOf`), plus [foreign-abi.md](foreign-abi.md).
 
 ### 5. Callback procedure values
 
@@ -104,8 +116,10 @@ controlled-failure transitions; user code owns native unregistration.
 Module/type identity, `Me`, distinct explicit instances, first/repeated Load,
 Form_Load, control containment, rollback, aliases, GC roots, event binding,
 `StartupForm`, and startup-before-Main ordering are defined.
-`audits/forms-controls.md` preserves the full analysis. The default-form choice
-is resolved: the first bare reference creates the default identity on demand,
+The historical `audits/forms-controls.md` analysis is not retained; surviving
+rules are in language-spec.md sections 5, 6.1 and 12 and
+[v3-language-definition.md section 4.3](v3-language-definition.md#43-object-assignment-and-construction).
+The default-form choice is resolved: the first bare reference creates the default identity on demand,
 but accepted unload records an explicit user decision and prevents later bare
 recreation. A fresh lifetime then requires `Load FormName`.
 
@@ -137,7 +151,10 @@ cannot be inherited from VB's COM registry without violating UBE portability:
    both); and
 3. the canonical package identity of the compiler-selected core library.
 
-The complete analysis is retained in `audits/project-references.md`.
+The historical `audits/project-references.md` analysis is not retained.
+Use the surviving [project-files.md](project-files.md) contract and the current
+unapproved architecture-decision register; neither is proof of that missing
+audit or of implemented library packaging.
 
 ## Specification reconciliation
 
@@ -149,8 +166,9 @@ The complete analysis is retained in `audits/project-references.md`.
   specification.
 - The EBNF header now names only scanner tokens actually defined by the lexical
   specification.
-- The validator now proves that every production is reachable from `program`;
-  the stale, unreachable `statement-end` production was removed.
+- The historical validator was reported to check reachability from `program`;
+  the stale, unreachable `statement-end` production was removed. The validator
+  is not retained, so this is not a current validation result.
 - Legacy `BeginProperty ... EndProperty` designer metadata blocks are now
   represented and may nest, closing a missing VB6 form/control file envelope
   without assigning runtime semantics to designer metadata.
@@ -162,8 +180,9 @@ The complete analysis is retained in `audits/project-references.md`.
 - Procedure/property modifiers now have canonical nonrepeating EBNF forms;
   omitted visibility and Static procedure behavior are specified.
 - Custom `Type` members now use a field-only production, fixed-length syntax
-  applies only to String, array-valued results are represented, and identifier
-  type-character identity is specified.
+  applies only to String and array-valued results are represented. The historical
+  identifier-type-character contract was superseded on 2026-11-28: declarations
+  require `As`, identifiers have no suffixes and LongLong literals use `&&`.
 - VB-compatible `With`, `Me`, `TypeOf`, loop, `Select Case`, computed branch,
   and legacy file-statement behavior is specified.
 - Conditional compilation now has a normative preprocessing contract and
@@ -183,12 +202,15 @@ The complete analysis is retained in `audits/project-references.md`.
   hybrid creation rule.
 - Resolve compiled-library packaging/version constraints and core package name.
 - Derive modifier/default-visibility and Static-procedure fixtures.
-- Derive positive, negative, ambiguity, and recovery grammar fixtures. Static
-  validation now also checks reachability, but fixtures must prove behavior.
+- Derive positive, negative, ambiguity, and recovery grammar fixtures and rerun
+  structural/reachability validation. The missing historical validator and its
+  reported results cannot substitute for current behavioral evidence.
 
-The unresolved architecture choices above are mirrored in
-`deferred-questions.md`. They are deliberately outside the closed core source
-grammar and do not reopen VB-compatible semantics.
+The historical `deferred-questions.md` register is not retained. Current choices
+and recommendations are in
+[Architecture-Decisions.md](../project-docs/Architecture-Decisions.md), where
+unapproved proposals are explicitly distinguished from normative decisions.
+The current register does not claim to preserve every missing historical item.
 
 ## Non-blocking implementation work
 

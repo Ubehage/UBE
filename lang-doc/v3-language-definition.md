@@ -95,8 +95,10 @@ ABI; returned objects create external ownership leases under section 4.
 Public members of an object returned through the ABI are reached through its
 generated opaque-handle interface rather than exported independently. Exported
 symbols, calling conventions, value layouts, status results, and ownership
-operations are described by generated ABI metadata. The selected target maps a
-`Library` project to its native shared-library format and filename.
+operations are described by generated ABI metadata. When a Library project is
+explicitly selected as the native build output, the selected target maps it to
+its native shared-library format and filename. A Library project consumed as a
+source Reference is instead compiled into its consuming program as specified below.
 
 ### 2.1 Compiler responsibilities
 
@@ -116,6 +118,16 @@ The core and standard libraries are separate UBE projects compiled and linked
 with user programs. The build driver automatically selects the core-library
 version compatible with the compiler and target, so beginners do not need to
 declare routine language support manually.
+
+Owner clarification, 2026-11-28: standard-library code and other linked source
+libraries are native parts of the program, not separate runtime libraries.
+A source Reference incorporates its source into the consuming native program
+while retaining package identity, visibility, nominal type identity and the
+specified dependency initialization order. It introduces no DLL, private heap,
+foreign status wrapper or ownership-lease boundary merely because code originated
+in another source project. All such source shares the program's memory manager
+and ordinary UBE reference, ByRef and precise-root semantics. Explicit native
+library outputs and foreign calls retain their separate ABI contracts.
 
 Most built-in functions are library procedures. A small `Intrinsic` interface
 is allowed only for operations that cannot be expressed safely in ordinary
@@ -179,6 +191,12 @@ Successful operations do not implicitly clear an earlier `Err`; code uses
 `Err.Clear` explicitly. Every thread has an independent `Err` state.
 
 ### 3.3 Frozen scalar conversion details
+
+Owner-confirmed on 2026-11-28: LongLong integer literals use `&&`, including
+decimal, hexadecimal and octal literals. `^` is only exponentiation. Integer
+and Long literals retain `%` and `&`. Identifiers have no type suffixes;
+declarations use explicit `As` types and references use their declared names.
+This supersedes earlier identifier-suffix and LongLong-`^` compatibility rules.
 
 Owner-confirmed on 2026-11-20: real literals use only the classic suffixes
 `!` (Single), `#` (Double) and `@` (Currency); `F`, `R` and `D` are not
@@ -392,6 +410,26 @@ overflowing constant expression is a compile-time error. Runtime overflow
 reports FAIL and records `Err`. Integer division or modulus by zero, and
 `Currency` or `Decimal` division by zero, likewise report FAIL plus `Err`.
 No zero is substituted and no later operand in that statement is evaluated.
+
+Owner-confirmed on 2026-11-28: when either operand of `\` or `Mod` is Currency
+or Decimal, both original operands undergo the same checked LongLong conversion
+already required for Single/Double operands, and the result type is LongLong.
+Each fractional value rounds to nearest, ties to even, before its signed 64-bit
+range check, without a floating or narrower integer intermediary. This overrides
+common numeric result-family selection for these operators, not restrictions on
+otherwise forbidden operand-type combinations. Evaluation and conversion keep
+the ordinary left-to-right, evaluate-once and first-failure behavior.
+
+After successful conversion, division truncates toward zero and a nonzero
+remainder has the dividend's sign. A divisor rounded to zero fails;
+LongLong minimum divided by -1 overflows, while LongLong minimum `Mod -1`
+succeeds with zero. Known-invalid constants are compile-time errors even in
+ordinary initializers/assignments. Runtime-dependent failure reports fresh FAIL
+and Err without a usable result or unfinished destination commit; success
+preserves earlier Err. The complete operator conversion rule is in
+[language-spec.md section 14](language-spec.md#14-conversion-arithmetic-and-comparison)
+and [conversion-table.md](conversion-table.md). Currency/Decimal implementation
+remains outside the currently admitted compiler profile.
 
 `Single` and `Double` arithmetic uses IEEE finite precision and ties-to-even
 rounding. Division by zero, nonfinite results and invalid domains report
@@ -704,17 +742,20 @@ from continuing orderly cleanup. Resurrection is forbidden; access to another
 instance that is concurrently terminating follows the controlled runtime-error
 contract.
 
-Globals and module-level variables are roots for program lifetime. An
-initialized `Static` local is also a program-lifetime root even though its name
-is visible only in its declaring procedure. A static local is initialized once
-when execution first reaches its declaration and retains its value between
-calls.
+Globals and module-level variables are roots for program lifetime. Initialized
+standard-module Static locals likewise belong to the module's program instance.
+Instance-member Static locals instead belong to each receiver object and are
+precise managed edges from that object, not permanent program roots. They do not
+keep an otherwise unreachable receiver alive. All Static names remain visible
+only within their declaring procedures. The owner-confirmed retry, publication
+and waiting rules in language-spec.md apply to each separate storage owner.
 
 During orderly shutdown, UBE:
 
 1. stops accepting new callbacks and ordinary thread creation;
 2. completes registered language/runtime shutdown bookkeeping;
-3. releases initialized static locals in reverse initialization order;
+3. releases initialized standard-module Static locals in reverse initialization
+   order; instance-owned Static storage follows its receiver's ordinary lifetime;
 4. releases module and global variables in reverse module initialization
    order;
 5. performs a final managed-memory collection;
@@ -772,8 +813,22 @@ an object reference.
 that declaration. `Class_Initialize` therefore runs at a predictable source
 location. A normal local constructs on each execution of its declaration; a
 module/global constructs during orderly module initialization; and a `Static`
-local constructs the first time execution reaches its declaration and retains
-the value between calls.
+local attempts construction the first time execution reaches its declaration and
+retains the successfully initialized value between calls. Owner-confirmed on
+2026-11-28: failed Static initialization is retried on a later independent use.
+Each receiver owns its instance-member Static locals; standard-module Static
+locals belong to that module's program instance. Calls and threads sharing the
+same owner share its successfully initialized value, while distinct objects do not.
+
+Concurrent entrants participate in one identified initialization attempt and
+observe its complete success or fresh failure. An old failed attempt retains its
+outcome for its waiters even when a later use has already retried successfully.
+No observer receives an unfinished initialized value. Same-owner initializer
+reentry reports controlled FAIL. A stopped waiter receives fresh FAIL promptly
+without cancelling the other thread's initializer or terminating either thread.
+The detailed publication, retry, outcome-lifetime and cancellation-race rules are
+in language-spec.md's Static declaration contract and threading.md. Successful
+initialization does not repeat after a later explicit assignment of Nothing.
 
 If construction fails, the destination remains `Nothing` and the current
 thread's `Err` records the failure. `As New` does not enable VB6-style hidden
@@ -837,7 +892,9 @@ waiting initializers may remain waiting until the program is stopped. The
 compiler warns about circular initialization or termination references it can
 detect, without rejecting the program, and makes warnings available to the IDE.
 Warning details and analysis limits remain to be specified.
-Libraries perform the same ordered initialization through their linked startup
+Source-reference modules participate in the consuming program's ordered startup;
+they do not acquire an independent DLL startup path. Explicit native library
+outputs perform the same ordered initialization through their linked startup
 path before permitting the first exported call. Successfully initialized
 modules terminate exactly once in reverse completion order; `Module_Terminate` runs before
 that module's globals are released. A module whose initialization did not
@@ -998,8 +1055,10 @@ Public where legal; interface members are inherently Public. Lifecycle and
 legacy Public spelling only for a standard-module variable, and
 `Option Private Module` prevents cross-package visibility and Export.
 
-Static locals initialize once when first reached and are shared by recursive
-calls and threads. A Static procedure/property accessor applies that storage
+Static locals retain one successful initialization for their owning module or
+receiver; failed initialization retries on a later independent use. Recursive
+calls and threads sharing that owner share its Static storage. A Static
+procedure/property accessor applies that storage
 behavior to its ordinary locals without turning an instance member into a
 shared member or removing `Me`. Parameters, results, temporaries, and control
 state remain invocation-local.
@@ -1348,11 +1407,13 @@ linked-support and library boundaries.
 
 The owner-level decisions recorded in the preceding sections are approved.
 The focused conversion, managed-memory, threading, and foreign-ABI contracts
-remain normative for those subjects. The final cross-specification audit has
-closed the language-wide syntax and semantic gaps. Questions that necessarily
-conflict with approved architecture or lack a portable VB precedent are kept
-in [`deferred-questions.md`](deferred-questions.md) and are outside the closed
-core source grammar until resolved.
+remain normative for those subjects. The historical cross-specification closure
+record is in [v3-closure-audit.md](v3-closure-audit.md); it does not establish
+that later review found no remaining gaps. Current unresolved choices and
+unapproved recommendations are tracked in
+[Architecture-Decisions.md](../project-docs/Architecture-Decisions.md).
+Those proposals require an owner decision before they become normative, and
+the register does not reconstruct missing historical decisions or evidence.
 
 Promotion freezes the target; it does not claim implementation. Compiler v3
 must still derive positive, negative, boundary, recovery, and runtime

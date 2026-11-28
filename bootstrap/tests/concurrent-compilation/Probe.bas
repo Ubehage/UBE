@@ -5,8 +5,8 @@ Attribute UBE_Name = "Probe"
 ' Test injection uses real field binding so added state fields cannot redirect the quota oracle.
 Public Function SeedQuota(ByRef State As NativeEmission.EmissionState, ByVal Field As Long, ByVal Remaining As Long) As Boolean
     If Field = 1 Then State.Work = NativeEmission.MaximumWork - Remaining
-    If Field = 2 Then State.Text.TotalBytes = 9223372036854775807^ - Remaining
-    If Field = 3 Then State.Text.LineCount = 9223372036854775807^ - Remaining
+    If Field = 2 Then State.Text.TotalBytes = 9223372036854775807&& - Remaining
+    If Field = 3 Then State.Text.LineCount = 9223372036854775807&& - Remaining
     SeedQuota = True
 End Function
 

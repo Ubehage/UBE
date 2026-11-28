@@ -134,7 +134,7 @@ $original=($lines -join "`r`n")+"`r`n"
 [IO.File]::WriteAllText($source,$original,$utf8)
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $compilerModules=@('ConstantText','ConstantValues','SourceScanner','SyntaxTokens')
-$coreModules=@('Utf8','BufferPrimitives','FilePrimitives','ByteText','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')
+$coreModules=@('Utf8','BufferPrimitives','FilePrimitives','ByteText','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives')
 foreach($name in $compilerModules){Copy-Item -LiteralPath (Join-Path $repo ('compiler/src/'+$name+'.bas')) -Destination $artifacts}
 foreach($name in $coreModules){Copy-Item -LiteralPath (Join-Path $repo ('std-lib/src/portable/'+$name+'.bas')) -Destination $artifacts}
 foreach($level in @('0','2')) {

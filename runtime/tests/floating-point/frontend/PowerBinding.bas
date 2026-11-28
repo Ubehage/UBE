@@ -8,7 +8,7 @@ Public Function Main() As Long
     Dim PowerValue As Double
     Dim Result As Double
     On Error Resume Next
-    If 2# ^ 3# ^ 2# <> 512# Then Main = 1: Exit Function
+    If 2# ^ 3# ^ 2# <> 64# Then Main = 1: Exit Function
     If -2# ^ 2# <> -4# Then Main = 2: Exit Function
     If (-2#) ^ 2# <> 4# Then Main = 3: Exit Function
     If 9# ^ 0.5# <> 3# Then Main = 4: Exit Function
@@ -35,4 +35,9 @@ Public Function Main() As Long
     PowerValue = RuntimeValue(3#)
     Result = BaseValue ^ PowerValue
     If Result <> 8# Or Err.Number <> 6 Then Main = 11: Exit Function
+    If BaseValue ^ PowerValue ^ 2# <> 64# Then Main = 12: Exit Function
+    If BaseValue ^ -PowerValue ^ 2# <> 0.015625# Then Main = 13: Exit Function
+    If 2# ^ -3# ^ 2# <> 0.015625# Then Main = 14: Exit Function
+    If -BaseValue ^ 2# <> -4# Then Main = 15: Exit Function
+    If BaseValue ^ +PowerValue ^ 2# <> 64# Then Main = 16: Exit Function
 End Function

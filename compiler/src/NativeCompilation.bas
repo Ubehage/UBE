@@ -87,7 +87,7 @@ Private Sub EmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Symbols() 
     If Not FilePrimitives.TryCreateNew(Path, Result.FileToken, Result.Failure) Then GoTo Cleanup
     Symbol = Result.FirstSymbol
     Do While Symbol <= Result.LastSymbol
-        If ThreadPrimitives.StopRequested() Then Result.Cancelled = True: GoTo Cleanup
+        If Not NativeEmission.TryContinue(Result.State) Then Result.Cancelled = Result.State.FailureCode = NativeEmission.Cancelled: GoTo Cleanup
         If Not NativeLowering.TryEmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, NodeCount, Catalog, Symbol, Symbol, Result.FileToken, Result.State, Buffer, Seen, Nexts) Then GoTo Cleanup
         Symbol = Symbol + 1
     Loop
@@ -170,6 +170,7 @@ Private Function TryAppendRange(ByRef Stage() As Byte, ByVal Ordinal As Long, By
     If Length <> Range.State.Text.TotalBytes Then Range.Failure = 1: GoTo Cleanup
     If Not BufferPrimitives.TryResizeBytes(ReadBuffer, LLVMWriter.BufferSize, False) Then GoTo Cleanup
     Do While Offset < Length
+        If Not NativeEmission.TryContinue(State) Then GoTo Cleanup
         Wanted = Length - Offset
         If Wanted > LLVMWriter.BufferSize Then Wanted = LLVMWriter.BufferSize
         If Not FilePrimitives.TryRead(Range.FileToken, ReadBuffer, 0, Wanted, Progress, Range.Failure) Then GoTo Cleanup
@@ -202,6 +203,11 @@ Private Sub CopyEmissionState(ByRef Destination As NativeEmission.EmissionState,
     Destination = Source
 End Sub
 
+' Tests whether merging a range would cross a request budget and requires ordered replay.
+Private Function NeedsReplay(ByRef Range As RangeResult, ByRef State As NativeEmission.EmissionState) As Boolean
+    NeedsReplay = Range.State.Text.Failure = 2 Or (Range.State.FailureCode = 6 And Range.State.FailureReason = 56) Or Range.State.Work > NativeEmission.MaximumWork - State.Work Or Range.State.Text.TotalBytes > 9223372036854775807&& - State.Text.TotalBytes Or Range.State.Text.LineCount > 9223372036854775807&& - State.Text.LineCount
+End Function
+
 ' Keeps completed/replayed state snapshots in a small independently bounded frame.
 Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef PackageName() As Byte, ByVal IsExecutable As Boolean, ByRef Catalog() As Byte, ByRef RuntimeText() As Byte, ByRef Stage() As Byte, ByVal WorkerCount As Long, ByVal Token As Long, ByRef Ranges() As RangeResult, ByRef State As NativeEmission.EmissionState, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Symbols() As DeclarationBinder.BoundSymbol
@@ -230,12 +236,12 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
     If Not NativeLowering.TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, TextArena, TextUsed, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) Then GoTo Rejected
     If Not TryPartition(Expressions, Counts.NodeCount, SymbolCount, WorkerCount, Ranges) Then GoTo Rejected
     If Not NativeLowering.TryBegin(Symbols, SymbolCount, Layouts, Plans, Roles, Summary, Counts.NodeCount, Catalog, RuntimeText, Token, State, Buffer, Seen, Nexts) Then GoTo Rejected
-    If Not NativeText.TryEmitLiterals(Expressions, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
+    If Not NativeText.TryEmitLiterals(Expressions, Plans, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
     If Not LLVMWriter.TryFinish(State.Text, Buffer, Token) Then GoTo Rejected
     If Not ResizeWeights(Seen, 0, False) Then GoTo Rejected
     If Not ResizeWeights(Nexts, 0, False) Then GoTo Rejected
     Do While Index < WorkerCount
-        If ThreadPrimitives.StopRequested() Then GoTo Rejected
+        If Not NativeEmission.TryContinue(State) Then GoTo Rejected
         Ranges(Index).State.ManagedRoles = Summary.ManagedRoles
         If WorkerCount = 1 Then
             Call EmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, Stage, Index, Ranges(Index), 0, 0, 0)
@@ -258,7 +264,7 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
             State.Text.Failure = 1
             GoTo Rejected
         End If
-        If Ranges(Index).State.Text.Failure = 2 Or (Ranges(Index).State.FailureCode = 6 And Ranges(Index).State.FailureReason = 56) Or Ranges(Index).State.Work > NativeEmission.MaximumWork - State.Work Or Ranges(Index).State.Text.TotalBytes > 9223372036854775807^ - State.Text.TotalBytes Or Ranges(Index).State.Text.LineCount > 9223372036854775807^ - State.Text.LineCount Then
+        If NeedsReplay(Ranges(Index), State) Then
             Call PrepareReplay(Ranges(Index), Ranges(MaximumWorkers), State)
             Call EmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, Stage, MaximumWorkers, Ranges(MaximumWorkers), State.Work, State.Text.TotalBytes, State.Text.LineCount)
             Call CopyEmissionState(State, Ranges(MaximumWorkers).State)

@@ -1,6 +1,496 @@
 # Compiler development handoff
 
-## Current: compiler project location — 2026-11-27
+## If condition error correction — 2026-11-28
+
+The owner authorized this focused correction independently of the broader paused
+architecture work below. NativeControl and the bootstrap SourceEmitter now route
+default If/ElseIf condition failure to the normal False destination. Existing
+error recording, handler dispatch and temporary retirement remain in use; loop
+failure destinations are unchanged. Explicit Resume syntax remains unimplemented.
+
+The new `tests/if-errors/check.ps1` reproduced the old behavior with exact exit
+13 on the prior compiler (expected 0), evidence `%TEMP%/ube if errors
+9ba5203e-c1dd-475c-8c65-f8ac16d8526e`. Corrected compiler and fresh seed both pass
+O0/O2 exact exit 0 and changed-result exit 1. The updated source-scanning gate
+passes 90 groups, including unchanged loop behavior and exact negative exit 23.
+This focused correction is complete. Repeated self-build comparisons and all
+1004 shared CLI conformance assertions passed. The broader architecture work
+below remains paused; no commit or push was requested or performed.
+
+Conformance command:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1
+-CompilerExe <initial corrected compiler> -BootstrapExe <fresh seed>`.
+Evidence: `%TEMP%/ube compiler conformance 3a844d0e-16bd-4fef-bb40-b79543722084`.
+The suite checks deterministic emission, exact native results, diagnostics,
+preserved output on backend failures/timeouts and recovery through both paths.
+
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1
+-InitialCompilerExe <initial corrected compiler>` passed source/asset parity,
+byte-identical successive LLVM and timestamp-normalized native image equality.
+Evidence: `%TEMP%/ube compiler rebuild 8fb6c199-d6fa-4776-8548-d65d6b28678a`.
+LLVM SHA256: `75FE785C37CFCB04A9D9167E59EC84E722CC011B0EFF197EED0A16557FB5A8FE`.
+Final compiler: that directory's `generation-2/UBE.exe`, SHA256
+`E99F0B8E678195B41E7D066FCF1E1AB47D151B73AA60FBA0D98D61A6C8153322`.
+The same focused gate on this final compiler passed all four exact O0/O2 native
+runs; evidence `%TEMP%/ube if errors ec38d045-df0f-4d57-97c6-914a5180bbfe`.
+
+Documentation validation via
+`rtk proxy powershell -NoProfile -File docs/assets/tools/validate-docs.ps1`
+passed 278 public HTML files, 4807 references and 191 word pages. Browser
+rendering remains unverified because the browser access host is unavailable.
+
+Initial corrected compiler: `%TEMP%/ube if corrected compiler 20261128/UBE.exe`,
+SHA256 `8CE9C0D2B777CA53C0174413EAFC587B571C9C3826B195162DF9E9CB51120AE4`.
+Fresh seed: `%TEMP%/ube source scanning d8d1e912-6d9d-4a7a-be0d-604aef9e92c4/build/UBE-Bootstrap.exe`.
+The seed build required execution outside the sandbox after VB6 reported
+registry access failure; the approved rerun built successfully and passed its gate.
+
+Focused commands:
+
+```powershell
+rtk proxy powershell -NoProfile -File compiler/tests/if-errors/check.ps1 -CompilerExe <corrected compiler>
+rtk proxy powershell -NoProfile -File compiler/tests/if-errors/check.ps1 -CompilerExe <fresh seed>
+rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/check.ps1
+```
+
+Focused evidence: `%TEMP%/ube if errors 6bacf727-c4cc-43f4-921f-a10a9cb0f3dd`
+(compiler), `%TEMP%/ube if errors 0af4eba2-f50c-4685-a0ff-df3ac325ff6f` (seed).
+The source-scanning evidence is the fresh seed's parent directory.
+Earlier history below describing whole-If skipping is superseded by this correction.
+
+## Resume here — owner-requested pause, 2026-11-28
+
+The compiler/seed identities in this older suffix handoff are superseded by the
+completed If correction above. Its outstanding broader tasks remain paused.
+
+The owner requested stopping after the suffix issue, because agent usage is nearly
+exhausted. That issue is complete; the broader architecture goal is paused and
+not complete. Preserve this worktree, including untracked fixtures and docs.
+No commit or push was requested. Root `Workplan.md` is the resumable checklist.
+
+Latest decisions: numeric LongLong suffix is `&&`; `^` is exclusively powers;
+identifier type suffixes are removed and declarations require `As datatype`.
+Ordinary strings retain both ampersands in `"&&"`. `Compiler.UBE` may retain
+explicit standard-library sources for bootstrap compatibility. Ordinary library
+lookup uses editable source and a content manifest, with no mandatory cache/index.
+Earlier owner decisions remain in `../project-docs/Architecture-Decisions.md`.
+
+Current tested compiler: `%TEMP%/ube library suffix combined compiler revised
+20261128/UBE.exe`, SHA-256
+`610D4C6DF1430CEB7504867CEE274CC4986373086F343A1F8081AD686E148E15`.
+Fresh seed: `%TEMP%/ube lease seed d421c8bc-2e3c-4a9c-9d9a-7e5c8bec0331/UBE-Bootstrap.exe`.
+Old D00694FF and earlier compilers cannot compile the new `&&` source tree.
+
+The updated floating frontend gate passed 10 positive fixtures at O0/O2, two
+changed-output controls, eight existing rejections and 18 new suffix/missing-As
+rejections with preserved outputs. Command:
+`rtk proxy powershell -NoProfile -File runtime/tests/floating-point/frontend/check.ps1
+-CompilerExe <current compiler> -SeedExe <fresh seed>`.
+Evidence: `%TEMP%/ube floating frontend 00b706dc-6733-4877-a1f0-0a378f80a28c`.
+Scanner/parser/conditional/read cancellation gates and negative controls also pass
+on this compiler; exact six commands and evidence are in
+`tests/scanner-cancellation/README.md`.
+
+Repeated self-build gate passed:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/rebuild-check.ps1
+-InitialCompilerExe <current compiler>`.
+Evidence: `%TEMP%/ube compiler rebuild 21f51aed-b47d-42ac-b44a-e69c4b42f8db`.
+Generations 1/2 have byte-identical LLVM (SHA-256
+`7F88B14DE50ECFA1A2F15D680348C271E6E0088379FE70BF88E77A857166238D`);
+native images differ only in the COFF timestamp. Generation-2 executable SHA-256:
+`79AE1436A82BA42CA2F6B77FCF479F3E8600434469C81D6067896E3CE792AEDC`.
+
+The already-running common conformance gate completed before stopping:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1
+-CompilerExe <current compiler> -BootstrapExe <fresh seed>` passed all 1004
+CLI assertions. Evidence: `%TEMP%/ube compiler conformance
+ae66de3b-5fb9-4b7b-8eba-87f91d761260`. No further root test processes remain.
+
+Seed suffix gates passed: `bootstrap/tests/source-scanning/suffix-host-check.ps1`
+checks the actual lexer (`2^3` separation, decimal/hex `&&`, retained numeric `&`,
+unchanged quoted ampersands), evidence suffix `d55412dc-e016-4cdd-87e0-a2965f703e64`;
+`bootstrap/tests/source-scanning/syntax-check.ps1 -BootstrapExe <fresh seed>`
+passes 33 cases, evidence `6f21d3d8-ee25-45dc-97d1-7905cfdedfab`.
+Integer type/arithmetic O0/O2 gates also pass. Other migrated bootstrap fixtures
+were not all rerun. Seed emission capacity is now 1048576 lines with its existing
+32 MiB text bound unchanged; an actual AddLine boundary/negative-control gate
+passes. The previous 500000-line bound rejected the expanded compiler at
+20459812 characters; the retained pre-suffix compiler needed 505853 lines.
+
+Suffix reference/grammar/public documentation is reconciled; static validator
+passes 278 HTML files, 4807 references and 191 word pages. Browser rendering is
+unverified because the browser access host was unavailable. Resolver extended
+focused gate passes 40 O0/O2 assertions, evidence
+`%TEMP%/ube standard library babfd2e0-3f03-4776-9b72-69c4ca90d6bd`.
+No API isolation/concurrency
+acceptance has been substituted by that focused test.
+
+Resume priorities, without treating these as completed:
+
+1. Diagnose the fresh debug-capability API regression. The existing gate failed
+   with probe exit 10, meaning its first `CompilationRequest.TryCompile` failed;
+   the earlier CLI cases passed. Command: `compiler/tests/debug-capability/check.ps1
+   -CompilerExe <current compiler>`; evidence
+   `%TEMP%/ube debug capability dc7b242b-7b2c-4ed2-ba0b-77f9123dd181`.
+   This could be fixture installation assumptions after automatic lookup; that
+   is an investigation lead, not a diagnosed cause. Do not weaken the assertion.
+2. Finish ordinary-library API isolation/concurrency and remaining resolver
+   acceptance. Focused O0/O2 lookup, private-helper/module initialization,
+   visibility refusal, edited-source reload and unused-body checks pass.
+   Full default-catalog scalar emission contains only Main and its module
+   initializer. Still test concurrent API requests with distinct catalogs,
+   nominal types/classes, Friend visibility and explicit-source overlap. Resolve
+   shared identity when a project explicitly lists a catalog source; current
+   separate-domain declarations are not an established final identity contract.
+   Text-support dependency selection is conservative, and the full catalog still
+   causes private-support parsing even when emitted support is unnecessary.
+   Refine this through semantic dependencies, not text-based source filtering.
+   Repair stale `bootstrap/tests/native-intrinsics/Probe.bas` emitter signature
+   and dependencies; finish resolver public/API documentation after qualification.
+3. Rerun the strengthened primitive-authority gate. The 52-assertion run at
+   `%TEMP%/ube primitive authority f0e96798-8c60-4bd3-85d2-2f112dd2ffdc` passed,
+   but its altered-install case omitted the newly required library folder and
+   therefore could fail for the wrong reason. The harness now copies `library`,
+   proves the unmodified installation works, and requires rejection at the edited
+   TextPublication.bas. These stronger checks have not been run. A duplicate
+   ThreadPrimitives fixture entry was also removed after the public catalog gained it.
+4. Run final concurrent compilation/output ownership acceptance and direct
+   binder/layout/planner cancellation integration. Existing narrower leases,
+   cancellation, checked publication and allocation-pressure proofs remain valid
+   only for their recorded scopes. Post-pressure-fix benchmark timing is unmeasured.
+
+## Current: architecture review fixes — 2026-11-28
+
+The owner authorized fixing the architecture review findings. Arithmetic grouping
+and backend diagnostic preservation now have the scoped qualification below.
+The goal remains active: cancellation coverage, runtime primitive safety,
+approved same-output conflict refusal, performance evidence and remaining
+architecture-contract closure are not complete. Debug reporting has focused
+qualification; combined-tree regression checks remain pending.
+Owner decisions and remaining details live in
+`../project-docs/Architecture-Decisions.md`. The owner subsequently authorized and requested corresponding language-reference and public documentation updates; the earlier exclusion no longer applies.
+
+The owner also requires automatic standard-library discovery for ordinary projects.
+`Compiler.UBE` currently enumerates 21 standard-library source modules (including
+target-specific Windows helpers); the owner subsequently approved retaining these
+explicit entries for bootstrap compatibility. The compiler must use the configured target library
+location and ordinary declaration/dependency lookup, with no per-project source
+inventory required from ordinary programs. The resolver must preserve package
+visibility and the private validated runtime-support domain. Library edits must
+work from source without a mandatory generated-index refresh. Implementation and
+qualification are in progress; no seed automatic-library resolver is required.
+
+The latest owner-approved lexical change uses `&&` for LongLong numeric literals,
+reserves `^` exclusively for exponentiation, and removes identifier type suffixes
+in favor of explicit `As datatype`. UBE scanner/parser/literal binding and production
+numeric spellings have been migrated; fresh seed and focused qualification are
+pending. Old qualified compiler artifacts cannot consume the migrated sources.
+The normative decision is in `../project-docs/Architecture-Decisions.md`.
+
+The first combined library/suffix compiler was built from the fresh `&&` seed at
+`%TEMP%/ube lease seed d421c8bc-2e3c-4a9c-9d9a-7e5c8bec0331/UBE-Bootstrap.exe`.
+Artifact: `%TEMP%/ube library suffix combined compiler revised 20261128/UBE.exe`,
+SHA-256 `610D4C6DF1430CEB7504867CEE274CC4986373086F343A1F8081AD686E148E15`.
+The build's source/asset identity guard passed; repeated self-build and common
+conformance are in progress. It does not yet replace the earlier qualified gates.
+
+The previously unqualified O0 native-backend cancellation path now passes with
+`rtk proxy powershell -NoProfile -File compiler/tests/backend-cancellation/check.ps1
+-CompilerExe <that combined artifact> -Optimization 0`.
+Evidence: `%TEMP%/ube backend cancellation 30e1f6ba-486a-450d-9459-6474effd36e1`.
+Both pre-launch and running-child stop cases require exact code 104, released
+owners, no remaining child, unaffected caller and successful subsequent tool.
+An earlier O0 build exposed 4496/5880-byte spill frames in expanded LookupName
+and OutputConflictText; extracting focused helpers preserved behavior and this
+actual native O0 gate now links and passes without an added stack-probe shim.
+
+### Output reservation qualification
+
+The final focused lease gate passed with
+`rtk proxy powershell -NoProfile -File bootstrap/tests/output-publication/lease-check.ps1
+-BootstrapExe "C:/Users/Ubehage/AppData/Local/Temp/ube lease seed b90dd7a2-c84a-4d71-9275-4a526cab1c11/UBE-Bootstrap.exe"
+-CompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube architecture combined compiler 20261128/UBE.exe"`.
+Evidence: `%TEMP%/ube publication 9ad77878-9602-4eeb-a35a-1d7ef8538057`.
+O0/O2 cases cover namespace/case/hardlink/junction aliases, independent outputs,
+release/reacquisition and original-byte preservation. Process tests cover native,
+seed and product contenders, refusal before project load and owner-process exit.
+Real replacement retains both old/new inode identities until release and rejects
+an obsolete snapshot. Invalid UTF-8/token kind and injected close failure/retry
+preserve ownership and primary failure. The process driver is O0; the close-fault
+driver remains optnone with production callees compiled at O0/O2.
+
+The previous publication regression also passed 23 cases and 118 preparation
+allocation-fault sites at O0/O2 with its negative control. These do not exhaust
+allocation faults in the new reservation code. Cross-session/different-user
+execution and the final complete concurrent-request gate remain unqualified.
+The protocol coordinates cooperating processes on one machine. Its exact
+platform normalization and lifetime contract are in `../std-lib/LEASE-CONTRACT.md`.
+
+### Checked publication and allocation-pressure collection
+
+The combined compiler at `%TEMP%/ube checked publication corrected compiler/UBE.exe`
+has SHA-256 `D00694FF12F90ECD2B75928B93827A131F13EF3FD44F14C386F8F18E3797F43D`.
+It includes checked String publication in installed UBE support, specific
+collector/monitor authority checks, output leases, allocation-pressure collection
+and the cancellation changes described below. Building it alone does not prove
+integrated conformance; broader regression qualification is in progress.
+
+The combined compiler passed all 1004 common CLI conformance assertions with
+`rtk proxy powershell -NoProfile -File bootstrap/tests/self-hosting/check.ps1
+-CompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube checked publication corrected compiler/UBE.exe"
+-BootstrapExe "C:/Users/Ubehage/AppData/Local/Temp/ube lease seed 46477fc8-0230-44ab-8a04-d579b9dd0543/UBE-Bootstrap.exe"`.
+Evidence: `%TEMP%/ube compiler conformance a7199d21-ff53-4c3c-bcb8-e3fed0bb0b87`.
+This covers exact CLI/native behavior and malformed-input/output preservation,
+including backend failure and timeout recovery. The artifact predates later
+frontend cancellation and automatic-library-resolution edits; it does not qualify
+those changes or replace the remaining repeated self-build/concurrency gates.
+
+`rtk proxy powershell -NoProfile -File compiler/tests/primitive-authority/check.ps1
+-CompilerExe <combined compiler>` passed 52 gate assertions plus source assertions
+at O0/O2. These cover the full ordinary public UBECore package, malformed UTF-8
+and scalar counts, unchanged destination and repairable candidates, cross-thread/
+consumed/abandoned misuse, custom reversed-byte construction, supplementary scalars
+and embedded NUL, restricted-role redeclarations/copies/renaming, modified installed
+identities and a changed-value negative control. Evidence: `%TEMP%/ube primitive
+authority cb87cccc-5319-4683-97ed-f82e7eaa926e`. Unicode validation remains in UBE;
+ordinary library discovery does not confer internal support authority.
+
+Allocation-pressure scheduling uses the existing precise collector and allocation
+safe point. The focused replacement workload previously retained 1028 allocations
+after 512 iterations with only nine roots; explicit collection reduced it to four.
+The corrected runtime collects at bounded allocation pressure while preserving
+live values, construction roots, thread coordination and existing Err.
+`rtk proxy powershell -NoProfile -File compiler/tests/performance/pressure-check.ps1
+-CompilerExe <combined compiler>` passed 12 O0/O2 cases, including concurrent
+allocating workers and explicit collection controls. Evidence: `%TEMP%/ube
+allocation pressure 87b48578-301d-42d6-9801-e6c7b4c2a88d`.
+The managed fault, graph, rendezvous and metadata-growth suites and native thread
+lifecycle gate also pass. Exact commands, negative controls and artifact identities
+are recorded in `tests/performance/RESULTS.md`. No post-fix timing improvement is
+claimed; the earlier benchmark table remains a pre-fix measurement.
+
+### Debug capability reporting and O0 frame corrections
+
+Successful output requested with Line, Full or default Full now reports
+`W_DEBUG_UNAVAILABLE`; None remains silent. `RequestDiagnostic` exposes the
+requested unavailable mode only after successful publication and resets it on
+each request. Failure diagnostics remain primary; CLI stdout and success status
+are unchanged. This is capability reporting, not source-debugging implementation.
+
+`rtk proxy powershell -NoProfile -File compiler/tests/debug-capability/check.ps1
+-CompilerExe "C:/Users/Ubehage/AppData/Local/Temp/ube debug capability stable compiler/UBE.exe"`
+passed 127 assertions. The gate covers the four debug selections, O0/O2 and four
+CLI commands, exact warning/stdout/status, identical emitted IR without debug
+metadata, executable result 42, failure/alias-output preservation without success
+warnings, and direct API O0/O2 metadata/reset/isolation without command rendering.
+Evidence: `%TEMP%/ube debug capability a617f03a-39c3-4f24-9a2f-bc2f3cfda50a`.
+
+The full-source O0 API fixture initially failed to link because LLVM introduced
+unavailable `__chkstk` calls in large emitter/coordinator procedures and the first
+warning formatter. The concise warning, shared aggregate-argument classification
+in `ManagedLayouts.IsAggregateArgument`, and extraction of the unchanged quota
+predicate into `NativeCompilation.NeedsReplay` reduce spill pressure. The final
+API packages include these corrections and link/run without a test stack helper.
+The CLI executable predates those refactorings; repeated self-build and broad
+regression qualification of the combined tree remain to be rerun after other
+active production edits settle. Conditional project checks also passed; evidence
+`%TEMP%/ube conditional projects daf57fd3-c095-479d-883d-155056b303e1`.
+
+### Native-tool cancellation qualification
+
+Request diagnostic integration is in progress: `CompilerMessages.CancelledError`
+prints `E_CANCELLED`; the request maps the emitter/backend's explicit code 104
+without inspecting a later stop flag to relabel another failure. A pre-stopped
+request exits before reserving output, and the final stop checkpoint is immediately
+before `TryCommit`. Successful commit is not retrospectively called cancelled.
+`compiler/tests/request-cancellation/check.ps1` checks exact rendering, metadata
+reset, no owners acquired by the stopped request, unchanged destination and a
+subsequent unrelated request's ordinary load failure at O0/O2.
+
+This gate now passes at O0/O2 using the combined compiler at
+`%TEMP%/ube architecture combined compiler 20261128/UBE.exe`. Exact command:
+`rtk proxy powershell -NoProfile -File compiler/tests/request-cancellation/check.ps1
+-CompilerExe <that executable>`. Evidence: `%TEMP%/ube request cancellation
+7bedbfb2-c5de-4dce-9eec-941c65fcb577`. The initial output-error-8 failure was traced
+to a missing lease dispatch in the seed emitter and corrected there; the
+load-error assertion was retained. Initial failure evidence:
+`%TEMP%/ube request cancellation 80a9ed27-300e-4cdc-a11e-49349a23ada0`
+and `e0838c23-a671-414f-bdc0-7334bb8d3392`.
+
+Scanner validation now checks stop at entry and after each 256 Unicode scalars,
+returning explicit scanner code 104 with its byte/line/column location. Request
+loading maps that explicit code to E_CANCELLED. The focused gate
+`rtk proxy powershell -NoProfile -File compiler/tests/scanner-cancellation/check.ps1
+-CompilerExe <b6d42 generation-2 compiler>` passes at O0/O2: cancelled begin/scan,
+zero published token count, unaffected scanner success and unchanged malformed
+UTF-8 diagnostic. Evidence: `%TEMP%/ube scanner cancellation
+47d7331f-0682-47d8-a1bf-e7ce81f7584a`. Before the change, the same fixture failed
+exactly with exit 11 (`a60c0481-4eed-4b7e-b6ad-f6a90cc32714`). Frontend fixture
+source inventories now include ThreadPrimitives where they embed SourceScanner.
+Subsequent deterministic gates now qualify mid-loop scanner/parser cancellation
+(17 cases), conditional traversal (six cases), and cancellable chunked source
+reads with primary-error/failed-close ownership preservation, at O0/O2 with
+disabled-checkpoint negative controls. Exact commands and evidence are in
+`tests/scanner-cancellation/README.md`. This is checkpoint-count evidence, not
+a deadline for blocked OS operations. Final binder/layout/planner and combined
+request qualification remain pending after library and suffix integration.
+The existing scanner regression gate also passes all 90 O0/O2 groups:
+`rtk proxy powershell -NoProfile -File bootstrap/tests/source-scanning/check.ps1
+-BootstrapExe "C:/Users/Ubehage/AppData/Local/Temp/ube lease seed 46477fc8-0230-44ab-8a04-d579b9dd0543/UBE-Bootstrap.exe"`.
+It checks exact token/location/diagnostic fields, large comments/token counts,
+malformed input and changed-input controls. Evidence: `%TEMP%/ube source scanning
+08155887-5d58-463f-8ba0-a49dd56cab61`.
+
+Emitter follow-up: `NativeEmission.Charge` now checks stop requests every 256
+work units, so a single large procedure can stop without reaching its end.
+`TryContinue` also supplies symbol, worker-launch and output-chunk checkpoints.
+It preserves an already recorded failure, otherwise records code 104 and the
+current source node. Existing quota failure precedence is retained.
+
+The focused `compiler/tests/emission-cancellation/Probe.bas` first reproduced
+the missing checkpoint with exact exit 2 on an immutable package whose
+`NativeEmission.bas` hash matched the then-current source. Evidence:
+`%TEMP%/ube emission cancellation baseline
+3b329c63-3933-4588-bebf-14b77684f4c9`.
+After the change, the real source fixture passed at O0 and O2: stop within 256
+charges, preservation of earlier failure/node/work count, unaffected caller
+work, and unchanged maximum-work quota failure. Evidence:
+`%TEMP%/ube emission cancellation
+701d9212-fb0d-4fdc-9d05-2786c7548f30` (`o0/probe.exe`, `o2/probe-o2.exe`).
+Both used the lease-capable seed at `%TEMP%/ube lease seed
+f949d604-d4b8-4154-b0ed-89dda7d7b140/UBE-Bootstrap.exe`.
+
+Reproduction command is `rtk proxy powershell -NoProfile -File
+compiler/tests/emission-cancellation/check.ps1 -CompilerExe <compatible compiler>`.
+The initial harness incorrectly required the seed's stdout to contain only
+BUILD OK; the seed also prints its module inventory. That assertion is corrected.
+A rerun caught unrelated Text-publication source changes before their generated
+templates were ready. Qualification therefore ran the earlier coherent O0 package
+directly and built its immutable copy with Optimization 2; hashes of both changed
+emitter source files matched the worktree. The complete harness against the final
+integrated tree remains pending. These focused checks do not prove cancellation
+propagation through complete compiler requests or their final publication path.
+
+`NativeBackend.TryRun` checks the calling thread's stop request before creating
+its log/child and in the existing 50 ms wait loop. It returns the distinct
+`NativeBackend.Cancelled` failure code 104 and follows the existing terminate,
+wait and close cleanup path. A previously observed tool/I/O failure still takes
+its existing cleanup edge; a later stop does not relabel that failure.
+
+Command: `rtk proxy powershell -NoProfile -File
+compiler/tests/backend-cancellation/check.ps1 -CompilerExe
+"C:/Users/Ubehage/AppData/Local/Temp/ube compiler rebuild b6d42d2d-883c-4198-b223-776c5aa59025/generation-2/UBE.exe"`.
+The gate builds an immutable source package at O2 and passed both cases:
+pre-stopped worker creates no log/child; stopping after an independent native
+child creates its marker completes within the 10-second assertion deadline.
+Both require code 104, zero retained file/process owners, no surviving child,
+an unaffected calling thread and a successful subsequent real native tool.
+Evidence: `%TEMP%/ube backend cancellation
+6d6ed6eb-9d00-4e66-845f-2b7bd222a7cd`.
+
+The same command with `-WithoutCancellation -Modes 2` removes only the two
+checks from the packaged source. It fails as expected with probe exit 6 (worker
+not complete within 10 seconds), after the child-start marker was observed.
+Evidence: `%TEMP%/ube backend cancellation
+10d2c766-e58a-4f65-8cb1-986bd5eaf3a4`.
+The first fixture attempt supplied an invalid empty native command line; that
+fixture failure is not qualification evidence. The corrected fixture supplies
+a valid argv[0].
+
+This gate does not establish a 50 ms wall-clock guarantee, descendant-process
+drain, injected cleanup-failure retry, O0 backend execution, full compilation
+diagnostic classification or cancellation in frontend/individual emitter loops.
+Those broader cancellation requirements remain open. Existing general process
+ownership tests are not substituted for the missing cancellation-specific cases.
+
+### Qualified arithmetic and backend diagnostics
+
+Both ordinary parser paths now put multiplication/division above integer division
+above Mod. The UBE parser makes powers left-associative and prevents a signed
+exponent from absorbing the next power. Conditional expressions use the same
+relative order, including concatenation below addition. Checked numeric/failure
+semantics remain unchanged. Existing old-grouping fixtures were corrected against
+the independent VB6 oracle, with additional runtime and parenthesized controls.
+An audit of 75 compiler/library source files found no production mixed-arithmetic
+expression requiring a preserving rewrite.
+
+Failed native tools now retain bounded request-owned diagnostic text before
+cleanup, preserving tool identity, valid UTF-8, primary status and output ownership.
+Malformed/control bytes are sanitized and truncation is explicit. Public legacy
+entry points delegate to the diagnostic-aware implementations.
+
+Fresh bootstrap qualification exposed three missing Kernel32 imports required by
+the existing IDE-session runtime. The VB6 backend now emits them; the shared test
+linker reads the reviewed canonical definition rather than retaining a stale copy.
+`bootstrap/tools/native-imports.ps1` also checks seed/runtime import parity.
+
+All commands below use `rtk proxy powershell -NoProfile -File`.
+Qualified UBE executable: `%TEMP%/ube compiler rebuild
+b6d42d2d-883c-4198-b223-776c5aa59025/generation-2/UBE.exe`, SHA256
+`C5ED6B2976C03D6D0EEC754E480E7C5E7F488125DEEB6EAD13A142E02E38088F`.
+Fresh seed: `%TEMP%/ube native compilation
+c989953f-8904-446d-bfbf-f804e1e1a321/build/UBE-Bootstrap.exe`.
+The first repaired UBE compiler (used for the focused gates before the fixed-point
+run) is `%TEMP%/ube arithmetic repair
+dbf3d62e-8bcd-4e90-9c70-12a6e8db379a/UBE.exe`, SHA256
+`A90A2859B386714A0C8C693F1E749B9E8DF8948126F9D94E6198F5D22F5077C1`.
+
+| Gate | Result and retained evidence under %TEMP% |
+|---|---|
+| `bootstrap/tests/integer-operations/check.ps1 -CompilerExe <first repaired UBE>` | O0/O2 value, overflow, evaluation/FAIL, negative control, recovery and rejection gates PASS; `ube integer operations fe148b7c-04b8-46a8-9e64-be6869e1136a` |
+| Same command with `<fresh seed>` | Same O0/O2 gates PASS; `ube integer operations 3a0b56d3-e4ed-4062-980f-c7cd04ed9f61` |
+| `runtime/tests/floating-point/frontend/check.ps1 -SeedExe <first repaired UBE> -CompilerExe <first repaired UBE>` | Nine source fixture families O0/O2, worker control, eight rejected-source/output-preservation cases PASS; `ube floating frontend b07e5ce6-c0e9-4f17-a4ad-d4f26e37988c` |
+| `compiler/tests/conditional-compilation/expression-check.ps1 -CompilerExe <first repaired UBE>` | 64 cases O0/O2 plus changed-result controls PASS; `ube conditional expressions 8fe15684-adc7-4472-9244-1d2184ffd100` |
+| `compiler/tests/backend-diagnostics/check.ps1 -CompilerExe <first repaired UBE>` | 43 assertions PASS; original compiler fails the missing-detail control; `ube backend diagnostics 6bf11a3b-1f10-45d3-91bd-22bf3406355e` |
+| `bootstrap/tests/self-hosting/rebuild-check.ps1 -InitialCompilerExe <first repaired UBE>` | Both builds and source/asset parity PASS; exact LLVM SHA256 `E1461550C5D6690E5130786B3656572249CD969E3A17C2149C95A4E5F913E578`; native differences only COFF timestamp; `ube compiler rebuild b6d42d2d-883c-4198-b223-776c5aa59025` |
+| `bootstrap/tests/self-hosting/check.ps1 -CompilerExe <qualified UBE> -BootstrapExe <fresh seed>` | 1004 CLI assertions PASS; `ube compiler conformance 99c2a70b-ab4c-47a3-86ac-1f787dadf6bf` |
+| `bootstrap/tests/concurrent-compilation/check.ps1 -BootstrapExe <fresh seed>` | Complete existing isolation, failure/cancellation, backend timeout/recovery, IDE-context and class-layout gates PASS; `ube concurrent compilation 78c44849-5843-4f14-9b24-6578a4132e81` |
+| `std-lib/tests/unicode-scalars/check.ps1 -CompilerExe <qualified UBE>` | O0/O2: 35 groups, all 1,112,064 scalars with exact independent bytes and changed-scalar controls PASS; `ube unicode scalars b00d3093-969b-4128-9dd3-60b9219be85d` |
+| `std-lib/tests/floating-point/check.ps1 -CompilerExe <qualified UBE>` | O0/O2: 97 exact IEEE conversion cases, failure/stale Err and changed-oracle controls PASS; `ube floating point 95837631-cad9-4f90-aa67-037a8a2d43dd` |
+| `bootstrap/tests/source-parsing/check.ps1` | 46 AST/limit/recovery cases PASS on corrected parser before the separate import fix; `ube source parsing f1fe4daf-a2d1-4282-8137-4349e7e3baa1` |
+| `bootstrap/tests/native-compilation/check.ps1 -BootstrapExe <fresh seed>` | 26 native groups PASS after import fix, including source failure oracle and backend preservation; `ube native compilation 8cd875da-5921-49d5-8337-c28bfcae960c` |
+
+VB6 builds and gates executing copied LLVM test tools required automatically
+reviewed outside-sandbox execution after explicit registry/permission failures.
+Those environmental failures are not passing gate results. The native backend
+and common-conformance failures with the earlier seed exposed the missing imports;
+the corrected seed and shared fixture passed the reruns listed above.
+The initial updated integer fixture still expected the former nonoverflowing
+grouping for `A * B \ B`; it was corrected to require intermediate overflow and
+paired with explicit `A * (B \ B)` success before the final passing run.
+
+The existing concurrency gate proves regression safety for arithmetic/diagnostic
+changes; its competing-publication assertion does not prove the newly approved
+conflict-refusal policy. Debug reporting and cancellation improvements remain
+unqualified. Backend capture-specific allocation/read/close fault injection and
+same-process diagnostic-detail isolation have not yet been independently exercised.
+
+### Earlier arithmetic contract decision
+
+During the owner-requested architecture review, the owner explicitly selected
+VB6 arithmetic order of operations. The normative specification and ordinary
+and conditional grammars now reflect that decision. Multiplication/division
+bind tighter than integer division, then Mod; powers associate left to right.
+Leading numeric signs are operators, preserving `-2 ^ 2 = -4` and `2 ^ -2 = 0.25`.
+
+The review changed definitions only. Both ordinary-source compiler paths and
+conditional-expression evaluation still require a focused implementation pass.
+Prior arithmetic acceptance does not qualify the corrected grouping. Preserve
+the established numeric type, checked-range and FAIL contracts while correcting
+grouping. Audit affected numerical-library expressions and tests, then run the
+relevant numerical, self-host and concurrency gates before claiming conformance.
+
+Evidence: the native VB6 oracle in `%TEMP%/ube review vb6 arithmetic
+6ff8924f-58ec-479f-8189-b5f30a60b3fd` passed twelve variable-input assertions
+with exact exit zero, including `8 * 5 Mod 3 = 1` and `2 ^ 3 ^ 2 = 64`.
+The current UBE compiler recorded below returned 16 for the Mod example at both
+O0/O2, with explicit-parentheses controls. UBE probe source/manifests and its
+rerunnable script are in `%TEMP%/ube architecture review
+42d0cb12-27a7-43bf-b444-33c85f231040`. Full architecture findings are in the local
+Agent-ideas.md ledger. No production compiler change or fresh full regression
+qualification was performed by this review.
+
+## Completed: compiler project location — 2026-11-27
 
 Owner directed moving the project into compiler/. `compiler/Compiler.UBE` is
 now authoritative; compiler inputs use src/ and library inputs ../std-lib/.

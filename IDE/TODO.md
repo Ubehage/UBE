@@ -7,11 +7,14 @@ The ordered implementation plan, including the visual-identity, palette,
 typography, iconography, accessibility, and packaging decision points, is in
 [`Workplan.md`](Workplan.md).
 
-The application is now active in [`UBE-IDE/`](UBE-IDE/). Its headless
-foundation, plain native Windows shell, first real editable UBE document, and
-real workspace tools, version-matched diagnostics, and semantic project and
-`UBECore` View Definition are complete through Step 5. The next vertical slice
-validates the architectural accessibility, recovery, isolation, malformed-
-input, cancellation, low-memory, and performance risks. Detailed resume state
-and verification commands are recorded in both workplans.
+This checkout contains the accepted design and the reconstructed open
+implementation checklist, but no `UBE-IDE/` application. The former claim of
+completion through Step 5 is not supported by retained source or acceptance
+evidence and is withdrawn. No historical implementation is recreated by this
+planning correction.
+
+The compiler's guarded hosted-launch fixture is qualified separately in
+[`../compiler/IDE-CONTEXT.md`](../compiler/IDE-CONTEXT.md). It is not a native
+IDE or source-level debugger. All IDE application implementation and acceptance
+items remain open in [`Workplan.md`](Workplan.md).
 

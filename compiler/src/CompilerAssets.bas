@@ -27,6 +27,31 @@ Private Function ManagedPathText(ByRef Result() As Byte) As Boolean
     ManagedPathText = True
 End Function
 
+' The editable ordinary library catalog is distinct from reviewed compiler support.
+Private Function LibraryPathText(ByRef Result() As Byte) As Boolean
+    If Not BufferPrimitives.TryResizeBytes(Result, 19, False) Then Exit Function
+    Result(0) = 108
+    Result(1) = 105
+    Result(2) = 98
+    Result(3) = 114
+    Result(4) = 97
+    Result(5) = 114
+    Result(6) = 121
+    Result(7) = 47
+    Result(8) = 85
+    Result(9) = 66
+    Result(10) = 69
+    Result(11) = 67
+    Result(12) = 111
+    Result(13) = 114
+    Result(14) = 101
+    Result(15) = 46
+    Result(16) = 85
+    Result(17) = 66
+    Result(18) = 69
+    LibraryPathText = True
+End Function
+
 ' Supplies the exact installed relative path for llvm/templates.bin.
 Private Function TemplatePathText(ByRef Result() As Byte) As Boolean
     If Not BufferPrimitives.TryResizeBytes(Result, 18, False) Then Exit Function
@@ -115,6 +140,8 @@ Private Function RelativePath(ByVal Kind As Long, ByRef Relative() As Byte, ByRe
         If Not ImportPathText(Relative) Then Exit Function
     ElseIf Kind = 4 Then
         If Not ManagedPathText(Relative) Then Exit Function
+    ElseIf Kind = 5 Then
+        If Not LibraryPathText(Relative) Then Exit Function
     Else
         Failure = 1
         RelativePath = FilePrimitives.SetError(5)

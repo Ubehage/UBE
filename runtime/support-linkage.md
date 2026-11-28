@@ -7,8 +7,9 @@ This document uses the existing
 compiler target-support boundary as the integration point. It does not add a
 source package, manifest key, language attribute, or implicit library reference.
 
-The current installed closure contains 13 ordered source files and resolves
-11 ordinary procedure roles, including floating text conversion and power.
+The current installed closure contains 16 ordered source files and resolves
+13 ordinary procedure roles, including floating text conversion, power,
+monitor acquisition and checked text publication.
 `runtime/managed-support-sources.txt` is the file inventory; generated identities
 and role checks qualify that exact closure. Numeric algorithms remain in UBE.
 
@@ -64,6 +65,21 @@ planning facts. Compiler-generated calls use those IDs. They never search user
 symbols by procedure spelling. Support roles are not new source Intrinsic
 declarations: their bodies are lowered by the ordinary compiler. Native
 primitive declarations within those bodies keep normal primitive-role checks.
+
+Primitive-role publication also checks the installed source identities. The
+collector lifecycle roles BeginCollection, EndCollection, SealCollection,
+Reclaim and Workspace, raw Object.MonitorTryEnter/MonitorLeave, and Text.Commit
+require this validated support domain. Read-only collector inspection and
+checked candidate storage operations do not receive a blanket prohibition.
+Public Memory.Collect, SyncLock and checked Text.Publish remain available.
+Ordinary copies of implementation modules do not acquire these privileges.
+
+Text.Publish resolves the installed TextPublication.Publish procedure. Its UBE
+body reads an owning thread's private candidate through checked metadata/byte
+operations, validates UTF-8 and its scalar count, and invokes Text.Commit only
+after success. Unicode validation remains ordinary UBE. TextPrimitives and
+public Text source packaging use the same checked publication path; they do not
+carry the support-only raw commit declaration.
 
 Installed source bytes also match compiled reviewed identities before parsing.
 `managed-source-identities.ps1` generates `ManagedSourceAssets.bas` from the same

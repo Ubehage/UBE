@@ -75,8 +75,9 @@ ordered sources form one compilation package. `Name` is that package's
 case-folded source qualifier and must be representable as a UBE identifier;
 its original spelling is retained.
 
-`Kind = "Exe"` builds an executable and `Kind = "Library"` builds the target's
-native shared-library format. Executables require `Startup = "Main"`; the key
+When a project is selected as the build output, `Kind = "Exe"` builds an
+executable and `Kind = "Library"` builds the target's native shared-library
+format for explicit library output. Executables require `Startup = "Main"`; the key
 names only the required source-level entry procedure and never a form.
 Libraries have no entry point and expose foreign procedures only when marked
 `Public Export`.
@@ -97,6 +98,39 @@ duplicate normalized references and missing manifests are errors; no registry,
 environment, network, or undeclared search path is consulted. References must
 be acyclic, cannot name the current project, and cannot resolve to two packages
 with the same folded `Name`.
+
+Owner clarification, 2026-11-28: the standard library is available automatically
+from the compiler's configured library location. Projects do not enumerate its
+source files or require an explicit `Reference` merely to use standard-library
+functions. The compiler discovers the required declarations and their dependencies
+using ordinary language lookup and visibility rules. The owner's subsequent
+bootstrap clarification permits `Compiler.UBE` to retain explicit standard-library
+source entries for bootstrap compatibility; ordinary user projects do not need
+that inventory. Automatic
+discovery does not make library function names reserved words or grant ordinary
+library source the authority of validated internal runtime support. Target-specific
+library selection follows the compilation target. The editable source catalog and
+its source files are authoritative. A missing or stale generated index must not
+prevent a library edit from being compiled: the compiler builds its declaration
+index from source, and any future persistent cache is optional and rebuildable.
+
+Standard-library source and other libraries consumed through `Reference` become
+native parts of the consuming program.
+Their source is compiled into that program; their origin in a Library project
+does not create a separate DLL, runtime, heap, foreign-call wrapper or external
+ownership lease. The compiler retains package identity, ordinary visibility,
+nominal types and dependency initialization order within the one program.
+Public declarations can be used through the existing UBE source lookup rules
+without `Export`. The linked source graph uses the same program memory manager,
+ordinary UBE references/ByRef semantics and precise roots across package boundaries.
+
+Explicitly building a `Kind = "Library"` project as a native shared-library output
+remains supported by the product contract; that output incorporates its own source
+references in the same way. Calls through the explicit foreign-library ABI remain
+separate. This source-integration rule does not claim that project-reference
+resolution, automatic standard-library discovery or library-output implementation
+is already qualified. The current compiler project retains the explicitly permitted
+bootstrap source inventory while ordinary automatic discovery is implemented.
 
 Only directly referenced packages contribute Public declarations to source
 lookup. Their dependencies remain link dependencies but are not injected into
@@ -146,6 +180,12 @@ deterministic: RP8 compiles and links the declared source reference while
 verifying that the paired target artifact is compatible. Direct extraction of
 the cached artifact is not part of the RP8 linker handoff. The compiler never
 infers metadata from a platform library filename.
+
+Pairing a bundle with a source Reference does not override the source-integration
+rule above or require a runtime DLL merely because the source came from a library.
+The exact use of future cached compiled artifacts remains an explicit linker/
+bundle contract; the owner's source-library clarification neither prohibits all
+binary libraries nor silently selects their final artifact format.
 
 ## Project-group manifests (`.UBG`)
 

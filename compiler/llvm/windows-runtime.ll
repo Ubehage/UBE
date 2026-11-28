@@ -1288,6 +1288,11 @@ pin:
 }
 define internal i1 @ube.file.close(ptr %ctx, ptr %token.out, ptr %failure) {
 entry:
+  %closed = call i1 @ube.resource.close.single(ptr %ctx, ptr %token.out, ptr %failure, i64 1, i64 3)
+  ret i1 %closed
+}
+define internal i1 @ube.resource.close.single(ptr %ctx, ptr %token.out, ptr %failure, i64 %minimum.kind, i64 %maximum.kind) {
+entry:
   %alias = icmp eq ptr %token.out, %failure
   %null.token = icmp eq ptr %token.out, null
   %null.failure = icmp eq ptr %failure, null
@@ -1309,8 +1314,8 @@ lookup:
 kind:
   %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
   %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8
-  %kind.low = icmp sge i64 %kind.value, 1
-  %kind.high = icmp sle i64 %kind.value, 3
+  %kind.low = icmp sge i64 %kind.value, %minimum.kind
+  %kind.high = icmp sle i64 %kind.value, %maximum.kind
   %file.kind = and i1 %kind.low, %kind.high
   br i1 %file.kind, label %close, label %kind.fail
 kind.fail:
@@ -2492,6 +2497,189 @@ pin:
   call void @ube.block.drop(ptr %ctx, ptr %pin.path)
   ret i1 %accepted
 }
+declare dllimport ptr @CreateEventExW(ptr, ptr, i32, i32)
+declare dllimport void @SetLastError(i32)
+declare dllimport i32 @LCMapStringEx(ptr, i32, ptr, i32, ptr, i32, ptr, ptr, i64)
+@ube.lease.locale = private constant [1 x i16] zeroinitializer
+@ube.lease.prefix = private constant [18 x i16] [i16 71, i16 108, i16 111, i16 98, i16 97, i16 108, i16 92, i16 85, i16 66, i16 69, i16 46, i16 76, i16 101, i16 97, i16 115, i16 101, i16 46, i16 0]
+define { ptr, i32 } @ube.target.lease.create(ptr %name) {
+entry:
+  call void @SetLastError(i32 0)
+  %handle = call ptr @CreateEventExW(ptr null, ptr %name, i32 1, i32 2)
+  %error = call i32 @GetLastError()
+  %first = insertvalue { ptr, i32 } zeroinitializer, ptr %handle, 0
+  %result = insertvalue { ptr, i32 } %first, i32 %error, 1
+  ret { ptr, i32 } %result
+}
+define internal i1 @ube.lease.acquire.pinned(ptr %ctx, ptr %key, ptr %token.out, ptr %failure) {
+entry:
+  %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %key, ptr %key, ptr %token.out, ptr %failure)
+  br i1 %outputs, label %empty, label %failed
+empty:
+  %old = load atomic i64, ptr %token.out monotonic, align 8
+  %clear = icmp eq i64 %old, 0
+  br i1 %clear, label %reserve, label %invalid
+reserve:
+  %slot = call ptr @ube.resource.reserve(ptr %ctx)
+  %no.slot = icmp eq ptr %slot, null
+  br i1 %no.slot, label %memory.fail, label %identity
+identity:
+  %token = call i64 @ube.resource.token()
+  %exhausted = icmp eq i64 %token, 0
+  br i1 %exhausted, label %unreserve, label %allocate
+allocate:
+  %block = call ptr @ube.memory.new(ptr %ctx, i64 8192, i64 1)
+  %no.memory = icmp eq ptr %block, null
+  br i1 %no.memory, label %unreserve, label %prepare
+unreserve:
+  call void @ube.resource.unlock(ptr %slot)
+  br label %memory.fail
+prepare:
+  %block.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 2
+  store ptr %block, ptr %block.ptr
+  %scratch = getelementptr %ube.block, ptr %block, i64 1
+  %wide = getelementptr i8, ptr %scratch, i64 4096
+  %upper = getelementptr i8, ptr %scratch, i64 16384
+  %name = getelementptr i8, ptr %scratch, i64 32768
+  %length = call i32 @ube.path.decode(ptr %key, ptr %scratch, ptr %wide)
+  %valid.length = icmp sgt i32 %length, 0
+  br i1 %valid.length, label %normalize, label %bad.key
+normalize:
+  call void @ube.managed.safe(ptr %ctx)
+  %units = call i32 @LCMapStringEx(ptr @ube.lease.locale, i32 512, ptr %wide, i32 %length, ptr %upper, i32 4096, ptr null, ptr null, i64 0)
+  call void @ube.managed.enter(ptr %ctx)
+  %positive = icmp sgt i32 %units, 0
+  %bounded = icmp ule i32 %units, 4096
+  %mapped = and i1 %positive, %bounded
+  br i1 %mapped, label %compare, label %bad.key
+compare:
+  call void @ube.managed.safe(ptr %ctx)
+  %equivalent = call i32 @CompareStringOrdinal(ptr %wide, i32 %length, ptr %upper, i32 %units, i32 1)
+  call void @ube.managed.enter(ptr %ctx)
+  %same = icmp eq i32 %equivalent, 2
+  br i1 %same, label %hash, label %bad.key
+hash:
+  %index = phi i32 [ 0, %compare ], [ %next, %hash ]
+  %first = phi i64 [ 2166136261, %compare ], [ %next.first, %hash ]
+  %second = phi i64 [ 2246822519, %compare ], [ %next.second, %hash ]
+  %character = getelementptr i16, ptr %upper, i32 %index
+  %unit = load i16, ptr %character, align 2
+  %value = zext i16 %unit to i64
+  %first.product = mul i64 %first, 257
+  %first.sum = add i64 %first.product, %value
+  %next.first = urem i64 %first.sum, 4294967291
+  %second.product = mul i64 %second, 65537
+  %second.sum = add i64 %second.product, %value
+  %next.second = urem i64 %second.sum, 4294967279
+  %next = add i32 %index, 1
+  %more = icmp ult i32 %next, %units
+  br i1 %more, label %hash, label %prefix
+prefix:
+  %prefix.index = phi i64 [ 0, %hash ], [ %prefix.next, %prefix ]
+  %prefix.source = getelementptr i16, ptr @ube.lease.prefix, i64 %prefix.index
+  %prefix.unit = load i16, ptr %prefix.source, align 2
+  %prefix.target = getelementptr i16, ptr %name, i64 %prefix.index
+  store i16 %prefix.unit, ptr %prefix.target, align 2
+  %prefix.next = add i64 %prefix.index, 1
+  %prefix.more = icmp ult i64 %prefix.next, 17
+  br i1 %prefix.more, label %prefix, label %hex
+hex:
+  %digit = phi i64 [ 0, %prefix ], [ %digit.next, %hex ]
+  %first.half = icmp ult i64 %digit, 8
+  %selected = select i1 %first.half, i64 %next.first, i64 %next.second
+  %relative = and i64 %digit, 7
+  %reverse = sub i64 7, %relative
+  %shift = mul i64 %reverse, 4
+  %shifted = lshr i64 %selected, %shift
+  %nibble = and i64 %shifted, 15
+  %number = icmp ult i64 %nibble, 10
+  %decimal = add i64 %nibble, 48
+  %letter = add i64 %nibble, 55
+  %ascii = select i1 %number, i64 %decimal, i64 %letter
+  %ascii16 = trunc i64 %ascii to i16
+  %position = add i64 %digit, 17
+  %destination = getelementptr i16, ptr %name, i64 %position
+  store i16 %ascii16, ptr %destination, align 2
+  %digit.next = add i64 %digit, 1
+  %hex.more = icmp ult i64 %digit.next, 16
+  br i1 %hex.more, label %hex, label %create
+create:
+  %terminator = getelementptr i16, ptr %name, i64 33
+  store i16 0, ptr %terminator, align 2
+  call void @ube.managed.safe(ptr %ctx)
+  %created = call { ptr, i32 } @ube.target.lease.create(ptr %name)
+  call void @ube.managed.enter(ptr %ctx)
+  %handle = extractvalue { ptr, i32 } %created, 0
+  %error = extractvalue { ptr, i32 } %created, 1
+  %missing = icmp eq ptr %handle, null
+  br i1 %missing, label %create.fail, label %retain
+retain:
+  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1
+  store ptr %handle, ptr %handle.ptr
+  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3
+  store atomic i64 5, ptr %kind.ptr monotonic, align 8
+  %exists = icmp eq i32 %error, 183
+  br i1 %exists, label %reject.close, label %publish
+reject.close:
+  call void @ube.managed.safe(ptr %ctx)
+  %closed = call i1 @ube.target.file.close(ptr %handle)
+  call void @ube.managed.enter(ptr %ctx)
+  br i1 %closed, label %rejected, label %retained.rejection
+rejected:
+  call void @ube.resource.forget(ptr %ctx, ptr %slot)
+  br label %busy
+retained.rejection:
+  store atomic i64 %token, ptr %slot release, align 8
+  store atomic i64 %token, ptr %token.out monotonic, align 8
+  call void @ube.resource.unlock(ptr %slot)
+  br label %busy
+publish:
+  store atomic i64 %token, ptr %slot release, align 8
+  store atomic i64 %token, ptr %token.out monotonic, align 8
+  call void @ube.resource.unlock(ptr %slot)
+  ret i1 true
+bad.key:
+  call void @ube.resource.forget(ptr %ctx, ptr %slot)
+  br label %invalid
+create.fail:
+  call void @ube.resource.forget(ptr %ctx, ptr %slot)
+  %create.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 57)
+  ret i1 false
+busy:
+  %busy.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 19, i64 58)
+  ret i1 false
+memory.fail:
+  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 8, i64 7)
+  ret i1 false
+invalid:
+  %invalid.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)
+  ret i1 false
+failed:
+  ret i1 false
+}
+define internal i1 @ube.lease.acquire(ptr %ctx, ptr %key, ptr %token, ptr %failure) {
+entry:
+  %descriptor = alloca { i64, i64, ptr, ptr }, align 8
+  %alias.token = call i1 @ube.array.descriptor.overlaps(ptr %key, ptr %token)
+  %alias.failure = call i1 @ube.array.descriptor.overlaps(ptr %key, ptr %failure)
+  %alias = or i1 %alias.token, %alias.failure
+  br i1 %alias, label %invalid, label %pin
+pin:
+  %snapshot = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %key)
+  store { i64, i64, ptr, ptr } %snapshot, ptr %descriptor
+  %owner = extractvalue { i64, i64, ptr, ptr } %snapshot, 3
+  %accepted = call i1 @ube.lease.acquire.pinned(ptr %ctx, ptr %descriptor, ptr %token, ptr %failure)
+  call void @ube.block.drop(ptr %ctx, ptr %owner)
+  ret i1 %accepted
+invalid:
+  %status = call i1 @ube.file.aliasfail(ptr %ctx)
+  ret i1 false
+}
+define internal i1 @ube.lease.close(ptr %ctx, ptr %token, ptr %failure) {
+entry:
+  %closed = call i1 @ube.resource.close.single(ptr %ctx, ptr %token, ptr %failure, i64 5, i64 5)
+  ret i1 %closed
+}
 %ube.process = type { ptr, ptr, ptr, ptr, ptr, i64, i64, i64, i64 }
 @ube.process.nullname = private constant [4 x i16] [i16 78, i16 85, i16 76, i16 0]
 declare dllimport ptr @GetCurrentProcess()
@@ -3324,7 +3512,7 @@ failed:
 %ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }
 %ube.managed.array = type { i64, ptr }
 %ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64, ptr }
-%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64 }
+%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64, i64 }
 @ube.managed.next = internal global i64 1
 
 define internal ptr @ube.managed.state(ptr %ctx) {
@@ -3734,6 +3922,8 @@ publish:
   %state = getelementptr %ube.block, ptr %block, i64 1
   %callback.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 1
   store ptr %callback, ptr %callback.ptr, align 8
+  %pressure.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 18
+  store i64 256, ptr %pressure.ptr, align 8
   %program = call ptr @ube.thread.program(ptr %ctx)
   %slot = getelementptr %ube.program, ptr %program, i32 0, i32 14
   store atomic ptr %state, ptr %slot release, align 8
@@ -3895,6 +4085,51 @@ bounds:
 failed:
   ret i1 false
 }
+; Allocation pressure uses the existing precise collector, never a new heap or worker.
+define internal void @ube.managed.pressure(ptr %ctx, ptr %state) {
+entry:
+  %owner.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 2
+  %owner = load atomic ptr, ptr %owner.ptr acquire, align 8
+  %recursive = icmp eq ptr %owner, %ctx
+  br i1 %recursive, label %done, label %enter
+enter:
+  call void @ube.managed.enter(ptr %ctx)
+  %program = call ptr @ube.thread.program(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %request.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 3
+  %request = load atomic i64, ptr %request.ptr seq_cst, align 8
+  %requested = icmp ne i64 %request, 0
+  br i1 %requested, label %unlock, label %pressure
+pressure:
+  %live.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17
+  %limit.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 18
+  %live = load i64, ptr %live.ptr, align 8
+  %limit = load i64, ptr %limit.ptr, align 8
+  %due = icmp uge i64 %live, %limit
+  br i1 %due, label %reserve, label %unlock
+reserve:
+  %half = lshr i64 %live, 1
+  %small = icmp ult i64 %half, 256
+  %budget = select i1 %small, i64 256, i64 %half
+  %next = add i64 %live, %budget
+  store i64 %next, ptr %limit.ptr, align 8
+  call void @ube.program.storage.unlock(ptr %program)
+  %result = call {i1,i64} @ube.managed.collect(ptr %ctx, i64 0)
+  call void @ube.managed.enter(ptr %ctx)
+  call void @ube.program.storage.lock(ptr %program)
+  %survivors = load i64, ptr %live.ptr, align 8
+  %survivor.half = lshr i64 %survivors, 1
+  %survivor.small = icmp ult i64 %survivor.half, 256
+  %survivor.budget = select i1 %survivor.small, i64 256, i64 %survivor.half
+  %rearmed = add i64 %survivors, %survivor.budget
+  store i64 %rearmed, ptr %limit.ptr, align 8
+  br label %unlock
+unlock:
+  call void @ube.program.storage.unlock(ptr %program)
+  br label %done
+done:
+  ret void
+}
 ; Reserves collection metadata before publishing a managed record; collection never grows it.
 define internal i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record) {
 entry:
@@ -4024,6 +4259,7 @@ size:
   %too.large = icmp ugt i64 %bytes, %maximum.bytes
   br i1 %too.large, label %memory, label %allocate
 allocate:
+  call void @ube.managed.pressure(ptr %ctx, ptr %state)
   %total = add i64 %bytes, %header.bytes
   %rounded = add i64 %total, 1023
   %chunks = lshr i64 %rounded, 10
@@ -4427,6 +4663,53 @@ initialize:
   call void @ube.managed.publish.range(ptr %ctx, ptr %data, ptr %layout, i64 1)
   %published = call i1 @ube.variant.publish(ptr %ctx, ptr %output, i64 %identity)
   ret i1 %published
+failed:
+  ret i1 false
+}
+define i1 @ube.text.candidate.info(ptr %ctx, i64 %identity, ptr %bytes.out, ptr %scalars.out) {
+entry:
+  %empty = icmp eq i64 %identity, 0
+  br i1 %empty, label %zero, label %find
+find:
+  %record = call ptr @ube.text.candidate(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %read, label %failed
+read:
+  %bytes.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 5
+  %scalars.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 6
+  %bytes = load i64, ptr %bytes.ptr, align 8
+  %scalars = load i64, ptr %scalars.ptr, align 8
+  store i64 %bytes, ptr %bytes.out, align 8
+  store i64 %scalars, ptr %scalars.out, align 8
+  ret i1 true
+zero:
+  store i64 0, ptr %bytes.out, align 8
+  store i64 0, ptr %scalars.out, align 8
+  ret i1 true
+failed:
+  ret i1 false
+}
+define i1 @ube.text.candidate.read(ptr %ctx, i64 %identity, i64 %index, ptr %output) {
+entry:
+  %record = call ptr @ube.text.candidate(ptr %ctx, i64 %identity)
+  %exists = icmp ne ptr %record, null
+  br i1 %exists, label %bounds, label %failed
+bounds:
+  %length.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 5
+  %length = load i64, ptr %length.ptr, align 8
+  %valid = icmp ult i64 %index, %length
+  br i1 %valid, label %read, label %range
+read:
+  %payload.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9
+  %payload = load ptr, ptr %payload.ptr, align 8
+  %address = getelementptr i8, ptr %payload, i64 %index
+  %byte = load i8, ptr %address, align 1
+  %wide = zext i8 %byte to i64
+  store i64 %wide, ptr %output, align 8
+  ret i1 true
+range:
+  store atomic i64 9, ptr %ctx monotonic, align 8
+  br label %failed
 failed:
   ret i1 false
 }

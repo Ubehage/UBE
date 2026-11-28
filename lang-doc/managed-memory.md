@@ -15,7 +15,7 @@ collector never guesses pointers by scanning arbitrary integer bytes.
 
 Roots are:
 
-- initialized globals, module variables, and Static locals;
+- initialized globals, module variables, and standard-module Static locals;
 - live managed locals, parameters, results, and compiler temporaries on every
   UBE thread;
 - active forms, controls, callback registrations, monitors, waits, and message
@@ -26,6 +26,15 @@ Roots are:
 Ordinary native integers, opaque OS handles, unmanaged buffers, and resources
 owned by user code are not collector roots unless represented by one of those
 managed containers.
+
+Owner-confirmed on 2026-11-28: Static locals in instance members belong to each
+receiver object. Their managed values are precise edges from that receiver, not
+permanent program roots. Merely having such a Static does not keep an otherwise
+unreachable receiver alive. Active initialization attempts and waits retain their
+owning receiver, unpublished candidate values and still-needed completion records
+precisely. Failed/cancelled participation releases its own retention; a later retry
+cannot retire an outcome still owed to an older waiter. Successfully initialized
+instance storage follows its receiver's ordinary lifetime and collection rules.
 
 A live `WithEvents` connection is a precise managed edge from the event source
 to the receiving module or object. It keeps an object receiver valid while the

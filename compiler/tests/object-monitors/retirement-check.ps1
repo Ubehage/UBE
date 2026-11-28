@@ -16,7 +16,7 @@ foreach($mode in @('statement','return')){
  }
  [IO.File]::WriteAllText((Join-Path $evidence 'Main.bas'),$text,$utf)
  $project=Join-Path $evidence ($mode+'.UBE')
- [IO.File]::WriteAllText($project,"UBE-Project 1`r`nName = `"RetirementFailure`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nSource = `"Gate.cls`"`r`nSource = `"Main.bas`"`r`n",$utf)
+ [IO.File]::WriteAllText($project,"UBE-Project 1`r`nName = `"RetirementFailure`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nDebugInformation = `"None`"`r`nSource = `"Gate.cls`"`r`nSource = `"Main.bas`"`r`n",$utf)
  $ir=Join-Path $evidence ($mode+'.ll')
  $stdout=Join-Path $evidence ($mode+'.stdout');$stderr=Join-Path $evidence ($mode+'.stderr')
  $p=Start-Process -FilePath $CompilerExe -ArgumentList @('--emit-llvm',('"'+$project+'"'),('"'+$ir+'"')) -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr

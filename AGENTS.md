@@ -23,23 +23,23 @@ Coders spend hours and hours coding in UBE, and a crash loses their work. A malf
 - **Non-test code never panics.**
 - **Prove it.** Every crash fix comes with a small synthetic regression test that panicked before the fix.
 
-## Keep the root clean and stay within your folder
+### Keep the root clean and stay within your folder
 Agents must never add temporary files, scripts, or similar task artifacts to the repository root. The root must remain the root, nothing more.
 
 All agents working on a task must remain within their assigned folder unless instructions explicitly say otherwise or working outside that folder is necessary to comply with established contracts. These exceptions do not permit temporary artifacts in the repository root.
 
-## Follow the approved plan and final architecture.
+### Follow the approved plan and final architecture.
 Before changing code, identify the active roadmap or workplan item being implemented. Keep the change within that item and its stated dependencies. Do not invent new phases, stage labels, compiler generations, subsystems, or architectural boundaries unless they are already part of the documented plan or the owner explicitly approves them.
 Temporary implementation steps must contribute directly to the final architecture. Do not leave milestone-specific behavior, flags, naming, duplication, or dead-end abstractions in production code. Existing documented bootstrap-stage terminology remains valid.
 
 Production identifiers must describe their lasting domain purpose. Never name functions, procedures, types, modules, files, flags, or other implementation elements after task numbers, roadmap items, phases, temporary milestones, agent plans, or work sessions. Examples of forbidden naming include Task4*, Phase2*, and Step3*.
 
-## Verification claims require evidence.
+### Verification claims require evidence.
 Do not describe work as verified merely because it compiled, launched, completed without an obvious error, or appeared correct during an informal inspection.
 Claim verification only when the relevant predefined test, assertion, comparison, or acceptance gate has passed. Report the exact command or procedure used, what it checked, and its result. Visual inspection verifies only the specific properties covered by an explicit checklist. If the required verification was not performed, say that the result is unverified.
 
 
-## Diagnose narrowly before changing broadly
+### Diagnose narrowly before changing broadly
 Reproduce a problem with the smallest focused sample that isolates what actually fails before changing production architecture or shared behavior. Prefer the narrowest fix justified by that evidence.
 
 - Do not begin with a fundamental, architectural, or system-wide change when a focused diagnostic or local correction could identify or solve the problem.

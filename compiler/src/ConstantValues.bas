@@ -165,7 +165,7 @@ Public Function Minimum(ByVal TypeCode As Long) As LongLong
     If TypeCode = SyntaxTokens.KwBoolean Then Minimum = -1
     If TypeCode = SyntaxTokens.KwInteger Then Minimum = -32768
     If TypeCode = SyntaxTokens.KwLong Then Minimum = -2147483648
-    If TypeCode = SyntaxTokens.KwLongLong Then Minimum = -9223372036854775808^
+    If TypeCode = SyntaxTokens.KwLongLong Then Minimum = -9223372036854775808&&
 End Function
 
 ' Returns the maximum admitted numeric representation for a known scalar type.
@@ -173,14 +173,14 @@ Public Function Maximum(ByVal TypeCode As Long) As LongLong
     If TypeCode = SyntaxTokens.KwByte Then Maximum = 255
     If TypeCode = SyntaxTokens.KwInteger Then Maximum = 32767
     If TypeCode = SyntaxTokens.KwLong Then Maximum = 2147483647
-    If TypeCode = SyntaxTokens.KwLongLong Then Maximum = 9223372036854775807^
+    If TypeCode = SyntaxTokens.KwLongLong Then Maximum = 9223372036854775807&&
 End Function
 
 ' Validates the complete source scalar representation before operating on it.
 Private Function Fits(ByVal Value As LongLong, ByVal TypeCode As Long) As Boolean
     On Error GoTo Failed
-    If TypeCode = SyntaxTokens.KwDouble Then Fits = (Value And 9218868437227405312^) <> 9218868437227405312^: Exit Function
-    If TypeCode = SyntaxTokens.KwSingle Then Fits = Value >= 0 And Value <= 4294967295^ And (Value And 2139095040^) <> 2139095040^: Exit Function
+    If TypeCode = SyntaxTokens.KwDouble Then Fits = (Value And 9218868437227405312&&) <> 9218868437227405312&&: Exit Function
+    If TypeCode = SyntaxTokens.KwSingle Then Fits = Value >= 0 And Value <= 4294967295&& And (Value And 2139095040&&) <> 2139095040&&: Exit Function
     If TypeCode <> SyntaxTokens.KwBoolean And IntegerWidth(TypeCode) = 0 Then Exit Function
     Fits = Value >= Minimum(TypeCode) And Value <= Maximum(TypeCode)
     Exit Function
@@ -242,8 +242,8 @@ Private Function DecimalValue(ByRef Source() As Byte, ByVal Start As Long, ByVal
         Digit = Source(Start)
         Digit = Digit - 48
         Reason = 2
-        If Accumulator < -922337203685477580^ Then Exit Function
-        If Accumulator = -922337203685477580^ Then
+        If Accumulator < -922337203685477580&& Then Exit Function
+        If Accumulator = -922337203685477580&& Then
             If Digit > LastDigit Then Exit Function
         End If
         Twice = Accumulator + Accumulator
@@ -310,8 +310,15 @@ Public Function TryLiteral(ByRef Source() As Byte, ByRef Token As SourceScanner.
     End If
     If Suffix = 37 Then Selected = SyntaxTokens.KwInteger
     If Suffix = 38 Then Selected = SyntaxTokens.KwLong
-    If Suffix = 94 Then Selected = SyntaxTokens.KwLongLong
-    If Selected <> 0 Then Finish = Finish - 1
+    If Selected <> 0 Then
+        Finish = Finish - 1
+        If Suffix = 38 And Finish > Token.ByteStart Then
+            If Source(Finish - 1) = 38 Then
+                Selected = SyntaxTokens.KwLongLong
+                Finish = Finish - 1
+            End If
+        End If
+    End If
     If Not DecimalValue(Source, Token.ByteStart, Finish, Negated, Candidate, Reason) Then Exit Function
     If Selected = 0 Then
         Selected = ExpectedType
@@ -351,16 +358,16 @@ Public Function TryUnary(ByVal Operator As Long, ByVal InputValue As LongLong, B
         Candidate = InputValue
         If Operator = SyntaxTokens.SymMinus Then
             If InputType = SyntaxTokens.KwSingle Then
-                If Candidate >= 2147483648^ Then
-                    Candidate = Candidate - 2147483648^
+                If Candidate >= 2147483648&& Then
+                    Candidate = Candidate - 2147483648&&
                 Else
-                    Candidate = Candidate + 2147483648^
+                    Candidate = Candidate + 2147483648&&
                 End If
             Else
                 If Candidate < 0 Then
-                    Candidate = Candidate - -9223372036854775808^
+                    Candidate = Candidate - -9223372036854775808&&
                 Else
-                    Candidate = Candidate + -9223372036854775808^
+                    Candidate = Candidate + -9223372036854775808&&
                 End If
             End If
         End If

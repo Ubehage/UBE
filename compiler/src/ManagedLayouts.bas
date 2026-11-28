@@ -10,6 +10,11 @@ Public Function IsRecordValue(ByVal TypeCode As Long, ByVal TypeSymbol As Long) 
     IsRecordValue = TypeCode = 0 And TypeSymbol <> 0
 End Function
 
+' Array descriptors and unboxed record arguments travel by address in ordinary and thread calls.
+Public Function IsAggregateArgument(ByRef E() As ExpressionBinder.BoundExpression, ByVal Node As Long) As Boolean
+    IsAggregateArgument = E(Node - 1).ArrayRank <> 0 Or (IsRecordValue(E(Node - 1).TypeCode, E(Node - 1).TypeSymbol) And E(Node - 1).ConvertedType <> SyntaxTokens.KwVariant)
+End Function
+
 ' Rejects inconsistent publication facts before raw or managed store selection.
 ' Type declaration layout is authoritative; caller expression counts may not erase roots.
 Public Function ValidPublication(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByRef Layouts() As AggregateLayout.StorageFact, ByVal TypeCode As Long, ByVal TypeSymbol As Long, ByVal Cells As Long, ByVal References As Long) As Boolean

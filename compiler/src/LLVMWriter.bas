@@ -78,7 +78,7 @@ Public Function TryAppendSpan(ByRef State As WriterState, ByRef Buffer() As Byte
         Probe = Text(0)
         Probe = Text(Length - 1)
     End If
-    If Count > 9223372036854775807^ - State.TotalBytes Then TryAppendSpan = Reject(State, 2): Exit Function
+    If Count > 9223372036854775807&& - State.TotalBytes Then TryAppendSpan = Reject(State, 2): Exit Function
     Do While Index < Count
         Character = Text(Start + Index)
         If Character <> 9 And Character <> 10 And Character <> 13 Then
@@ -87,7 +87,7 @@ Public Function TryAppendSpan(ByRef State As WriterState, ByRef Buffer() As Byte
         If Character = 10 Then Lines = Lines + 1
         Index = Index + 1
     Loop
-    If Lines > 9223372036854775807^ - State.LineCount Then TryAppendSpan = Reject(State, 2): Exit Function
+    If Lines > 9223372036854775807&& - State.LineCount Then TryAppendSpan = Reject(State, 2): Exit Function
     Do While Copied < Count
         If State.Used = BufferSize Then
             If FlushBuffer(State, Buffer, Token) = False Then Exit Function

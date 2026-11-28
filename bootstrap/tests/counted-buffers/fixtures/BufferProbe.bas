@@ -39,7 +39,7 @@ Public Function CheckCopies(ByVal Seed As Long) As Long
     Dim Values(-3 To 2) As Byte
     Dim Destination(10 To 15) As Byte
     Dim Entries(4 To 6) As Entry
-    Dim SingleByte(-9223372036854775808^ To -9223372036854775808^) As Byte
+    Dim SingleByte(-9223372036854775808&& To -9223372036854775808&&) As Byte
     Dim Status As Boolean
     Dim Value As Long
     Values(-3) = 1
@@ -180,7 +180,7 @@ End Function
 Public Function CheckConversion(ByVal Seed As Long) As Long
     Dim Source(0 To 1) As Byte
     Dim Destination(0 To 1) As Byte
-    Dim WideCount As LongLong = 2147483647^ + Seed
+    Dim WideCount As LongLong = 2147483647&& + Seed
     Dim Status As Boolean = True
     Dim Value As Long
     Destination(0) = 88

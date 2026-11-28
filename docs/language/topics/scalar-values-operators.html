@@ -17,7 +17,7 @@
     <ul>
       <li><code>+</code> is numeric. <code>&amp;</code> is the only concatenation operator.</li>
       <li><code>/</code> returns Decimal for nonfloating Decimal or Currency operands and Double otherwise.</li>
-      <li><code>\</code> and <code>Mod</code> round nonintegral operands to the nearest integer, ties to even, before operating. If either operand is Single or Double, both rounded operands and the result use LongLong. A rounded value outside its range fails before division; a divisor that rounds to zero also fails.</li>
+      <li><code>\</code> and <code>Mod</code> round nonintegral operands to the nearest integer, ties to even, before operating. If either operand is Single, Double, Currency or Decimal, both rounded operands and the result use LongLong. Currency and Decimal support remains specified. A rounded value outside its range fails before division; a divisor that rounds to zero also fails.</li>
       <li><code>^</code> converts both operands to Double. Zero to zero is one. Zero to a negative power, or a negative base to a fractional power, fails with error 5.</li>
       <li>For any signed integer type, its minimum value <code>Mod -1</code> returns zero and leaves an existing <code>Err</code> unchanged. The corresponding integer division overflows.</li>
       <li><code>And</code>, <code>Or</code>, <code>Xor</code>, <code>Eqv</code>, and <code>Imp</code> are eager. On integers they are bitwise.</li>

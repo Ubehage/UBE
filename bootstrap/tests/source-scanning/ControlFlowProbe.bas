@@ -40,9 +40,9 @@ Private Function Operators(ByVal Seed As Long) As Long
     Octet = 255
     Small = Not Octet
     If Small <> -256 Then Failures = Failures + 1
-    Wide = 9223372036854775807^
+    Wide = 9223372036854775807&&
     Wide = Not Wide
-    If Wide <> -9223372036854775808^ Then Failures = Failures + 1
+    If Wide <> -9223372036854775808&& Then Failures = Failures + 1
     Result = 5
     Maximum = 2
     Result = Result Or Maximum
@@ -109,7 +109,7 @@ Private Function Loops(ByVal Seed As Long) As Long
     Loops = Failures
 End Function
 
-' Checks failed conditions skip entire constructs rather than selecting False.
+' Checks failed If conditions select False while failed loop conditions exit the loop.
 Private Function DefaultFailures(ByVal Seed As Long) As Long
     Dim Failures As Long
     Dim Calls As Long
@@ -119,7 +119,7 @@ Private Function DefaultFailures(ByVal Seed As Long) As Long
     If Condition(Seed, Calls) Then
         Failures = Failures + 1
     Else
-        Failures = Failures + 1
+        Value = Value + 1
     End If
     If Calls <> 1 Then Failures = Failures + 1
     If Err.Number <> 5 Then Failures = Failures + 1
@@ -128,9 +128,10 @@ Private Function DefaultFailures(ByVal Seed As Long) As Long
     ElseIf Condition(Seed, Calls) Then
         Failures = Failures + 1
     Else
-        Failures = Failures + 1
+        Value = Value + 1
     End If
-    If Condition(Seed, Calls) Then Failures = Failures + 1 Else Failures = Failures + 1
+    If Condition(Seed, Calls) Then Failures = Failures + 1 Else Value = Value + 1
+    If Value <> 3 Then Failures = Failures + 1
     Do While Condition(Seed, Calls)
         Bodies = Bodies + 1
         Exit Do
@@ -229,7 +230,7 @@ Failed:
     HandlerPost = Failures
 End Function
 
-' Nested failures in an active handler skip constructs without recursive entry.
+' Nested failures in an active handler follow False branches without recursive entry.
 Private Function ActiveHandler(ByVal Seed As Long) As Long
     Dim Failures As Long
     Dim Calls As Long
@@ -252,8 +253,9 @@ Failed:
     If Condition(Seed, Calls) Then
         Failures = Failures + 1
     Else
-        Failures = Failures + 1
+        Flag = True
     End If
+    If Not Flag Then Failures = Failures + 1
     GoTo AfterHandler
     ActiveHandler = Failures
 End Function

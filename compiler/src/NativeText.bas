@@ -245,8 +245,9 @@ End Function
 
 ' Literal bytes are nonmanaged read-only inputs, never unrooted managed identities.
 ' Their descriptors use the existing Byte array ABI consumed by Text.FromUtf8.
-Public Function TryEmitLiterals(ByRef E() As ExpressionBinder.BoundExpression, ByVal NodeCount As Long, ByRef Arena() As Byte, ByVal Used As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
+Public Function TryEmitLiterals(ByRef E() As ExpressionBinder.BoundExpression, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByVal NodeCount As Long, ByRef Arena() As Byte, ByVal Used As Long, ByRef S As NativeEmission.EmissionState, ByRef B() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
     Dim Node As Long = 1
+    Dim Scope As Long
     Dim Start As Long
     Dim Count As Long
     Dim Position As Long
@@ -256,7 +257,9 @@ Public Function TryEmitLiterals(ByRef E() As ExpressionBinder.BoundExpression, B
     If Used < 0 Or Used > BufferPrimitives.ByteStorageLength(Arena) Then TryEmitLiterals = InvalidFacts(S, 0): Exit Function
     Do While Node <= NodeCount
         If Not NativeEmission.Charge(S) Then Exit Function
-        If E(Node - 1).TypeCode = SyntaxTokens.KwString And E(Node - 1).ConstantKnown Then
+        Scope = E(Node - 1).ScopeSymbol
+        If Scope <> 0 Then
+        If Plans(Scope - 1).IsReachable And E(Node - 1).TypeCode = SyntaxTokens.KwString And E(Node - 1).ConstantKnown Then
             Start = E(Node - 1).ConstantTextStart
             Count = E(Node - 1).ConstantTextLength
             If Start < 0 Or Count < 0 Or Start > Used Then TryEmitLiterals = InvalidFacts(S, Node): Exit Function
@@ -273,6 +276,7 @@ Public Function TryEmitLiterals(ByRef E() As ExpressionBinder.BoundExpression, B
                 Loop
                 If Not NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.TextLiteralEnd, Node, Count - 1, 0, 0) Then Exit Function
             End If
+        End If
         End If
         Node = Node + 1
     Loop

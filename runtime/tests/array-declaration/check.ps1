@@ -18,7 +18,7 @@ function Run([string]$File,[string[]]$Arguments){
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Probe.bas') -Destination (Join-Path $artifacts 'Probe.bas')
 Copy-Item -LiteralPath (Join-Path $root 'std-lib/src/portable/ThreadPrimitives.bas') -Destination (Join-Path $artifacts 'ThreadPrimitives.bas')
 $manifest=Join-Path $artifacts 'probe.UBE'
-[IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"ArrayDeclaration`"`r`nKind = `"Library`"`r`nSource = `"ThreadPrimitives.bas`"`r`nSource = `"Probe.bas`"`r`n",$utf8)
+[IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"ArrayDeclaration`"`r`nKind = `"Library`"`r`nDebugInformation = `"None`"`r`nSource = `"ThreadPrimitives.bas`"`r`nSource = `"Probe.bas`"`r`n",$utf8)
 $lowered=$LoweredIR
 if(-not $lowered){
  if(-not $CompilerExe){throw 'CompilerExe or LoweredIR is required'}

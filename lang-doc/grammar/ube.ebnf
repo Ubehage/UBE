@@ -53,13 +53,14 @@ designer-property-block = spacing, "BeginProperty", spacing1, identifier,
                           { designer-property | designer-property-block },
                           spacing, "EndProperty", line-end ;
 designer-property   = spacing, member-name,
-                      [ spacing, "(", integer-literal, ")" ],
+                      [ spacing, "(", [ sign ], integer-literal, ")" ],
                       spacing, "=", spacing, line-fragment, line-end ;
 attribute-block     = attribute-line, { attribute-line } ;
 attribute-line      = "Attribute", spacing1, qualified-name, spacing, "=", spacing,
                       attribute-value, { spacing, ",", spacing, attribute-value },
                       line-end ;
-attribute-value     = literal | identifier ;
+attribute-value     = literal | sign, ( integer-literal | real-literal ) |
+                      identifier ;
 
 module-body         = { module-item | empty-line } ;
 module-item         = spacing,
@@ -106,14 +107,14 @@ implements-statement = "Implements", spacing1, qualified-name, line-end ;
 
 const-declaration   = "Const", spacing1, const-item,
                       { spacing, ",", spacing, const-item } ;
-const-item          = typed-name, [ spacing1, as-clause ], spacing, "=", spacing,
+const-item          = identifier, spacing1, as-clause, spacing, "=", spacing,
                       constant-expression ;
 
 explicit-variable-declaration = ( "Dim" | "Static" ), spacing1, variable-item,
                                 { spacing, ",", spacing, variable-item } ;
 event-variable-declaration = [ visibility, spacing1 ], "WithEvents", spacing1,
                              variable-item ;
-variable-item       = typed-name, [ array-specifier ], [ spacing1, as-new-clause ],
+variable-item       = identifier, [ array-specifier ], spacing1, as-new-clause,
                       [ spacing, "=", spacing, expression ] ;
 hooked-variable-declaration = [ visibility, spacing1 ], variable-item, line-end,
                               variable-hook, { variable-hook },
@@ -134,10 +135,7 @@ type-declaration    = "Type", spacing1, identifier,
                       | spacing1, "As", spacing1, type-name, line-end ),
                       spacing, "End", spacing1, "Type" ;
 type-member         = spacing, type-field, line-end ;
-type-field          = identifier,
-                      ( type-character, [ array-specifier ],
-                        [ spacing1, as-clause ]
-                      | [ array-specifier ], spacing1, as-clause ) ;
+type-field          = identifier, [ array-specifier ], spacing1, as-clause ;
 enum-declaration    = "Enum", spacing1, identifier,
                       [ spacing1, "As", spacing1, ( "Long" | "LongLong" ) ],
                       line-end,
@@ -153,19 +151,20 @@ interface-member    = spacing,
                       ( interface-sub | interface-function |
                         interface-property | interface-event ), line-end ;
 interface-sub       = "Sub", spacing1, identifier, [ parameter-list ] ;
-interface-function  = "Function", spacing1, typed-name, [ parameter-list ],
-                      [ spacing1, result-as-clause ] ;
+interface-function  = "Function", spacing1, identifier, [ parameter-list ],
+                      spacing1, result-as-clause ;
 interface-property  = [ "Default", spacing1 ],
                       ( property-get-header | property-let-header |
                         property-set-header ) ;
 interface-event     = "Event", spacing1, identifier, [ parameter-list ] ;
 
 external-declaration = [ visibility, spacing1 ], "Declare", spacing1,
-                       ( "Sub" | "Function" ), spacing1, typed-name, spacing1,
-                       "Lib", spacing1, string-literal,
-                       [ spacing1, "Alias", spacing1, string-literal ], spacing,
-                       [ parameter-list ],
-                       [ spacing1, as-clause ], line-end ;
+                       ( "Sub", spacing1, external-header
+                       | "Function", spacing1, external-header,
+                         spacing1, as-clause ), line-end ;
+external-header     = identifier, spacing1, "Lib", spacing1, string-literal,
+                      [ spacing1, "Alias", spacing1, string-literal ], spacing,
+                      [ parameter-list ] ;
 
 (* Procedures and properties *)
 procedure-declaration = sub-function-declaration | property-declaration ;
@@ -190,12 +189,12 @@ intrinsic-declaration = [ visibility, spacing1 ], "Intrinsic", spacing1,
                         ( "Sub" | "Function" ), line-end ;
 member-attribute-block = attribute-line, { attribute-line } ;
 sub-header          = "Sub", spacing1, identifier, [ parameter-list ] ;
-function-header     = "Function", spacing1, typed-name, [ parameter-list ],
-                      [ spacing1, result-as-clause ] ;
+function-header     = "Function", spacing1, identifier, [ parameter-list ],
+                      spacing1, result-as-clause ;
 property-header     = property-get-header | property-let-header |
                       property-set-header ;
-property-get-header = "Property", spacing1, "Get", spacing1, typed-name,
-                      [ parameter-list ], [ spacing1, result-as-clause ] ;
+property-get-header = "Property", spacing1, "Get", spacing1, identifier,
+                      [ parameter-list ], spacing1, result-as-clause ;
 property-let-header = "Property", spacing1, "Let", spacing1, identifier,
                       parameter-list ;
 property-set-header = "Property", spacing1, "Set", spacing1, identifier,
@@ -204,7 +203,7 @@ parameter-list      = "(", spacing, [ parameter,
                       { spacing, ",", spacing, parameter } ], spacing, ")" ;
 parameter           = [ "Optional", spacing1 ],
                       [ ( "ByVal" | "ByRef" | "ParamArray" ), spacing1 ],
-                      typed-name, [ array-rank ], [ spacing1, as-clause ],
+                      identifier, [ array-rank ], spacing1, as-clause,
                       [ spacing, "=", spacing, constant-expression ] ;
 procedure-body      = { procedure-element | empty-line } ;
 procedure-element   = local-hooked-variable-declaration | local-declaration |
@@ -409,19 +408,19 @@ relational-operator = "=" | "<>" | "<=" | ">=" | "<" | ">" | "Like" |
                       "IsNot" | "Is", [ spacing1, "Not" ] ;
 concatenation-expression = additive-expression,
                            { spacing, "&", spacing, additive-expression } ;
-additive-expression = multiplicative-expression,
+additive-expression = modulus-expression,
                       { spacing, ( "+" | "-" ), spacing,
-                        multiplicative-expression } ;
-multiplicative-expression = integer-division-expression,
+                        modulus-expression } ;
+modulus-expression  = integer-division-expression,
+                      { spacing1, "Mod", spacing1, integer-division-expression } ;
+integer-division-expression = multiplicative-expression,
+                              { spacing, "\", spacing, multiplicative-expression } ;
+multiplicative-expression = unary-expression,
                             { spacing, ( "*" | "/" ), spacing,
-                              integer-division-expression } ;
-integer-division-expression = modulus-expression,
-                              { spacing, "\", spacing, modulus-expression } ;
-modulus-expression  = unary-expression,
-                      { spacing1, "Mod", spacing1, unary-expression } ;
+                              unary-expression } ;
 unary-expression    = { "+" | "-" }, power-expression ;
 power-expression    = postfix-expression,
-                      [ spacing, "^", spacing, unary-expression ] ;
+                      { spacing, "^", spacing, { "+" | "-" }, postfix-expression } ;
 
 postfix-expression  = primary-expression, { postfix-part } ;
 postfix-part        = member-access | argument-list | bang-access ;
@@ -446,7 +445,6 @@ leading-dot-expression = ".", member-name, { postfix-part } ;
 assignable-name     = identifier, { member-access | bang-access } ;
 qualified-name      = identifier, { spacing, ".", spacing, member-name } ;
 member-name         = identifier | KEYWORD ;
-typed-name          = identifier, [ type-character ] ;
 type-name           = fixed-string-type
                     | intrinsic-type
                     | qualified-name ;
@@ -455,26 +453,27 @@ intrinsic-type      = "Boolean" | "Byte" | "Integer" | "Long" | "LongLong" |
                       "Single" | "Double" | "Currency" | "Decimal" | "Date" |
                       "String" | "Object" | "Variant" | "Any" | "IntPtr" |
                       "UIntPtr" ;
-type-character      = "%" | "&" | "^" | "!" | "#" | "@" | "$" ;
 array-specifier     = array-rank | array-bounds ;
 array-rank          = "(", spacing, [ { spacing, "," } ], spacing, ")" ;
 array-bounds        = "(", spacing, array-bound,
                       { spacing, ",", spacing, array-bound }, spacing, ")" ;
 array-bound         = [ expression, spacing1, "To", spacing1 ], expression ;
 
-(* Literals *)
+(* Numeric literal tokens have no leading sign. Expression signs are operators;
+   an exponent sign inside REAL_TEXT is still part of that token. Signed legacy
+   attributes and designer indices are admitted explicitly above. *)
 literal             = integer-literal | real-literal | string-literal |
                       date-literal | boolean-literal | null-literal ;
-integer-literal     = [ sign ], ( decimal-digits | "&H", hex-digits |
+integer-literal     = ( decimal-digits | "&H", hex-digits |
                       "&O", octal-digits ), [ integer-suffix ] ;
-real-literal        = [ sign ], ( REAL_TEXT, [ real-suffix ] |
+real-literal        = ( REAL_TEXT, [ real-suffix ] |
                       decimal-digits, real-suffix ) ;
 string-literal      = '"', STRING_TEXT, '"' ;
 date-literal        = "#", DATE_TEXT, "#" ;
 boolean-literal     = "True" | "False" ;
 null-literal        = "Nothing" | "Null" | "Empty" ;
 sign                = "+" | "-" ;
-integer-suffix      = "%" | "&" | "^" ;
+integer-suffix      = "%" | "&" | "&&" ;
 real-suffix         = "!" | "#" | "@" ;
 
 identifier          = bare-identifier | bracketed-identifier ;

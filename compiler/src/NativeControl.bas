@@ -1,6 +1,6 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeControl"
-' Emits statement continuations independently of sticky Err and preserves whole-condition failure exits.
+' Emits statement continuations independently of sticky Err, including False branches for failed If tests.
 Public Function SequenceEntry(ByRef N() As SourceParser.SyntaxNode, ByVal Parent As Long, ByVal Continuation As Long) As Long
     On Error GoTo Failed
     SequenceEntry = Continuation
@@ -492,6 +492,9 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
         Child = N(Node - 1).FirstChild
         ThenNode = N(Child - 1).NextSibling
         ElseNode = N(ThenNode - 1).NextSibling
+        ' A fresh condition failure follows the same branch as False; handlers still dispatch first.
+        ElseEntry = SequenceEntry(N, ElseNode, Continuation)
+        S.CurrentNext = ElseEntry
         Value = NativeExpressions.EmitConvertedExpression(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, Child, SyntaxTokens.KwBoolean, Terminated)
         If S.Text.Failed Then Exit Function
         If Terminated = False Then
@@ -499,7 +502,6 @@ Public Function TryEmitStatement(ByRef N() As SourceParser.SyntaxNode, ByRef A()
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ValueNonzero, Test, Value, 0, 0) = False Then Exit Function
             If NativeStorage.ReleaseAllPins(S, B, Token, Catalog, P(S.CurrentSymbol - 1).PinCount) = False Then Exit Function
             ThenEntry = SequenceEntry(N, ThenNode, Continuation)
-            ElseEntry = SequenceEntry(N, ElseNode, Continuation)
             If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.ConditionalBranch, Test, ThenEntry, ElseEntry, 0) = False Then Exit Function
         End If
         If TryEmitSequence(N, A, E, L, P, Pins, Escapes, S, B, Token, Catalog, Seen, Nexts, ThenNode, Continuation) = False Then Exit Function

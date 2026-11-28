@@ -86,7 +86,7 @@ Public Function Concat(ByVal Left As String, ByVal Right As String) As String
     On Error GoTo Failed
     LeftBytes = TextPrimitives.ByteLength(Left)
     RightBytes = TextPrimitives.ByteLength(Right)
-    If LeftBytes > 9223372036854775807^ - RightBytes Then Err.Raise 7
+    If LeftBytes > 9223372036854775807&& - RightBytes Then Err.Raise 7
     Scalars = TextPrimitives.ScalarLength(Left) + TextPrimitives.ScalarLength(Right)
     If Not TextPrimitives.TryCreate(LeftBytes + RightBytes, Scalars, Candidate) Then GoTo Failed
     Do While Position < LeftBytes

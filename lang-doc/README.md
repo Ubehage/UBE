@@ -1,15 +1,14 @@
 # UBE language definition
 
 The semantic documents retain their historical Compiler v3 terminology.
-That previous implementation is now `../compiler/archived/UBE_Compiler_v3/`;
-the fresh active v3 starts under `../compiler/UBE_Compiler_v3/`. Archive status
-does not change the frozen language rules, and historical implementation
-claims do not establish support in the fresh compiler.
+The active compiler lives in [`../compiler/`](../compiler/README.md), with
+source under `../compiler/src/`. Historical implementation claims do not
+establish support in the active compiler; use its current acceptance evidence.
 
 The owner delegated the native-value mechanism decisions on 2026-10-30. Its
 adopted `Type Name As StorageType` and explicit intrinsic-binding addition is
 in sections 4.1/6.2 and the synchronized grammar. It preserves existing record
-rules. Current v2 native/rejection evidence is under
+rules. Native/rejection evidence is under
 `../std-lib/tests/native-type/`; this is not inherited from the archived compiler.
 
 This directory contains UBE's normative and internal language documents:

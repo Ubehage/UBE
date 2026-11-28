@@ -395,16 +395,16 @@ $invalidConstants = @(
     @{ Name='Boolean True into Byte'; Body='Const X As Byte = True' },
     @{ Name='Integer suffixed intermediate overflow'; Body='Const X As LongLong = 32767% + 1%' },
     @{ Name='Long suffixed intermediate overflow'; Body='Const X As LongLong = 2147483647& + 1&' },
-    @{ Name='LongLong suffixed intermediate overflow'; Body='Const X As LongLong = 9223372036854775807^ + 1^' },
+    @{ Name='LongLong suffixed intermediate overflow'; Body='Const X As LongLong = 9223372036854775807&& + 1&&' },
     @{ Name='Integer invalid suffixed magnitude'; Body='Const X As LongLong = 32768%' },
     @{ Name='grouped Integer magnitude not signed literal'; Body='Const X As Integer = -(32768%)' },
-    @{ Name='grouped LongLong magnitude not signed literal'; Body='Const X As LongLong = -(9223372036854775808^)' }
+    @{ Name='grouped LongLong magnitude not signed literal'; Body='Const X As LongLong = -(9223372036854775808&&)' }
 )
 foreach ($case in $invalidConstants) { Assert-Rejected $case.Name $case.Body 'E_CONSTANT' }
 Assert-Rejected 'conflicting declaration suffix' 'Dim Value% As Long' 'E_PARSE'
-Assert-Rejected 'mismatched variable use suffix' "Sub Run()`nDim Value As Integer`nValue& = 1`nEnd Sub" 'E_TYPE'
-Assert-Rejected 'mismatched function use suffix' "Function Value^()`nValue^ = 1`nEnd Function`nSub Run()`nDim X As LongLong = Value%()`nEnd Sub" 'E_TYPE'
-Assert-Rejected 'suffix does not create new identity' "Dim Value%`nDim [value] As Integer" 'E_DUPLICATE'
+Assert-Rejected 'mismatched variable use suffix' "Sub Run()`nDim Value As Integer`nValue& = 1`nEnd Sub" 'E_PARSE'
+Assert-Rejected 'mismatched function use suffix' "Function Value^()`nValue^ = 1`nEnd Function`nSub Run()`nDim X As LongLong = Value%()`nEnd Sub" 'E_PARSE'
+Assert-Rejected 'suffix does not create new identity' "Dim Value%`nDim [value] As Integer" 'E_PARSE'
 foreach ($source in $types) {
     foreach ($destination in $types) {
         if ($source -ne $destination) {

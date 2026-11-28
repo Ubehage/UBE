@@ -239,7 +239,9 @@ Public Function LexSource(ByRef Source As SourceUnit, ByRef Buffer As TokenBuffe
                 End If
                 Character = FoldAscii(Mid$(Source.SourceText, Position, 1))
                 If Len(Character) > 0 Then
-                    If InStr("%&^", Character) > 0 And Not RealNumber Then
+                    If Character = "&" And Mid$(Source.SourceText, Position + 1, 1) = "&" And Not RealNumber Then
+                        Position = Position + 2
+                    ElseIf InStr("%&", Character) > 0 And Not RealNumber Then
                         Position = Position + 1
                     ElseIf InStr("!#@frd", Character) > 0 And Radix = 10 Then
                         Position = Position + 1

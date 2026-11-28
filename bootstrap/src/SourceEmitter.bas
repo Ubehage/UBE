@@ -3,7 +3,7 @@ Option Explicit
 
 ' Native lowering retains explicit context ownership and fresh call outcomes.
 Public Const MaximumIRCharacters As Long = 33554432
-Public Const MaximumIRLines As Long = 500000
+Public Const MaximumIRLines As Long = 1048576
 Public Const MaximumNativeSlots As Long = 128
 Public Const MaximumNativeParameters As Long = 64
 Public Const MaximumNativeCallDepth As Long = 256
@@ -1438,6 +1438,8 @@ Private Sub EmitStatement(ByRef Parsed As ParsedProject, ByRef Bound As BoundPro
         Child = Parsed.Nodes(Node).FirstChild
         ThenNode = Parsed.Nodes(Child).NextSibling
         ElseNode = Parsed.Nodes(ThenNode).NextSibling
+        ' Default condition failure selects the False branch after recording Err.
+        State.CurrentNext = SequenceEntry(Parsed, ElseNode, Continuation)
         Value = EmitExpression(Parsed, Bound, State, Child)
         Test = ValueName(State)
         Call AddLine(State, "  " & Test & " = icmp ne i64 " & Value & ", 0")
@@ -2460,6 +2462,10 @@ Private Sub EmitFileIntrinsic(ByRef Bound As BoundProject, ByRef State As Emissi
         Call AddLine(State, "  %accepted = call i1 @ube.file.transfer(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ", i64 " & Arguments(2) & ", i64 " & Arguments(3) & ", ptr " & Arguments(4) & ", ptr " & Arguments(5) & ", i1 " & Signature & ")")
     Case "file.tryclose"
         Call AddLine(State, "  %accepted = call i1 @ube.file.close(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
+    Case "lease.tryacquire"
+        Call AddLine(State, "  %accepted = call i1 @ube.lease.acquire(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ", ptr " & Arguments(2) & ")")
+    Case "lease.tryclose"
+        Call AddLine(State, "  %accepted = call i1 @ube.lease.close(ptr %ctx, ptr " & Arguments(0) & ", ptr " & Arguments(1) & ")")
     Case "file.tryflush"
         Call AddLine(State, "  %accepted = call i1 @ube.file.flush(ptr %ctx, i64 " & Arguments(0) & ", ptr " & Arguments(1) & ")")
     Case "error.set"
@@ -2858,7 +2864,7 @@ Public Function EmitProject(ByRef Project As ProjectContext, ByRef Parsed As Par
                     Call EmitArrayIntrinsic(Bound, State, Index)
                 ElseIf Left$(Bound.Symbols(Index).BindingId, 7) = "thread." Then
                     Call EmitThreadIntrinsic(Bound, State, Index)
-                ElseIf Left$(Bound.Symbols(Index).BindingId, 5) = "file." Or Left$(Bound.Symbols(Index).BindingId, 5) = "path." Or Left$(Bound.Symbols(Index).BindingId, 10) = "directory." Or Left$(Bound.Symbols(Index).BindingId, 8) = "process." Or Left$(Bound.Symbols(Index).BindingId, 7) = "system." Or Bound.Symbols(Index).BindingId = "error.set" Then
+                ElseIf Left$(Bound.Symbols(Index).BindingId, 6) = "lease." Or Left$(Bound.Symbols(Index).BindingId, 5) = "file." Or Left$(Bound.Symbols(Index).BindingId, 5) = "path." Or Left$(Bound.Symbols(Index).BindingId, 10) = "directory." Or Left$(Bound.Symbols(Index).BindingId, 8) = "process." Or Left$(Bound.Symbols(Index).BindingId, 7) = "system." Or Bound.Symbols(Index).BindingId = "error.set" Then
                     Call EmitFileIntrinsic(Bound, State, Index)
                 Else
                     Call EmitProcedure(Parsed, Bound, State, Index)

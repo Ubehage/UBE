@@ -5,9 +5,12 @@
 **Grammar:** [`grammar/ube.ebnf`](grammar/ube.ebnf)
 
 This specification and the focused contracts below form the normative UBE 1.0
-language definition for Compiler v3. Deferred platform/library architecture
-questions are isolated in `deferred-questions.md` and do not silently alter
-this core contract.
+language definition for Compiler v3. Current unresolved architecture choices
+and recommendations are tracked in
+[Architecture-Decisions.md](../project-docs/Architecture-Decisions.md).
+That register contains unapproved proposals, not additional normative rules,
+and does not silently alter this core contract or recover missing historical
+decision records.
 
 - [`conversion-table.md`](conversion-table.md) defines implicit conversion and
   failure behavior;
@@ -117,8 +120,16 @@ parentheses. The grammar's `spacing` production includes continuations so a
 continued token sequence behaves as one logical line.
 
 Integer and real suffixes are part of their literal token when adjacent. The
-scanner uses longest-match tokenization. Thus `1&` is one integer literal,
-while `1 & x` is concatenation. Date literal contents are interpreted using the
+scanner uses longest-match tokenization. Thus `1&` is a Long integer literal
+and `1&&` is a LongLong integer literal, while `1 & x` is concatenation.
+`^` is always exponentiation: `2^3` and `2^-2` are arithmetic expressions.
+Inside a string literal, `"&&"` contains two ordinary ampersand characters.
+A leading `+` or `-` is an operator, not part
+of an integer or real literal token; a sign following the exponent marker
+within a real literal remains part of that literal. Unary and exponent-operand
+signs follow the grouping rules in section 8. This lexical distinction does
+not change the checked range rules for a directly negated integer constant.
+Date literal contents are interpreted using the
 invariant UBE date syntax by default; a compatibility mode may enable the VB6
 locale-dependent interpretation.
 
@@ -230,16 +241,17 @@ UBE retains the VB type names and adds explicit machine-sized types needed by a
 | `Variant` | Tagged value capable of holding any core value. |
 | `Any` | Foreign-function-only untyped parameter. |
 
-The legacy identifier type characters are `%` (`Integer`), `&` (`Long`), `^`
-(`LongLong`), `!` (`Single`), `#` (`Double`), `@` (`Currency`), and `$`
-(`String`). An explicit `As` clause and a type character may not conflict.
+Owner-confirmed on 2026-11-28: identifiers have no type suffixes, on declarations
+or uses. Variables, constants, fields, parameters, function results and property
+get results declare their type with `As`; for example, `Dim Count As LongLong`.
+Legacy forms such as `Count&`, `Count^` or `Text$` do not assert or select a type.
+This overrides the earlier identifier-type-character compatibility rule.
 
-A type character is not part of name identity. A suffix on a declaration or
-use must agree with the declaration's type. It can name only the seven scalar
-types listed above; arrays, custom types, enums, references, `Variant`, and
-fixed-length strings require an `As` clause. Integer literal suffixes are `%`,
-`&`, and `^`; UBE does not accept the unrelated VB.NET suffixes for unsigned
-fixed-width types that UBE does not define.
+Numeric literal suffixes remain distinct from identifier syntax. Integer literal
+suffixes are `%` (Integer), `&` (Long), and `&&` (LongLong), including decimal,
+hexadecimal and octal forms. `^` is no longer a literal suffix. UBE does not
+accept the unrelated VB.NET suffixes for unsigned fixed-width types that UBE
+does not define.
 
 Owner-confirmed integer-literal rule (2026-11-01): an unsuffixed decimal integer
 literal uses a statically known destination datatype where that numeric context
@@ -277,8 +289,9 @@ must leave an existing array unchanged. Implementations shall diagnose
 overflow instead of depending on host or LLVM undefined behavior.
 
 A Function or Property Get may return an array by writing `As ElementType()`
-after its parameter list. The rank is the number of commas in that result
-specifier and participates in the declared result type. Returning and assigning
+after its parameter list. The rank is one plus the number of commas in that
+result specifier: `()` is rank one and `(,)` is rank two. Rank participates in
+the declared result type. Returning and assigning
 the array uses the ordinary independent array-value copy; object elements retain
 their object identities as part of that copy.
 
@@ -412,7 +425,7 @@ Function and yields the thread identifier, discarding a Function's own result.
 
 UBE is always explicitly and statically typed. Every variable, constant,
 parameter, property, and function result must declare its type with an `As`
-clause or a nonconflicting identifier type character. There is no implicit
+clause. Identifier type characters are not accepted. There is no implicit
 `Variant` declaration mode; code that wants a `Variant` must say so explicitly.
 Use of an undeclared name is always a compile-time error.
 
@@ -480,14 +493,72 @@ crosses a project reference. `Option Private Module` hides that standard
 module's otherwise Public declarations from other packages and is incompatible
 with `Public Export`.
 
-`Static` on a local gives that declaration program-lifetime storage, initialized
-once when first reached and shared by recursion and all threads. `Static` on an
+`Static` on a local retains its storage between invocations. Owner clarification,
+2026-11-28: in an instance member, each receiver object owns its own storage for
+that declaration; recursion and all threads using that same receiver share it.
+Different objects have different Static locals, and destroying/recreating an
+object does not restore the former object's values. In a standard-module
+procedure, the module instance owns the storage for its program lifetime.
+`Static` on an
 implemented Sub, Function, or property accessor gives every ordinary local in
 that body the same static-local behavior; it does not make an instance member
 shared, remove `Me`, or change parameters/results/temporaries into shared
 storage. Every accessor of a logical property agrees on Static. Static is
 invalid on lifecycle/event handlers, Intrinsic, Export, external declarations,
 interfaces, events, types, enums, constants, and module-level fields.
+
+Initialization first occurs when execution reaches the declaration. A read,
+write or ByRef alias that reaches its storage before initialization has succeeded
+also establishes initialization before exposing or modifying that storage.
+Owner-confirmed on 2026-11-28: a
+failed attempt leaves initialization retryable; a later independent use tries
+again. Successful initialization occurs once for that owning storage instance.
+Assigning Nothing or another value after success does not rerun the initializer.
+
+Only one thread performs a given attempt. Other entrants join that attempt and
+wait without observing its unfinished value. Each attempt has a distinct identity
+and a retained completion outcome. Success publishes the complete value before
+releasing waiters; that publication establishes happens-before visibility. An
+escaping initializer FAIL abandons its unpublished candidate, leaves destination
+storage neutral, and supplies that attempt's fresh FAIL and error record to each
+participant on its own thread. A failure remains failure when Err.Number is zero.
+Completed external side effects are not rolled back and may be repeated by retry.
+Required attempt/outcome and waiter-retention storage is reserved before starting
+initializer code or admitting a waiter. Resource failure reports controlled FAIL
+without starting that initializer or publishing a partially admitted wait.
+
+All participants in a failed attempt observe that failure; they do not retry
+inside the same failed access. A subsequent independent access may start another
+attempt even while an older waiter has not yet consumed its outcome. The old
+outcome remains available until all its participants have consumed or cancelled
+it. A later success cannot turn an old failed wait into success. No neutral or
+partially initialized value is substituted for an initializer result. Default
+statement skipping and enabled handlers remain the ordinary failure continuation;
+a later statement accessing the still-uninitialized variable is a new use.
+
+An attempt owner's recursive access to that same unfinished Static reports a
+controlled initialization-reentry FAIL instead of waiting for itself or exposing
+partial state. If user code handles that failure and the initializer ultimately
+returns normally, the attempt may still succeed. Runtime bookkeeping locks must
+not be held while invoking initializer code. The owning object and candidate
+managed values remain precisely retained throughout initialization and waiting.
+
+Owner-confirmed cancellation rule, 2026-11-28: a stop request wakes a thread
+waiting for another thread's Static initialization and promptly returns a fresh
+initialization-wait-cancelled FAIL to that access. It abandons only that wait,
+not the other thread's initializer or its other waiters. The waiting thread's
+ordinary failed-statement/handler rules apply; it is not forcibly terminated.
+Cancellation racing with completion has one ordered outcome: whichever transition
+claims the wait first wins. It cannot deliver both success and failure. The stop
+flag remains sticky. If already set before a blocking wait is admitted, the wait
+reports this cancellation failure without blocking. This exception to successful
+zero-valued cancellation results is also recorded in threading.md.
+
+Initialization reentry and cancelled implicit waits have distinct diagnostic error
+categories. Their stable Err.Number assignments must be allocated in the complete
+Err contract before these operations are admitted; lowering must not invent
+temporary numeric codes. These definitions do not claim Static implementation or
+qualification in the current compiler.
 
 Declaration modifiers use the canonical order encoded by the grammar. Inline
 and ForceInline are mutually exclusive and apply only to implemented Subs or
@@ -662,6 +733,21 @@ intrinsic is identified by its fully qualified declaration and signature, not
 by textual name alone. Missing implementations and unsupported targets are
 compile-time errors. Intrinsics cannot also be `Inline` or `ForceInline`.
 
+Primitive admission also preserves language value and lifetime invariants.
+Checked low-level operations may be declared by ordinary source with their exact
+documented signatures. A role requiring compiler support authority additionally
+requires validated installed support provenance; a matching name, copied source,
+signature, or attribute does not grant that authority. This does not introduce
+an unsafe source mode or change the separate foreign-call boundary.
+
+In particular, arbitrary bytes may be held in an unpublished text candidate,
+but publishing a String must validate UTF-8 and its declared scalar count before
+changing the destination. Failure preserves the destination and the candidate
+for repair or abandonment. Collector lifecycle operations that rely on a
+complete precise trace, and raw monitor operations that require an independently
+maintained precise object root, belong to validated compiler support. Public
+collection and structured `SyncLock` retain their ordinary language contracts.
+
 The intrinsic set is part of the versioned compiler/program-support interface and must
 remain small and documented. Operations expressible in UBE—including string
 algorithms, conversions, collection logic, and most datatype operations—belong
@@ -756,11 +842,14 @@ These are bounded bootstrap bindings: v2 uses one-dimensional arrays and
 signed Long index/count arguments. They do not redefine the complete language's
 array index/rank contract. Ordinary Byte arrays and finite array-containing
 records have independent assignment, ByVal and result semantics with precise
-roots and safe managed publication. This proof does not qualify builtin String,
+roots and safe managed publication. These bounded bindings do not by themselves qualify builtin String,
 objects or managed opaque representations. A failed operation does not imply
 an abort or rollback of later user statements; the ordinary section 9 error
-rules continue to apply. Exact acceptance and limits are recorded in
-[`../std-lib/MANAGED-STORAGE-EVIDENCE.md`](../std-lib/MANAGED-STORAGE-EVIDENCE.md).
+rules continue to apply. The historical `MANAGED-STORAGE-EVIDENCE.md` file is
+not retained in this checkout; this paragraph is not executable proof of that
+earlier implementation. Current admitted storage boundaries are recorded in
+[bootstrap-profile.md](bootstrap-profile.md), with current qualification and
+its limits in [compiler/Progress.md](../compiler/Progress.md).
 
 The source-input bootstrap extension uses the same validated attribute mechanism
 for these host operations. Procedure spelling is arbitrary; the exact concrete
@@ -890,9 +979,22 @@ re-enter itself; this is legal and follows normal recursion rules.
 
 Precedence, from lowest to highest, is:
 
-`Imp`, `Eqv`, `Xor`, `Or`, `And`, `Not`, comparisons, `&`, `+ -`, `* /`, `\`,
-`Mod`, unary `+ -`, and `^`. Exponentiation is right-associative. Other binary
-operators are left-associative. Comparisons do not chain.
+`Imp`, `Eqv`, `Xor`, `Or`, `And`, `Not`, comparisons, `&`, `+ -`, `Mod`, `\`,
+`* /`, unary `+ -`, and `^`. Binary operators, including exponentiation, are
+left-associative. Comparisons do not chain.
+
+Owner-confirmed on 2026-11-28: arithmetic precedence and associativity follow
+classic VB6. Thus `8 * 5 Mod 3` means `(8 * 5) Mod 3`, and `2 ^ 3 ^ 2` means
+`(2 ^ 3) ^ 2`. Unary negation follows exponentiation: `-2 ^ 2` means
+`-(2 ^ 2)`. A signed exponent remains legal: `2 ^ -2` means `2 ^ (-2)`.
+This supersedes the earlier multiplication/integer-division/Mod ordering and
+right-associative exponentiation. Current implementation differences are
+recorded in [bootstrap-profile.md](bootstrap-profile.md); this decision does
+not claim that the compiler has been updated.
+
+Conditional compilation follows the same relative precedence and associativity
+for the operators admitted by its directive grammar. This does not add operators
+to that grammar's supported set.
 
 `And` and `Or` preserve VB6 eager evaluation. `AndAlso` and `OrElse` require
 Boolean operands and skip the right operand when the left operand determines
@@ -1086,9 +1188,12 @@ the first matching part executes. Comma-separated clauses are alternatives,
 `Case Else` matches only when no earlier part did. Each clause expression is
 evaluated only if reached.
 
-Failure while evaluating an If/ElseIf or Do/Loop condition skips the entire
-affected conditional or loop under default continuation, including post-test
-and Until forms. It never supplies a Boolean value or selects an Else branch.
+A runtime error while evaluating an If/ElseIf condition records the error in
+Err and treats the condition as False under default continuation. Remaining
+operands in that condition are not evaluated. The next ElseIf is tested, or
+Else runs if no condition is True. This applies to block and single-line If.
+Failure in a Do/Loop condition instead skips the entire loop, including
+post-test and Until forms; it does not supply a Boolean value.
 An enabled error handler still receives control. A failed ordinary statement
 inside the body retains ordinary statement-skipping behavior. The detailed
 continuation and retry contract is in [error-handling.md](error-handling.md).
@@ -1403,16 +1508,32 @@ and `Mod`, nonintegral operands round to the nearest integer, ties to even;
 division truncates toward zero and the nonzero remainder has the dividend's
 sign. For any signed integer type, its minimum value `Mod -1` returns zero
 successfully and preserves the existing `Err`; the corresponding integer
-division overflows. `^` converts both operands to Double and is right-associative.
+division overflows. `^` converts both operands to Double and is left-associative.
 Zero raised to a negative exponent and a negative base raised to a nonintegral
 exponent are invalid domains and fail under the preceding rules. `&` is the
 only string-concatenation operator; `+` is numeric only.
 
-Owner-confirmed on 2026-11-20: when either operand of `\` or `Mod` is Single
-or Double, both operands convert to LongLong and the result is LongLong.
-Fractional operands round before the LongLong range check; no 32-bit
-intermediate may restrict their range. A nonfinite or out-of-range operand
-fails before division, and a divisor that rounds to zero is division by zero.
+Owner-confirmed for Single/Double on 2026-11-20 and extended to Currency/Decimal
+on 2026-11-28: when either operand of `\` or `Mod` is `Single`, `Double`,
+`Currency`, or `Decimal`, both operands convert to `LongLong` and the result
+type is `LongLong`. This operator-specific rule takes precedence over common
+numeric result-family selection; it does not admit an otherwise forbidden
+operand-type combination. Each original operand rounds to the nearest integer,
+ties to even, before its signed 64-bit range check. No narrower integer or
+floating intermediary may change that conversion or restrict its range.
+
+Evaluation and conversion retain the ordinary left-to-right, evaluate-once and
+first-failure rules. A nonfinite or out-of-range operand fails before division;
+a divisor that rounds to zero is division by zero. After conversion, division
+truncates toward zero and a nonzero remainder has the dividend's sign.
+LongLong's minimum value divided by -1 overflows, while that value `Mod -1`
+succeeds with zero and preserves existing Err. Known-invalid constant
+conversions or arithmetic are compile-time errors, including in ordinary
+initializers and assignments; runtime-dependent failures report fresh FAIL and
+Err without a usable result or unfinished assignment commit. Successful
+operations preserve prior Err. This defines the Currency/Decimal contract;
+their implementation admission remains separately tracked in
+[bootstrap-profile.md](bootstrap-profile.md).
 
 Boolean `Not`, `And`, `Or`, `Xor`, `Eqv`, and `Imp` are eager logical
 operations. On integral values they are bitwise operations in the common

@@ -147,7 +147,10 @@ $context=($templates|Where-Object{$_.name -eq 'ContextPrefix'}).text
 $context=$context.Replace('{0}','1').Replace('{1}','1').Replace('{2}','6904').Replace('{3}','863')
 $context+=($templates|Where-Object{$_.name -eq 'ContextMiddle'}).text
 $context+=($templates|Where-Object{$_.name -eq 'ContextSuffix'}).text
-$entry=($templates|Where-Object{$_.name -eq 'Entry'}).text.Replace('{0}','17').Replace('@main()','@entry.generated()')
+$entryStart=($templates|Where-Object{$_.name -eq 'EntryStart'}).text
+$entryBody=($templates|Where-Object{$_.name -eq 'Entry'}).text
+if(-not $entryStart -or -not $entryBody){throw 'Missing standalone entry template parts'}
+$entry=($entryStart+$entryBody).Replace('{0}','17').Replace('@main()','@entry.generated()')
 $entryProbe=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'entry.ll'),$utf8)
 foreach($level in @('0','2')){foreach($outcome in @('success','failure','zero','wait-retry','wait-regression')){
  $success='false';$number='42';$worker='42';$status='1'

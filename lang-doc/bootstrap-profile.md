@@ -7,6 +7,32 @@ implementation admission; it does not grant exceptions to language semantics.
 Earlier bootstrap gates are retained below as historical qualification, not as
 the current limit of the UBE-written compiler.
 
+## Arithmetic ordering qualification
+
+The owner confirmed classic VB6 arithmetic precedence and associativity on
+2026-11-28. The normative order is now in language-spec.md section 8 and the
+core EBNF. Both ordinary-source parsers now bind `*`/`/` above `\`, and `\`
+above `Mod` within their admitted operator sets. The UBE-written parser groups
+powers left-associatively, including signed exponent operands. Conditional
+expressions use the same relative order. Focused constant/runtime O0/O2 gates,
+numerical-library checks, repeated self-builds, 1004 common conformance assertions
+and the existing concurrency gate pass. Exact commands and evidence are in
+`../compiler/Progress.md`. Earlier gates for the superseded ordering are historical,
+not alternative supported semantics. This qualification does not claim the full
+language grammar. The subsequent owner decision below replaces identifier
+suffixes and the old LongLong literal suffix.
+
+## Explicit declaration types and LongLong literals
+
+The owner decided on 2026-11-28 that declarations require `As` types and
+identifiers have no type suffixes on declarations or references. LongLong
+numeric literals use `&&`; `^` is exclusively exponentiation. Literal `%`,
+`&`, `!`, `#` and `@` retain their declared meanings. `"&&"` remains a string
+containing two ampersands. The scanner, parser and literal conversion sources
+have been migrated; the earlier qualification does not establish this new
+contract. Focused lexical, rejection, numeric and self-build qualification,
+including remaining checks, is recorded in `../compiler/Progress.md`.
+
 ## Current conditional compilation and execution context
 
 The UBE-written compiler selects `#Const`, nested `#If`/`#ElseIf`/`#Else` and
@@ -183,8 +209,10 @@ in [FLOATING-POINT.md](../compiler/FLOATING-POINT.md).
 The checked integer-operation extension now admits `*`, integer `\` and `Mod`
 for the existing integer types, with Byte promotion, compile-time diagnostics,
 runtime overflow/zero-divisor FAIL and unchanged failed assignment destinations.
-Precedence follows the frozen grammar: Mod binds more tightly than `\`, which
-binds more tightly than `*`; Mod requires whitespace on both sides.
+This historical gate used the previous grammar: Mod bound more tightly than
+`\`, which bound more tightly than `*`. The owner superseded that ordering on
+2026-11-28 with the VB6 contract; current parsers retain the old grouping pending
+correction and fresh qualification. Mod requires whitespace on both sides.
 The minimum signed value Mod -1 succeeds with zero, while its division by -1
 overflows. The shared O0/O2 gate is
 `../bootstrap/tests/integer-operations/check.ps1`, with independent host/UBE
@@ -292,13 +320,15 @@ recursion, x64 output, deterministic IR and failed-build output preservation.
 The implemented lowering and remaining boundaries are in
 `../bootstrap/LOWERING.md`; exact evidence is in `../compiler/Progress.md`.
 
-The parser also admits ordinary typed scalar constants/initializers, integer
-`%`, `&` and `^` declaration/reference/literal suffixes, unary signs, integer
+The historical parser admitted ordinary typed scalar constants/initializers,
+integer `%`, `&` and `^` declaration/reference/literal suffixes, unary signs, integer
 radix spellings, ASCII bracketed
 names, numeric labels, ElseIf and redundant Option Explicit/On. Unsupported
 types, operators, declarations and control forms fail explicitly. It reports
 the first error and does not provide IDE multi-error recovery. Parser limits
 and its development dump format are defined in `../bootstrap/DESIGN.md`.
+The declaration/reference suffixes and LongLong `^` spelling in this historical
+list are superseded by the 2026-11-28 decision above.
 
 The initial scalar admission set exists to prove the accepted error contract
 before expanding implementation. The later dependency set identifies what the
@@ -330,9 +360,12 @@ A test-only native harness supplies runtime arguments and calls its compiled
 procedures; this does not expose ordinary Public procedures as
 foreign exports. Separate standalone Main fixtures qualify executable startup.
 The initial oracle uses nonfailing scalar comparisons. The source-scanning
-extension now admits failing If/ElseIf and Do/Loop conditions: default execution
-skips the entire affected construct, while enabled handlers still receive
-control. A failed condition is not a Boolean. See
+extension admits failing If/ElseIf and Do/Loop conditions: default execution
+records the error and treats a failed If/ElseIf condition as False, proceeding
+to ElseIf/Else under the 2026-11-28 owner correction. Failed Do/Loop conditions
+still exit the loop. Enabled handlers receive control; active handlers use the
+default continuation without recursive entry. The focused if-errors gate passes
+through both compiler paths at O0/O2. See
 [`SOURCE-SCANNING.md`](../bootstrap/SOURCE-SCANNING.md) for the dependency scope.
 
 The emitter rejects lifecycle hooks, explicit

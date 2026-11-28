@@ -32,7 +32,7 @@ function Main([string]$Type='Gate'){
 function Project([string]$Name,[System.Collections.Specialized.OrderedDictionary]$Sources,[string]$Reference=''){
  $folder=Join-Path $evidence $Name
  $null=New-Item -ItemType Directory -Path $folder
- $manifest="UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`n"
+ $manifest="UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nDebugInformation = `"None`"`r`n"
  foreach($file in $Sources.Keys){WriteText (Join-Path $folder $file) $Sources[$file];$manifest+="Source = `"$file`"`r`n"}
  if($Reference -ne ''){$manifest+="Reference = `"$Reference`"`r`n"}
  $path=Join-Path $folder 'Probe.UBE';WriteText $path $manifest

@@ -2,37 +2,37 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "IntegerProbe"
 ' Exercises admitted integer widths through runtime inputs and checked failure edges.
 Public Const ByteMax As Byte = 255
-Public Const IntegerMin% = -32768%
-Public Const IntegerMax% = 32767%
-Public Const LongMin& = -2147483648&
-Public Const LongMax& = 2147483647&
-Public Const LongLongMin^ = -9223372036854775808^
-Public Const LongLongMax^ = 9223372036854775807^
+Public Const IntegerMin As Integer = -32768%
+Public Const IntegerMax As Integer = 32767%
+Public Const LongMin As Long = -2147483648&
+Public Const LongMax As Long = 2147483647&
+Public Const LongLongMin As LongLong = -9223372036854775808&&
+Public Const LongLongMax As LongLong = 9223372036854775807&&
 Public Const ContextWide As LongLong = 2147483647 + 1
 Public Const NarrowAfterWide As Integer = 40000 + -10000
 Private Calls As Long
 ' Byte operands promote before addition, and suffixed uses retain declared types.
 Public Function CheckArithmetic(ByVal Seed As Long) As Long
     Dim B As Byte = 254 + Seed
-    Dim I% = B + B
-    Dim L& = I%
-    Dim Q^ = ContextWide
-    If I% <> 510 Then CheckArithmetic = 1: Exit Function
-    If L& <> 510 Then CheckArithmetic = 2: Exit Function
-    If Q^ <> 2147483648^ Then CheckArithmetic = 3: Exit Function
-    Q^ = -9223372036854775808^
-    If Q^ <> LongLongMin^ Then CheckArithmetic = 4: Exit Function
-    I% = -B
-    If I% <> -255% Then CheckArithmetic = 5: Exit Function
-    I% = B And B
-    If I% <> 255% Then CheckArithmetic = 6: Exit Function
-    Q^ = EchoWide^(Q^)
-    If Q^ <> LongLongMin^ Then CheckArithmetic = 7: Exit Function
+    Dim I As Integer = B + B
+    Dim L As Long = I
+    Dim Q As LongLong = ContextWide
+    If I <> 510 Then CheckArithmetic = 1: Exit Function
+    If L <> 510 Then CheckArithmetic = 2: Exit Function
+    If Q <> 2147483648&& Then CheckArithmetic = 3: Exit Function
+    Q = -9223372036854775808&&
+    If Q <> LongLongMin Then CheckArithmetic = 4: Exit Function
+    I = -B
+    If I <> -255% Then CheckArithmetic = 5: Exit Function
+    I = B And B
+    If I <> 255% Then CheckArithmetic = 6: Exit Function
+    Q = EchoWide(Q)
+    If Q <> LongLongMin Then CheckArithmetic = 7: Exit Function
     CheckArithmetic = 0
 End Function
 ' Returns the widest signed value without narrowing at a call boundary.
-Public Function EchoWide^(ByVal Value As LongLong)
-    EchoWide^ = Value
+Public Function EchoWide(ByVal Value As LongLong) As LongLong
+    EchoWide = Value
 End Function
 ' Checks failure at each selected arithmetic width and final conversion boundary.
 Public Function CheckFailures(ByVal Seed As Long) As Long
@@ -51,14 +51,14 @@ Public Function CheckFailures(ByVal Seed As Long) As Long
     If Q <> 77 Then CheckFailures = 3: Exit Function
     If Err.Number <> 6 Then CheckFailures = 4: Exit Function
     Err.Clear
-    Q = 9223372036854775806^ + Seed
-    Q = Q + 1^
-    If Q <> LongLongMax^ Then CheckFailures = 5: Exit Function
+    Q = 9223372036854775806&& + Seed
+    Q = Q + 1&&
+    If Q <> LongLongMax Then CheckFailures = 5: Exit Function
     If Err.Number <> 6 Then CheckFailures = 6: Exit Function
     Err.Clear
-    Q = LongLongMin^
+    Q = LongLongMin
     Q = -Q
-    If Q <> LongLongMin^ Then CheckFailures = 7: Exit Function
+    If Q <> LongLongMin Then CheckFailures = 7: Exit Function
     If Err.Number <> 6 Then CheckFailures = 8: Exit Function
     Err.Clear
     B = Flag
@@ -80,7 +80,7 @@ Public Function CheckFailures(ByVal Seed As Long) As Long
     If B <> 0 Then CheckFailures = 18: Exit Function
     If Err.Number <> 6 Then CheckFailures = 19: Exit Function
     On Error GoTo Narrowed
-    Q = 32767^ + Seed
+    Q = 32767&& + Seed
     I = Q
     CheckFailures = 14
     Exit Function
@@ -104,7 +104,7 @@ Public Sub TouchLong(ByRef Value As Long)
 End Sub
 ' Writes through exact LongLong storage.
 Public Sub TouchWide(ByRef Value As LongLong)
-    Value = Value + 1^
+    Value = Value + 1&&
 End Sub
 ' Tests exact aliases and grouping conversion, including failed argument preparation.
 Public Function CheckByRef(ByVal Seed As Long) As Long

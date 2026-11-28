@@ -151,7 +151,7 @@ function Read-Procedures([string]$Manifest) {
 
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files = @('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files = @('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ThreadPrimitives.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
 $files += @('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files += Join-Path $PSScriptRoot 'ParserProbe.bas'
 $manifest = Copy-Fixtures 'library' $files '2' 'Library'
@@ -390,7 +390,7 @@ foreach ($module in @('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas')
     Check-Value $value 0 'first source and complete tree remain independent'
     Node-Equals $subtract 8 $add 'first tree edge retained after parsing another module'
 }
-foreach ($module in @('Utf8.bas','BufferPrimitives.bas','FileBytes.bas')) { Accept-Source (Join-Path $coreDirectory $module) 1 20 }
+foreach ($module in @('Utf8.bas','BufferPrimitives.bas','FileBytes.bas','ThreadPrimitives.bas')) { Accept-Source (Join-Path $coreDirectory $module) 1 20 }
 $textFixture = @'
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "TextSyntax"

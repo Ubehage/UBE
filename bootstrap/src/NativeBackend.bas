@@ -6,6 +6,17 @@ Private Const MaximumIRBytes As Long = 33554432
 Private Const MaximumLogBytes As Long = 65536
 Private Const MaximumNativeBytes As Long = 67108864
 
+Public Type OutputReservation
+    NameHandle As Long
+    FileHandle As Long
+    StageHandle As Long
+    MetadataHandle As Long
+    Output As String
+    ParentIdentity As String
+    FileIdentity As String
+    Stage As String
+End Type
+
 Private Type SecurityAttributes
     Length As Long
     Descriptor As Long
@@ -82,6 +93,150 @@ Private Declare Function AssignProcessToJobObject Lib "kernel32" (ByVal Job As L
 Private Declare Function TerminateJobObject Lib "kernel32" (ByVal Job As Long, ByVal Code As Long) As Long
 Private Declare Function TerminateProcess Lib "kernel32" (ByVal Process As Long, ByVal Code As Long) As Long
 Private Declare Function ResumeThread Lib "kernel32" (ByVal Thread As Long) As Long
+Private Declare Function CreateEventExW Lib "kernel32" (ByVal Security As Long, ByVal Name As Long, ByVal Flags As Long, ByVal Access As Long) As Long
+Private Declare Sub SetLastError Lib "kernel32" (ByVal Code As Long)
+Private Declare Function LCMapStringEx Lib "kernel32" (ByVal Locale As Long, ByVal Flags As Long, ByVal Source As Long, ByVal Count As Long, ByVal Destination As Long, ByVal Capacity As Long, ByVal Version As Long, ByVal Reserved As Long, ByVal Parameter As Long) As Long
+Private Declare Function CompareStringOrdinal Lib "kernel32" (ByVal First As Long, ByVal FirstLength As Long, ByVal Second As Long, ByVal SecondLength As Long, ByVal IgnoreCase As Long) As Long
+
+' Serializes one unsigned file-identity word in the same little-endian byte order as File.TryIdentity.
+Private Function IdentityWord(ByVal Value As Long) As String
+    Dim Text As String, Index As Long
+    Text = Right$("00000000" & Hex$(Value), 8)
+    For Index = 7 To 1 Step -2
+        IdentityWord = IdentityWord & Mid$(Text, Index, 2)
+    Next Index
+End Function
+
+' Obtains exactly the volume/index identity used by the native target, retaining failed-close ownership.
+Private Function ReservationIdentity(ByVal Path As String, ByVal Directory As Boolean, ByRef Owner As OutputReservation, ByRef Identity As String) As Boolean
+    Dim Info As FileIdentity, Flags As Long
+    If Owner.MetadataHandle <> 0 Then Exit Function
+    Flags = &H80
+    If Directory Then Flags = &H2000000
+    Owner.MetadataHandle = CreateFileW(StrPtr(Path), 0, 7, 0, 3, Flags, 0)
+    If Owner.MetadataHandle = -1 Then Owner.MetadataHandle = 0: Exit Function
+    If GetFileInformationByHandle(Owner.MetadataHandle, Info) = 0 Then Exit Function
+    Identity = IdentityWord(Info.Volume) & IdentityWord(Info.IndexHigh) & IdentityWord(Info.IndexLow)
+    If CloseHandle(Owner.MetadataHandle) = 0 Then Exit Function
+    Owner.MetadataHandle = 0
+    ReservationIdentity = True
+End Function
+
+' Uses exact integer arithmetic in Double for the two target-runtime modular hashes (products below 2^48).
+Private Function LeaseHex(ByVal Value As Double) As String
+    If Value > 2147483647# Then Value = Value - 4294967296#
+    LeaseHex = Right$("00000000" & Hex$(CLng(Value)), 8)
+End Function
+
+' Matches Lease.TryAcquire normalization and Global object naming; existing names are never recursive owners.
+Private Function AcquireReservation(ByVal Key As String, ByRef Handle As Long) As Boolean
+    Dim Locale As String, Upper As String, Name As String, Count As Long, Index As Long, Unit As Long, Code As Long
+    Dim First As Double, Second As Double
+    If Handle <> 0 Or Len(Key) < 1 Or Len(Key) > 4096 Then Exit Function
+    Locale = vbNullChar
+    Upper = String$(4096, vbNullChar)
+    Count = LCMapStringEx(StrPtr(Locale), &H200, StrPtr(Key), Len(Key), StrPtr(Upper), 4096, 0, 0, 0)
+    If Count < 1 Or Count > 4096 Then Exit Function
+    Upper = Left$(Upper, Count)
+    If CompareStringOrdinal(StrPtr(Key), Len(Key), StrPtr(Upper), Count, 1) <> 2 Then Exit Function
+    First = 2166136261#: Second = 2246822519#
+    For Index = 1 To Count
+        Unit = AscW(Mid$(Upper, Index, 1)) And &HFFFF&
+        First = First * 257# + Unit
+        First = First - Fix(First / 4294967291#) * 4294967291#
+        Second = Second * 65537# + Unit
+        Second = Second - Fix(Second / 4294967279#) * 4294967279#
+    Next Index
+    Name = "Global\UBE.Lease." & LeaseHex(First) & LeaseHex(Second)
+    SetLastError 0
+    Handle = CreateEventExW(0, StrPtr(Name), 1, 2)
+    Code = Err.LastDllError
+    If Handle = 0 Then Exit Function
+    If Code = 183 Then
+        If CloseHandle(Handle) <> 0 Then Handle = 0
+        Exit Function
+    End If
+    AcquireReservation = True
+End Function
+
+' Acquires the same namespace/inode lease protocol as the production compiler before loading project inputs.
+Public Function ReserveOutput(ByVal Requested As String, ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
+    Dim EmptyProject As ProjectContext, Directory As String, Leaf As String
+    On Error GoTo Failed
+    If Owner.NameHandle <> 0 Or Owner.FileHandle <> 0 Or Owner.StageHandle <> 0 Or Owner.MetadataHandle <> 0 Then GoTo Failed
+    Owner.ParentIdentity = ""
+    Owner.FileIdentity = ""
+    If Not ResolveOutput(EmptyProject, Requested, Owner.Output, Directory, Diagnostic) Then Exit Function
+    If Not ReservationIdentity(Directory, True, Owner, Owner.ParentIdentity) Then GoTo Failed
+    Leaf = Mid$(Owner.Output, InStrRev(Owner.Output, "\") + 1)
+    If Not AcquireReservation("ON/" & Owner.ParentIdentity & "/" & Leaf, Owner.NameHandle) Then GoTo Failed
+    If GetFileAttributesW(StrPtr(Owner.Output)) <> -1 Then
+        If Not ReservationIdentity(Owner.Output, False, Owner, Owner.FileIdentity) Then GoTo Failed
+        If Not AcquireReservation("OF/" & Owner.FileIdentity & "/", Owner.FileHandle) Then GoTo Failed
+    End If
+    ReserveOutput = ValidateReservation(Owner, Diagnostic)
+    Exit Function
+Failed:
+    If Len(Diagnostic) = 0 Then Diagnostic = "UBE: E_OUTPUT: output is busy or cannot be reserved; wait for its current build or choose another output: " & Requested
+End Function
+
+' Rejects changed parent/output identity without weakening the retained original ownership.
+Private Function ValidateReservation(ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
+    Dim Identity As String, Directory As String
+    Directory = Left$(Owner.Output, InStrRev(Owner.Output, "\"))
+    If Not ReservationIdentity(Directory, True, Owner, Identity) Then GoTo Failed
+    If Identity <> Owner.ParentIdentity Then GoTo Failed
+    Identity = ""
+    If GetFileAttributesW(StrPtr(Owner.Output)) <> -1 Then
+        If Not ReservationIdentity(Owner.Output, False, Owner, Identity) Then GoTo Failed
+    End If
+    If Identity <> Owner.FileIdentity Then GoTo Failed
+    ValidateReservation = True
+    Exit Function
+Failed:
+    Diagnostic = "UBE: E_OUTPUT: reserved destination changed; retry after other writers finish: " & Owner.Output
+End Function
+
+' Keeps the newly published inode reserved across replacement and cleanup.
+Private Function ReserveCandidate(ByVal Path As String, ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
+    Dim Identity As String
+    If Not ReservationIdentity(Path, False, Owner, Identity) Then GoTo Failed
+    If Not AcquireReservation("OF/" & Identity & "/", Owner.StageHandle) Then GoTo Failed
+    ReserveCandidate = ValidateReservation(Owner, Diagnostic)
+    Exit Function
+Failed:
+    If Len(Diagnostic) = 0 Then Diagnostic = "UBE: E_OUTPUT: cannot reserve completed output candidate: " & Path
+End Function
+
+' Retries stage/handle cleanup before releasing namespace ownership; primary diagnostics survive cleanup refusal.
+Public Function ReleaseOutput(ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
+    On Error GoTo Failed
+    If Owner.MetadataHandle <> 0 Then
+        If CloseHandle(Owner.MetadataHandle) = 0 Then GoTo Failed
+        Owner.MetadataHandle = 0
+    End If
+    If Len(Owner.Stage) <> 0 Then
+        RemoveStage Owner.Stage
+        If GetFileAttributesW(StrPtr(Owner.Stage)) <> -1 Then GoTo Failed
+        Owner.Stage = ""
+    End If
+    If Owner.StageHandle <> 0 Then
+        If CloseHandle(Owner.StageHandle) = 0 Then GoTo Failed
+        Owner.StageHandle = 0
+    End If
+    If Owner.FileHandle <> 0 Then
+        If CloseHandle(Owner.FileHandle) = 0 Then GoTo Failed
+        Owner.FileHandle = 0
+    End If
+    If Owner.NameHandle <> 0 Then
+        If CloseHandle(Owner.NameHandle) = 0 Then GoTo Failed
+        Owner.NameHandle = 0
+    End If
+    ReleaseOutput = True
+    Exit Function
+Failed:
+    If Len(Diagnostic) = 0 Then Diagnostic = "UBE: E_OUTPUT: output reservation cleanup failed; ownership remains held until cleanup or process exit"
+End Function
 
 ' Obtains a physical host path from an already opened file or directory.
 Private Function HandlePath(ByVal Handle As Long, ByRef Path As String) As Boolean
@@ -152,8 +307,10 @@ Private Function ResolveOutput(ByRef Project As ProjectContext, ByVal Requested 
         If Existing = -1 Then GoTo Failed
         If Not HandlePath(Existing, Physical) Then GoTo Failed
     End If
-    If IsInputAlias(Existing, Physical, Project.ManifestPath, Checked) Then GoTo Alias
-    If Not Checked Then GoTo Failed
+    If Len(Project.ManifestPath) <> 0 Then
+        If IsInputAlias(Existing, Physical, Project.ManifestPath, Checked) Then GoTo Alias
+        If Not Checked Then GoTo Failed
+    End If
     For Index = 0 To Project.SourceCount - 1
         If IsInputAlias(Existing, Physical, Project.Sources(Index).FilePath, Checked) Then GoTo Alias
         If Not Checked Then GoTo Failed
@@ -362,6 +519,8 @@ Private Function RunClang(ByVal Clang As String, ByVal Stage As String, ByVal Op
             Definition = Definition & "QueryInformationJobObject" & vbCrLf & "TerminateJobObject" & vbCrLf & "TerminateProcess" & vbCrLf & "Sleep" & vbCrLf
             Definition = Definition & "GetLastError" & vbCrLf & "CreateDirectoryW" & vbCrLf & "RemoveDirectoryW" & vbCrLf & "DeleteFileW" & vbCrLf & "MoveFileExW" & vbCrLf & "GetFileAttributesW" & vbCrLf
             Definition = Definition & "CreateThread" & vbCrLf
+            Definition = Definition & "GetEnvironmentVariableW" & vbCrLf & "OpenJobObjectW" & vbCrLf & "IsProcessInJob" & vbCrLf
+            Definition = Definition & "CreateEventExW" & vbCrLf & "SetLastError" & vbCrLf & "LCMapStringEx" & vbCrLf
         End If
         If Not WriteIR(Stage & "\kernel32-memory.def", Definition, Diagnostic) Then Exit Function
         Library = Stage & "\kernel32-memory.lib"
@@ -404,14 +563,16 @@ Failed:
 End Function
 
 ' Atomically replaces an output only after complete LLVM staging succeeds.
-Public Function WriteLLVMOutput(ByRef Project As ProjectContext, ByRef IRText As String, ByVal OutputPath As String, ByRef Diagnostic As String) As Boolean
+Public Function WriteLLVMOutput(ByRef Project As ProjectContext, ByRef IRText As String, ByVal OutputPath As String, ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
     Dim Output As String, Directory As String, Stage As String, InputPath As String
     On Error GoTo Failed
     If Not ResolveOutput(Project, OutputPath, Output, Directory, Diagnostic) Then Exit Function
     If Not CreateStage(Directory, Stage, Diagnostic) Then Exit Function
+    Owner.Stage = Stage
     InputPath = Stage & "\input.ll"
     If Not WriteIR(InputPath, IRText, Diagnostic) Then GoTo Cleanup
     If Not ResolveOutput(Project, OutputPath, Output, Directory, Diagnostic) Then GoTo Cleanup
+    If Not ReserveCandidate(InputPath, Owner, Diagnostic) Then GoTo Cleanup
     If MoveFileExW(StrPtr(InputPath), StrPtr(Output), 9) = 0 Then GoTo Failed
     WriteLLVMOutput = True
     GoTo Cleanup
@@ -423,7 +584,7 @@ Cleanup:
 End Function
 
 ' Builds an executable in isolation and publishes it only after exit-code and PE acceptance.
-Public Function BuildNativeProject(ByRef Project As ProjectContext, ByRef IRText As String, ByVal OutputPath As String, ByVal ClangPath As String, ByRef Diagnostic As String) As Boolean
+Public Function BuildNativeProject(ByRef Project As ProjectContext, ByRef IRText As String, ByVal OutputPath As String, ByVal ClangPath As String, ByRef Owner As OutputReservation, ByRef Diagnostic As String) As Boolean
     Dim Output As String, Directory As String, Stage As String, InputPath As String, NativePath As String
     Dim Optimization As String, Clang As String
     On Error GoTo Failed
@@ -457,11 +618,13 @@ Public Function BuildNativeProject(ByRef Project As ProjectContext, ByRef IRText
         End If
     End If
     If Not CreateStage(Directory, Stage, Diagnostic) Then Exit Function
+    Owner.Stage = Stage
     InputPath = Stage & "\input.ll": NativePath = Stage & "\output.exe"
     If Not WriteIR(InputPath, IRText, Diagnostic) Then GoTo Cleanup
     If Not RunClang(Clang, Stage, Optimization, InStr(IRText, "@VirtualAlloc") > 0, InStr(IRText, "@CreateFileW") > 0, Diagnostic) Then GoTo Cleanup
     If Not CheckNative(NativePath, Diagnostic) Then GoTo Cleanup
     If Not ResolveOutput(Project, OutputPath, Output, Directory, Diagnostic) Then GoTo Cleanup
+    If Not ReserveCandidate(NativePath, Owner, Diagnostic) Then GoTo Cleanup
     If MoveFileExW(StrPtr(NativePath), StrPtr(Output), 9) = 0 Then
         BuildNativeProject = Reject(Diagnostic, "E_OUTPUT", "cannot atomically publish executable: " & OutputPath)
         GoTo Cleanup

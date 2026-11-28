@@ -21,6 +21,7 @@ Private Type EvaluationState
     SymbolCount As Long
     TextUsed As Long
     Depth As Long
+    CancelRemaining As Long
     Work As Long
 End Type
 
@@ -53,6 +54,15 @@ Private Function Reject(ByRef T() As SourceScanner.SourceToken, ByRef S As Evalu
     End If
 End Function
 
+Private Function Checkpoint(ByRef T() As SourceScanner.SourceToken, ByRef S As EvaluationState, ByRef D As SourceParser.ParseDiagnostic) As Boolean
+    If D.Code <> 0 Then Exit Function
+    If S.CancelRemaining = 0 Then
+        If ThreadPrimitives.StopRequested() Then Checkpoint = Reject(T, S, D, S.Position, SourceScanner.Cancelled, 0): Exit Function
+        S.CancelRemaining = 256
+    End If
+    S.CancelRemaining = S.CancelRemaining - 1
+    Checkpoint = True
+End Function
 Private Function CodeAt(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As EvaluationState) As Long
     If S.Position >= S.Finish Then CodeAt = SyntaxTokens.CodeEnd: Exit Function
     CodeAt = SyntaxTokens.TokenCode(B, T, S.Position, S.TokenCount)
@@ -66,8 +76,11 @@ Private Function OperatorRank(ByVal Code As Long) As Long
     If Code = SyntaxTokens.KwOr Or Code = SyntaxTokens.KwOrElse Then OperatorRank = 4
     If Code = SyntaxTokens.KwAnd Or Code = SyntaxTokens.KwAndAlso Then OperatorRank = 5
     If Code = SyntaxTokens.SymEqual Or Code = SyntaxTokens.SymNotEqual Or Code = SyntaxTokens.SymLess Or Code = SyntaxTokens.SymGreater Or Code = SyntaxTokens.SymLessEqual Or Code = SyntaxTokens.SymGreaterEqual Then OperatorRank = 7
-    If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Or Code = SyntaxTokens.SymAmpersand Then OperatorRank = 8
-    If Code = SyntaxTokens.SymStar Or Code = SyntaxTokens.SymSlash Or Code = SyntaxTokens.SymBackslash Or Code = SyntaxTokens.KwMod Then OperatorRank = 9
+    If Code = SyntaxTokens.SymAmpersand Then OperatorRank = 8
+    If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 9
+    If Code = SyntaxTokens.KwMod Then OperatorRank = 10
+    If Code = SyntaxTokens.SymBackslash Then OperatorRank = 11
+    If Code = SyntaxTokens.SymStar Or Code = SyntaxTokens.SymSlash Then OperatorRank = 12
 End Function
 
 Private Function IsScalar(ByVal TypeCode As Long) As Boolean
@@ -87,9 +100,11 @@ Private Function ResolveName(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim Same As Boolean
     Dim Found As Boolean
     Do While Index < S.SymbolCount
+        If Not Checkpoint(T, S, D) Then Exit Function
         Same = True
         Offset = 0
         Do While Offset < Symbols(Index).NameLength
+            If Not Checkpoint(T, S, D) Then Exit Function
             If S.Work >= 10000000 Then ResolveName = Reject(T, S, D, Token, 4, 2): Exit Function
             S.Work = S.Work + 1
             Character = SyntaxTokens.SpellingByte(B, T, Token, S.TokenCount, Offset)
@@ -185,7 +200,7 @@ Private Function ReadPrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If S.Position >= S.Finish Then ReadPrimary = Reject(T, S, D, Token, 2, 1): Exit Function
     S.Position = S.Position + 1
     If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Or Code = SyntaxTokens.KwNot Then
-        Minimum = 10
+        Minimum = 13
         If Code = SyntaxTokens.KwNot Then
             Minimum = 6
             If S.Position >= S.Finish Then ReadPrimary = Reject(T, S, D, Token, 2, 1): Exit Function
@@ -241,6 +256,7 @@ Private Function ReadExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
     If Minimum > 6 And CodeAt(B, T, S) = SyntaxTokens.KwNot Then ReadExpression = Reject(T, S, D, S.Position, 2, 4): Exit Function
     If Not ReadPrimary(B, T, Names, Symbols, Arena, S, D, Enabled, LeftValue) Then Exit Function
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         Code = CodeAt(B, T, S)
         Rank = OperatorRank(Code)
         If Rank = 0 Or Rank < Minimum Then Exit Do
@@ -249,7 +265,7 @@ Private Function ReadExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
             If ComparisonSeen Then ReadExpression = Reject(T, S, D, Token, 2, 5): Exit Function
             ComparisonSeen = True
         End If
-        If Rank <= 5 Then
+        If Rank <= 5 Or Code = SyntaxTokens.KwMod Then
             If Token = 0 Or Token + 1 >= S.Finish Then ReadExpression = Reject(T, S, D, Token, 2, 2): Exit Function
             If T(Token).ByteStart <= T(Token - 1).ByteStart + T(Token - 1).ByteLength Or T(Token + 1).ByteStart <= T(Token).ByteStart + T(Token).ByteLength Then ReadExpression = Reject(T, S, D, Token, 2, 2): Exit Function
         End If
@@ -272,7 +288,7 @@ Private Function ReadExpression(ByRef B() As Byte, ByRef T() As SourceScanner.So
 End Function
 
 ' Validates caller inventories before any lookup or transactional arena preparation.
-Private Function ValidateInputs(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef Names() As Byte, ByRef Symbols() As SymbolFact, ByRef Arena() As Byte, ByRef S As EvaluationState) As Boolean
+Private Function ValidateInputs(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef Names() As Byte, ByRef Symbols() As SymbolFact, ByRef Arena() As Byte, ByRef S As EvaluationState, ByRef D As SourceParser.ParseDiagnostic) As Boolean
     Dim Index As Long
     Dim Size As Long
     Dim NameSize As Long
@@ -285,12 +301,14 @@ Private Function ValidateInputs(ByRef B() As Byte, ByRef T() As SourceScanner.So
     Size = BufferPrimitives.ByteStorageLength(B)
     Index = 0
     Do While Index < S.TokenCount
+        If Not Checkpoint(T, S, D) Then Exit Function
         If Not ValidSpan(Size, T(Index).ByteStart, T(Index).ByteLength) Then Exit Function
         Index = Index + 1
     Loop
     NameSize = BufferPrimitives.ByteStorageLength(Names)
     Index = 0
     Do While Index < S.SymbolCount
+        If Not Checkpoint(T, S, D) Then Exit Function
         If Symbols(Index).NameLength < 1 Or Symbols(Index).NameLength > 128 Then Exit Function
         If Not ValidSpan(NameSize, Symbols(Index).NameStart, Symbols(Index).NameLength) Then Exit Function
         If Not IsScalar(Symbols(Index).Value.TypeCode) Then Exit Function
@@ -320,9 +338,8 @@ Public Function TryEvaluate(ByRef Source() As Byte, ByRef Tokens() As SourceScan
     S.TokenCount = TokenCount
     S.SymbolCount = SymbolCount
     S.TextUsed = TextUsed
-    If Not ValidateInputs(Source, Tokens, Names, Symbols, TextArena, S) Then
-        D.Code = 3
-        D.Reason = 4
+    If Not ValidateInputs(Source, Tokens, Names, Symbols, TextArena, S, D) Then
+        If D.Code = 0 Then D.Code = 3: D.Reason = 4
         GoTo Rejected
     End If
     If Not BufferPrimitives.TryResizeBytes(Arena, TextUsed, False) Then GoTo Failed

@@ -51,7 +51,10 @@ Private Function TryExecute(ByRef CommandLine() As Byte, ByRef Options As Comman
     Dim OutputPath() As Byte
     Dim ClangInput() As Byte
     Dim Clang() As Byte
+    Dim LibraryPath() As Byte
     Dim Report As CompilationRequest.RequestDiagnostic
+    Dim ToolInfo As NativeBackend.ToolDiagnostic
+    Dim ToolDetail() As Byte
     Dim DiagnosticPath() As Byte
     Dim Found As Boolean
     Dim Completed As Boolean
@@ -60,6 +63,10 @@ Private Function TryExecute(ByRef CommandLine() As Byte, ByRef Options As Comman
     On Error GoTo Failed
     If Not WindowsArguments.TryReadArgument(CommandLine, 2, ManifestPath, Found) Then GoTo Failed
     If Not Found Then GoTo Failed
+    If Options.LibraryArgument <> 0 Then
+        If Not WindowsArguments.TryReadArgument(CommandLine, Options.LibraryArgument, LibraryPath, Found) Then GoTo Failed
+        If Not Found Then GoTo Failed
+    End If
     If Not WindowsArguments.TryReadArgument(CommandLine, 3, OutputPath, Found) Then GoTo Failed
     If Not Found Then GoTo Failed
     If Options.Mode = 2 Then
@@ -71,8 +78,13 @@ Private Function TryExecute(ByRef CommandLine() As Byte, ByRef Options As Comman
         End If
         If Not WindowsPaths.TryAbsolutePath(ClangInput, Clang, Failure) Then GoTo Failed
     End If
-    Completed = CompilationRequest.TryCompileWithContext(ManifestPath, OutputPath, Clang, Options.Mode, NativeCompilation.MaximumWorkers, Options.IsInIDE, Resources, Stage, Ranges, Report, DiagnosticPath)
-    If Not Completed Then Status = CompilerMessages.TryWriteError(Report.Kind, Report.Operation, Report.Code, Report.Reason, DiagnosticPath, Report.SourceLine, Report.SourceColumn)
+    Completed = CompilationRequest.TryCompileWithLibrary(ManifestPath, OutputPath, Clang, LibraryPath, Options.Mode, NativeCompilation.MaximumWorkers, Options.IsInIDE, Resources, Stage, Ranges, Report, DiagnosticPath, ToolInfo, ToolDetail)
+    If Completed Then
+        If Report.UnavailableDebugInformation <> 0 Then Status = CompilerMessages.TryWriteError(CompilerMessages.DebugInformationWarning, 0, Report.UnavailableDebugInformation, 0, ManifestPath, 0, 0)
+    Else
+        Status = CompilerMessages.TryWriteError(Report.Kind, Report.Operation, Report.Code, Report.Reason, DiagnosticPath, Report.SourceLine, Report.SourceColumn)
+        If Report.Kind = CompilerMessages.BackendError Then Status = CompilerMessages.TryWriteToolDiagnostic(ToolInfo, ToolDetail)
+    End If
     TryExecute = Completed
     Exit Function
 Failed:

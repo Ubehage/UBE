@@ -3,7 +3,7 @@ Attribute UBE_Name = "NativeIntrinsics"
 ' Emits identity-bound primitive wrappers from freshly validated declarations and role facts.
 
 ' Selects reviewed private ABI bodies; ordinary source spellings never confer authority.
-Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByRef State As LLVMWriter.WriterState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
+Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Layouts() As AggregateLayout.StorageFact, ByRef Plans() As NativePlanning.NativeSymbolPlan, ByRef Roles() As Long, ByRef Support As ManagedSupport.RolePlan, ByRef State As LLVMWriter.WriterState, ByRef Buffer() As Byte, ByVal Token As Long, ByRef Catalog() As Byte) As Boolean
     Dim Index As Long
     Dim Node As Long
     Dim Role As Long
@@ -14,7 +14,7 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal 
     On Error GoTo Failed
     If State.Failed Then Exit Function
     Do While Index < SymbolCount
-        If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.SubNode Then
+        If Plans(Index).IsReachable And (Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.SubNode) Then
             Node = Symbols(Index).DeclarationNode
             Role = Roles(Node - 1)
             Template = 0
@@ -47,13 +47,18 @@ Public Function TryEmit(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal 
             If Role = PrimitiveRoles.TextReadByte Then Template = LLVMTemplates.IntrinsicTextReadByte
             If Role = PrimitiveRoles.TextCreate Then Template = LLVMTemplates.IntrinsicTextCreate
             If Role = PrimitiveRoles.TextWriteByte Then Template = LLVMTemplates.IntrinsicTextWriteByte
-            If Role = PrimitiveRoles.TextPublish Then Template = LLVMTemplates.IntrinsicTextPublish
+            If Role = PrimitiveRoles.TextPublish Then Template = LLVMTemplates.IntrinsicTextPublish: Stride = Support.PublishTextSymbol
+            If Role = PrimitiveRoles.TextCommit Then Template = LLVMTemplates.IntrinsicTextCommit
+            If Role = PrimitiveRoles.TextCandidateInfo Then Template = LLVMTemplates.IntrinsicTextCandidateInfo
+            If Role = PrimitiveRoles.TextReadCandidateByte Then Template = LLVMTemplates.IntrinsicTextReadCandidateByte
             If Role = PrimitiveRoles.TextAbandon Then Template = LLVMTemplates.IntrinsicTextAbandon
             If Role = PrimitiveRoles.FileTryOpen Then Template = LLVMTemplates.IntrinsicFileOpen
             If Role = PrimitiveRoles.FileTryCreateNew Then Template = LLVMTemplates.IntrinsicFileCreateNew
             If Role = PrimitiveRoles.FileTryRead Then Template = LLVMTemplates.IntrinsicFileRead
             If Role = PrimitiveRoles.FileTryWrite Then Template = LLVMTemplates.IntrinsicFileWrite
             If Role = PrimitiveRoles.FileTryClose Then Template = LLVMTemplates.IntrinsicFileClose
+            If Role = PrimitiveRoles.LeaseAcquire Then Template = LLVMTemplates.IntrinsicLeaseAcquire
+            If Role = PrimitiveRoles.LeaseClose Then Template = LLVMTemplates.IntrinsicLeaseClose
             If Role = PrimitiveRoles.FileTryFlush Then Template = LLVMTemplates.IntrinsicFileFlush
             If Role = PrimitiveRoles.ErrorSet Then Template = LLVMTemplates.IntrinsicErrorSet
             If Role = PrimitiveRoles.SystemReadCommandLine Then Template = LLVMTemplates.IntrinsicSystemCommandLine

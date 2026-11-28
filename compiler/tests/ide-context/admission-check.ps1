@@ -25,7 +25,7 @@ function Project([string]$Name,[string[]]$Lines) {
  $text=@('UBE SOURCE 1 MODULE','Attribute UBE_Name = "Probe"','Option Explicit')+$Lines
  [IO.File]::WriteAllText($source,($text -join "`r`n")+"`r`n",$utf)
  $manifest=Join-Path $evidence ($Name+'.UBE')
- [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nSource = `"$Name.bas`"`r`n",$utf)
+ [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nDebugInformation = `"None`"`r`nSource = `"$Name.bas`"`r`n",$utf)
  return $manifest
 }
 $control=Project 'control' @('Public Function Main() As Long','Main = 0','End Function')

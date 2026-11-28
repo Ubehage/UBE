@@ -1,5 +1,6 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "PlanningProbe"
+Private Support As ManagedSupport.RolePlan
 ' Observes native storage, borrow-slot and initialization plans over runtime source files.
 Private InputPath() As Byte
 Private Source() As Byte
@@ -35,7 +36,7 @@ Public Function Bind(ByVal IsExecutable As Boolean) As Long
     If Not ExpressionBinder.TryBindExpressions(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Expressions, ExpressionCount, TextArena, TextUsed, Diagnostic) Then Bind = 102: Exit Function
     If Not AggregateLayout.TryLayout(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Layout, LayoutCount, Diagnostic) Then Bind = 103: Exit Function
     If Not PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Roles, RoleCount, Diagnostic) Then Bind = 104: Exit Function
-    If Not NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layout, Roles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then Bind = 1
+    If Not NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layout, Roles, Support, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then Bind = 1
     Exit Function
 Failed:
     Bind = 105
@@ -168,7 +169,7 @@ End Function
 
 ' Exercises explicit scalar preconditions only; scratch maps have no public atomic preservation promise.
 Public Function RejectPreconditions() As Long
-    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, 0, Expressions, Layout, Roles, EntrySymbol, False, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then RejectPreconditions = 1: Exit Function
+    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, 0, Expressions, Layout, Roles, Support, EntrySymbol, False, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) Then RejectPreconditions = 1: Exit Function
     If Summary.SymbolCount <> 0 Or Summary.NodeCount <> 0 Or Summary.ModuleCount <> 0 Or Summary.ContextCells <> 0 Or Summary.EntrySymbol <> 0 Then RejectPreconditions = 2: Exit Function
     If Diagnostic.Code <> 9 Or Diagnostic.Reason <> 50 Then RejectPreconditions = 3
 End Function

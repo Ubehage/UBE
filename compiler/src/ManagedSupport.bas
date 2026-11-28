@@ -14,6 +14,7 @@ Public Type RolePlan
     ToFloatingSymbol As Long
     PowerSymbol As Long
     MonitorEnterSymbol As Long
+    PublishTextSymbol As Long
 End Type
 
 ' Uses retained syntax, not source text searches or user procedure names.
@@ -22,7 +23,7 @@ Public Function NeedsSource(ByRef Bytes() As Byte, ByRef Tokens() As SourceScann
     Dim Token As Long
     Do While Index < Counts.NodeCount
         If Nodes(Index).Kind = SourceParser.ClassNode Or Nodes(Index).Kind = SourceParser.NewObjectNode Or Nodes(Index).Kind = SourceParser.SyncLockNode Then NeedsSource = True: Exit Function
-        If Nodes(Index).Kind = SourceParser.StringNode Or Nodes(Index).Suffix = SyntaxTokens.KwString Then NeedsSource = True: Exit Function
+        If Nodes(Index).Kind = SourceParser.StringNode Then NeedsSource = True: Exit Function
         If Nodes(Index).Kind = SourceParser.BinaryNode And Nodes(Index).Value = SyntaxTokens.SymAmpersand Then NeedsSource = True: Exit Function
         If Nodes(Index).Kind = SourceParser.BinaryNode And Nodes(Index).Value = SyntaxTokens.SymCaret Then NeedsSource = True: Exit Function
         Token = Nodes(Index).TypeFirstToken
@@ -31,6 +32,7 @@ Public Function NeedsSource(ByRef Bytes() As Byte, ByRef Tokens() As SourceScann
         End If
         If Nodes(Index).Kind = SourceParser.PrimitiveNode Then
             Token = Nodes(Index).NameToken
+            If SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 0) = 116 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 1) = 101 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 2) = 120 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 3) = 116 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 4) = 46 Then NeedsSource = True: Exit Function
             If SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 0) = 109 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 1) = 101 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 2) = 109 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 3) = 111 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 4) = 114 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 5) = 121 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 6) = 46 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 7) = 99 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 8) = 111 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 9) = 108 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 10) = 108 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 11) = 101 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 12) = 99 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 13) = 116 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 14) = -1 Then NeedsSource = True: Exit Function
             If SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 0) = 109 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 1) = 97 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 2) = 110 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 3) = 97 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 4) = 103 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 5) = 101 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 6) = 100 And SyntaxTokens.SpellingByte(Bytes, Tokens, Token, Counts.TokenCount, 7) = 46 Then NeedsSource = True: Exit Function
         End If
@@ -44,6 +46,35 @@ End Function
 
 Private Function NameByte(ByVal Identity As Long, ByVal Position As Long) As Long
     NameByte = -1
+    If Identity = 17 Then
+        If Position = 0 Then NameByte = 116: Exit Function
+        If Position = 1 Then NameByte = 101: Exit Function
+        If Position = 2 Then NameByte = 120: Exit Function
+        If Position = 3 Then NameByte = 116: Exit Function
+        If Position = 4 Then NameByte = 112: Exit Function
+        If Position = 5 Then NameByte = 117: Exit Function
+        If Position = 6 Then NameByte = 98: Exit Function
+        If Position = 7 Then NameByte = 108: Exit Function
+        If Position = 8 Then NameByte = 105: Exit Function
+        If Position = 9 Then NameByte = 99: Exit Function
+        If Position = 10 Then NameByte = 97: Exit Function
+        If Position = 11 Then NameByte = 116: Exit Function
+        If Position = 12 Then NameByte = 105: Exit Function
+        If Position = 13 Then NameByte = 111: Exit Function
+        If Position = 14 Then NameByte = 110: Exit Function
+        Exit Function
+    End If
+    If Identity = 18 Then
+        If Position = 0 Then NameByte = 112: Exit Function
+        If Position = 1 Then NameByte = 117: Exit Function
+        If Position = 2 Then NameByte = 98: Exit Function
+        If Position = 3 Then NameByte = 108: Exit Function
+        If Position = 4 Then NameByte = 105: Exit Function
+        If Position = 5 Then NameByte = 115: Exit Function
+        If Position = 6 Then NameByte = 104: Exit Function
+        Exit Function
+    End If
+
     If Identity = 12 Then
         If Position = 0 Then NameByte = 101: Exit Function
         If Position = 1 Then NameByte = 110: Exit Function
@@ -291,12 +322,14 @@ End Function
 
 Private Function ParameterCount(ByVal Role As Long) As Long
     ParameterCount = 1
+    If Role = 13 Then ParameterCount = 2: Exit Function
     If Role = 1 Or Role = 2 Or Role = 9 Or Role = 10 Or Role = 11 Then ParameterCount = 2
     If Role = 5 Or Role = 7 Then ParameterCount = 3
 End Function
 
 Private Function ResultType(ByVal Role As Long) As Long
     ResultType = SyntaxTokens.KwString
+    If Role = 13 Then ResultType = SyntaxTokens.KwBoolean: Exit Function
     If Role = 2 Or Role = 8 Then ResultType = SyntaxTokens.KwLong
     If Role = 5 Or Role = 10 Or Role = 11 Then ResultType = SyntaxTokens.KwLongLong
     If Role = 6 Or Role = 12 Then ResultType = SyntaxTokens.KwBoolean
@@ -304,6 +337,7 @@ End Function
 
 Private Function ParameterType(ByVal Role As Long, ByVal Index As Long) As Long
     ParameterType = SyntaxTokens.KwString
+    If Role = 13 And Index = 1 Then ParameterType = SyntaxTokens.KwLongLong
     If Role = 3 Or Role = 12 Or (Role = 5 And Index > 0) Then ParameterType = SyntaxTokens.KwLongLong
     If Role = 4 Or Role = 8 Then ParameterType = SyntaxTokens.KwBoolean
     If Role = 9 Or Role = 11 Then ParameterType = SyntaxTokens.KwLongLong
@@ -333,6 +367,7 @@ Private Function ValidSignature(ByRef N() As SourceParser.SyntaxNode, ByRef A() 
         If A(Parameter - 1).Kind <> SourceParser.ParameterNode Or A(Parameter - 1).ScopeSymbol <> Symbol Or A(Parameter - 1).LookupDomain <> 1 Then Exit Function
         Rank = 0
         Passing = SyntaxTokens.KwByVal
+        If Role = 13 And Index = 0 Then Passing = SyntaxTokens.KwByRef
         If Role = 7 And Index = 0 Then Rank = 1: Passing = SyntaxTokens.KwByRef
         If A(Parameter - 1).ArrayRank <> Rank Or A(Parameter - 1).PassingMode <> Passing Then Exit Function
         If A(Parameter - 1).TypeCode <> ParameterType(Role, Index) Or A(Parameter - 1).TypeSymbol <> 0 Then Exit Function
@@ -345,13 +380,14 @@ End Function
 ' Plan changes only after every required role and support initialization boundary succeeds.
 Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef Plan As RolePlan, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
     Dim Candidate As RolePlan
-    Dim Found(0 To 11) As Long
+    Dim Found(0 To 12) As Long
     Dim Index As Long
     Dim Node As Long
     Dim ModuleIndex As Long
     Dim ModuleSymbol As Long
     Dim Role As Long
     Dim ModuleName As Long
+    Dim ProcedureName As Long
     Dim Needed As Boolean
     Dim NeedsMonitor As Boolean
     Dim FirstNode As Long
@@ -376,13 +412,15 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
                     End If
                     If Symbols(Index).Kind = SourceParser.FunctionNode Or Symbols(Index).Kind = SourceParser.SubNode Then
                         Role = 1
-                        Do While Role <= 12
+                        Do While Role <= 13
                             ModuleName = 13
+                            ProcedureName = Role
+                            If Role = 13 Then ModuleName = 17: ProcedureName = 18
                             If Role = 8 Then ModuleName = 14
                             If Role = 11 Then ModuleName = 15
                             If Role = 12 Then ModuleName = 16
                             If Matches(Bytes, Tokens, Counts.TokenCount, Symbols(ModuleSymbol - 1).NameToken, ModuleName) Then
-                                If Matches(Bytes, Tokens, Counts.TokenCount, Symbols(Index).NameToken, Role) Then
+                                If Matches(Bytes, Tokens, Counts.TokenCount, Symbols(Index).NameToken, ProcedureName) Then
                                     If Found(Role - 1) <> 0 Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, Node, 82): Exit Function
                                     If Not ValidSignature(Nodes, Symbols, SymbolCount, Index + 1, Role) Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, Node, 82): Exit Function
                                     Found(Role - 1) = Index + 1
@@ -424,6 +462,8 @@ Public Function TryResolve(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
         Candidate.CollectSymbol = Found(7)
         If NeedsMonitor And Found(11) = 0 Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, FirstNode, 81): Exit Function
         Candidate.MonitorEnterSymbol = Found(11)
+        If Found(12) = 0 Then TryResolve = Reject(Nodes, Modules, Counts, Diagnostic, FirstNode, 81): Exit Function
+        Candidate.PublishTextSymbol = Found(12)
     End If
     Plan = Candidate
     TryResolve = True

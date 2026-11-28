@@ -55,6 +55,9 @@ if ((Get-FileHash -LiteralPath $project -Algorithm SHA256).Hash -cne $projectHas
 foreach ($source in $package.Sources) {
  if ((Get-FileHash -LiteralPath $source.OriginalPath -Algorithm SHA256).Hash -cne $source.SHA256) { throw 'Compiler source changed during build' }
 }
+foreach ($source in @($package.LibrarySources) + @($package.LibraryManifests)) {
+ if ((Get-FileHash -LiteralPath $source.OriginalPath -Algorithm SHA256).Hash -cne $source.SHA256) { throw 'Standard library source/catalog changed during build' }
+}
 $bytes=[IO.File]::ReadAllBytes($executable)
 if($bytes.Length -lt 90 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90){throw 'Compiler output has no bounded DOS header'}
 $offset=[BitConverter]::ToInt32($bytes,60)

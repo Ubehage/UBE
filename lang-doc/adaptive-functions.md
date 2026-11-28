@@ -4,6 +4,12 @@
 and detailed context rules pending reconciliation with the normative grammar.
 No compiler support is claimed.
 
+**Superseded syntax, 2026-11-28:** the owner's later decision forbids identifier
+type suffixes on declarations and calls. The explicit suffix-selection design
+recorded below is historical and is not an exception to that decision. The
+remaining Adaptive proposal requires reconciliation before becoming normative;
+its old `^` LongLong spelling also does not apply to literals, which now use `&&`.
+
 ## Owner's intended behavior
 
 - One function implementation always returns String on success.

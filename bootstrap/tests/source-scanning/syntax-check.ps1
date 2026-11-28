@@ -44,8 +44,8 @@ Option Explicit
 Const Precedence As Boolean = Not 1 = 2 And True Or False
 Const Bits As Long = 1 Or 2 And 4
 Const Difference As Long = 10 - 3 - 2
-Const Complement As LongLong = Not 9223372036854775807^
-Const NegativeBits As LongLong = -9223372036854775808^ Or 1^
+Const Complement As LongLong = Not 9223372036854775807&&
+Const NegativeBits As LongLong = -9223372036854775808&& Or 1&&
 Const BooleanFlip As Boolean = Not True
 '@ '' @{Precedence='-1';Bits='1';Difference='5';Complement='-9223372036854775808';NegativeBits='-9223372036854775807';BooleanFlip='0'}
 Run-Case 'loops' @'
@@ -88,4 +88,16 @@ Run-Case 'subtraction-overflow' "Const Value As Long = -2147483648& - 1&" 'E_CON
 Run-Case 'mixed-or' "Const Value As Boolean = True Or 1" 'E_UNSUPPORTED'
 Run-Case 'boolean-subtract' "Const Value As Boolean = True - False" 'E_UNSUPPORTED'
 Run-Case 'resume-deferred' "Sub Work()`nResume`nEnd Sub" 'E_UNSUPPORTED'
+Run-Case 'longlong-ampersands' 'Const Wide As LongLong = 42&&' '' @{Wide='42'}
+Run-Case 'obsolete-caret-literal' 'Const Wide As LongLong = 42^' 'E_UNSUPPORTED'
+Run-Case 'missing-variable-type' "Sub Work()`nDim Value`nEnd Sub" 'E_PARSE'
+Run-Case 'missing-function-type' "Function Work()`nEnd Function" 'E_PARSE'
+Run-Case 'missing-parameter-type' "Sub Work(ByVal Value)`nEnd Sub" 'E_PARSE'
+Run-Case 'missing-field-type' "Type Record`nValue`nEnd Type" 'E_PARSE'
+foreach($suffix in @('%','&','^','!','#','@','$')) {
+    $tag=[int][char]$suffix
+    $declarationCode='E_PARSE';if($suffix -eq '#'){$declarationCode='E_UNSUPPORTED'}
+    Run-Case ('declaration-suffix-'+$tag) ("Sub Work()`nDim Value"+$suffix+" As Long`nEnd Sub") $declarationCode
+    Run-Case ('reference-suffix-'+$tag) ("Sub Work()`nDim Value As Long`nValue = Value"+$suffix+"`nEnd Sub") 'E_UNSUPPORTED'
+}
 Write-Output "PASS: $script:passed focused parser/binder cases. Artifacts: $root"

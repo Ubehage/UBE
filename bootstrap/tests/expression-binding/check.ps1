@@ -242,7 +242,7 @@ function Constant-Equals([string]$Node,[string]$Expected,[string]$Description) {
 
 $coreDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files=@('BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas','ThreadPrimitives.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
 $files+=@('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ProjectSyntax.bas','DeclarationBinder.bas','ConstantValues.bas','ConstantText.bas','ExpressionBinder.bas','NativeEscapes.bas','ManagedLayouts.bas','AggregateLayout.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files+=Join-Path $PSScriptRoot 'ExpressionProbe.bas'
 $files+=@('ConditionalExpressions.bas','ConditionalSource.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
@@ -429,10 +429,10 @@ $negative=@(
     @('Long addition overflow','Const Bad As Long = 2147483647 + 1',11),
     @('Integer explicit overflow','Const Bad As Long = 32767% + 1%',11),
     @('Long explicit overflow in wide context','Const Bad As LongLong = 2147483647& + 1&',11),
-    @('LongLong addition overflow','Const Bad As LongLong = 9223372036854775807^ + 1^',11),
-    @('LongLong subtraction overflow','Const Bad As LongLong = -9223372036854775808^ - 1^',11),
-    @('LongLong unary overflow','Const Bad As LongLong = -(-9223372036854775808^)',11),
-    @('grouped magnitude not signed literal','Const Bad As LongLong = -(9223372036854775808^)',11),
+    @('LongLong addition overflow','Const Bad As LongLong = 9223372036854775807&& + 1&&',11),
+    @('LongLong subtraction overflow','Const Bad As LongLong = -9223372036854775808&& - 1&&',11),
+    @('LongLong unary overflow','Const Bad As LongLong = -(-9223372036854775808&&)',11),
+    @('grouped magnitude not signed literal','Const Bad As LongLong = -(9223372036854775808&&)',11),
     @('True to Byte overflow','Const Bad As Byte = True',11),
     @('converted Boolean constant to Byte',"Const Flag As Boolean = 2`r`nConst Bad As Byte = Flag",11),
     @('Boolean comparison context does not widen arithmetic','Const Bad As Boolean = 2147483647 + 1 = 0',11),
@@ -484,11 +484,11 @@ Public Const Base As Long = 40
 Public Const Answer As Long = Base + 2
 Public Const Wide As Long = 2147483648 + -1
 Public Const Minimum As Long = -2147483648&
-Public Const Minimum64 As LongLong = -9223372036854775808^
-Public Const Maximum64 As LongLong = 9223372036854775807^
+Public Const Minimum64 As LongLong = -9223372036854775808&&
+Public Const Maximum64 As LongLong = 9223372036854775807&&
 Public Const ContextWide As LongLong = 2147483647 + 1
 Public Const IntegerMix As Long = 32767% + 1&
-Public Const Bits As Long = (4294967297^ And 4294967296^) + -4294967296^
+Public Const Bits As Long = (4294967297&& And 4294967296&&) + -4294967296&&
 Public Const Negation As Long = Not 255
 Public Const Logic As Boolean = Not 1 = 2 And True Or False
 Public Const TrueNumber As Long = True
@@ -507,13 +507,13 @@ Start-Project
 Append-Source $constantPath
 $value=Call-Probe 'Bind' @(0)
 Check-Value $value 0 'checked decimal integer constant contexts'
-foreach ($expected in @(@('Answer As Long = Base + 2','42'),@('Wide As Long = 2147483648 + -1','2147483647'),@('Minimum As Long = -2147483648&','-2147483648'),@('Minimum64 As LongLong = -9223372036854775808^','-9223372036854775808'),@('Maximum64 As LongLong = 9223372036854775807^','9223372036854775807'),@('ContextWide As LongLong = 2147483647 + 1','2147483648'),@('IntegerMix As Long = 32767% + 1&','32768'),@('Bits As Long = (4294967297^ And 4294967296^) + -4294967296^','0'),@('Negation As Long = Not 255','-256'),@('Logic As Boolean = Not 1 = 2 And True Or False','-1'),@('TrueNumber As Long = True','-1'),@('Nonzero As Boolean = 2','-1'),@('ZeroByte As Byte = False','0'),@('Local As Long = Answer + 1','43'))) {
+foreach ($expected in @(@('Answer As Long = Base + 2','42'),@('Wide As Long = 2147483648 + -1','2147483647'),@('Minimum As Long = -2147483648&','-2147483648'),@('Minimum64 As LongLong = -9223372036854775808&&','-9223372036854775808'),@('Maximum64 As LongLong = 9223372036854775807&&','9223372036854775807'),@('ContextWide As LongLong = 2147483647 + 1','2147483648'),@('IntegerMix As Long = 32767% + 1&','32768'),@('Bits As Long = (4294967297&& And 4294967296&&) + -4294967296&&','0'),@('Negation As Long = Not 255','-256'),@('Logic As Boolean = Not 1 = 2 And True Or False','-1'),@('TrueNumber As Long = True','-1'),@('Nonzero As Boolean = 2','-1'),@('ZeroByte As Byte = False','0'),@('Local As Long = Answer + 1','43'))) {
     $node=Find-Expression $constants $expected[0] 4
     Constant-Equals $node $expected[1] $expected[0]
 }
-$minimum=Find-Expression $constants '-9223372036854775808^' 18
+$minimum=Find-Expression $constants '-9223372036854775808&&' 18
 Constant-Equals $minimum '-9223372036854775808' 'direct signed literal minimum'
-$magnitude=Find-Expression $constants '9223372036854775808^' 16
+$magnitude=Find-Expression $constants '9223372036854775808&&' 16
 Binding-Equals $magnitude 8 0 'magnitude child does not advertise unrepresentable positive value'
 $negatedZero=Find-Expression $constants '-0' 18
 Binding-Equals $negatedZero 2 155 'Byte-context unary sign promotes to Integer'
@@ -590,7 +590,7 @@ $script:passed++
 $threadCaller=Module-Source 'ThreadCaller' @'
 Public Sub StartWork(ByVal Seed As Long)
     Dim Id As LongLong
-    Id = CallNew Workers.Run(Seed, 2147483648^)
+    Id = CallNew Workers.Run(Seed, 2147483648&&)
     CallNew LocalWorker
     Id = CallNew ResultWorker(Seed, (Seed))
     CallNew Err.Clear()
@@ -615,14 +615,14 @@ Append-Source (Join-Path $threadFolder 'Workers.bas')
 $value=Call-Probe 'Bind' @(0)
 Check-Value $value 0 'thread start selects static local and qualified Subs'
 $runSymbol=Find-Declaration $threadWorker 'Sub Run(' 'Run' 7 1
-$threadCall=Find-Expression $threadCaller 'CallNew Workers.Run(Seed, 2147483648^)' 30
+$threadCall=Find-Expression $threadCaller 'CallNew Workers.Run(Seed, 2147483648&&)' 30
 Binding-Equals $threadCall 0 $runSymbol 'thread start retains selected worker identity'
 Binding-Equals $threadCall 2 157 'thread start produces LongLong program identity'
 Binding-Equals $threadCall 7 0 'thread identity result is not writable storage'
 Binding-Equals $threadCall 8 0 'thread start is never a constant'
 $threadArgument=Find-Expression $threadCaller 'Seed' 13 0 1
 Binding-Equals $threadArgument 6 1 'thread scalar argument uses value capture'
-$threadArgument=Find-Expression $threadCaller '2147483648^' 16
+$threadArgument=Find-Expression $threadCaller '2147483648&&' 16
 Binding-Equals $threadArgument 6 1 'thread wide argument uses value capture'
 Binding-Equals $threadArgument 5 157 'thread wide argument conversion remains LongLong'
 $threadIgnored=Find-Expression $threadCaller 'CallNew LocalWorker' 30

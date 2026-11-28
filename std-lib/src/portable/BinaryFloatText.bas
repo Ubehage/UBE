@@ -130,7 +130,7 @@ Public Function TryAppend(ByRef Destination() As Byte, ByRef Used As Long, ByVal
     Dim UpperCount As Long
     Dim LowerScale As Long
     Dim UpperScale As Long
-    Dim Unit As LongLong = 4503599627370496^
+    Dim Unit As LongLong = 4503599627370496&&
     Dim MinimumExponent As Long = -1074
     Dim MaximumExponent As Long = 971
     Dim LowerMantissa As LongLong

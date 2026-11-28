@@ -25,15 +25,21 @@ conditional-or       = conditional-and,
 conditional-and      = conditional-not,
                        { spacing1, ( "And" | "AndAlso" ), spacing1, conditional-not } ;
 conditional-not      = { "Not", spacing1 }, conditional-comparison ;
-conditional-comparison = conditional-additive,
+conditional-comparison = conditional-concatenation,
                          [ spacing, comparison-operator, spacing,
-                           conditional-additive ] ;
+                           conditional-concatenation ] ;
 comparison-operator  = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
-conditional-additive = conditional-multiplicative,
-                       { spacing, ( "+" | "-" | "&" ), spacing,
-                         conditional-multiplicative } ;
+conditional-concatenation = conditional-additive,
+                            { spacing, "&", spacing, conditional-additive } ;
+conditional-additive = conditional-modulus,
+                       { spacing, ( "+" | "-" ), spacing,
+                         conditional-modulus } ;
+conditional-modulus  = conditional-integer-division,
+                       { spacing1, "Mod", spacing1, conditional-integer-division } ;
+conditional-integer-division = conditional-multiplicative,
+                               { spacing, "\", spacing, conditional-multiplicative } ;
 conditional-multiplicative = conditional-unary,
-                             { spacing, ( "*" | "/" | "\\" | "Mod" ), spacing,
+                             { spacing, ( "*" | "/" ), spacing,
                                conditional-unary } ;
 conditional-unary    = { ( "+" | "-" ), spacing }, conditional-primary ;
 conditional-primary  = literal | identifier |

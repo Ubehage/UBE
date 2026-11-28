@@ -200,12 +200,20 @@ Failure must report a located diagnostic without publishing partial tokens.
 
 The same gate must execute loop/operator and condition-failure probes: all Do
 forms, nearest Exit Do, eager Or, width-correct Not and checked subtraction;
-default failed If/ElseIf and pre/post While/Until conditions skip the complete
-construct, ordinary failed body statements skip only themselves, and enabled
+default failed If/ElseIf conditions record Err and follow the False branch;
+failed pre/post While/Until conditions skip the complete loop. Ordinary failed
+body statements skip only themselves, and enabled
 or active handlers follow their defined routes. Changed runtime input must
 invalidate the observations. The separate syntax-check.ps1 asserts exact
 constant folding, loop admission and controlled malformed/unsupported
 syntax. Run prior gates on the same final VB6 binary.
+
+`compiler/tests/if-errors/check.ps1 -CompilerExe <executable>` must pass through
+both the production compiler and fresh bootstrap seed at O0/O2. Its branch
+oracle covers block/single-line and nested If, repeated failing ElseIf conditions,
+later successful ElseIf, no Else, checked arithmetic failure, abandoned operands,
+sticky Err, explicit On Error Resume Next, enabled/active handlers and unchanged
+Until loop exits. Changed-result controls must return exactly 1 instead of 0.
 
 This qualifies a bounded scanner component, not a complete UBE parser,
 self-hosting, managed String representation or concurrent compilation.

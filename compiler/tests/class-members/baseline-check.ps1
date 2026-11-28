@@ -14,7 +14,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot ($name+'.cls')) -Destination (Join-Path $folder 'Gate.cls')
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Main.bas') -Destination $folder
   $manifest=Join-Path $folder 'Probe.UBE'
-  [IO.File]::WriteAllLines($manifest,@('UBE-Project 1','Name = "Probe"','Kind = "Exe"','Startup = "Main"','Source = "Gate.cls"','Source = "Main.bas"'),$utf)
+  [IO.File]::WriteAllLines($manifest,@('UBE-Project 1','Name = "Probe"','Kind = "Exe"','Startup = "Main"','DebugInformation = "None"','Source = "Gate.cls"','Source = "Main.bas"'),$utf)
   $output=Join-Path $folder 'out.ll';$sentinel=[byte[]]@(0,255,83,69,78,84,73,78,69,76)
   [IO.File]::WriteAllBytes($output,$sentinel);$prior=(Get-FileHash -LiteralPath $output).Hash
   $stdout=Join-Path $folder 'stdout.txt';$stderr=Join-Path $folder 'stderr.txt'

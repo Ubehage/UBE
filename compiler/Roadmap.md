@@ -11,6 +11,33 @@ and shared-state rules are in the development plan's concurrency requirement.
 
 ## Bootstrap and self-hosting
 
+- [x] Apply the owner's 2026-11-28 correction: runtime If/ElseIf errors record
+  Err and follow the False branch. Both emitter paths and focused O0/O2 gates
+  are corrected; repeated self-build comparisons, 90 scanner groups and 1004
+  common conformance assertions pass, as does the final compiler's focused gate. This
+  narrow task does not resume unrelated architecture work. See `Progress.md`.
+
+- [x] Owner-requested stopping point, 2026-11-28: the approved suffix migration
+  is complete and tested; broader review fixes are paused with a handoff. Resume from the
+  dated handoff at the top of `Progress.md` and root `Workplan.md`; do not infer
+  that the overall architecture goal is complete from passing suffix tests.
+
+- [~] Resolve standard-library declarations and their dependencies automatically
+  from the configured target library location. The owner explicitly permits
+  Compiler.UBE's source list for bootstrap compatibility. Ordinary projects use
+  the compiler-relative catalog or request-owned `--stdlib` path. Editable source
+  remains authoritative, with no required generated-index maintenance. Focused
+  lookup/edit/visibility and unused-code gates pass; complete API-isolation and
+  integration acceptance remains pending. Preserve ordinary visibility and
+  separate validated runtime-support provenance.
+
+- [~] Close the architecture review cancellation gaps across substantial compiler
+  work. Native backend stop checks pass O0/O2 pre-launch/child-running cancellation
+  and recovery gates. Scanner/parser/conditional/read and emission checkpoints
+  have focused tests and negative controls. Binder/layout/planner integration
+  and final concurrent-request qualification remain open; exact scope and
+  evidence are in `Progress.md` and `tests/scanner-cancellation/README.md`.
+
 - [x] Provide `compiler/Compiler.UBE` as the authoritative ordered source project.
   Packaging resolves its explicit sibling-library inputs into self-contained
   build manifests. Direct builds await library resolution. Commands and evidence
@@ -111,6 +138,17 @@ and shared-state rules are in the development plan's concurrency requirement.
   shared conformance corpus pass; commands, evidence and limits are in Progress.md.
 
 ## Complete language and product support
+
+- [x] Align existing arithmetic parsing and evaluation with the owner's
+  2026-11-28 VB6 grouping decision. The corrected normative order is
+  multiplication/division above integer division above Mod, with left-associative
+  powers. Include both compiler paths, conditional expressions and constant/runtime
+  agreement; requalify affected numerical algorithms, self-hosting and concurrency.
+  Native VB6 oracles establish the target behavior; both compiler paths now pass
+  corrected O0/O2 arithmetic gates. Numerical-library checks, successive self-builds,
+  1004 common conformance assertions and the existing concurrency gate pass.
+  Exact commands/artifact scope: Progress.md. This does not qualify full grammar
+  conformance or the separately approved same-output conflict-refusal policy.
 
 - [~] Implement the frozen grammar and semantic contracts, with ordinary
   algorithms in UBE libraries and only irreducible operations as intrinsics.

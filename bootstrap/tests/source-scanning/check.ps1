@@ -125,7 +125,7 @@ function Read-Procedures([string]$Manifest) {
 
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $scannerSource = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src/SourceScanner.bas'))
-$manifest = Copy-Fixtures 'scanner library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'FilePrimitives.bas'),(Join-Path $coreDirectory 'FileBytes.bas'),(Join-Path $coreDirectory 'Utf8.bas'),$scannerSource,(Join-Path $PSScriptRoot 'ScannerProbe.bas'),(Join-Path $PSScriptRoot 'ControlFlowProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'scanner library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'FilePrimitives.bas'),(Join-Path $coreDirectory 'FileBytes.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $coreDirectory 'ThreadPrimitives.bas'),$scannerSource,(Join-Path $PSScriptRoot 'ScannerProbe.bas'),(Join-Path $PSScriptRoot 'ControlFlowProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'source-scanner.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'
@@ -230,7 +230,7 @@ Require ([Convert]::ToBase64String($sampleBytes) -ceq [Convert]::ToBase64String(
 $sample.Bytes = $sampleBytes
 $cases.Add($sample)
 $numberParts = New-Object 'System.Collections.Generic.List[object]'
-foreach ($spelling in @('1&','1%','2^','&Hff&','&O77','.5','12.','1e-3','8!','9#','10@')) { $numberParts.Add(@(3,$spelling)); $numberParts.Add(@(0,' ')) }
+foreach ($spelling in @('1&','1%','2&&','&Hff&','&O77','.5','12.','1e-3','8!','9#','10@')) { $numberParts.Add(@(3,$spelling)); $numberParts.Add(@(0,' ')) }
 $cases.Add((New-TokenCase 'numeric spellings and suffixes' $numberParts.ToArray()))
 $cases.Add((New-TokenCase 'operators and literal adjacency' @(@(3,'1'),@(0,' '),@(5,'&'),@(0,' '),@(1,'x'),@(5,':='),@(3,'2'),@(5,'<='),@(3,'3'),@(5,'<>'),@(3,'4'),@(5,'>='),@(3,'5'),@(5,'('),@(1,'a'),@(5,':'),@(1,'b'),@(5,')'),@(5,'!'),@(5,'$'))))
 $unicode = [string][char]0x00E9 + [char]0xD83D + [char]0xDE00
@@ -294,7 +294,7 @@ Write-Text $controlNegative ([IO.File]::ReadAllText($controlIR,$utf8).Replace('@
 $controlExe = Join-Path $artifacts 'control-flow-negative.exe'
 Build-Harness $controlNegative $controlExe 'O2'
 $result = Invoke-BoundedProcess $controlExe @()
-Require ($result.ExitCode -eq 22) "Control-flow changed-input observation expected22: $($result.Evidence)"
+Require ($result.ExitCode -eq 23) "Control-flow changed-input observation expected23: $($result.Evidence)"
 $script:passed++
-Write-Output 'PASS: changed control-flow input produces exact failure count22'
+Write-Output 'PASS: changed control-flow input produces exact failure count23'
 Write-Output "PASS: $($script:passed) source scanning groups. Evidence: $artifacts"

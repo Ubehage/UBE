@@ -261,19 +261,16 @@ Failed:
 End Function
 
 ' Resolves a destination through its existing physical parent and rejects directory or input aliases.
-Private Function ResolveOutput(ByRef Requested() As Byte, ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As ProjectLoader.SourcePath, ByVal SourceCount As Long, ByRef Output() As Byte, ByRef Parent() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
+Private Function ResolveDestination(ByRef Requested() As Byte, ByRef Output() As Byte, ByRef Parent() As Byte, ByRef Leaf() As Byte, ByRef ParentIdentity() As Byte, ByRef Identity() As Byte, ByRef Physical() As Byte, ByRef Existing As Boolean, ByRef Token As Long, ByRef Failure As Long) As Boolean
     Dim Full() As Byte
-    Dim Leaf() As Byte
-    Dim Physical() As Byte
-    Dim Identity(0 To 11) As Byte
     Dim Length As Long
     Dim Start As Long
     Dim Kind As Long
     Dim Status As Boolean
     On Error GoTo Failed
     Length = BufferPrimitives.ByteStorageLength(Requested)
-    If Length < 1 Then ResolveOutput = InvalidRequest(Failure): Exit Function
-    If Requested(Length - 1) = 46 Or Requested(Length - 1) = 32 Or Requested(Length - 1) = 92 Or Requested(Length - 1) = 47 Then ResolveOutput = InvalidRequest(Failure): Exit Function
+    If Length < 1 Then ResolveDestination = InvalidRequest(Failure): Exit Function
+    If Requested(Length - 1) = 46 Or Requested(Length - 1) = 32 Or Requested(Length - 1) = 92 Or Requested(Length - 1) = 47 Then ResolveDestination = InvalidRequest(Failure): Exit Function
     If WindowsPaths.TryAbsolutePath(Requested, Full, Failure) = False Then Exit Function
     Length = BufferPrimitives.ByteStorageLength(Full)
     Start = Length
@@ -281,26 +278,164 @@ Private Function ResolveOutput(ByRef Requested() As Byte, ByRef ManifestPath() A
         If Full(Start - 1) = 92 Then Exit Do
         Start = Start - 1
     Loop
-    If Start < 1 Or Start = Length Then ResolveOutput = InvalidRequest(Failure): Exit Function
+    If Start < 1 Or Start = Length Then ResolveDestination = InvalidRequest(Failure): Exit Function
     Failure = 3
     If BufferPrimitives.TryResizeBytes(Leaf, Length - Start, False) = False Then Exit Function
     If BufferPrimitives.CopyByteRange(Full, Start, Leaf, 0, Length - Start) = False Then Exit Function
     If WindowsPaths.TryParent(Full, Parent, Failure) = False Then Exit Function
     If FilePrimitives.TryOpenDirectory(Parent, Token, Failure) = False Then Exit Function
+    If FilePrimitives.TryIdentity(Token, ParentIdentity, Failure) = False Then GoTo Cleanup
     If WindowsPaths.TryFilePath(Token, Parent, Failure) = False Then GoTo Cleanup
     If FileBytes.TryClosePreservingError(Token, Failure) = False Then Exit Function
     If WindowsPaths.TryResolveSource(Parent, Leaf, Output, Failure) = False Then Exit Function
     If PathPrimitives.TryKind(Output, Kind, Failure) = False Then Exit Function
-    If Kind <> 0 And Kind <> 1 Then ResolveOutput = InvalidRequest(Failure): Exit Function
+    If Kind <> 0 And Kind <> 1 Then ResolveDestination = InvalidRequest(Failure): Exit Function
     If Kind = 1 Then
         If ReadIdentity(Output, Identity, Physical, Token, Failure) = False Then Exit Function
     End If
-    ResolveOutput = CheckInputs(ManifestPath, PathBytes, Paths, SourceCount, Output, Physical, Identity, Kind = 1, Token, Failure)
+    Existing = Kind = 1
+    ResolveDestination = True
     Exit Function
 Failed:
     Failure = 1
 Cleanup:
     If Token <> 0 Then Status = FileBytes.TryClosePreservingError(Token, Failure)
+End Function
+
+' Shares physical destination resolution between input protection and request reservation.
+Private Function ResolveOutput(ByRef Requested() As Byte, ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As ProjectLoader.SourcePath, ByVal SourceCount As Long, ByRef Output() As Byte, ByRef Parent() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim Leaf() As Byte
+    Dim Physical() As Byte
+    Dim ParentIdentity(0 To 11) As Byte
+    Dim Identity(0 To 11) As Byte
+    Dim Existing As Boolean
+    If Not ResolveDestination(Requested, Output, Parent, Leaf, ParentIdentity, Identity, Physical, Existing, Token, Failure) Then Exit Function
+    ResolveOutput = CheckInputs(ManifestPath, PathBytes, Paths, SourceCount, Output, Physical, Identity, Existing, Token, Failure)
+End Function
+
+' Uses distinct namespace/file keys and all twelve physical identity bytes without lossy numeric conversion.
+Private Function IdentityKey(ByVal NamespaceKey As Boolean, ByRef Identity() As Byte, ByRef Leaf() As Byte, ByRef Key() As Byte) As Boolean
+    Dim Index As Long
+    Dim Digit As Long
+    Dim Length As Long
+    If NamespaceKey Then Length = BufferPrimitives.ByteStorageLength(Leaf)
+    If Length > 4068 Then Exit Function
+    If Not BufferPrimitives.TryResizeBytes(Key, 28 + Length, False) Then Exit Function
+    Key(0) = 79
+    Key(1) = 70
+    If NamespaceKey Then Key(1) = 78
+    Key(2) = 47
+    Do While Index < 24
+        Digit = Identity(Index \ 2)
+        If Index Mod 2 = 0 Then Digit = Digit \ 16 Else Digit = Digit Mod 16
+        If Digit < 10 Then Key(Index + 3) = Digit + 48 Else Key(Index + 3) = Digit + 55
+        Index = Index + 1
+    Loop
+    Key(27) = 47
+    If Length > 0 Then
+        If Not BufferPrimitives.CopyByteRange(Leaf, 0, Key, 28, Length) Then Exit Function
+    End If
+    IdentityKey = True
+End Function
+
+' Holds destination namespace and existing inode ownership before expensive request work.
+' Snapshot is parent identity, existence byte and original file identity; failed acquisitions retain cleanup owners.
+Public Function TryReserve(ByRef Requested() As Byte, ByRef Output() As Byte, ByRef Snapshot() As Byte, ByRef NameToken As Long, ByRef FileToken As Long, ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim Parent() As Byte
+    Dim Leaf() As Byte
+    Dim Physical() As Byte
+    Dim Key() As Byte
+    Dim ParentIdentity(0 To 11) As Byte
+    Dim Identity(0 To 11) As Byte
+    Dim Existing As Boolean
+    On Error GoTo Failed
+    If NameToken <> 0 Or FileToken <> 0 Or Token <> 0 Then TryReserve = InvalidRequest(Failure): Exit Function
+    If Not ResolveDestination(Requested, Output, Parent, Leaf, ParentIdentity, Identity, Physical, Existing, Token, Failure) Then Exit Function
+    Failure = 8
+    If Not BufferPrimitives.TryResizeBytes(Snapshot, 25, False) Then Exit Function
+    If Not BufferPrimitives.CopyByteRange(ParentIdentity, 0, Snapshot, 0, 12) Then Exit Function
+    Snapshot(12) = 0
+    If Existing Then Snapshot(12) = 1
+    If Not BufferPrimitives.CopyByteRange(Identity, 0, Snapshot, 13, 12) Then Exit Function
+    If Not IdentityKey(True, ParentIdentity, Leaf, Key) Then Exit Function
+    If Not LeasePrimitives.TryAcquire(Key, NameToken, Failure) Then Exit Function
+    If Existing Then
+        Failure = 8
+        If Not IdentityKey(False, Identity, Leaf, Key) Then Exit Function
+        If Not LeasePrimitives.TryAcquire(Key, FileToken, Failure) Then Exit Function
+    End If
+    TryReserve = TryValidateReservation(Output, Snapshot, Token, Failure)
+    Exit Function
+Failed:
+    Failure = 1
+End Function
+
+' Refuses a changed parent or target identity before publication; it never takes ownership of a replacement.
+Public Function TryValidateReservation(ByRef Output() As Byte, ByRef Snapshot() As Byte, ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim Checked() As Byte
+    Dim Parent() As Byte
+    Dim Leaf() As Byte
+    Dim Physical() As Byte
+    Dim ParentIdentity(0 To 11) As Byte
+    Dim Identity(0 To 11) As Byte
+    Dim Existing As Boolean
+    Dim Index As Long
+    On Error GoTo Failed
+    If Token <> 0 Or BufferPrimitives.ByteStorageLength(Snapshot) <> 25 Then TryValidateReservation = InvalidRequest(Failure): Exit Function
+    If Not ResolveDestination(Output, Checked, Parent, Leaf, ParentIdentity, Identity, Physical, Existing, Token, Failure) Then Exit Function
+    If Existing <> (Snapshot(12) = 1) Then GoTo Changed
+    Do While Index < 12
+        If ParentIdentity(Index) <> Snapshot(Index) Then GoTo Changed
+        If Existing Then
+            If Identity(Index) <> Snapshot(Index + 13) Then GoTo Changed
+        End If
+        Index = Index + 1
+    Loop
+    Failure = 0
+    TryValidateReservation = True
+    Exit Function
+Changed:
+    Failure = 19
+    TryValidateReservation = FilePrimitives.SetError(58)
+    Exit Function
+Failed:
+    Failure = 1
+End Function
+
+' Reserves the staged inode before it becomes visible under the destination name.
+Public Function TryReserveStage(ByRef Stage() As Byte, ByVal Kind As Long, ByRef StageToken As Long, ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim Path() As Byte
+    Dim Physical() As Byte
+    Dim Identity(0 To 11) As Byte
+    Dim Key() As Byte
+    On Error GoTo Failed
+    If StageToken <> 0 Or Token <> 0 Then TryReserveStage = InvalidRequest(Failure): Exit Function
+    If Not TryStagePath(Stage, Kind, Path, Failure) Then Exit Function
+    If Not ReadIdentity(Path, Identity, Physical, Token, Failure) Then Exit Function
+    Failure = 8
+    If Not IdentityKey(False, Identity, Path, Key) Then Exit Function
+    TryReserveStage = LeasePrimitives.TryAcquire(Key, StageToken, Failure)
+    Exit Function
+Failed:
+    Failure = 1
+End Function
+
+' Releases a lease without replacing an earlier request failure; a failed close keeps the owner for retry.
+Public Function TryRelease(ByRef Token As Long, ByRef Failure As Long) As Boolean
+    Dim PrimaryFailure As Long = Failure
+    Dim PrimaryError As Long = Err.Number
+    Dim CloseFailure As Long
+    Dim Status As Boolean
+    Dim Closed As Boolean
+    If Token = 0 Then TryRelease = True: Exit Function
+    Closed = LeasePrimitives.TryClose(Token, CloseFailure)
+    TryRelease = Closed
+    If PrimaryFailure <> 0 Or Closed Then
+        Failure = PrimaryFailure
+        Status = FilePrimitives.SetError(PrimaryError)
+    Else
+        Failure = CloseFailure
+    End If
 End Function
 
 ' Independently protects one additional support/tool input without extending project source records.

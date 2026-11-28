@@ -691,7 +691,12 @@ Public Function IsIntegerToken(ByRef Source() As Byte, ByRef Tokens() As SourceS
     Finish = Position + Tokens(Index).ByteLength
     If Position >= Finish Then IsIntegerToken = False: Exit Function
     Value = Source(Finish - 1)
-    If Value = 37 Or Value = 38 Or Value = 94 Then Finish = Finish - 1
+    If Value = 37 Or Value = 38 Then
+        Finish = Finish - 1
+        If Value = 38 And Finish > Position Then
+            If Source(Finish - 1) = 38 Then Finish = Finish - 1
+        End If
+    End If
     If Position >= Finish Then IsIntegerToken = False: Exit Function
     If Source(Position) = 38 Then
         If Finish - Position < 3 Then IsIntegerToken = False: Exit Function

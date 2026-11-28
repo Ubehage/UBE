@@ -11,6 +11,23 @@ the compiler owns syntax, types, control flow, verification and lowering.
 Windows is the first qualified target. No new dependency, compiler generation,
 GUI framework or alternative language semantics is introduced by this plan.
 
+Owner clarification, 2026-11-28: the standard library and other source libraries
+linked through project references are compiled into the native program itself.
+Package identity and visibility remain compile-time boundaries, but source-library
+origin does not introduce a DLL, separate runtime/heap or foreign ownership boundary.
+The program uses one memory manager across this source graph. Explicit native
+shared-library outputs and calls to foreign libraries remain separate capabilities.
+The normative project/source distinction is in `../lang-doc/project-files.md`;
+future compiled-bundle caching must not silently change this source contract.
+
+The owner's further clarification requires automatic standard-library discovery:
+the compiler knows the configured target library location and resolves the code
+needed by a program, including its dependencies. A project lists its own source
+files; it does not maintain a standard-library source inventory. The compiler's
+own project and self-build use this same mechanism. Ordinary library discovery
+does not confer private runtime-support authority. The current explicit source
+entries and packaging workaround must be replaced by a qualified resolver.
+
 Existing working-tree removals remain in place. Historical implementations and
 their test results are not a passing baseline for the restart. Source recovery
 from history requires a focused reason and review, not wholesale restoration.

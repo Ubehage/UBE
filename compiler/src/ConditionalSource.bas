@@ -77,8 +77,18 @@ Private Intrinsic Function SymbolLength(ByRef Values() As ConditionalExpressions
 Attribute SymbolLength.UBE_Primitive = "Array.Length"
 End Function
 
+Private Function Checkpoint(ByRef D As SourceParser.ParseDiagnostic, ByRef Position As SourceScanner.SourcePosition, ByRef Remaining As Long) As Boolean
+    If D.Code <> 0 Then Exit Function
+    If Remaining = 0 Then
+        If ThreadPrimitives.StopRequested() Then Checkpoint = Reject(D, SourceScanner.Cancelled, 0, Position): Exit Function
+        Remaining = 256
+    End If
+    Remaining = Remaining - 1
+    Checkpoint = True
+End Function
 ' Diagnostics refer to original physical source, including removed logical lines.
 Private Function Reject(ByRef Diagnostic As SourceParser.ParseDiagnostic, ByVal Code As Long, ByVal Reason As Long, ByRef Position As SourceScanner.SourcePosition) As Boolean
+    If Diagnostic.Code <> 0 Then Exit Function
     Diagnostic.Code = Code
     Diagnostic.Reason = Reason
     Diagnostic.ByteOffset = Position.ByteOffset
@@ -97,7 +107,8 @@ Private Function ScanFailure(ByRef Diagnostic As SourceParser.ParseDiagnostic, B
 End Function
 
 ' Only the directive word is read here; inactive expression text is not tokenized.
-Private Function DirectiveWord(ByRef Source() As Byte, ByRef Span As SourceScanner.SourceSpan, ByRef Start As Long) As Long
+Private Function DirectiveWord(ByRef Source() As Byte, ByRef Span As SourceScanner.SourceSpan, ByRef Start As Long, ByRef Diagnostic As SourceParser.ParseDiagnostic) As Long
+    Dim Remaining As Long
     Dim Finish As Long
     Dim Word As Long
     Dim Value As Long
@@ -105,6 +116,7 @@ Private Function DirectiveWord(ByRef Source() As Byte, ByRef Span As SourceScann
     Start = Span.Start.ByteOffset
     Finish = Span.Finish.ByteOffset
     Do While Start < Finish
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         Value = Source(Start)
         If Value <> 32 And Value <> 9 Then Exit Do
         Start = Start + 1
@@ -115,6 +127,7 @@ Private Function DirectiveWord(ByRef Source() As Byte, ByRef Span As SourceScann
     Start = Start + 1
     Word = Start
     Do While Word < Finish
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         Value = Source(Word)
         If Value >= 65 And Value <= 90 Then Value = Value + 32
         If Value < 97 Or Value > 122 Then Exit Do
@@ -171,10 +184,12 @@ End Function
 
 ' Range scanning reuses the ordinary scanner, retaining its source coordinates.
 Private Function ScanDirective(ByRef Source() As Byte, ByVal Start As Long, ByRef Span As SourceScanner.SourceSpan, ByRef Tokens() As SourceScanner.SourceToken, ByRef Count As Long, ByRef After As Long, ByRef Diagnostic As SourceParser.ParseDiagnostic) As Boolean
+    Dim Remaining As Long
     Dim Failure As SourceScanner.ScanDiagnostic
     If Not SourceScanner.TryScanRange(Source, Start, Span.Finish.ByteOffset, Tokens, Count, Failure) Then ScanDirective = ScanFailure(Diagnostic, Failure): Exit Function
     After = Count
     Do While After > 0
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         If Tokens(After - 1).Kind <> SourceScanner.NewlineToken And Tokens(After - 1).Kind <> SourceScanner.EndToken Then Exit Do
         After = After - 1
     Loop
@@ -202,6 +217,7 @@ Private Function Condition(ByRef Source() As Byte, ByRef Tokens() As SourceScann
 End Function
 
 Private Function AddConstant(ByRef Source() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByVal Count As Long, ByVal After As Long, ByRef Names() As Byte, ByRef Symbols() As ConditionalExpressions.SymbolFact, ByRef Text() As Byte, ByRef State As SelectionState, ByRef Span As SourceScanner.SourceSpan, ByRef Diagnostic As SourceParser.ParseDiagnostic) As Boolean
+    Dim Remaining As Long
     Dim Value As ConditionalExpressions.ValueFact
     Dim Size As Long
     Dim Length As Long
@@ -212,13 +228,16 @@ Private Function AddConstant(ByRef Source() As Byte, ByRef Tokens() As SourceSca
     If Not SyntaxTokens.IsIdentifierToken(Source, Tokens, 1, Count, False) Then AddConstant = Reject(Diagnostic, 2, 1, Span.Start): Exit Function
     If SyntaxTokens.TokenCode(Source, Tokens, 2, Count) <> SyntaxTokens.SymEqual Then AddConstant = Reject(Diagnostic, 2, 1, Span.Start): Exit Function
     Do While SyntaxTokens.SpellingByte(Source, Tokens, 1, Count, Length) >= 0
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         Length = Length + 1
         If Length > 128 Then AddConstant = Reject(Diagnostic, 4, 1, Span.Start): Exit Function
     Loop
     Do While Index < State.SymbolCount
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         Same = Symbols(Index).NameLength = Length
         Cursor = 0
         Do While Same And Cursor < Length
+            If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
             Same = Names(Symbols(Index).NameStart + Cursor) = SyntaxTokens.SpellingByte(Source, Tokens, 1, Count, Cursor)
             Cursor = Cursor + 1
         Loop
@@ -232,6 +251,7 @@ Private Function AddConstant(ByRef Source() As Byte, ByRef Tokens() As SourceSca
     If Not ResizeSymbols(Symbols, State.SymbolCount + 1, True) Then AddConstant = Reject(Diagnostic, 5, 1, Span.Start): Exit Function
     Cursor = 0
     Do While Cursor < Length
+        If Not Checkpoint(Diagnostic, Span.Start, Remaining) Then Exit Function
         Names(Size + Cursor) = SyntaxTokens.SpellingByte(Source, Tokens, 1, Count, Cursor)
         Cursor = Cursor + 1
     Loop
@@ -309,6 +329,7 @@ End Function
 
 ' Selected ranges publish only after all directive nesting has closed successfully.
 Public Function TrySelect(ByRef Source() As Byte, ByRef SuppliedNames() As Byte, ByRef SuppliedSymbols() As ConditionalExpressions.SymbolFact, ByVal SuppliedCount As Long, ByRef SuppliedText() As Byte, ByVal SuppliedTextUsed As Long, ByRef Selected() As SourceScanner.SourceSpan, ByRef SelectedCount As Long, ByRef Diagnostic As SourceParser.ParseDiagnostic) As Boolean
+    Dim Remaining As Long
     Dim Position As SourceScanner.SourcePosition
     Dim Span As SourceScanner.SourceSpan
     Dim Failure As SourceScanner.ScanDiagnostic
@@ -331,10 +352,12 @@ Public Function TrySelect(ByRef Source() As Byte, ByRef SuppliedNames() As Byte,
     State.TextUsed = SuppliedTextUsed
     State.Active = True
     Do
+        If Not Checkpoint(Diagnostic, Position, Remaining) Then Exit Function
         If Not SourceScanner.TryReadLogicalLine(Source, Position, Span, Failure) Then TrySelect = ScanFailure(Diagnostic, Failure): Exit Function
         If Span.Kind = SourceScanner.EndSpan Then Exit Do
         Word = 0
-        If Span.Kind = SourceScanner.LogicalLineSpan Then Word = DirectiveWord(Source, Span, Start)
+        If Span.Kind = SourceScanner.LogicalLineSpan Then Word = DirectiveWord(Source, Span, Start, Diagnostic)
+        If Diagnostic.Code <> 0 Then Exit Function
         If Word = 0 Then
             If State.Active Then
                 If Not AppendSpan(Candidate, State, Span) Then GoTo Failed

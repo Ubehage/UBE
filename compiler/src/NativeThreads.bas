@@ -156,7 +156,7 @@ Public Function EmitStart(ByRef N() As SourceParser.SyntaxNode, ByRef E() As Exp
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CellAddress, Pointer, Payload, Index + Index, 0) = False Then Exit Function
         Template = LLVMTemplates.StoreValue
         If CapturedManagedScalar(E, Argument) Then Template = LLVMTemplates.ManagedStoreValue
-        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.StorePointer
+        If E(Argument - 1).ArgumentMode <> 1 Or ManagedLayouts.IsAggregateArgument(E, Argument) Then Template = LLVMTemplates.StorePointer
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
             Pointer = NativeEmission.NewValue(S)
@@ -232,7 +232,7 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
         Values(Index) = NativeEmission.NewValue(S)
         If NativeEmission.TryLine(S, B, Token, Catalog, LLVMTemplates.CaptureAddress, Pointer, Index + Index, 0, 0) = False Then Exit Function
         Template = LLVMTemplates.LoadVolatileValue
-        If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.LoadOwnerPointer
+        If E(Argument - 1).ArgumentMode <> 1 Or ManagedLayouts.IsAggregateArgument(E, Argument) Then Template = LLVMTemplates.LoadOwnerPointer
         If NativeEmission.TryLine(S, B, Token, Catalog, Template, Values(Index), Pointer, 0, 0) = False Then Exit Function
         If F(Argument - 1).NeedsOwner Then
             Pointer = NativeEmission.NewValue(S)
@@ -260,7 +260,7 @@ Private Function TryEmitThunk(ByRef N() As SourceParser.SyntaxNode, ByRef A() As
         Do While Argument <> 0
             If NativeEmission.Charge(S) = False Then Exit Function
             Template = LLVMTemplates.CallValueArgument
-            If E(Argument - 1).ArgumentMode <> 1 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.CallReferenceArgument
+            If E(Argument - 1).ArgumentMode <> 1 Or ManagedLayouts.IsAggregateArgument(E, Argument) Then Template = LLVMTemplates.CallReferenceArgument
             If Fragment(S, B, Token, Catalog, Template, Values(Index), 0) = False Then Exit Function
             If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
                 If Fragment(S, B, Token, Catalog, LLVMTemplates.CallReferenceArgument, Owners(Index), 0) = False Then Exit Function

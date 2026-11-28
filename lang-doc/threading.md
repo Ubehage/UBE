@@ -9,7 +9,9 @@ there is no external scheduler or VM.
 Language-facing failures use `error-handling.md`: a fresh FAIL outcome and
 thread-local Err, default statement skipping or an enabled caller handler,
 and no usable failed result. Normal timeout/cancellation results remain usable
-zero values. The stored Err record never determines whether a call failed.
+zero values for status-returning waits. The owner-approved exception for implicit
+Static-initialization waiting is specified below. The stored Err record never
+determines whether a call failed.
 
 ## Ordinary shared access
 
@@ -38,6 +40,9 @@ The following establish visibility in addition to each thread's source order:
 - evaluation of `CallNew` arguments happens before the worker begins;
 - a worker's actions happen before `ThreadWait` observes its completion,
   whether the wait returns `1` or delivers that worker's escaping FAIL;
+- successful Static initialization happens before another thread observes that
+  storage as initialized; an attempt's recorded failure is likewise published
+  before its participants receive that outcome;
 - outermost `SyncLock` release happens before the next successful acquisition
   of the same object monitor;
 - all approved atomic operations participate in one sequentially consistent
@@ -84,9 +89,11 @@ FAIL plus `Err`, also leaving the destination unchanged.
 ## Cancellation and errors
 
 `ThreadRequestStop` is a sticky cooperative flag. It wakes all approved UBE
-waits for that thread. Cancellation itself does not set or clear `Err`; the
-worker detects it with `ThreadStopRequested()` and returns normally. A genuine
-wait failure reports FAIL and sets that thread's `Err`; timeout does neither.
+waits for that thread. Setting the flag does not itself set or clear `Err`; the
+worker detects it with `ThreadStopRequested()` and returns normally. For the
+ordinary status-returning waits, cancellation returns zero without changing Err.
+A genuine wait failure reports FAIL and sets that thread's `Err`; timeout does
+neither. Implicit Static-initialization waiting uses the explicit exception below.
 
 `On Error` state and active handlers are per thread and per procedure under the
 core specification. Ordinary same-thread failed calls are handled on their
@@ -105,11 +112,43 @@ thread then follows its own ordinary statement/handler rules. Each waiter,
 including a repeated wait on the same completed ID, receives the same completion
 outcome; every delivered failure is fresh. A successful wait preserves caller Err.
 
-Timeout and cooperative cancellation remain successful `0` results and preserve
-Err; they do not represent observed completion. Cancellation never jumps into a
-handler. Returning after cancellation releases locals and monitors on the
+For ThreadWait and the other status-returning waits, timeout and cooperative
+cancellation remain successful `0` results and preserve Err; they do not represent
+observed completion. Their cancellation never jumps into a handler. Returning
+after cancellation releases locals and monitors on the
 ordinary compiler-generated cleanup edges. Detailed failure delivery for UI
 dispatch, events and raw callbacks remains a separate boundary decision.
+
+### Implicit Static-initialization waiting
+
+Owner decisions, 2026-11-28: each receiver owns the Static locals of its instance
+members; all threads using that same receiver share them. Standard-module Static
+locals belong to that module's program instance. Failed initialization is retryable
+on a later independent use. Participants in one attempt observe that attempt's
+outcome, even if a later attempt has already succeeded. Outcome records remain
+owned until their participants have consumed or cancelled them; no unfinished
+value is published and no waiter silently retries its failed use. The detailed
+state and source continuation rules are in language-spec.md's Static contract.
+
+A stop request for a thread blocked on another thread's unfinished Static
+initializer promptly ends that thread's wait with a fresh initialization-wait-
+cancelled FAIL and its thread-local Err. This is a deliberate exception to the
+zero-valued cancellation result of status-returning waits: an implicit access has
+no successful cancelled value it can supply. Its ordinary failed-statement or
+enabled-handler continuation applies. Other waiters and the initializing thread
+continue; neither thread is forcibly terminated. The cancelled wait releases its
+participation/retention, but does not revoke ownership of the running attempt.
+
+Cancellation and completion race through one ordered wait transition; only the
+winner is delivered. An already-set stop flag prevents admission to a blocking
+initialization wait and reports the same fresh cancellation failure. A completed
+Ready access is not a blocking wait and is not converted into failure merely
+because the stop flag is set. Reentry by an attempt's owning thread reports
+controlled initialization-reentry FAIL rather than deadlocking on itself.
+
+Stable numeric Err assignments for these distinct failure categories must be
+closed before the feature is admitted. The contracts above do not establish
+runtime support or acceptance evidence.
 
 ## Callbacks, locks, and unload
 

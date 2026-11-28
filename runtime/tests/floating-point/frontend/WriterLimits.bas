@@ -27,10 +27,10 @@ Public Function Main() As Long
         If Not LLVMWriter.TryAppendSpan(State, Buffer, Token, Fragment, 0, 65536) Then Main = 4: GoTo Cleanup
         Repeat = Repeat + 1
     Loop
-    If State.TotalBytes <> 33619968^ Or State.LineCount <> 525312^ Then Main = 5: GoTo Cleanup
+    If State.TotalBytes <> 33619968&& Or State.LineCount <> 525312&& Then Main = 5: GoTo Cleanup
     If Not LLVMWriter.TryFinish(State, Buffer, Token) Then Main = 6: GoTo Cleanup
     If LLVMWriter.TryAppendSpan(State, Buffer, Token, Fragment, -1, 1) Then Main = 7: GoTo Cleanup
-    If State.TotalBytes <> 33619968^ Or State.LineCount <> 525312^ Then Main = 8: GoTo Cleanup
+    If State.TotalBytes <> 33619968&& Or State.LineCount <> 525312&& Then Main = 8: GoTo Cleanup
     If Not State.Failed Then Main = 9
 Cleanup:
     If Not FilePrimitives.TryClose(Token, Failure) Then Main = 10

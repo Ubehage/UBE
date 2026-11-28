@@ -1,6 +1,8 @@
 # UBE failure and continuation contract
 
-**Status:** owner-approved core behavior, 2026-11-10; implementation pending.
+**Status:** owner-approved core behavior, 2026-11-10, with the If correction of
+2026-11-28. If/ElseIf default continuation is qualified at O0/O2 through both
+compiler paths; explicit Resume syntax remains outside the implemented subset.
 
 This contract supersedes earlier descriptions of recoverable language failure
 as a usable neutral result inside an expression. Unresolved boundary details
@@ -79,17 +81,23 @@ such as preserving an existing array when replacement allocation fails.
 
 ## Failure in an If or Do condition
 
-Owner decision, 2026-11-10: failure while evaluating an `If`/`ElseIf` condition
-or a `Do`/`Loop` condition abandons the entire affected conditional or loop.
-Default execution continues after the complete `End If` or `Loop`, rather than
-entering another branch or another iteration. The same rule applies to a
-single-line If and to both pre-test and post-test While/Until loops. FAIL is
-neither True nor False. Effects completed before failure remain completed.
+Owner correction, 2026-11-28: a runtime error while evaluating an `If`/`ElseIf`
+condition records the error in Err and treats that condition as False under
+default continuation. Remaining operands in that condition are not evaluated.
+Execution proceeds to the next ElseIf, or to Else if no condition is True;
+without another branch it continues after End If. This applies to block and
+single-line If. FAIL is still not a usable expression result: False describes
+the conditional branching rule. Completed effects remain completed.
+
+Failure in a `Do`/`Loop` condition still abandons the entire loop, including
+pre-test and post-test While/Until forms. Default execution continues after
+Loop. FAIL is neither True nor False for these loop conditions.
 
 An enabled label handler still receives control. `Resume Next` selects the
 continuation after the complete construct; `Resume` retries the failed
 condition. Retrying a failed post-test condition does not repeat the body first.
-When a handler is already running, the construct is skipped without reentering
+When a handler is already running, a failed If/ElseIf condition uses the False
+branching rule and a failed loop condition skips the loop, without reentering
 the handler or replacing its saved resume location.
 
 A failed ordinary statement within a loop body still skips only that statement.
@@ -100,7 +108,7 @@ structured locking. Select Case remains a separate decision.
 
 On 2026-11-27 the owner delegated the remaining implementation choices for the
 Exit Loop dependencies, requiring preservation of established definitions.
-The selected rule follows the existing If/Do behavior: fresh FAIL while
+The selected rule follows the existing Do behavior: fresh FAIL while
 evaluating a While condition, a For initial value/bound/step, a For Each
 enumeration source, or a SyncLock target/acquisition abandons that complete
 construct under default continuation. Remaining header operands and the body

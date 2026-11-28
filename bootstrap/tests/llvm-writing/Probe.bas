@@ -36,9 +36,9 @@ Public Function Run(ByVal Mode As Long, ByVal Seed As Long) As Long
         Text(0) = 90
         Text(65535) = 89
         If LLVMWriter.TryAppendSpan(State, Buffer, Token, Text, 1, 65534) = False Then Result = 10: GoTo Cleanup
-        If LLVMWriter.TryAppendInteger(State, Buffer, Token, -9223372036854775808^) = False Then Result = 11: GoTo Cleanup
+        If LLVMWriter.TryAppendInteger(State, Buffer, Token, -9223372036854775808&&) = False Then Result = 11: GoTo Cleanup
         If LLVMWriter.TryEndLine(State, Buffer, Token) = False Then Result = 12: GoTo Cleanup
-        If LLVMWriter.TryAppendInteger(State, Buffer, Token, 9223372036854775807^) = False Then Result = 13: GoTo Cleanup
+        If LLVMWriter.TryAppendInteger(State, Buffer, Token, 9223372036854775807&&) = False Then Result = 13: GoTo Cleanup
         If LLVMWriter.TryAppendInteger(State, Buffer, Token, 0) = False Then Result = 14: GoTo Cleanup
         If LLVMWriter.TryAppendInteger(State, Buffer, Token, -1) = False Then Result = 15: GoTo Cleanup
         If LLVMWriter.TryFinish(State, Buffer, Token) = False Then Result = 16: GoTo Cleanup

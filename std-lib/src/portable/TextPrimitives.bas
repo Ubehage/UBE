@@ -26,9 +26,20 @@ Public Intrinsic Function TryWriteByte(ByVal Candidate As LongLong, ByVal Index 
 Attribute TryWriteByte.UBE_Primitive = "Text.WriteByte"
 End Function
 
-' Atomically installs a fully initialized validated value and consumes its construction root.
+' Validates UTF-8 and scalar count, then atomically publishes and consumes the construction root.
+' Failure preserves both the destination and the candidate for repair or abandonment.
 Public Intrinsic Function TryPublish(ByRef Destination As String, ByVal Candidate As LongLong) As Boolean
 Attribute TryPublish.UBE_Primitive = "Text.Publish"
+End Function
+
+' Reads private candidate dimensions; zero denotes the empty candidate.
+Public Intrinsic Function TryCandidateInfo(ByVal Candidate As LongLong, ByRef ByteCount As LongLong, ByRef ScalarCount As LongLong) As Boolean
+Attribute TryCandidateInfo.UBE_Primitive = "Text.CandidateInfo"
+End Function
+
+' Reads only an unpublished candidate owned by the calling thread.
+Public Intrinsic Function TryReadCandidateByte(ByVal Candidate As LongLong, ByVal Index As LongLong, ByRef Value As Byte) As Boolean
+Attribute TryReadCandidateByte.UBE_Primitive = "Text.ReadCandidateByte"
 End Function
 
 ' Removes the construction root without allocating or invoking collection.

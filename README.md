@@ -40,6 +40,11 @@ self-builds and concurrent-compilation gates pass. Broader language and library
 support, lifecycle hooks, events, source-level debugging and the IDE remain
 unfinished.
 
+- **Work currently being done:**
+  - Extensive refactoring of compiler-logic.
+  - New commits may not happen before christmas.
+
+
 See [implemented scope and test evidence](compiler/CLASS-MEMBERS.md) and the
 [development plan](project-docs/Development-Plan.md).
 

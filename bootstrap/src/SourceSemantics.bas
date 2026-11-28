@@ -467,16 +467,6 @@ Private Function ResolveReference(ByRef Project As ProjectContext, ByRef Parsed 
         Exit Function
     End If
     Bound.Nodes(Node).SymbolIndex = Symbol
-    If Len(Parsed.Nodes(Node).TypeName) > 0 Then
-        If Bound.Symbols(Symbol).ArrayRank <> 0 Or Bound.Symbols(Symbol).TypeSymbol <> 0 Then
-            Call BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "identifier suffixes cannot annotate aggregate values")
-            Exit Function
-        End If
-        If Parsed.Nodes(Node).TypeName <> Bound.Symbols(Symbol).TypeName Then
-            Call BindingError(Project, Parsed, Node, Diagnostic, "E_TYPE", "identifier suffix must agree with the selected declaration type")
-            Exit Function
-        End If
-    End If
     Call SymbolValue(Bound, Node, Symbol)
     Kind = Bound.Symbols(Symbol).Kind
     Bound.Nodes(Node).Writable = (Kind = "variable" Or Kind = "parameter" Or Kind = "result")
@@ -714,6 +704,8 @@ Private Function HostPrimitiveSignature(ByVal Role As String) As String
     Case "file.trycreatenew", "system.tryreadcommandline": HostPrimitiveSignature = "ARR"
     Case "file.tryread", "file.trywrite", "system.trywritestandard": HostPrimitiveSignature = "VAVVRR"
     Case "file.tryclose": HostPrimitiveSignature = "RR"
+    Case "lease.tryacquire": HostPrimitiveSignature = "ARR"
+    Case "lease.tryclose": HostPrimitiveSignature = "RR"
     Case "file.tryflush": HostPrimitiveSignature = "VR"
     Case "file.tryfinalpath": HostPrimitiveSignature = "VARR"
     Case "path.tryfullpath", "path.trycompareordinal": HostPrimitiveSignature = "AARR"
@@ -1082,12 +1074,16 @@ Private Function BindNumber(ByRef Project As ProjectContext, ByRef Parsed As Par
         BindNumber = BindingError(Project, Parsed, Node, Diagnostic, "E_UNSUPPORTED", "hexadecimal and octal value interpretation is not admitted by this semantic profile")
         Exit Function
     End If
-    Select Case Right$(Text, 1)
-    Case "%": ExplicitType = "Integer"
-    Case "&": ExplicitType = "Long"
-    Case "^": ExplicitType = "LongLong"
-    End Select
-    If Len(ExplicitType) > 0 Then Text = Left$(Text, Len(Text) - 1)
+    If Right$(Text, 2) = "&&" Then
+        ExplicitType = "LongLong"
+        Text = Left$(Text, Len(Text) - 2)
+    Else
+        Select Case Right$(Text, 1)
+        Case "%": ExplicitType = "Integer"
+        Case "&": ExplicitType = "Long"
+        End Select
+        If Len(ExplicitType) > 0 Then Text = Left$(Text, Len(Text) - 1)
+    End If
     Value = CDec(0)
     For Index = 1 To Len(Text)
         Digit = AscW(Mid$(Text, Index, 1)) - 48

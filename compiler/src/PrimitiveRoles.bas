@@ -65,6 +65,111 @@ Public Const VariantTag As Long = 58
 Public Const ObjectMonitorTryEnter As Long = 59
 Public Const ObjectMonitorLeave As Long = 60
 Public Const ObjectMonitorYield As Long = 61
+Public Const LeaseAcquire As Long = 62
+Public Const LeaseClose As Long = 63
+Public Const TextCandidateInfo As Long = 64
+Public Const TextReadCandidateByte As Long = 65
+Public Const TextCommit As Long = 66
+
+Private Function CandidateRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    CandidateRoleCharacter = -1
+    If Role = TextCandidateInfo Then
+        If Position = 0 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 1 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 2 Then CandidateRoleCharacter = 120: Exit Function
+        If Position = 3 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 4 Then CandidateRoleCharacter = 46: Exit Function
+        If Position = 5 Then CandidateRoleCharacter = 99: Exit Function
+        If Position = 6 Then CandidateRoleCharacter = 97: Exit Function
+        If Position = 7 Then CandidateRoleCharacter = 110: Exit Function
+        If Position = 8 Then CandidateRoleCharacter = 100: Exit Function
+        If Position = 9 Then CandidateRoleCharacter = 105: Exit Function
+        If Position = 10 Then CandidateRoleCharacter = 100: Exit Function
+        If Position = 11 Then CandidateRoleCharacter = 97: Exit Function
+        If Position = 12 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 13 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 14 Then CandidateRoleCharacter = 105: Exit Function
+        If Position = 15 Then CandidateRoleCharacter = 110: Exit Function
+        If Position = 16 Then CandidateRoleCharacter = 102: Exit Function
+        If Position = 17 Then CandidateRoleCharacter = 111: Exit Function
+    End If
+    If Role = TextReadCandidateByte Then
+        If Position = 0 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 1 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 2 Then CandidateRoleCharacter = 120: Exit Function
+        If Position = 3 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 4 Then CandidateRoleCharacter = 46: Exit Function
+        If Position = 5 Then CandidateRoleCharacter = 114: Exit Function
+        If Position = 6 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 7 Then CandidateRoleCharacter = 97: Exit Function
+        If Position = 8 Then CandidateRoleCharacter = 100: Exit Function
+        If Position = 9 Then CandidateRoleCharacter = 99: Exit Function
+        If Position = 10 Then CandidateRoleCharacter = 97: Exit Function
+        If Position = 11 Then CandidateRoleCharacter = 110: Exit Function
+        If Position = 12 Then CandidateRoleCharacter = 100: Exit Function
+        If Position = 13 Then CandidateRoleCharacter = 105: Exit Function
+        If Position = 14 Then CandidateRoleCharacter = 100: Exit Function
+        If Position = 15 Then CandidateRoleCharacter = 97: Exit Function
+        If Position = 16 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 17 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 18 Then CandidateRoleCharacter = 98: Exit Function
+        If Position = 19 Then CandidateRoleCharacter = 121: Exit Function
+        If Position = 20 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 21 Then CandidateRoleCharacter = 101: Exit Function
+    End If
+    If Role = TextCommit Then
+        If Position = 0 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 1 Then CandidateRoleCharacter = 101: Exit Function
+        If Position = 2 Then CandidateRoleCharacter = 120: Exit Function
+        If Position = 3 Then CandidateRoleCharacter = 116: Exit Function
+        If Position = 4 Then CandidateRoleCharacter = 46: Exit Function
+        If Position = 5 Then CandidateRoleCharacter = 99: Exit Function
+        If Position = 6 Then CandidateRoleCharacter = 111: Exit Function
+        If Position = 7 Then CandidateRoleCharacter = 109: Exit Function
+        If Position = 8 Then CandidateRoleCharacter = 109: Exit Function
+        If Position = 9 Then CandidateRoleCharacter = 105: Exit Function
+        If Position = 10 Then CandidateRoleCharacter = 116: Exit Function
+    End If
+End Function
+
+' Exact named-lease role spellings remain independent of user declaration names.
+Private Function LeaseRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    LeaseRoleCharacter = -1
+    If Role = LeaseAcquire Then
+        If Position = 0 Then LeaseRoleCharacter = 108: Exit Function
+        If Position = 1 Then LeaseRoleCharacter = 101: Exit Function
+        If Position = 2 Then LeaseRoleCharacter = 97: Exit Function
+        If Position = 3 Then LeaseRoleCharacter = 115: Exit Function
+        If Position = 4 Then LeaseRoleCharacter = 101: Exit Function
+        If Position = 5 Then LeaseRoleCharacter = 46: Exit Function
+        If Position = 6 Then LeaseRoleCharacter = 116: Exit Function
+        If Position = 7 Then LeaseRoleCharacter = 114: Exit Function
+        If Position = 8 Then LeaseRoleCharacter = 121: Exit Function
+        If Position = 9 Then LeaseRoleCharacter = 97: Exit Function
+        If Position = 10 Then LeaseRoleCharacter = 99: Exit Function
+        If Position = 11 Then LeaseRoleCharacter = 113: Exit Function
+        If Position = 12 Then LeaseRoleCharacter = 117: Exit Function
+        If Position = 13 Then LeaseRoleCharacter = 105: Exit Function
+        If Position = 14 Then LeaseRoleCharacter = 114: Exit Function
+        If Position = 15 Then LeaseRoleCharacter = 101: Exit Function
+    End If
+    If Role = LeaseClose Then
+        If Position = 0 Then LeaseRoleCharacter = 108: Exit Function
+        If Position = 1 Then LeaseRoleCharacter = 101: Exit Function
+        If Position = 2 Then LeaseRoleCharacter = 97: Exit Function
+        If Position = 3 Then LeaseRoleCharacter = 115: Exit Function
+        If Position = 4 Then LeaseRoleCharacter = 101: Exit Function
+        If Position = 5 Then LeaseRoleCharacter = 46: Exit Function
+        If Position = 6 Then LeaseRoleCharacter = 116: Exit Function
+        If Position = 7 Then LeaseRoleCharacter = 114: Exit Function
+        If Position = 8 Then LeaseRoleCharacter = 121: Exit Function
+        If Position = 9 Then LeaseRoleCharacter = 99: Exit Function
+        If Position = 10 Then LeaseRoleCharacter = 108: Exit Function
+        If Position = 11 Then LeaseRoleCharacter = 111: Exit Function
+        If Position = 12 Then LeaseRoleCharacter = 115: Exit Function
+        If Position = 13 Then LeaseRoleCharacter = 101: Exit Function
+    End If
+End Function
 
 Private Function CollectionRoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
     CollectionRoleCharacter = -1
@@ -184,6 +289,8 @@ End Function
 
 
 Private Function RoleCharacter(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role >= TextCandidateInfo And Role <= TextCommit Then RoleCharacter = CandidateRoleCharacter(Role, Position): Exit Function
+    If Role = LeaseAcquire Or Role = LeaseClose Then RoleCharacter = LeaseRoleCharacter(Role, Position): Exit Function
     If Role >= ObjectMonitorTryEnter And Role <= ObjectMonitorYield Then RoleCharacter = ObjectRoleCharacter(Role, Position): Exit Function
     If Role = VariantTag Then
         RoleCharacter = -1
@@ -1307,7 +1414,7 @@ Private Function ReadRole(ByRef B() As Byte, ByRef T() As SourceScanner.SourceTo
     Dim Actual As Long
     On Error GoTo Failed
     Role = 1
-    Do While Role <= ObjectMonitorYield
+    Do While Role <= TextCommit
         Position = 0
         Do
             Expected = RoleCharacter(Role, Position)
@@ -1342,6 +1449,10 @@ End Function
 
 ' Returns exact arity for each reviewed primitive role.
 Private Function ParameterCount(ByVal Role As Long) As Long
+    If Role = TextCandidateInfo Or Role = TextReadCandidateByte Then ParameterCount = 3: Exit Function
+    If Role = TextCommit Then ParameterCount = 2: Exit Function
+    If Role = LeaseAcquire Then ParameterCount = 3: Exit Function
+    If Role = LeaseClose Then ParameterCount = 2: Exit Function
     If Role = ObjectMonitorTryEnter Or Role = ObjectMonitorLeave Then ParameterCount = 1: Exit Function
     If Role = ObjectMonitorYield Then ParameterCount = 0: Exit Function
     If Role = VariantTag Then ParameterCount = 1: Exit Function
@@ -1375,6 +1486,23 @@ End Function
 
 ' Classifies each formal as generic array, byte array, value Long, reference Long, or value Boolean.
 Private Function ParameterShape(ByVal Role As Long, ByVal Position As Long) As Long
+    If Role = TextCommit Then ParameterShape = ManagedParameterShape(TextPublish, Position): Exit Function
+    If Role = TextCandidateInfo Then
+        ParameterShape = 6
+        If Position = 1 Then ParameterShape = 7
+        Exit Function
+    End If
+    If Role = TextReadCandidateByte Then
+        ParameterShape = 7
+        If Position = 3 Then ParameterShape = 10
+        Exit Function
+    End If
+    If Role = LeaseClose Then ParameterShape = 4: Exit Function
+    If Role = LeaseAcquire Then
+        ParameterShape = 4
+        If Position = 1 Then ParameterShape = 2
+        Exit Function
+    End If
     If Role = ObjectMonitorTryEnter Or Role = ObjectMonitorLeave Then ParameterShape = 7: Exit Function
     If Role = VariantTag Then ParameterShape = 13: Exit Function
     If Role = ManagedWorkspace Then
@@ -1638,9 +1766,16 @@ Public Function TryBindPrimitives(ByRef Bytes() As Byte, ByRef Tokens() As Sourc
     Dim Candidate() As Long
     Dim Index As Long
     Dim Parent As Long
+    Dim Role As Long
     Dim ModuleIndex As Long
     On Error GoTo StorageFailure
     RoleCount = 0
+    If Not ManagedSourceAssets.ValidateProject(Bytes, Modules, Counts, ModuleIndex) Then
+        Index = 0
+        If ModuleIndex >= 0 And ModuleIndex < Counts.ModuleCount Then Index = Modules(ModuleIndex).RootNode
+        TryBindPrimitives = Reject(Nodes, Modules, Diagnostic, ModuleIndex, Index, 8, 84)
+        Exit Function
+    End If
     If DeclarationBinder.TryBindDeclarations(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Diagnostic) = False Then Exit Function
     Index = 1
     Do While Index <= Counts.NodeCount
@@ -1656,6 +1791,16 @@ Public Function TryBindPrimitives(ByRef Bytes() As Byte, ByRef Tokens() As Sourc
     Do While Index <= SymbolCount
         If Symbols(Index - 1).Kind = SourceParser.SubNode Or Symbols(Index - 1).Kind = SourceParser.FunctionNode Then
             If BindProcedure(Bytes, Tokens, Nodes, Modules, Counts, Symbols, Index, Candidate, Diagnostic) = False Then Exit Function
+        End If
+        Index = Index + 1
+    Loop
+    Index = 1
+    Do While Index <= SymbolCount
+        Parent = Symbols(Index - 1).DeclarationNode
+        Role = Candidate(Parent - 1)
+        If Role = ManagedBeginCollection Or Role = ManagedEndCollection Or Role = ManagedSealCollection Or Role = ManagedReclaim Or Role = ManagedWorkspace Or Role = ObjectMonitorTryEnter Or Role = ObjectMonitorLeave Or Role = TextCommit Then
+            ModuleIndex = Symbols(Index - 1).ModuleIndex
+            If Modules(ModuleIndex).LookupDomain <> 1 Then TryBindPrimitives = Reject(Nodes, Modules, Diagnostic, ModuleIndex, Parent, 8, 85): Exit Function
         End If
         Index = Index + 1
     Loop

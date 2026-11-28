@@ -11,6 +11,17 @@ evidence is in Progress.md and runtime/tests/managed-text/README.md.
 This approval is for the managed text goal,
 not an exception to the established language or memory rules.
 
+The architecture-review correction adds a checked publication boundary without
+prohibiting custom candidate construction. Public `Text.Publish` routes to the
+installed UBE `TextPublication.Publish` procedure; owner-checked storage access
+supplies candidate bytes and dimensions, `Utf8` validates each scalar, and only
+validated support may invoke raw `Text.Commit`. The destination and construction
+root remain intact on failure. `compiler/tests/primitive-authority/check.ps1`
+passes the complete public UBECore source package at O0/O2, malformed/count,
+ownership, custom construction, copied/redeclared authority, installed-identity
+and negative-control cases. Binder authority and atomic role-map publication
+have a separate O0/O2 gate in `runtime/tests/managed-text/managed-roles-check.ps1`.
+
 ## Concrete architecture decision
 
 The implementation adds real String values and the automatic memory support

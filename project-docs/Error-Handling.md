@@ -162,7 +162,8 @@ Do not implement caller behavior merely by testing Err at procedure return.
 | Failure in a statement under Resume Next | Abandon the rest of that statement; preserve effects already completed; continue at its next executable statement. |
 | Scalar assignment | Approved: store only after successful RHS evaluation and conversion; FAIL skips the commit. |
 | Invalid array write | Record failure; never modify an unrelated element or fabricate a valid index. |
-| If/Do condition | Skip the whole construct by default, including Until and post-test conditions; enabled handlers receive control. Never substitute False or zero. Resume retries the condition; Resume Next continues after the construct. |
+| If/ElseIf condition | Owner correction, 2026-11-28: record the runtime error and treat the condition as False by default, proceeding to the next ElseIf or Else. Remaining condition operands are not evaluated. Enabled handlers receive control. Resume retries the condition; explicit Resume Next retains its specified target after the construct (Resume syntax remains unimplemented). Default If continuation passes the focused O0/O2 gate through both compiler paths. |
+| Do/Loop condition | Skip the whole loop by default, including Until and post-test conditions; enabled handlers receive control. Never substitute False or zero. Resume retries the condition; Resume Next continues after the loop. |
 | Other compound control header | While/For/For Each/SyncLock default failure skips the construct under the 2026-11-27 delegated choice; qualify execution. Select Case and additional explicit Resume targets remain open. |
 | Failed allocation/resize | Preserve the destination where the operation promises it; release only unpublished partial work. |
 | Two potential failures in one expression | Approved: the first failure abandons the statement; a later operand is not evaluated. Separate later statements may record newer errors. |

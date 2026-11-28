@@ -15,7 +15,7 @@ function Run([string]$File,[string[]]$Arguments,[string]$Name){
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 Copy-Item -LiteralPath (Join-Path $root 'compiler/src/SourceScanner.bas') -Destination $evidence
 Copy-Item -LiteralPath (Join-Path $root 'std-lib/src/portable/FileBytes.bas') -Destination $evidence
-foreach($module in @('BufferPrimitives','FilePrimitives','Utf8')){Copy-Item -LiteralPath (Join-Path $root ('std-lib/src/portable/'+$module+'.bas')) -Destination $evidence}
+foreach($module in @('BufferPrimitives','FilePrimitives','Utf8','ThreadPrimitives')){Copy-Item -LiteralPath (Join-Path $root ('std-lib/src/portable/'+$module+'.bas')) -Destination $evidence}
 $opaque='"unterminated '+[char]0x00e9+[char]::ConvertFromUtf32(0x1f642)+"`r`n  Asm ' open`r`n#End If _ ' raw`r`n"+'"End Asm"'+"`r`n End Asm Rem close`r`nValue"
 $prefix=$opaque.Substring(0,$opaque.LastIndexOf('Value'))
 $fixture=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'scanner-probe.bas')).Replace('EXPECT_BYTE',[string]$encoding.GetByteCount($prefix)).Replace('EXPECT_UTF16',[string]($prefix.Length+1))

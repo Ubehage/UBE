@@ -203,7 +203,7 @@ $punctuation = @(
 )
 foreach ($item in $punctuation) { Add-Token '' $item[0] $item[1] }
 foreach ($number in @('0','123','0001')) { Add-Token '' $number 2 $false $false $true $true }
-foreach ($number in @('12%','12&','12^','&HCAFE','&hff&','&O77^','&o0%')) { Add-Token '' $number 2 $false $false $true }
+foreach ($number in @('12%','12&','12&&','&HCAFE','&hff&','&O77&&','&o0%')) { Add-Token '' $number 2 $false $false $true }
 foreach ($number in @('1.0','1e3','1E-2','1!','1#','1@','1f','1r','1d','.5')) { Add-Token '' $number 2 }
 Add-Token 'escaped-a' '[a]]b]' 1 $true $true
 Add-Token 'escaped-upper' '[A]]B]' 1 $true $true
@@ -260,7 +260,7 @@ Require ($expected.Count -eq $count*6 -and $pairs.Count % 4 -eq 0) 'Oracle frami
 
 $core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $scanner = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src/SourceScanner.bas'))
-$manifest = Copy-Fixtures 'token library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),$scanner,$helperPath,(Join-Path $PSScriptRoot 'TokenProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'token library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $core 'ThreadPrimitives.bas'),$scanner,$helperPath,(Join-Path $PSScriptRoot 'TokenProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'tokens.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'

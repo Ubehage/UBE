@@ -82,9 +82,9 @@ Public Function TryBinary(ByVal LeftBits As LongLong, ByVal RightBits As LongLon
     If Operation = 2 Then RightNegative = Not RightNegative
     Negative = LeftNegative <> RightNegative
     If Operation <= 2 Then
-        LeftMagnitude = LeftBits And 9223372036854775807^
-        RightMagnitude = RightBits And 9223372036854775807^
-        If BitWidth = 32 Then LeftMagnitude = LeftBits And 2147483647^: RightMagnitude = RightBits And 2147483647^
+        LeftMagnitude = LeftBits And 9223372036854775807&&
+        RightMagnitude = RightBits And 9223372036854775807&&
+        If BitWidth = 32 Then LeftMagnitude = LeftBits And 2147483647&&: RightMagnitude = RightBits And 2147483647&&
         If LeftMagnitude < RightMagnitude Then
             SwapValue = LeftSignificand: LeftSignificand = RightSignificand: RightSignificand = SwapValue
             SwapExponent = LeftExponent: LeftExponent = RightExponent: RightExponent = SwapExponent
@@ -159,9 +159,9 @@ Public Function TryCompare(ByVal LeftBits As LongLong, ByVal RightBits As LongLo
     If Not BinaryFloatValues.TryDecode(LeftBits, BitWidth, LeftNegative, Significand, Exponent, LeftKind) Then Exit Function
     If Not BinaryFloatValues.TryDecode(RightBits, BitWidth, RightNegative, Significand, Exponent, RightKind) Then Exit Function
     If LeftKind <> 0 Or RightKind <> 0 Then TryCompare = FilePrimitives.SetError(6): Exit Function
-    LeftMagnitude = LeftBits And 9223372036854775807^
-    RightMagnitude = RightBits And 9223372036854775807^
-    If BitWidth = 32 Then LeftMagnitude = LeftBits And 2147483647^: RightMagnitude = RightBits And 2147483647^
+    LeftMagnitude = LeftBits And 9223372036854775807&&
+    RightMagnitude = RightBits And 9223372036854775807&&
+    If BitWidth = 32 Then LeftMagnitude = LeftBits And 2147483647&&: RightMagnitude = RightBits And 2147483647&&
     If LeftMagnitude <> 0 Or RightMagnitude <> 0 Then
         If LeftNegative <> RightNegative Then
             Candidate = 1

@@ -1,32 +1,32 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "Probe"
-' Exercises the normative precedence rather than conventional VB operator ordering.
+' Exercises the owner-approved VB6 arithmetic grouping with checked UBE values.
 Private Const MixedProduct As Long = 20 * 9 \ 4
 Private Const MixedModulus As Long = 20 \ 7 Mod 4
-Private Const MinimumRemainder% = -32768% Mod -1%
-Private Const PositiveProduct% = 7% * 3%
-Private Const LeftNegativeProduct% = -7% * 3%
-Private Const RightNegativeProduct% = 7% * -3%
-Private Const BothNegativeProduct% = -7% * -3%
-Private Const LeftNegativeQuotient% = -7% \ 3%
-Private Const RightNegativeQuotient% = 7% \ -3%
-Private Const BothNegativeQuotient% = -7% \ -3%
-Private Const LeftNegativeRemainder% = -7% Mod 3%
-Private Const RightNegativeRemainder% = 7% Mod -3%
-Private Const BothNegativeRemainder% = -7% Mod -3%
-Private Const IntegerMinimumProduct% = -32768% * 1%
-Private Const IntegerBoundaryProduct% = -128% * -255%
-Private Const LongMinimumProduct& = -2147483648& * 1&
-Private Const LongBoundaryProduct& = -46340& * -46340&
-Private Const WideMinimumProduct^ = -9223372036854775808^ * 1^
-Private Const WideBoundaryProduct^ = -3037000499^ * -3037000499^
-Private Const WideZeroProduct^ = -9223372036854775808^ * 0^
-Private Const LongMinimumRemainder& = -2147483648& Mod -1&
-Private Const WideMinimumRemainder^ = -9223372036854775808^ Mod -1^
-Private Const WideMaximumQuotient^ = 9223372036854775807^ \ 3^
-Private Const WideMaximumRemainder^ = 9223372036854775807^ Mod 3^
-Private Const WideMinimumQuotient^ = -9223372036854775808^ \ 3^
-Private Const WideThirdRemainder^ = -9223372036854775808^ Mod 3^
+Private Const MinimumRemainder As Integer = -32768% Mod -1%
+Private Const PositiveProduct As Integer = 7% * 3%
+Private Const LeftNegativeProduct As Integer = -7% * 3%
+Private Const RightNegativeProduct As Integer = 7% * -3%
+Private Const BothNegativeProduct As Integer = -7% * -3%
+Private Const LeftNegativeQuotient As Integer = -7% \ 3%
+Private Const RightNegativeQuotient As Integer = 7% \ -3%
+Private Const BothNegativeQuotient As Integer = -7% \ -3%
+Private Const LeftNegativeRemainder As Integer = -7% Mod 3%
+Private Const RightNegativeRemainder As Integer = 7% Mod -3%
+Private Const BothNegativeRemainder As Integer = -7% Mod -3%
+Private Const IntegerMinimumProduct As Integer = -32768% * 1%
+Private Const IntegerBoundaryProduct As Integer = -128% * -255%
+Private Const LongMinimumProduct As Long = -2147483648& * 1&
+Private Const LongBoundaryProduct As Long = -46340& * -46340&
+Private Const WideMinimumProduct As LongLong = -9223372036854775808&& * 1&&
+Private Const WideBoundaryProduct As LongLong = -3037000499&& * -3037000499&&
+Private Const WideZeroProduct As LongLong = -9223372036854775808&& * 0&&
+Private Const LongMinimumRemainder As Long = -2147483648& Mod -1&
+Private Const WideMinimumRemainder As LongLong = -9223372036854775808&& Mod -1&&
+Private Const WideMaximumQuotient As LongLong = 9223372036854775807&& \ 3&&
+Private Const WideMaximumRemainder As LongLong = 9223372036854775807&& Mod 3&&
+Private Const WideMinimumQuotient As LongLong = -9223372036854775808&& \ 3&&
+Private Const WideThirdRemainder As LongLong = -9223372036854775808&& Mod 3&&
 Private Calls As Long
 Private Trace As Long
 
@@ -40,15 +40,15 @@ End Function
 
 ' Checks folded sign quadrants and boundary products against independent literal results.
 Private Function CheckConstants() As Long
-    If PositiveProduct% <> 21 Or LeftNegativeProduct% <> -21 Or RightNegativeProduct% <> -21 Or BothNegativeProduct% <> 21 Then CheckConstants = 1: Exit Function
-    If LeftNegativeQuotient% <> -2 Or RightNegativeQuotient% <> -2 Or BothNegativeQuotient% <> 2 Then CheckConstants = 2: Exit Function
-    If LeftNegativeRemainder% <> -1 Or RightNegativeRemainder% <> 1 Or BothNegativeRemainder% <> -1 Then CheckConstants = 3: Exit Function
-    If IntegerMinimumProduct% <> -32768% Or IntegerBoundaryProduct% <> 32640% Then CheckConstants = 4: Exit Function
-    If LongMinimumProduct& <> -2147483648& Or LongBoundaryProduct& <> 2147395600& Then CheckConstants = 5: Exit Function
-    If WideMinimumProduct^ <> -9223372036854775808^ Or WideBoundaryProduct^ <> 9223372030926249001^ Then CheckConstants = 6: Exit Function
-    If WideZeroProduct^ <> 0 Or LongMinimumRemainder& <> 0 Or WideMinimumRemainder^ <> 0 Then CheckConstants = 7: Exit Function
-    If WideMaximumQuotient^ <> 3074457345618258602^ Or WideMaximumRemainder^ <> 1 Then CheckConstants = 8: Exit Function
-    If WideMinimumQuotient^ <> -3074457345618258602^ Or WideThirdRemainder^ <> -2 Then CheckConstants = 9: Exit Function
+    If PositiveProduct <> 21 Or LeftNegativeProduct <> -21 Or RightNegativeProduct <> -21 Or BothNegativeProduct <> 21 Then CheckConstants = 1: Exit Function
+    If LeftNegativeQuotient <> -2 Or RightNegativeQuotient <> -2 Or BothNegativeQuotient <> 2 Then CheckConstants = 2: Exit Function
+    If LeftNegativeRemainder <> -1 Or RightNegativeRemainder <> 1 Or BothNegativeRemainder <> -1 Then CheckConstants = 3: Exit Function
+    If IntegerMinimumProduct <> -32768% Or IntegerBoundaryProduct <> 32640% Then CheckConstants = 4: Exit Function
+    If LongMinimumProduct <> -2147483648& Or LongBoundaryProduct <> 2147395600& Then CheckConstants = 5: Exit Function
+    If WideMinimumProduct <> -9223372036854775808&& Or WideBoundaryProduct <> 9223372030926249001&& Then CheckConstants = 6: Exit Function
+    If WideZeroProduct <> 0 Or LongMinimumRemainder <> 0 Or WideMinimumRemainder <> 0 Then CheckConstants = 7: Exit Function
+    If WideMaximumQuotient <> 3074457345618258602&& Or WideMaximumRemainder <> 1 Then CheckConstants = 8: Exit Function
+    If WideMinimumQuotient <> -3074457345618258602&& Or WideThirdRemainder <> -2 Then CheckConstants = 9: Exit Function
 End Function
 
 ' Supplies an explicit fresh failure from a callee during operand evaluation.
@@ -71,10 +71,10 @@ Private Function CheckPrecedence(ByVal Seed As Long) As Long
     Dim A As Long = 20 + Seed
     Dim B As Long = 9
     Dim C As Long = 4
-    If A * B \ C <> 40 Then CheckPrecedence = 1: Exit Function
+    If A * B \ C <> 45 Then CheckPrecedence = 1: Exit Function
     B = 7
-    If A \ B Mod C <> 6 Then CheckPrecedence = 2: Exit Function
-    If A Mod B * C <> 24 Then CheckPrecedence = 3: Exit Function
+    If A \ B Mod C <> 2 Then CheckPrecedence = 2: Exit Function
+    If A Mod B * C <> 20 Then CheckPrecedence = 3: Exit Function
     A = 19
     B = 6
     If A Mod B Mod C <> 1 Then CheckPrecedence = 4: Exit Function
@@ -88,8 +88,8 @@ Private Function CheckPrecedence(ByVal Seed As Long) As Long
     If A Mod -B <> 1 Then CheckPrecedence = 9: Exit Function
     If -A Mod -B <> -1 Then CheckPrecedence = 10: Exit Function
     If -A \ -B <> 2 Then CheckPrecedence = 11: Exit Function
-    If MixedProduct <> 40 Or MixedModulus <> 6 Or MinimumRemainder% <> 0 Then CheckPrecedence = 12: Exit Function
-    If 2 + 3 * 8 \ 3 Mod 2 <> 26 Then CheckPrecedence = 13: Exit Function
+    If MixedProduct <> 45 Or MixedModulus <> 2 Or MinimumRemainder <> 0 Then CheckPrecedence = 12: Exit Function
+    If 2 + 3 * 8 \ 3 Mod 2 <> 2 Then CheckPrecedence = 13: Exit Function
 End Function
 
 ' Byte arithmetic promotes to Integer before the destination conversion.
@@ -136,7 +136,9 @@ Private Function CheckInteger(ByVal Seed As Long) As Long
     R = A * B
     If R <> 77 Or Err.Number <> 6 Then CheckInteger = 1: Exit Function
     R = A * B \ B
-    If R <> 32767 Or Err.Number <> 6 Then CheckInteger = 2: Exit Function
+    If R <> 77 Or Err.Number <> 6 Then CheckInteger = 2: Exit Function
+    R = A * (B \ B)
+    If R <> 32767 Or Err.Number <> 6 Then CheckInteger = 11: Exit Function
     R = 77
     Err.Clear
     R = (A * B) \ B
@@ -206,7 +208,7 @@ End Function
 
 ' Checks LongLong limits, minimum remainder special case and final Long conversion.
 Private Function CheckLongLong(ByVal Seed As Long) As Long
-    Dim A As LongLong = 9223372036854775807^ + Seed
+    Dim A As LongLong = 9223372036854775807&& + Seed
     Dim B As LongLong = 2
     Dim Z As LongLong = Seed
     Dim N As LongLong = -1
@@ -215,7 +217,7 @@ Private Function CheckLongLong(ByVal Seed As Long) As Long
     Err.Clear
     R = A * B
     If R <> 77 Or Err.Number <> 6 Then CheckLongLong = 1: Exit Function
-    A = -9223372036854775808^
+    A = -9223372036854775808&&
     R = A Mod N
     If R <> 0 Or Err.Number <> 6 Then CheckLongLong = 2: Exit Function
     R = 77
@@ -295,7 +297,7 @@ End Function
 
 ' Distinguishes fresh FAIL routing from a successful result with an unchanged stale Err.
 Private Function CheckHandler(ByVal Zero As Long) As Long
-    Dim A As LongLong = -9223372036854775808^
+    Dim A As LongLong = -9223372036854775808&&
     Dim N As LongLong = -1
     Dim R As LongLong = 77
     On Error GoTo Caught

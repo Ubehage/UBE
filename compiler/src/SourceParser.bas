@@ -43,7 +43,6 @@ Public Type SyntaxNode
     Kind As Long
     Value As Long
     Modifier As Long
-    Suffix As Long
     IsIntrinsic As Boolean
     NameToken As Long
     TypeFirstToken As Long
@@ -83,6 +82,7 @@ Private Type ParserState
     WhileDepth As Long
     ForDepth As Long
     NextPending As Boolean
+    CancelRemaining As Long
 End Type
 
 ' Grows candidate storage without publishing incomplete syntax.
@@ -123,6 +123,17 @@ Failed:
 End Function
 
 ' Reads a bounded token classification with an EOF sentinel.
+' Counts inspected tokens/nodes without exposing partial syntax or changing Err.
+Private Function Checkpoint(ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByRef D As ParseDiagnostic) As Boolean
+    If D.Code <> 0 Then Exit Function
+    If S.CancelRemaining = 0 Then
+        If ThreadPrimitives.StopRequested() Then Checkpoint = Reject(T, S, D, SourceScanner.Cancelled, 0): Exit Function
+        S.CancelRemaining = 256
+    End If
+    S.CancelRemaining = S.CancelRemaining - 1
+    Checkpoint = True
+End Function
+
 Private Function KindAt(ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByVal Ahead As Long) As Long
     Dim Index As Long
     On Error GoTo Failed
@@ -180,15 +191,17 @@ Failed:
 End Function
 
 ' Skips empty logical lines without consuming the EOF token.
-Private Sub SkipLines(ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState)
+Private Function SkipLines(ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByRef D As ParseDiagnostic) As Boolean
     On Error GoTo Failed
     Do While KindAt(T, S, 0) = SourceScanner.NewlineToken
+        If Not Checkpoint(T, S, D) Then Exit Function
         S.Position = S.Position + 1
     Loop
-    Exit Sub
+    SkipLines = True
+    Exit Function
 Failed:
     Err.Raise Err.Number
-End Sub
+End Function
 
 ' Retains an identifier token; member names may use ordinary reserved words.
 Private Function ReadName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Member As Boolean) As Long
@@ -213,6 +226,7 @@ Private Function NewNode(ByRef T() As SourceScanner.SourceToken, ByRef N() As Sy
     Dim Capacity As Long
     Dim Index As Long
     On Error GoTo Failed
+    If Not Checkpoint(T, S, D) Then Exit Function
     If S.NodeCount = 2147483647 Then Reject T, S, D, 4, 5: Exit Function
     If S.NodeCount = S.Capacity Then
         If S.Capacity > 1073741823 Then
@@ -287,27 +301,6 @@ Failed:
     Err.Raise Err.Number
 End Function
 
-' Consumes only adjacent admitted type suffixes and returns their scalar type code.
-Private Function ScalarSuffix(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState) As Long
-    Dim Code As Long
-    Dim Result As Long
-    On Error GoTo Failed
-    Code = CodeAt(B, T, S, 0)
-    If Code = SyntaxTokens.SymPercent Then Result = SyntaxTokens.KwInteger
-    If Code = SyntaxTokens.SymAmpersand Then Result = SyntaxTokens.KwLong
-    If Code = SyntaxTokens.SymCaret Then Result = SyntaxTokens.KwLongLong
-    If Code = SyntaxTokens.SymDollar Then Result = SyntaxTokens.KwString
-    If Code = SyntaxTokens.SymBang Then Result = SyntaxTokens.KwSingle
-    If Code = SyntaxTokens.SymHash Then Result = SyntaxTokens.KwDouble
-    If Result = 0 Or S.Position < 1 Then Exit Function
-    If T(S.Position - 1).ByteStart + T(S.Position - 1).ByteLength <> T(S.Position).ByteStart Then Exit Function
-    S.Position = S.Position + 1
-    ScalarSuffix = Result
-    Exit Function
-Failed:
-    Err.Raise Err.Number
-End Function
-
 ' Rejects dots embedded in decoded type-name components, which would erase qualification boundaries.
 Private Function TypeComponent(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Index As Long) As Boolean
     Dim Position As Long
@@ -316,6 +309,7 @@ Private Function TypeComponent(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     Position = T(Index).ByteStart
     Finish = Position + T(Index).ByteLength
     Do While Position < Finish
+        If Not Checkpoint(T, S, D) Then Exit Function
         If B(Position) = 46 Then TypeComponent = Reject(T, S, D, 3, 40): Exit Function
         Position = Position + 1
     Loop
@@ -326,7 +320,7 @@ Failed:
 End Function
 
 ' Retains one scalar or qualified nominal type spelling for declarations and construction.
-Private Function ReadTypeName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Node As Long, ByVal Suffix As Long) As Boolean
+Private Function ReadTypeName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Node As Long) As Boolean
     Dim Start As Long
     Dim Code As Long
     Dim NameIndex As Long
@@ -340,14 +334,12 @@ Private Function ReadTypeName(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If NameIndex < 0 Then Exit Function
         If TypeComponent(B, T, S, D, NameIndex) = False Then Exit Function
         Do While CodeAt(B, T, S, 0) = SyntaxTokens.SymDot
+            If Not Checkpoint(T, S, D) Then Exit Function
             S.Position = S.Position + 1
             NameIndex = ReadName(B, T, S, D, True)
             If NameIndex < 0 Then Exit Function
             If TypeComponent(B, T, S, D, NameIndex) = False Then Exit Function
         Loop
-    End If
-    If Suffix <> 0 Then
-        If Code <> Suffix Or S.Position <> Start + 1 Then ReadTypeName = Reject(T, S, D, 2, 9): Exit Function
     End If
     N(Node - 1).TypeFirstToken = Start
     N(Node - 1).TypeLastToken = S.Position - 1
@@ -357,18 +349,14 @@ Failed:
     Err.Raise Err.Number
 End Function
 
-' Checks As and authoritative suffix assertions before reading the shared type spelling.
-Private Function ReadType(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Node As Long, ByVal Suffix As Long) As Boolean
+' Requires an explicit As clause before reading the shared type spelling.
+Private Function ReadType(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Node As Long) As Boolean
     On Error GoTo Failed
-    N(Node - 1).Suffix = Suffix
-    If CodeAt(B, T, S, 0) <> SyntaxTokens.KwAs Then
-        If Suffix = 0 Then ReadType = Reject(T, S, D, 2, 8): Exit Function
-        ReadType = True: Exit Function
-    End If
+    If CodeAt(B, T, S, 0) <> SyntaxTokens.KwAs Then ReadType = Reject(T, S, D, 2, 8): Exit Function
     If RequireSpace(T, S, D) = False Then Exit Function
     S.Position = S.Position + 1
     If RequireSpace(T, S, D) = False Then Exit Function
-    ReadType = ReadTypeName(B, T, N, S, D, Node, Suffix)
+    ReadType = ReadTypeName(B, T, N, S, D, Node)
     Exit Function
 Failed:
     Err.Raise Err.Number
@@ -392,16 +380,15 @@ Private Function ParseName(ByRef B() As Byte, ByRef T() As SourceScanner.SourceT
     Node = NewNode(T, N, S, D, NameNode, Start)
     If Node = 0 Then Exit Function
     N(Node - 1).NameToken = NameIndex
-    N(Node - 1).Suffix = ScalarSuffix(B, T, S)
     FinishNode T, N, S, Node
     Do While CodeAt(B, T, S, 0) = SyntaxTokens.SymDot
+        If Not Checkpoint(T, S, D) Then Exit Function
         S.Position = S.Position + 1
         NameIndex = ReadName(B, T, S, D, True)
         If NameIndex < 0 Then Exit Function
         Member = NewNode(T, N, S, D, MemberNode, Start)
         If Member = 0 Then Exit Function
         N(Member - 1).NameToken = NameIndex
-        N(Member - 1).Suffix = ScalarSuffix(B, T, S)
         AddChild N, Member, Node
         Node = Member
         FinishNode T, N, S, Node
@@ -419,6 +406,7 @@ Private Function CallArguments(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     If Expect(B, T, S, D, SyntaxTokens.SymOpen) = False Then Exit Function
     If CodeAt(B, T, S, 0) <> SyntaxTokens.SymClose Then
         Do
+            If Not Checkpoint(T, S, D) Then Exit Function
             Argument = ParseExpression(B, T, N, S, D, 1)
             If Argument = 0 Then Exit Function
             AddChild N, Node, Argument
@@ -468,6 +456,7 @@ Private Function ParsePostfix(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Node = ParseName(B, T, N, S, D)
     If Node = 0 Then Exit Function
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         Code = CodeAt(B, T, S, 0)
         If Code = SyntaxTokens.SymOpen Then
             Child = Node
@@ -483,7 +472,6 @@ Private Function ParsePostfix(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
             Node = NewNode(T, N, S, D, MemberNode, Start)
             If Node = 0 Then Exit Function
             N(Node - 1).NameToken = NameIndex
-            N(Node - 1).Suffix = ScalarSuffix(B, T, S)
             AddChild N, Node, Child
         Else
             Exit Do
@@ -504,14 +492,14 @@ Private Function OperatorRank(ByVal Code As Long) As Long
     If Code = SyntaxTokens.KwIs Or Code = SyntaxTokens.KwIsNot Then OperatorRank = 4
     If Code = SyntaxTokens.SymAmpersand Then OperatorRank = 5
     If Code = SyntaxTokens.SymPlus Or Code = SyntaxTokens.SymMinus Then OperatorRank = 6
-    If Code = SyntaxTokens.SymStar Or Code = SyntaxTokens.SymSlash Then OperatorRank = 7
+    If Code = SyntaxTokens.SymStar Or Code = SyntaxTokens.SymSlash Then OperatorRank = 9
     If Code = SyntaxTokens.SymBackslash Then OperatorRank = 8
-    If Code = SyntaxTokens.KwMod Then OperatorRank = 9
+    If Code = SyntaxTokens.KwMod Then OperatorRank = 7
     If Code = SyntaxTokens.SymCaret Then OperatorRank = 11
 End Function
 
 ' Parses literal, grouped and unary primaries with retained source spelling.
-Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic) As Long
+Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal OperandMinimum As Long) As Long
     Dim Start As Long
     Dim Node As Long
     Dim Child As Long
@@ -530,7 +518,7 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If Not RequireSpace(T, S, D) Then Exit Function
         Node = NewNode(T, N, S, D, NewObjectNode, Start)
         If Node = 0 Then Exit Function
-        If Not ReadTypeName(B, T, N, S, D, Node, 0) Then Exit Function
+        If Not ReadTypeName(B, T, N, S, D, Node) Then Exit Function
     ElseIf Code = SyntaxTokens.KwNothing Then
         S.Position = S.Position + 1
         Node = NewNode(T, N, S, D, NothingNode, Start)
@@ -541,6 +529,8 @@ Private Function ParsePrimary(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
         If Node = 0 Then Exit Function
         N(Node - 1).Value = Code
         Minimum = 10
+        ' A signed exponent must not absorb the next left-associative power.
+        If OperandMinimum > Minimum Then Minimum = OperandMinimum
         If Code = SyntaxTokens.KwNot Then
             Minimum = 3
             If RequireSpace(T, S, D) = False Then Exit Function
@@ -601,9 +591,10 @@ Private Function ParseExpression(ByRef B() As Byte, ByRef T() As SourceScanner.S
     On Error GoTo Failed
     If EnterSyntax(T, S, D) = False Then Exit Function
     If Minimum > 3 And CodeAt(B, T, S, 0) = SyntaxTokens.KwNot Then Reject T, S, D, 2, 12: Exit Function
-    LeftNode = ParsePrimary(B, T, N, S, D)
+    LeftNode = ParsePrimary(B, T, N, S, D, Minimum)
     If LeftNode = 0 Then Exit Function
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         Code = CodeAt(B, T, S, 0)
         Rank = OperatorRank(Code)
         If Rank = 0 Or Rank < Minimum Then Exit Do
@@ -618,11 +609,7 @@ Private Function ParseExpression(ByRef B() As Byte, ByRef T() As SourceScanner.S
         If Rank <= 2 Or Code = SyntaxTokens.KwMod Then
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
-        If Code = SyntaxTokens.SymCaret Then
-            RightNode = ParseExpression(B, T, N, S, D, Rank)
-        Else
-            RightNode = ParseExpression(B, T, N, S, D, Rank + 1)
-        End If
+        RightNode = ParseExpression(B, T, N, S, D, Rank + 1)
         If RightNode = 0 Then Exit Function
         Node = NewNode(T, N, S, D, BinaryNode, N(LeftNode - 1).FirstToken)
         If Node = 0 Then Exit Function
@@ -687,30 +674,29 @@ Private Function ParseVariables(ByRef B() As Byte, ByRef T() As SourceScanner.So
     Dim Value As Long
     Dim NameIndex As Long
     Dim Kind As Long
-    Dim Suffix As Long
     Dim Shape As Long
     On Error GoTo Failed
     Kind = VariableNode
     If Constant Then Kind = ConstantNode
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         Start = S.Position
         If CodeAt(B, T, S, -1) <> SyntaxTokens.SymComma Then
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
         NameIndex = ReadName(B, T, S, D, False)
         If NameIndex < 0 Then Exit Function
-        Suffix = ScalarSuffix(B, T, S)
         Node = NewNode(T, N, S, D, Kind, Start)
         If Node = 0 Then Exit Function
         N(Node - 1).NameToken = NameIndex
         N(Node - 1).Modifier = Visibility
         If CodeAt(B, T, S, 0) = SyntaxTokens.SymOpen Then
-            If Constant Or Suffix <> 0 Then Reject T, S, D, 2, 15: Exit Function
+            If Constant Then Reject T, S, D, 2, 15: Exit Function
             Shape = ParseArrayShape(B, T, N, S, D)
             If Shape = 0 Then Exit Function
             AddChild N, Node, Shape
         End If
-        If ReadType(B, T, N, S, D, Node, Suffix) = False Then Exit Function
+        If ReadType(B, T, N, S, D, Node) = False Then Exit Function
         If CodeAt(B, T, S, 0) = SyntaxTokens.SymEqual Then
             S.Position = S.Position + 1
             Value = ParseExpression(B, T, N, S, D, 1)
@@ -744,7 +730,7 @@ Failed:
 End Function
 
 ' Looks for an adjacent indexed assignment while preserving grouped no-Call arguments.
-Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByVal ExplicitLet As Boolean) As Boolean
+Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef S As ParserState, ByVal ExplicitLet As Boolean, ByRef D As ParseDiagnostic) As Boolean
     Dim Ahead As Long
     Dim Depth As Long
     Dim Code As Long
@@ -753,8 +739,8 @@ Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.S
     If CodeAt(B, T, S, 0) <> SyntaxTokens.KwMe And SyntaxTokens.IsIdentifierToken(B, T, S.Position, S.TokenCount, False) = False Then Exit Function
     Ahead = 1
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         Code = CodeAt(B, T, S, Ahead)
-        If Code = SyntaxTokens.SymPercent Or Code = SyntaxTokens.SymAmpersand Or Code = SyntaxTokens.SymCaret Or Code = SyntaxTokens.SymBang Or Code = SyntaxTokens.SymHash Or Code = SyntaxTokens.SymDollar Then Ahead = Ahead + 1
         Code = CodeAt(B, T, S, Ahead)
         If Code = SyntaxTokens.SymDot Then
             Kind = KindAt(T, S, Ahead + 1)
@@ -766,6 +752,7 @@ Private Function AssignmentAhead(ByRef B() As Byte, ByRef T() As SourceScanner.S
             End If
             Depth = 0
             Do
+                If Not Checkpoint(T, S, D) Then Exit Function
                 Kind = KindAt(T, S, Ahead)
                 If Kind = SourceScanner.NewlineToken Or Kind = SourceScanner.EndToken Then Exit Function
                 Code = CodeAt(B, T, S, Ahead)
@@ -899,7 +886,7 @@ Private Function ParseStatement(ByRef B() As Byte, ByRef T() As SourceScanner.So
             S.Position = S.Position + 1
             If RequireSpace(T, S, D) = False Then Exit Function
         End If
-        If ExplicitCall = False And AssignmentAhead(B, T, S, ExplicitLet) Then
+        If ExplicitCall = False And AssignmentAhead(B, T, S, ExplicitLet, D) Then
             Target = ParsePostfix(B, T, N, S, D)
         Else
             Target = ParseName(B, T, N, S, D)
@@ -928,6 +915,7 @@ Private Function ParseStatement(ByRef B() As Byte, ByRef T() As SourceScanner.So
             ElseIf StatementEnd(B, T, S) = False Then
                 If RequireSpace(T, S, D) = False Then Exit Function
                 Do
+                    If Not Checkpoint(T, S, D) Then Exit Function
                     Value = ParseExpression(B, T, N, S, D, 1)
                     If Value = 0 Then Exit Function
                     AddChild N, Node, Value
@@ -949,6 +937,7 @@ Private Function ParseStatementLine(ByRef B() As Byte, ByRef T() As SourceScanne
     Dim Node As Long
     On Error GoTo Failed
     Do
+        If Not Checkpoint(T, S, D) Then Exit Function
         If Inline And (CodeAt(B, T, S, 0) = SyntaxTokens.KwDo Or CodeAt(B, T, S, 0) = SyntaxTokens.KwWhile Or CodeAt(B, T, S, 0) = SyntaxTokens.KwFor Or CodeAt(B, T, S, 0) = SyntaxTokens.KwSyncLock) Then ParseStatementLine = Reject(T, S, D, 2, 21): Exit Function
         Node = ParseStatement(B, T, N, S, D)
         If Node = 0 Then Exit Function
@@ -977,7 +966,8 @@ Private Function ParseBody(ByRef B() As Byte, ByRef T() As SourceScanner.SourceT
     On Error GoTo Failed
     If EnterSyntax(T, S, D) = False Then Exit Function
     Do
-        SkipLines T, S
+        If Not Checkpoint(T, S, D) Then Exit Function
+        If Not SkipLines(T, S, D) Then Exit Function
         Code = CodeAt(B, T, S, 0)
         If KindAt(T, S, 0) = SourceScanner.EndToken Or Code = SyntaxTokens.KwEnd Or Code = SyntaxTokens.KwElse Or Code = SyntaxTokens.KwElseIf Or Code = SyntaxTokens.KwLoop Or Code = SyntaxTokens.KwWend Or Code = SyntaxTokens.KwNext Then Exit Do
         IsLabel = KindAt(T, S, 0) = SourceScanner.NumberToken
@@ -1282,13 +1272,13 @@ Private Function ParseParameters(ByRef B() As Byte, ByRef T() As SourceScanner.S
     Dim Node As Long
     Dim NameIndex As Long
     Dim Mode As Long
-    Dim Suffix As Long
     Dim Shape As Long
     Dim Code As Long
     On Error GoTo Failed
     S.Position = S.Position + 1
     If CodeAt(B, T, S, 0) <> SyntaxTokens.SymClose Then
         Do
+            If Not Checkpoint(T, S, D) Then Exit Function
             Start = S.Position
             Mode = SyntaxTokens.KwByRef
             Code = CodeAt(B, T, S, 0)
@@ -1299,19 +1289,17 @@ Private Function ParseParameters(ByRef B() As Byte, ByRef T() As SourceScanner.S
             End If
             NameIndex = ReadName(B, T, S, D, False)
             If NameIndex < 0 Then Exit Function
-            Suffix = ScalarSuffix(B, T, S)
             Node = NewNode(T, N, S, D, ParameterNode, Start)
             If Node = 0 Then Exit Function
             N(Node - 1).NameToken = NameIndex
             N(Node - 1).Modifier = Mode
             If CodeAt(B, T, S, 0) = SyntaxTokens.SymOpen Then
-                If Suffix <> 0 Then Reject T, S, D, 2, 15: Exit Function
                 Shape = ParseArrayShape(B, T, N, S, D)
                 If Shape = 0 Then Exit Function
                 If N(Shape - 1).Value <> 2 Then Reject T, S, D, 2, 24: Exit Function
                 AddChild N, Node, Shape
             End If
-            If ReadType(B, T, N, S, D, Node, Suffix) = False Then Exit Function
+            If ReadType(B, T, N, S, D, Node) = False Then Exit Function
             FinishNode T, N, S, Node
             AddChild N, Parent, Node
             If CodeAt(B, T, S, 0) <> SyntaxTokens.SymComma Then Exit Do
@@ -1359,7 +1347,6 @@ Private Function ParseProcedure(ByRef B() As Byte, ByRef T() As SourceScanner.So
     Dim Start As Long
     Dim NameIndex As Long
     Dim Kind As Long
-    Dim Suffix As Long
     Dim Node As Long
     Dim Body As Long
     On Error GoTo Failed
@@ -1372,7 +1359,6 @@ Private Function ParseProcedure(ByRef B() As Byte, ByRef T() As SourceScanner.So
     If RequireSpace(T, S, D) = False Then Exit Function
     NameIndex = ReadName(B, T, S, D, False)
     If NameIndex < 0 Then Exit Function
-    If Kind = FunctionNode Then Suffix = ScalarSuffix(B, T, S)
     Node = NewNode(T, N, S, D, Kind, Start)
     If Node = 0 Then Exit Function
     N(Node - 1).NameToken = NameIndex
@@ -1382,13 +1368,14 @@ Private Function ParseProcedure(ByRef B() As Byte, ByRef T() As SourceScanner.So
         If ParseParameters(B, T, N, S, D, Node) = False Then Exit Function
     End If
     If Kind = FunctionNode Then
-        If ReadType(B, T, N, S, D, Node, Suffix) = False Then Exit Function
+        If ReadType(B, T, N, S, D, Node) = False Then Exit Function
     End If
     If EndLine(T, S, D) = False Then Exit Function
-    SkipLines T, S
+    If Not SkipLines(T, S, D) Then Exit Function
     Do While CodeAt(B, T, S, 0) = SyntaxTokens.KwAttribute
+        If Not Checkpoint(T, S, D) Then Exit Function
         If ParsePrimitiveAttribute(B, T, N, S, D, Node) = False Then Exit Function
-        SkipLines T, S
+        If Not SkipLines(T, S, D) Then Exit Function
     Loop
     Body = NewNode(T, N, S, D, BodyNode, S.Position)
     If Body = 0 Then Exit Function
@@ -1419,7 +1406,6 @@ Private Function ParseRecord(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim Shape As Long
     Dim FieldCount As Long
     Dim NameIndex As Long
-    Dim Suffix As Long
     On Error GoTo Failed
     Start = S.Position
     S.Position = S.Position + 1
@@ -1433,23 +1419,22 @@ Private Function ParseRecord(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If CodeAt(B, T, S, 0) = SyntaxTokens.KwAs Then ParseRecord = Reject(T, S, D, 3, 28): Exit Function
     If EndLine(T, S, D) = False Then Exit Function
     Do
-        SkipLines T, S
+        If Not Checkpoint(T, S, D) Then Exit Function
+        If Not SkipLines(T, S, D) Then Exit Function
         If CodeAt(B, T, S, 0) = SyntaxTokens.KwEnd Then Exit Do
         If KindAt(T, S, 0) = SourceScanner.EndToken Then ParseRecord = Reject(T, S, D, 2, 29): Exit Function
         Start = S.Position
         NameIndex = ReadName(B, T, S, D, False)
         If NameIndex < 0 Then Exit Function
-        Suffix = ScalarSuffix(B, T, S)
         Field = NewNode(T, N, S, D, FieldNode, Start)
         If Field = 0 Then Exit Function
         N(Field - 1).NameToken = NameIndex
         If CodeAt(B, T, S, 0) = SyntaxTokens.SymOpen Then
-            If Suffix <> 0 Then ParseRecord = Reject(T, S, D, 2, 15): Exit Function
             Shape = ParseArrayShape(B, T, N, S, D)
             If Shape = 0 Then Exit Function
             AddChild N, Field, Shape
         End If
-        If ReadType(B, T, N, S, D, Field, Suffix) = False Then Exit Function
+        If ReadType(B, T, N, S, D, Field) = False Then Exit Function
         If CodeAt(B, T, S, 0) = SyntaxTokens.SymEqual Then ParseRecord = Reject(T, S, D, 2, 30): Exit Function
         FinishNode T, N, S, Field
         AddChild N, Node, Field
@@ -1483,7 +1468,7 @@ End Function
 Private Function ParseEnvelope(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SyntaxNode, ByRef S As ParserState, ByRef D As ParseDiagnostic, ByVal Root As Long) As Boolean
     Dim HeaderLine As Long
     On Error GoTo Failed
-    SkipLines T, S
+    If Not SkipLines(T, S, D) Then Exit Function
     HeaderLine = T(S.Position).Line
     If Expect(B, T, S, D, SyntaxTokens.KwUbe) = False Then Exit Function
     If RequireSpace(T, S, D) = False Then Exit Function
@@ -1502,7 +1487,7 @@ Private Function ParseEnvelope(ByRef B() As Byte, ByRef T() As SourceScanner.Sou
     End If
     If T(S.Position - 1).Line <> HeaderLine Then ParseEnvelope = Reject(T, S, D, 2, 32): Exit Function
     If EndLine(T, S, D) = False Then Exit Function
-    SkipLines T, S
+    If Not SkipLines(T, S, D) Then Exit Function
     HeaderLine = T(S.Position).Line
     If Expect(B, T, S, D, SyntaxTokens.KwAttribute) = False Then Exit Function
     If RequireSpace(T, S, D) = False Then Exit Function
@@ -1533,7 +1518,8 @@ Private Function ParseModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     If Root = 0 Then Exit Function
     If ParseEnvelope(B, T, N, S, D, Root) = False Then Exit Function
     Do
-        SkipLines T, S
+        If Not Checkpoint(T, S, D) Then Exit Function
+        If Not SkipLines(T, S, D) Then Exit Function
         If KindAt(T, S, 0) = SourceScanner.EndToken Then Exit Do
         Start = S.Position
         Code = CodeAt(B, T, S, 0)
@@ -1613,6 +1599,7 @@ Private Function ValidateTokens(ByRef B() As Byte, ByRef T() As SourceScanner.So
     Probe = T(Actual - 1).Kind
     Index = 0
     Do While Index < S.TokenCount
+        If Not Checkpoint(T, S, D) Then Exit Function
         S.Position = Index
         If T(Index).Kind < SourceScanner.WordToken Or T(Index).Kind > SourceScanner.EndToken Then ValidateTokens = Reject(T, S, D, 2, 39): Exit Function
         If T(Index).ByteStart < LastEnd Or T(Index).ByteLength < 0 Or T(Index).ByteStart > Length Then ValidateTokens = Reject(T, S, D, 2, 39): Exit Function
@@ -1651,6 +1638,7 @@ Public Function TryParseModule(ByRef Source() As Byte, ByRef Tokens() As SourceS
     State.TokenCount = TokenCount
     If ValidateTokens(Source, Tokens, State, Diagnostic) = False Then Exit Function
     If ParseModule(Source, Tokens, Candidate, State, Diagnostic) = False Then Exit Function
+    If Diagnostic.Code <> 0 Then Exit Function
     Nodes = Candidate
     NodeCount = State.NodeCount
     RootNode = 1

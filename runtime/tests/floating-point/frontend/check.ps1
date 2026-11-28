@@ -2,7 +2,7 @@ param(
  [Parameter(Mandatory=$true)][string]$SeedExe,
  [string]$Clang='C:\Program Files\LLVM\bin\clang.exe',
  [string]$CompilerExe='',
- [string[]]$Fixtures=@('ScalarBinding','StringBinding','ConstantBinding','RoundedDivision','WorkerBinding','OperatorPrecedence','FiniteFailures','PowerBinding','AggregateBinding')
+ [string[]]$Fixtures=@('ScalarBinding','StringBinding','ConstantBinding','RoundedDivision','WorkerBinding','OperatorPrecedence','FiniteFailures','PowerBinding','AggregateBinding','NumericSuffix')
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
@@ -61,7 +61,7 @@ foreach($name in $Fixtures){
   $manifest=Join-Path $folder 'Probe.UBE'
   $exe=Join-Path $folder 'Probe.exe'
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot ($name+'.bas')) -Destination $source
-  [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nOptimization = `"$level`"`r`nSource = `"$name.bas`"`r`n",$encoding)
+  [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nDebugInformation = `"None`"`r`nStartup = `"Main`"`r`nOptimization = `"$level`"`r`nSource = `"$name.bas`"`r`n",$encoding)
   $output=Run $CompilerExe @('--build',$manifest,$exe,'--clang',$Clang)
   if($output -notmatch '(?m)^BUILD OK\r?$'){throw "Build marker missing: $name O$level"}
   $null=Run $exe @()
@@ -88,10 +88,32 @@ foreach($name in @('SuffixConflict','FloatingLogical','RoundedZero','ConstantZer
  Copy-Item -LiteralPath (Join-Path $PSScriptRoot ($name+'.bas')) -Destination $folder
  $manifest=Join-Path $folder 'Probe.UBE'
  $ir=Join-Path $folder 'retained.ll'
- [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nStartup = `"Main`"`r`nSource = `"$name.bas`"`r`n",$encoding)
+ [IO.File]::WriteAllText($manifest,"UBE-Project 1`r`nName = `"Probe`"`r`nKind = `"Exe`"`r`nDebugInformation = `"None`"`r`nStartup = `"Main`"`r`nSource = `"$name.bas`"`r`n",$encoding)
  [IO.File]::WriteAllText($ir,'retained',$encoding)
  $output=Run $CompilerExe @('--emit-llvm',$manifest,$ir) 1
  if($output -notmatch 'E_LOAD|E_BIND|E_COMPILE' -or [IO.File]::ReadAllText($ir) -cne 'retained'){throw "Invalid rejection/publication: $name"}
  Write-Output "PASS $name rejected; destination preserved"
+}
+# Identifier suffixes are forbidden even when they agree with an explicit As type.
+$invalidSuffixes=New-Object Collections.Generic.List[object]
+foreach($suffix in @('$','%','&','&&','^','!','#','@')){
+ $invalidSuffixes.Add(@{Name=('suffix-declaration-'+$invalidSuffixes.Count);Body=('Dim Value'+$suffix+' As Long')})
+ $invalidSuffixes.Add(@{Name=('suffix-use-'+$invalidSuffixes.Count);Body=('Dim Value As Long'+[Environment]::NewLine+'Value'+$suffix+' = 1')})
+}
+$invalidSuffixes.Add(@{Name='old-longlong-suffix';Body='Dim Value As LongLong = 2^'})
+$invalidSuffixes.Add(@{Name='missing-as';Body='Dim Value'})
+foreach($case in $invalidSuffixes){
+ $folder=Join-Path $evidence $case.Name
+ $null=New-Item -ItemType Directory -Path $folder
+ $source='UBE SOURCE 1 MODULE'+[Environment]::NewLine+'Attribute UBE_Name = "RejectedSuffix"'+[Environment]::NewLine+'Public Function Main() As Long'+[Environment]::NewLine+$case.Body+[Environment]::NewLine+'End Function'+[Environment]::NewLine
+ [IO.File]::WriteAllText((Join-Path $folder 'Probe.bas'),$source,$encoding)
+ $manifest=Join-Path $folder 'Probe.UBE'
+ $lines=@('UBE-Project 1','Name = "RejectedSuffix"','Kind = "Exe"','DebugInformation = "None"','Startup = "Main"','Source = "Probe.bas"')
+ [IO.File]::WriteAllText($manifest,($lines -join [Environment]::NewLine)+[Environment]::NewLine,$encoding)
+ $ir=Join-Path $folder 'retained.ll'
+ [IO.File]::WriteAllText($ir,'retained',$encoding)
+ $output=Run $CompilerExe @('--emit-llvm',$manifest,$ir) 1
+ if($output -notmatch 'E_LOAD|E_BIND|E_COMPILE' -or [IO.File]::ReadAllText($ir) -cne 'retained'){throw "Invalid suffix rejection/publication: $($case.Name)"}
+ Write-Output "PASS $($case.Name) rejected; destination preserved"
 }
 Write-Output "PASS floating frontend source fixtures. Compiler: $CompilerExe"

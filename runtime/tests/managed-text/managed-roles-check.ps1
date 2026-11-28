@@ -36,7 +36,7 @@ function Build([string]$IR,[string]$Exe,[string]$Level){
  Require ($r.ExitCode -eq 0) "Native build failed: $($r.Evidence)"
 }
 $nl=[Environment]::NewLine
-$files=@('std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/ByteText.bas','std-lib/src/portable/InvariantNumbers.bas','std-lib/src/portable/BinaryFloat.bas','std-lib/src/portable/BinaryFloatValues.bas','std-lib/src/portable/BinaryFloatMath.bas','std-lib/src/portable/BinaryFloatPower.bas','std-lib/src/portable/BinaryFloatText.bas','std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/Utf8.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ConditionalExpressions.bas','compiler/src/ConditionalSource.bas','compiler/src/ConstantValues.bas','compiler/src/ConstantText.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/PrimitiveRoles.bas','runtime/tests/managed-text/ManagedRolesProbe.bas')
+$files=@('std-lib/src/portable/FilePrimitives.bas','std-lib/src/portable/ThreadPrimitives.bas','std-lib/src/portable/ByteText.bas','std-lib/src/portable/InvariantNumbers.bas','std-lib/src/portable/BinaryFloat.bas','std-lib/src/portable/BinaryFloatValues.bas','std-lib/src/portable/BinaryFloatMath.bas','std-lib/src/portable/BinaryFloatPower.bas','std-lib/src/portable/BinaryFloatText.bas','std-lib/src/portable/BufferPrimitives.bas','std-lib/src/portable/Utf8.bas','compiler/src/SourceScanner.bas','compiler/src/SyntaxTokens.bas','compiler/src/SourceParser.bas','compiler/src/ConditionalExpressions.bas','compiler/src/ConditionalSource.bas','compiler/src/ConstantValues.bas','compiler/src/ConstantText.bas','compiler/src/ProjectSyntax.bas','compiler/src/DeclarationBinder.bas','compiler/src/PrimitiveRoles.bas','compiler/src/ManagedSourceAssets.bas','runtime/tests/managed-text/ManagedRolesProbe.bas')
 $manifest=@('UBE-Project 1','Name="PrimitiveTests"','Kind="Library"')
 foreach($file in $files){$leaf=[IO.Path]::GetFileName($file);Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $artifacts $leaf);$manifest+='Source="'+$leaf+'"'}
 $project=Join-Path $artifacts 'project.UBE'
@@ -52,7 +52,7 @@ $production=[IO.File]::ReadAllText($ir,$utf8)
 $managed=[IO.File]::ReadAllText((Join-Path $root 'std-lib/src/portable/ManagedPrimitives.bas'),$utf8)
 $text=[IO.File]::ReadAllText((Join-Path $root 'std-lib/src/portable/TextPrimitives.bas'),$utf8)
 $memory=[IO.File]::ReadAllText((Join-Path $root 'std-lib/src/portable/Memory.bas'),$utf8)
-$cases=@(@{Name='all authoritative declarations';First=$managed;Second=$text;Expected=@(38..48)+@(57,11)+@(49..55);Code=0;Reason=0})
+$cases=@(@{Name='ordinary copies cannot acquire collection control';First=$managed;Second=$text;Expected=@();Code=8;Reason=85})
 $roleNames=@('Managed.BeginCollection','Managed.EndCollection','Managed.SnapshotCounts','Managed.AllocationAt','Managed.RootAt','Managed.Mark','Managed.Marked','Managed.EdgeCount','Managed.EdgeAt','Managed.SealCollection','Managed.Reclaim','Text.ByteLength','Text.ScalarLength','Text.ReadByte','Text.Create','Text.WriteByte','Text.Publish','Text.Abandon')
 $roleNames+=@('Memory.Collect','Managed.Workspace')
 $blocks=@([regex]::Matches($managed+$nl+$text+$nl+$memory,'(?ms)^Public Intrinsic Function ([A-Za-z_][A-Za-z0-9_]*)\([^\r\n]*\).*?^End Function'))
@@ -64,7 +64,11 @@ for($i=0;$i -lt $roleNames.Count;$i++){
  $body=$selected[0].Value
  $procedure=$selected[0].Groups[1].Value
  $renamed=$body.Replace('Function '+$procedure+'(', 'Function Renamed(').Replace('Attribute '+$procedure+'.','Attribute Renamed.')
- $cases+=@{Name=($role+' explicit identity');First=(Module-Source $renamed);Second='';Expected=@(38+$i);Code=0;Reason=0}
+ if($role -in @('Managed.BeginCollection','Managed.EndCollection','Managed.SealCollection','Managed.Reclaim','Managed.Workspace')){
+  $cases+=@{Name=($role+' ordinary authority rejected');First=(Module-Source $renamed);Second='';Expected=@();Code=8;Reason=85}
+ }else{
+  $cases+=@{Name=($role+' explicit identity');First=(Module-Source $renamed);Second='';Expected=@(38+$i);Code=0;Reason=0}
+ }
  if($body -match '\(By(Ref|Val) '){
   $mode='Ref';if($Matches[1] -eq 'Ref'){$mode='Val'}
   $wrong=[regex]::Replace($body,'\(By(Ref|Val) ','(By'+$mode+' ',1)
@@ -100,6 +104,13 @@ $wrong=$managed.Replace('ByRef PriorError As Long','ByRef PriorError() As Long')
 $cases+=@{Name='error output cannot be array';First=$wrong;Second=$text;Expected=@();Code=3;Reason=5}
 $wrong=$text.Replace('ByVal Index As LongLong, ','')
 $cases+=@{Name='read and write missing argument';First=$managed;Second=$wrong;Expected=@();Code=3;Reason=5}
+$forged=Module-Source ('Public Intrinsic Function ReadLength(ByRef Value As String) As LongLong'+$nl+'Attribute ReadLength.UBE_Primitive = "Text.ByteLength"'+$nl+'End Function')
+$cases+=@{Name='forged support-domain metadata';First=$forged;Second='';Expected=@();Code=8;Reason=84}
+foreach($entry in @(@('Text.CandidateInfo',64),@('Text.ReadCandidateByte',65))){
+ $selected=@($blocks|Where-Object{$_.Value.Contains('"'+$entry[0]+'"')})
+ Require ($selected.Count -eq 1) ('Missing checked candidate role '+$entry[0])
+ $cases+=@{Name=$entry[0];First=(Module-Source $selected[0].Value);Second='';Expected=@($entry[1]);Code=0;Reason=0}
+}
 function Descriptor([string]$Name,[long[]]$Values){
  if($Values.Count -eq 0){return "@$Name = global {i64,i64,ptr,ptr} {i64 0,i64 -1,ptr null,ptr null}"+$nl}
  $cells=($Values|ForEach-Object{'i64 '+$_}) -join ','
@@ -128,12 +139,17 @@ foreach($level in @('O0','O2')){
  Require ($r.ExitCode -eq 0) "Managed primitive assertions failed $level exit $($r.ExitCode): $($r.Evidence); see cases.txt"
  Write-Output "PASS $level : $($cases.Count) managed/text role cases, exact IDs and unchanged failed role maps"
 }
-$negative=$combined.Replace('@expected0.data = global [20 x i64] [i64 38,','@expected0.data = global [20 x i64] [i64 39,')
+$control=0
+while($control -lt $cases.Count -and ($cases[$control].Code -ne 0 -or $cases[$control].Expected.Count -eq 0)){$control++}
+Require ($control -lt $cases.Count) 'Missing successful role fixture for negative control'
+$before='@expected'+$control+'.data = global [1 x i64] [i64 '+$cases[$control].Expected[0]+']'
+$after='@expected'+$control+'.data = global [1 x i64] [i64 '+($cases[$control].Expected[0]+1)+']'
+$negative=$combined.Replace($before,$after)
 Require ($negative -cne $combined) 'Missing role-ID negative-control substitution'
 $path=Join-Path $artifacts 'negative.ll'
 Write-Text $path $negative
 $exe=Join-Path $artifacts 'negative.exe'
 Build $path $exe 'O2'
 $r=Invoke-BoundedProcess $exe @()
-Require ($r.ExitCode -eq 8001) 'Changed expected role ID must fail assertion8/case1'
+Require ($r.ExitCode -eq (8000+$control+1)) 'Changed expected role ID must fail assertion8 at the selected case'
 Write-Output "PASS changed-role-ID oracle negative control. Evidence: $artifacts"

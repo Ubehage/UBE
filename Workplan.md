@@ -5,7 +5,31 @@ Owner-defined release requirements live in `Release-Requirements.md`; long-term
 sequencing lives in `project-docs/Roadmap.md`; module-specific work may use a
 nearer roadmap or progress file.
 
+## Owner-requested pause — 2026-11-28
+
+The owner requested stopping after the suffix issue to conserve agent usage.
+That issue is complete: LongLong numeric literals use `&&`, `^` exclusively
+denotes exponentiation, identifier suffixes are rejected, and declarations use
+`As datatype`. Strings are unchanged. Compiler/seed O0/O2 gates and documentation
+validation pass. Broader architecture work remains unfinished; resume from the
+dated handoff at the top of `compiler/Progress.md` and `compiler/Roadmap.md`.
+
+The current combined artifact and fresh seed are identified there. Two successive
+self-builds pass exact LLVM/timestamp-normalized native comparisons, and the
+already-running common gate finished with 1004 passing CLI assertions. No new
+unrelated work should be inferred from these results. First resume tasks are the
+debug API regression, remaining ordinary-library API isolation/acceptance, the
+strengthened primitive-authority test, and final concurrency/cancellation gates.
+Preserve all uncommitted work and new fixtures; no commit/push was requested.
+
 ## Status markers
+
+Completed focused owner request, 2026-11-28: fix If/ElseIf runtime-error
+continuation. Both emitters now select the False destination with Err retained;
+focused O0/O2 gates pass through the seed and final self-built compiler.
+Repeated self-build comparisons, 90 scanner groups and 1004 common conformance
+assertions pass. Updated compiler/seed locations and exact evidence are at the
+top of `compiler/Progress.md`. Broader architecture work remains paused.
 
 - `[ ]` not started
 - `[~]` in progress
@@ -39,6 +63,18 @@ bootstrap may remain sequential. The concrete architecture requirement is in
 
 ### Next compiler increment
 
+- [x] Align arithmetic grouping with the owner's 2026-11-28 decision to follow
+  VB6. Both ordinary parsers and conditional-expression grouping are corrected.
+  Multiplication/division bind tighter than integer division, then Mod;
+  exponentiation associates left to right. Native VB6 passed 12 focused runtime
+  assertions, including `8 * 5 Mod 3 = 1` and `2 ^ 3 ^ 2 = 64`. Corrected O0/O2
+  arithmetic, signed-power and conditional-expression gates pass, with numerical
+  library checks, successive self-build comparison, 1004 common conformance
+  assertions and the existing concurrency regression gate. The fresh seed also
+  needed the existing runtime's three missing Windows imports; native and import
+  parity gates now pass. Exact commands, artifacts and limits: compiler/Progress.md.
+  The owner subsequently requested corresponding language-reference and public documentation updates; that reconciliation is now part of this task.
+
 - [x] Make the compiler a checked-in UBE project and qualify direct compilation,
   as requested by the owner. The project now resides at compiler/Compiler.UBE;
   packaging resolves its sibling-library inputs. Prior direct-root builds are
@@ -70,6 +106,67 @@ bootstrap may remain sequential. The concrete architecture requirement is in
   68e264aa, with final focused controls and clause-by-clause acceptance recorded
   in compiler/LOOP-CONTROL.md. Manual examples and structural/logic gates pass;
   fresh browser rendering remains unverified due to automation access limits.
+
+### Architecture review follow-up — 2026-11-28
+
+- [~] Implement the owner's automatic standard-library discovery requirement.
+  An ordinary project lists its own sources; the compiler
+  uses the configured library location to resolve needed library declarations and
+  their dependencies automatically. The owner subsequently approved retaining
+  Compiler.UBE's explicit standard-library Source entries for bootstrap
+  compatibility. Library source edits must work without refreshing a generated
+  index; any future persistent index is an optional rebuildable cache. Qualify ordinary programs,
+  self-builds, source/package visibility, target selection and missing/ambiguous
+  dependency diagnostics. Preserve the separate validated runtime-support domain.
+- [~] Resolve the architecture review findings without treating known unsupported
+  features as newly promised implementations. The full review is in the local
+  Agent-ideas.md ledger; owner decisions are recorded in
+  project-docs/Architecture-Decisions.md.
+- [x] Preserve bounded native-tool diagnostics before cleanup. The focused public
+  CLI gate passes 43 assertions; original-compiler negative control, repeated
+  self-build, common conformance and concurrent-request regressions pass. Capture
+  allocation/read/close fault injection and same-process detail isolation remain
+  separate unqualified extensions; exact evidence is in compiler/Progress.md.
+- [x] Correct suffix-reference grammar, returned-array rank and obsolete conversion
+  failure guidance. Explicit derivation/consistency reviews pass; this does not
+  claim full grammar/parser conformance.
+- [x] Apply the owner's subsequent suffix decision: LongLong literals use `&&`,
+  `^` exclusively denotes exponentiation, and declarations require `As datatype`
+  instead of identifier type suffixes. Migrate seed, compiler, libraries, fixtures
+  and documentation together. Compact powers, numeric limits and obsolete-syntax
+  refusal pass O0/O2; seed lexical/parser and integer gates pass. Public documentation
+  validation passes; browser rendering was unavailable and is not claimed.
+- [x] Reconcile missing internal decision/evidence references and IDE completion
+  claims. Current decision register and DESIGN-derived open IDE workplan replace
+  the misleading state; absent historical proof remains explicitly unavailable.
+- [x] Report unavailable debug information explicitly to CLI and API consumers;
+  keep successful no-debug output distinct from actual debugger capability.
+  The focused 127-assertion CLI/API gate passes at O0/O2; combined-tree regression
+  qualification remains tracked in compiler/Progress.md.
+- [~] Extend cancellation across substantial compiler phases and native backend
+  execution, preserving ownership and distinguishing cancelled requests. Native
+  tool pre-launch/poll checks pass a focused O2 worker-stop and recovery gate;
+  the control without these checks fails its completion deadline. Emitter work
+  now checks stopping within 256 charges, with focused O0/O2 assertions passing;
+  frontend and full request diagnostic/publication qualification remain open.
+- [~] Enforce runtime value/collector invariants while retaining low-level byte
+  and native capabilities, following the owner's approved direction. Checked
+  String publication and specific support-only roles pass the focused O0/O2 gate;
+  combined compiler conformance passes. Final integration gates remain pending.
+- [~] Implement the owner-approved refusal of overlapping builds to one output;
+  focused lease/alias/cleanup, real replacement and mixed-process gates are passing.
+  Final integrated concurrent-request qualification remains pending;
+  existing atomic-publication tests alone do not qualify this new policy.
+- [~] Close Static initialization retry, shared-program library memory/ABI and
+  Currency/Decimal LongLong division contracts under the owner's decisions.
+  Unsupported language/library implementation remains separately scoped.
+- [x] Establish representative generated-program performance evidence and a
+  reproducible benchmark procedure, without inventing performance thresholds.
+  Five workloads pass independent O0/O2 correctness checks and five measured
+  repetitions; results and limits are in compiler/tests/performance/RESULTS.md.
+  Managed String scaling exposed retained garbage until explicit collection;
+  allocation-pressure scheduling now passes bounded-allocation, fault, graph,
+  rendezvous and thread gates. Post-fix timing is not yet measured.
 
 ### Managed text qualification
 

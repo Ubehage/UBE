@@ -1,7 +1,7 @@
 # UBE 1.0 conversion table
 
 **Status:** normative UBE 1.0 contract
-**Applies to:** implicit assignment, argument, return, and constant conversion
+**Applies to:** implicit assignment, argument, return, constant, and operator-required scalar conversion
 
 This table closes the conversion relationships approved in
 `v3-language-definition.md`. “Checked” means a known-invalid constant is a
@@ -62,6 +62,28 @@ that parse back to the same value in the original floating type. Signed zeros
 format as `0` and `-0`. Candidate selection and canonical fixed/scientific
 spelling follow [language-spec.md section 14](language-spec.md#14-conversion-arithmetic-and-comparison).
 These are numeric conversion rules; they do not change a String's stored text.
+
+## Integer division and remainder operand conversion
+
+Owner-confirmed on 2026-11-28: Currency and Decimal operands of `\` and `Mod`
+use the same checked LongLong domain already selected for Single and Double.
+If either operand is Currency, Decimal, Single, or Double, convert both original
+operands directly to LongLong and produce a LongLong result. Round fractional
+values to the nearest integer, ties to even, before checking the signed 64-bit
+range; do not introduce an intermediate floating or narrower integer type.
+This operator-specific conversion precedes common numeric result-family
+selection and does not legalize otherwise forbidden operand-type combinations.
+
+The ordinary left-to-right evaluation, evaluate-once and first-failure rules
+apply. A failed conversion prevents the arithmetic; a divisor that rounds to
+zero fails as division by zero. Division truncates toward zero; a nonzero
+remainder has the dividend's sign. LongLong minimum divided by -1 overflows;
+LongLong minimum `Mod -1` succeeds with zero. Success preserves existing Err.
+Known-invalid constant conversion or arithmetic is diagnosed during compilation,
+including in ordinary initializers and assignments. Runtime-dependent failure
+reports fresh FAIL and thread-local Err, with no usable result and no unfinished
+assignment commit. These requirements do not claim Currency/Decimal compiler
+support; current admission is in [bootstrap-profile.md](bootstrap-profile.md).
 
 ## Enums
 

@@ -224,7 +224,7 @@ function Symbol-Equals([string]$Symbol,[int]$Field,[string]$Expected,[string]$De
 
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$files = @('ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas','BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
+$files = @('ByteText.bas','InvariantNumbers.bas','BinaryFloat.bas','BinaryFloatValues.bas','BinaryFloatMath.bas','BinaryFloatPower.bas','BinaryFloatText.bas','BufferPrimitives.bas','FilePrimitives.bas','FileBytes.bas','Utf8.bas','ThreadPrimitives.bas') | ForEach-Object { Join-Path $coreDirectory $_ }
 $files += @('SourceScanner.bas','SyntaxTokens.bas','SourceParser.bas','ConditionalExpressions.bas','ConditionalSource.bas','ConstantValues.bas','ConstantText.bas','ProjectSyntax.bas','DeclarationBinder.bas') | ForEach-Object { Join-Path $compilerDirectory $_ }
 $files += Join-Path $PSScriptRoot 'DeclarationProbe.bas'
 $manifest = Copy-Fixtures 'library' $files '2' 'Library'
@@ -276,7 +276,7 @@ End Function
 Friend Function Echo(ByVal Incoming As Long, ByRef Result As Helper.Second, Values() As Byte) As Helper.Second
     Dim InputLocal As Byte
 End Function
-Private Function Narrow%() As Integer
+Private Function Narrow() As Integer
 End Function
 Public Function WrongBody() As Long
     WrongBody = NoSuchFunction()
@@ -359,7 +359,7 @@ $global = Find-Declaration $primary 'Global SharedValue' 'SharedValue' 3
 Symbol-Equals $hidden 6 108 'default Dim is private'
 Symbol-Equals $constant 6 108 'default Const is private'
 Symbol-Equals $global 6 107 'Global variable is public'
-$narrow = Find-Declaration $primary 'Function Narrow%' 'Narrow' 8
+$narrow = Find-Declaration $primary 'Function Narrow' 'Narrow' 8
 Symbol-Equals $narrow 7 155 'Integer declaration suffix retained'
 $local = Find-Declaration $primary 'Dim Value As Integer' 'Value' 3
 $label = Find-Declaration $primary 'Value:' 'Value' 28
@@ -379,7 +379,7 @@ $script:passed++
 $negative = @(
     @('duplicate local',"Sub Main()`r`nDim X As Long`r`nDim [x] As Long`r`nEnd Sub",1,0),
     @('parameter local duplicate',"Sub Main(ByVal X As Long)`r`nDim x As Long`r`nEnd Sub",1,0),
-    @('suffix duplicate',"Dim Value&`r`nDim value As Long",1,0),
+    @('case-insensitive duplicate',"Dim Value As Long`r`nDim value As Long",1,0),
     @('member kinds collide',"Type Value`r`nField As Long`r`nEnd Type`r`nDim Value As Long",1,0),
     @('duplicate field',"Type Item`r`nValue As Long`r`n[value] As Byte`r`nEnd Type",1,0),
     @('numeric label canonicalization',"Sub Test()`r`n010:`r`n10:`r`nEnd Sub",1,0),

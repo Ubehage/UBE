@@ -158,7 +158,7 @@ End Function
  foreach($level in @('0','2')){
   $appManifest=Join-Path $artifacts "Boolean$level.UBE"
   $appLines=@($lines|ForEach-Object{if($_ -eq 'Kind = "Library"'){'Kind = "Exe"'}else{$_}})
-  $appLines+=@('Startup = "Main"',('Optimization = "'+$level+'"'),'Source = "BooleanMain.bas"')
+  $appLines+=@('Startup = "Main"',('Optimization = "'+$level+'"'),'DebugInformation = "None"','Source = "BooleanMain.bas"')
   Write-Text $appManifest (($appLines -join $nl)+$nl)
   foreach($negative in @($false,$true)){
    $source=$main

@@ -147,7 +147,7 @@ End Function
 
 ' Accumulates a magnitude negatively so the full signed LongLong range is representable.
 Private Function AppendDigit(ByRef Accumulator As LongLong, ByVal Value As Long, ByVal Radix As Long) As Boolean
-    Dim Threshold As LongLong = -9223372036854775808^
+    Dim Threshold As LongLong = -9223372036854775808&&
     Threshold = (Threshold + Value) \ Radix
     If Accumulator < Threshold Then AppendDigit = RecordError(6): Exit Function
     Accumulator = (Accumulator * Radix) - Value
@@ -188,7 +188,7 @@ Private Function RoundedDecimal(ByRef Bytes() As Byte, ByRef Description As Numb
         Ordinal = Ordinal + 1
     Loop
     If RoundDigit > 5 Or (RoundDigit = 5 And (Sticky Or Magnitude Mod 2 <> 0)) Then
-        If Magnitude = -9223372036854775808^ Then RoundedDecimal = RecordError(6): Exit Function
+        If Magnitude = -9223372036854775808&& Then RoundedDecimal = RecordError(6): Exit Function
         Magnitude = Magnitude - 1
     End If
     Result = Magnitude
@@ -216,7 +216,7 @@ Public Function TryParseInteger(ByRef Bytes() As Byte, ByVal Offset As Long, ByV
         Loop
     End If
     If Not Description.Negative Then
-        If Result = -9223372036854775808^ Then TryParseInteger = RecordError(6): Exit Function
+        If Result = -9223372036854775808&& Then TryParseInteger = RecordError(6): Exit Function
         Result = -Result
     End If
     If Result < Minimum Or Result > Maximum Then TryParseInteger = RecordError(6): Exit Function

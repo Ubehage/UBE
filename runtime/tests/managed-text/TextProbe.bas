@@ -187,9 +187,9 @@ End Function
 Private Function Conversion() As Boolean
     Dim Value As String
     On Error GoTo Failed
-    Value = Text.FromInteger(-9223372036854775808^)
+    Value = Text.FromInteger(-9223372036854775808&&)
     If Value <> "-9223372036854775808" Then Exit Function
-    If Text.ToInteger(Value, -9223372036854775808^, 9223372036854775807^) <> -9223372036854775808^ Then Exit Function
+    If Text.ToInteger(Value, -9223372036854775808&&, 9223372036854775807&&) <> -9223372036854775808&& Then Exit Function
     If Text.FromBoolean(True) <> "True" Or Text.FromBoolean(False) <> "False" Then Exit Function
     If Text.ToInteger("2.5", -100, 100) <> 2 Then Exit Function
     If Text.ToInteger("3.5", -100, 100) <> 4 Then Exit Function
@@ -205,12 +205,12 @@ Private Function LanguageConversions() As Boolean
     Dim Number As LongLong
     Dim Flag As Boolean
     On Error GoTo Failed
-    Number = -9223372036854775808^
+    Number = -9223372036854775808&&
     Value = Number
     If Value <> "-9223372036854775808" Then Exit Function
     Number = 0
     Number = Value
-    If Number <> -9223372036854775808^ Then Exit Function
+    If Number <> -9223372036854775808&& Then Exit Function
     Flag = True
     Value = Flag
     If Value <> "True" Then Exit Function

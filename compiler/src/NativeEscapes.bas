@@ -30,10 +30,14 @@ End Function
 ' Charges receiver and graph traversal against the existing native planning work bound.
 Private Function Charge(ByRef Work As Long, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
     On Error GoTo Failed
+    If D.Code <> 0 Then Exit Function
     If Work >= 10000000 Then
         D.Code = 6
         D.Reason = 55
         Exit Function
+    End If
+    If Work Mod 256 = 0 Then
+        If ThreadPrimitives.StopRequested() Then D.Code = SourceScanner.Cancelled: D.Reason = 0: Exit Function
     End If
     Work = Work + 1
     Charge = True
@@ -187,6 +191,9 @@ Public Function TryAnalyzeEscapes(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     If ResizeNumbers(Queue, SymbolCount, False) = False Then GoTo StorageFailure
     If BuildEdges(N, A, E, NodeCount, Candidate, Heads, Nexts, Marked, Queue, Tail, Work, Diagnostic) = False Then Exit Function
     Do While Head < Tail
+        If Head Mod 256 = 0 Then
+            If ThreadPrimitives.StopRequested() Then Diagnostic.Code = SourceScanner.Cancelled: Diagnostic.Reason = 0: Exit Function
+        End If
         Symbol = Queue(Head)
         Head = Head + 1
         Argument = Heads(Symbol - 1)
@@ -198,6 +205,9 @@ Public Function TryAnalyzeEscapes(ByRef N() As SourceParser.SyntaxNode, ByRef A(
     Loop
     Argument = 1
     Do While Argument <= NodeCount
+        If Argument Mod 256 = 1 Then
+            If ThreadPrimitives.StopRequested() Then Diagnostic.Code = SourceScanner.Cancelled: Diagnostic.Reason = 0: Exit Function
+        End If
         If Candidate(Argument - 1).NeedsOwner And Candidate(Argument - 1).OwnerKind = InstanceOwner Then
             Diagnostic.Code = 8
             Diagnostic.Reason = 55

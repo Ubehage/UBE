@@ -13,6 +13,196 @@ Public Function NativeFileIR() As String
     NativeFileIR = NativeFileIR & FileMetadataIR()
     NativeFileIR = NativeFileIR & SystemIntrospectionIR()
     NativeFileIR = NativeFileIR & NamespaceOperationsIR()
+    NativeFileIR = NativeFileIR & NamedLeaseIR()
+End Function
+
+' Kernel named-object existence leases are nonrecursive, cross-session and released with their handles.
+Private Function NamedLeaseIR() As String
+    Dim Text As String
+    Text = Text & "declare dllimport ptr @CreateEventExW(ptr, ptr, i32, i32)" & vbCrLf
+    Text = Text & "declare dllimport void @SetLastError(i32)" & vbCrLf
+    Text = Text & "declare dllimport i32 @LCMapStringEx(ptr, i32, ptr, i32, ptr, i32, ptr, ptr, i64)" & vbCrLf
+    Text = Text & "@ube.lease.locale = private constant [1 x i16] zeroinitializer" & vbCrLf
+    Text = Text & "@ube.lease.prefix = private constant [18 x i16] [i16 71, i16 108, i16 111, i16 98, i16 97, i16 108, i16 92, i16 85, i16 66, i16 69, i16 46, i16 76, i16 101, i16 97, i16 115, i16 101, i16 46, i16 0]" & vbCrLf
+    Text = Text & "define { ptr, i32 } @ube.target.lease.create(ptr %name) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  call void @SetLastError(i32 0)" & vbCrLf
+    Text = Text & "  %handle = call ptr @CreateEventExW(ptr null, ptr %name, i32 1, i32 2)" & vbCrLf
+    Text = Text & "  %error = call i32 @GetLastError()" & vbCrLf
+    Text = Text & "  %first = insertvalue { ptr, i32 } zeroinitializer, ptr %handle, 0" & vbCrLf
+    Text = Text & "  %result = insertvalue { ptr, i32 } %first, i32 %error, 1" & vbCrLf
+    Text = Text & "  ret { ptr, i32 } %result" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.lease.acquire.pinned(ptr %ctx, ptr %key, ptr %token.out, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %outputs = call i1 @ube.path.outputs(ptr %ctx, ptr %key, ptr %key, ptr %token.out, ptr %failure)" & vbCrLf
+    Text = Text & "  br i1 %outputs, label %empty, label %failed" & vbCrLf
+    Text = Text & "empty:" & vbCrLf
+    Text = Text & "  %old = load atomic i64, ptr %token.out monotonic, align 8" & vbCrLf
+    Text = Text & "  %clear = icmp eq i64 %old, 0" & vbCrLf
+    Text = Text & "  br i1 %clear, label %reserve, label %invalid" & vbCrLf
+    Text = Text & "reserve:" & vbCrLf
+    Text = Text & "  %slot = call ptr @ube.resource.reserve(ptr %ctx)" & vbCrLf
+    Text = Text & "  %no.slot = icmp eq ptr %slot, null" & vbCrLf
+    Text = Text & "  br i1 %no.slot, label %memory.fail, label %identity" & vbCrLf
+    Text = Text & "identity:" & vbCrLf
+    Text = Text & "  %token = call i64 @ube.resource.token()" & vbCrLf
+    Text = Text & "  %exhausted = icmp eq i64 %token, 0" & vbCrLf
+    Text = Text & "  br i1 %exhausted, label %unreserve, label %allocate" & vbCrLf
+    Text = Text & "allocate:" & vbCrLf
+    Text = Text & "  %block = call ptr @ube.memory.new(ptr %ctx, i64 8192, i64 1)" & vbCrLf
+    Text = Text & "  %no.memory = icmp eq ptr %block, null" & vbCrLf
+    Text = Text & "  br i1 %no.memory, label %unreserve, label %prepare" & vbCrLf
+    Text = Text & "unreserve:" & vbCrLf
+    Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
+    Text = Text & "  br label %memory.fail" & vbCrLf
+    Text = Text & "prepare:" & vbCrLf
+    Text = Text & "  %block.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 2" & vbCrLf
+    Text = Text & "  store ptr %block, ptr %block.ptr" & vbCrLf
+    Text = Text & "  %scratch = getelementptr %ube.block, ptr %block, i64 1" & vbCrLf
+    Text = Text & "  %wide = getelementptr i8, ptr %scratch, i64 4096" & vbCrLf
+    Text = Text & "  %upper = getelementptr i8, ptr %scratch, i64 16384" & vbCrLf
+    Text = Text & "  %name = getelementptr i8, ptr %scratch, i64 32768" & vbCrLf
+    Text = Text & "  %length = call i32 @ube.path.decode(ptr %key, ptr %scratch, ptr %wide)" & vbCrLf
+    Text = Text & "  %valid.length = icmp sgt i32 %length, 0" & vbCrLf
+    Text = Text & "  br i1 %valid.length, label %normalize, label %bad.key" & vbCrLf
+    Text = Text & "normalize:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
+    Text = Text & "  %units = call i32 @LCMapStringEx(ptr @ube.lease.locale, i32 512, ptr %wide, i32 %length, ptr %upper, i32 4096, ptr null, ptr null, i64 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  %positive = icmp sgt i32 %units, 0" & vbCrLf
+    Text = Text & "  %bounded = icmp ule i32 %units, 4096" & vbCrLf
+    Text = Text & "  %mapped = and i1 %positive, %bounded" & vbCrLf
+    Text = Text & "  br i1 %mapped, label %compare, label %bad.key" & vbCrLf
+    Text = Text & "compare:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
+    Text = Text & "  %equivalent = call i32 @CompareStringOrdinal(ptr %wide, i32 %length, ptr %upper, i32 %units, i32 1)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  %same = icmp eq i32 %equivalent, 2" & vbCrLf
+    Text = Text & "  br i1 %same, label %hash, label %bad.key" & vbCrLf
+    Text = Text & "hash:" & vbCrLf
+    Text = Text & "  %index = phi i32 [ 0, %compare ], [ %next, %hash ]" & vbCrLf
+    Text = Text & "  %first = phi i64 [ 2166136261, %compare ], [ %next.first, %hash ]" & vbCrLf
+    Text = Text & "  %second = phi i64 [ 2246822519, %compare ], [ %next.second, %hash ]" & vbCrLf
+    Text = Text & "  %character = getelementptr i16, ptr %upper, i32 %index" & vbCrLf
+    Text = Text & "  %unit = load i16, ptr %character, align 2" & vbCrLf
+    Text = Text & "  %value = zext i16 %unit to i64" & vbCrLf
+    Text = Text & "  %first.product = mul i64 %first, 257" & vbCrLf
+    Text = Text & "  %first.sum = add i64 %first.product, %value" & vbCrLf
+    Text = Text & "  %next.first = urem i64 %first.sum, 4294967291" & vbCrLf
+    Text = Text & "  %second.product = mul i64 %second, 65537" & vbCrLf
+    Text = Text & "  %second.sum = add i64 %second.product, %value" & vbCrLf
+    Text = Text & "  %next.second = urem i64 %second.sum, 4294967279" & vbCrLf
+    Text = Text & "  %next = add i32 %index, 1" & vbCrLf
+    Text = Text & "  %more = icmp ult i32 %next, %units" & vbCrLf
+    Text = Text & "  br i1 %more, label %hash, label %prefix" & vbCrLf
+    Text = Text & "prefix:" & vbCrLf
+    Text = Text & "  %prefix.index = phi i64 [ 0, %hash ], [ %prefix.next, %prefix ]" & vbCrLf
+    Text = Text & "  %prefix.source = getelementptr i16, ptr @ube.lease.prefix, i64 %prefix.index" & vbCrLf
+    Text = Text & "  %prefix.unit = load i16, ptr %prefix.source, align 2" & vbCrLf
+    Text = Text & "  %prefix.target = getelementptr i16, ptr %name, i64 %prefix.index" & vbCrLf
+    Text = Text & "  store i16 %prefix.unit, ptr %prefix.target, align 2" & vbCrLf
+    Text = Text & "  %prefix.next = add i64 %prefix.index, 1" & vbCrLf
+    Text = Text & "  %prefix.more = icmp ult i64 %prefix.next, 17" & vbCrLf
+    Text = Text & "  br i1 %prefix.more, label %prefix, label %hex" & vbCrLf
+    Text = Text & "hex:" & vbCrLf
+    Text = Text & "  %digit = phi i64 [ 0, %prefix ], [ %digit.next, %hex ]" & vbCrLf
+    Text = Text & "  %first.half = icmp ult i64 %digit, 8" & vbCrLf
+    Text = Text & "  %selected = select i1 %first.half, i64 %next.first, i64 %next.second" & vbCrLf
+    Text = Text & "  %relative = and i64 %digit, 7" & vbCrLf
+    Text = Text & "  %reverse = sub i64 7, %relative" & vbCrLf
+    Text = Text & "  %shift = mul i64 %reverse, 4" & vbCrLf
+    Text = Text & "  %shifted = lshr i64 %selected, %shift" & vbCrLf
+    Text = Text & "  %nibble = and i64 %shifted, 15" & vbCrLf
+    Text = Text & "  %number = icmp ult i64 %nibble, 10" & vbCrLf
+    Text = Text & "  %decimal = add i64 %nibble, 48" & vbCrLf
+    Text = Text & "  %letter = add i64 %nibble, 55" & vbCrLf
+    Text = Text & "  %ascii = select i1 %number, i64 %decimal, i64 %letter" & vbCrLf
+    Text = Text & "  %ascii16 = trunc i64 %ascii to i16" & vbCrLf
+    Text = Text & "  %position = add i64 %digit, 17" & vbCrLf
+    Text = Text & "  %destination = getelementptr i16, ptr %name, i64 %position" & vbCrLf
+    Text = Text & "  store i16 %ascii16, ptr %destination, align 2" & vbCrLf
+    Text = Text & "  %digit.next = add i64 %digit, 1" & vbCrLf
+    Text = Text & "  %hex.more = icmp ult i64 %digit.next, 16" & vbCrLf
+    Text = Text & "  br i1 %hex.more, label %hex, label %create" & vbCrLf
+    Text = Text & "create:" & vbCrLf
+    Text = Text & "  %terminator = getelementptr i16, ptr %name, i64 33" & vbCrLf
+    Text = Text & "  store i16 0, ptr %terminator, align 2" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
+    Text = Text & "  %created = call { ptr, i32 } @ube.target.lease.create(ptr %name)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  %handle = extractvalue { ptr, i32 } %created, 0" & vbCrLf
+    Text = Text & "  %error = extractvalue { ptr, i32 } %created, 1" & vbCrLf
+    Text = Text & "  %missing = icmp eq ptr %handle, null" & vbCrLf
+    Text = Text & "  br i1 %missing, label %create.fail, label %retain" & vbCrLf
+    Text = Text & "retain:" & vbCrLf
+    Text = Text & "  %handle.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 1" & vbCrLf
+    Text = Text & "  store ptr %handle, ptr %handle.ptr" & vbCrLf
+    Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
+    Text = Text & "  store atomic i64 5, ptr %kind.ptr monotonic, align 8" & vbCrLf
+    Text = Text & "  %exists = icmp eq i32 %error, 183" & vbCrLf
+    Text = Text & "  br i1 %exists, label %reject.close, label %publish" & vbCrLf
+    Text = Text & "reject.close:" & vbCrLf
+    Text = Text & "  call void @ube.managed.safe(ptr %ctx)" & vbCrLf
+    Text = Text & "  %closed = call i1 @ube.target.file.close(ptr %handle)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  br i1 %closed, label %rejected, label %retained.rejection" & vbCrLf
+    Text = Text & "rejected:" & vbCrLf
+    Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
+    Text = Text & "  br label %busy" & vbCrLf
+    Text = Text & "retained.rejection:" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %slot release, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %token.out monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
+    Text = Text & "  br label %busy" & vbCrLf
+    Text = Text & "publish:" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %slot release, align 8" & vbCrLf
+    Text = Text & "  store atomic i64 %token, ptr %token.out monotonic, align 8" & vbCrLf
+    Text = Text & "  call void @ube.resource.unlock(ptr %slot)" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "bad.key:" & vbCrLf
+    Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
+    Text = Text & "  br label %invalid" & vbCrLf
+    Text = Text & "create.fail:" & vbCrLf
+    Text = Text & "  call void @ube.resource.forget(ptr %ctx, ptr %slot)" & vbCrLf
+    Text = Text & "  %create.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 3, i64 57)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "busy:" & vbCrLf
+    Text = Text & "  %busy.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 19, i64 58)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "memory.fail:" & vbCrLf
+    Text = Text & "  %memory.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 8, i64 7)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "invalid:" & vbCrLf
+    Text = Text & "  %invalid.status = call i1 @ube.file.fail(ptr %ctx, ptr %failure, i64 1, i64 5)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.lease.acquire(ptr %ctx, ptr %key, ptr %token, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %descriptor = alloca { i64, i64, ptr, ptr }, align 8" & vbCrLf
+    Text = Text & "  %alias.token = call i1 @ube.array.descriptor.overlaps(ptr %key, ptr %token)" & vbCrLf
+    Text = Text & "  %alias.failure = call i1 @ube.array.descriptor.overlaps(ptr %key, ptr %failure)" & vbCrLf
+    Text = Text & "  %alias = or i1 %alias.token, %alias.failure" & vbCrLf
+    Text = Text & "  br i1 %alias, label %invalid, label %pin" & vbCrLf
+    Text = Text & "pin:" & vbCrLf
+    Text = Text & "  %snapshot = call { i64, i64, ptr, ptr } @ube.array.snapshot(ptr %ctx, ptr %key)" & vbCrLf
+    Text = Text & "  store { i64, i64, ptr, ptr } %snapshot, ptr %descriptor" & vbCrLf
+    Text = Text & "  %owner = extractvalue { i64, i64, ptr, ptr } %snapshot, 3" & vbCrLf
+    Text = Text & "  %accepted = call i1 @ube.lease.acquire.pinned(ptr %ctx, ptr %descriptor, ptr %token, ptr %failure)" & vbCrLf
+    Text = Text & "  call void @ube.block.drop(ptr %ctx, ptr %owner)" & vbCrLf
+    Text = Text & "  ret i1 %accepted" & vbCrLf
+    Text = Text & "invalid:" & vbCrLf
+    Text = Text & "  %status = call i1 @ube.file.aliasfail(ptr %ctx)" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.lease.close(ptr %ctx, ptr %token, ptr %failure) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %closed = call i1 @ube.resource.close.single(ptr %ctx, ptr %token, ptr %failure, i64 5, i64 5)" & vbCrLf
+    Text = Text & "  ret i1 %closed" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    NamedLeaseIR = Text
 End Function
 
 ' Defines isolated OS entry points and atomic token registry admission.
@@ -631,6 +821,11 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "}" & vbCrLf
     Text = Text & "define internal i1 @ube.file.close(ptr %ctx, ptr %token.out, ptr %failure) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %closed = call i1 @ube.resource.close.single(ptr %ctx, ptr %token.out, ptr %failure, i64 1, i64 3)" & vbCrLf
+    Text = Text & "  ret i1 %closed" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define internal i1 @ube.resource.close.single(ptr %ctx, ptr %token.out, ptr %failure, i64 %minimum.kind, i64 %maximum.kind) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
     Text = Text & "  %alias = icmp eq ptr %token.out, %failure" & vbCrLf
     Text = Text & "  %null.token = icmp eq ptr %token.out, null" & vbCrLf
     Text = Text & "  %null.failure = icmp eq ptr %failure, null" & vbCrLf
@@ -652,8 +847,8 @@ Private Function FileTransferAndReleaseIR() As String
     Text = Text & "kind:" & vbCrLf
     Text = Text & "  %kind.ptr = getelementptr %ube.resource, ptr %slot, i32 0, i32 3" & vbCrLf
     Text = Text & "  %kind.value = load atomic i64, ptr %kind.ptr monotonic, align 8" & vbCrLf
-    Text = Text & "  %kind.low = icmp sge i64 %kind.value, 1" & vbCrLf
-    Text = Text & "  %kind.high = icmp sle i64 %kind.value, 3" & vbCrLf
+    Text = Text & "  %kind.low = icmp sge i64 %kind.value, %minimum.kind" & vbCrLf
+    Text = Text & "  %kind.high = icmp sle i64 %kind.value, %maximum.kind" & vbCrLf
     Text = Text & "  %file.kind = and i1 %kind.low, %kind.high" & vbCrLf
     Text = Text & "  br i1 %file.kind, label %close, label %kind.fail" & vbCrLf
     Text = Text & "kind.fail:" & vbCrLf

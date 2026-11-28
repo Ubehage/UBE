@@ -380,7 +380,7 @@ Private Function Exact(ByVal Mantissa As LongLong, ByVal Exponent As Long, ByVal
     If Mantissa = 1 Then
         AbsoluteExponent = Exponent
         If AbsoluteExponent < 0 Then AbsoluteExponent = -AbsoluteExponent
-        If AbsoluteExponent = 0 Then Bits = 4607182418800017408^: Matched = True: Exit Function
+        If AbsoluteExponent = 0 Then Bits = 4607182418800017408&&: Matched = True: Exit Function
         ResultExponent = 5000
         If PowerExponent < 13 Then
             Do While PowerExponent > 0 And PowerMantissa <= 5000
@@ -399,7 +399,7 @@ Private Function Exact(ByVal Mantissa As LongLong, ByVal Exponent As Long, ByVal
     If PowerMantissa > 34 Then Exit Function
     I = 0
     Do While I < PowerMantissa
-        If Product > 18014398509481983^ \ Mantissa Then Exit Function
+        If Product > 18014398509481983&& \ Mantissa Then Exit Function
         Product = Product * Mantissa: I = I + 1
     Loop
     ResultExponent = Exponent * PowerMantissa
@@ -431,12 +431,12 @@ Private Function Refine(ByVal Mantissa As LongLong, ByVal Exponent As Long, ByVa
     Dim HighBits As LongLong
     Dim PriorError As Long
     On Error GoTo Failed
-    Do While Mantissa < 4503599627370496^
+    Do While Mantissa < 4503599627370496&&
         Mantissa = Mantissa * 2: Exponent = Exponent - 1
     Loop
     K = Exponent + 52
-    Call LogRatio(Mantissa - 4503599627370496^, Mantissa + 4503599627370496^, FractionBytes, Count, False, LnLow)
-    Call LogRatio(Mantissa - 4503599627370496^, Mantissa + 4503599627370496^, FractionBytes, Count, True, LnHigh)
+    Call LogRatio(Mantissa - 4503599627370496&&, Mantissa + 4503599627370496&&, FractionBytes, Count, False, LnLow)
+    Call LogRatio(Mantissa - 4503599627370496&&, Mantissa + 4503599627370496&&, FractionBytes, Count, True, LnHigh)
     Call LogRatio(1, 3, FractionBytes, Count, False, TwoLow)
     Call LogRatio(1, 3, FractionBytes, Count, True, TwoHigh)
     Negative = K < 0
@@ -506,9 +506,9 @@ Public Function TryFinite(ByVal BaseBits As LongLong, ByVal PowerBits As LongLon
     If Not BinaryFloatValues.TryDecode(BaseBits, 64, Negative, Mantissa, Exponent, Kind) Then Exit Function
     If Not BinaryFloatValues.TryDecode(PowerBits, 64, PowerNegative, PowerMantissa, PowerExponent, PowerKind) Then Exit Function
     If Negative Or Kind <> 0 Or Mantissa = 0 Or PowerKind <> 0 Or PowerMantissa = 0 Then TryFinite = FilePrimitives.SetError(5): Exit Function
-    If BaseBits = 4607182418800017408^ Then Bits = BaseBits: TryFinite = True: Exit Function
+    If BaseBits = 4607182418800017408&& Then Bits = BaseBits: TryFinite = True: Exit Function
     If PowerExponent >= 12 Then
-        If (BaseBits < 4607182418800017408^) <> PowerNegative Then Bits = 0: TryFinite = True: Exit Function
+        If (BaseBits < 4607182418800017408&&) <> PowerNegative Then Bits = 0: TryFinite = True: Exit Function
         TryFinite = FilePrimitives.SetError(6): Exit Function
     End If
     If Not Exact(Mantissa, Exponent, PowerMantissa, PowerExponent, PowerNegative, Matched, Candidate) Then Exit Function
@@ -543,7 +543,7 @@ Public Function TryPower(ByVal BaseBits As LongLong, ByVal PowerBits As LongLong
     If Not BinaryFloatValues.TryDecode(BaseBits, 64, Negative, Mantissa, Exponent, Kind) Then Exit Function
     If Not BinaryFloatValues.TryDecode(PowerBits, 64, PowerNegative, PowerMantissa, PowerExponent, PowerKind) Then Exit Function
     If Kind <> 0 Or PowerKind <> 0 Then TryPower = FilePrimitives.SetError(6): Exit Function
-    If PowerMantissa = 0 Then Bits = 4607182418800017408^: TryPower = True: Exit Function
+    If PowerMantissa = 0 Then Bits = 4607182418800017408&&: TryPower = True: Exit Function
     Do While PowerExponent < 0
         If PowerMantissa Mod 2 <> 0 Then Integral = False: Exit Do
         PowerMantissa = PowerMantissa \ 2: PowerExponent = PowerExponent + 1
@@ -551,12 +551,12 @@ Public Function TryPower(ByVal BaseBits As LongLong, ByVal PowerBits As LongLong
     If Integral And PowerExponent = 0 Then Odd = PowerMantissa Mod 2 <> 0
     If Mantissa = 0 Then
         If PowerNegative Then TryPower = FilePrimitives.SetError(5): Exit Function
-        If Negative And Odd Then Candidate = -9223372036854775808^
+        If Negative And Odd Then Candidate = -9223372036854775808&&
         Bits = Candidate: TryPower = True: Exit Function
     End If
     If Negative And Not Integral Then TryPower = FilePrimitives.SetError(5): Exit Function
-    If Not TryFinite(BaseBits And 9223372036854775807^, PowerBits, Candidate) Then Exit Function
-    If Negative And Odd Then Candidate = Candidate Or -9223372036854775808^
+    If Not TryFinite(BaseBits And 9223372036854775807&&, PowerBits, Candidate) Then Exit Function
+    If Negative And Odd Then Candidate = Candidate Or -9223372036854775808&&
     Bits = Candidate
     TryPower = True
     Exit Function

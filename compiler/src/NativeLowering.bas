@@ -1,8 +1,8 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeLowering"
 ' Owns freshly validated facts and streams complete native IR only into a caller-owned private stage.
-Private Const RuntimeLength As Long = 256588
-Private Const RuntimeByteSum As Long = 20872313
+Private Const RuntimeLength As Long = 268898
+Private Const RuntimeByteSum As Long = 21863854
 Private Intrinsic Function ResizeNumbers(ByRef Values() As Long, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizeNumbers.UBE_Primitive = "Array.TryResize"
 End Function
@@ -131,8 +131,11 @@ Public Function TryPrepare(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanne
         GoTo Rejected
     End If
     If Not ManagedSupport.TryResolve(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, CandidateRoles, Diagnostic) Then GoTo Rejected
-    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layouts, Roles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
+    If NativePlanning.TryPlanNative(Bytes, Tokens, Nodes, Modules, Counts, Symbols, SymbolCount, Expressions, Layouts, Roles, CandidateRoles, EntrySymbol, IsExecutable, Plans, Pins, Escapes, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
     Summary.ManagedRoles = CandidateRoles
+    If CandidateRoles.CollectSymbol <> 0 Then
+        If Not Plans(CandidateRoles.CollectSymbol - 1).IsReachable Then Summary.ManagedRoles.CollectSymbol = 0
+    End If
     TryPrepare = True
     Exit Function
 Rejected:
@@ -179,7 +182,7 @@ Public Function TryBegin(ByRef Symbols() As DeclarationBinder.BoundSymbol, ByVal
     If NativeContext.TryEmitContext(Symbols, Plans, Summary, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
     If LLVMWriter.TryAppendSpan(State.Text, Buffer, Token, RuntimeText, 0, RuntimeLength) = False Then GoTo Rejected
     If Not NativeManagedLayout.TryEmit(Symbols, Layouts, Plans, Summary, State.Text, Buffer, Token, Catalog) Then GoTo Rejected
-    If NativeIntrinsics.TryEmit(Symbols, SymbolCount, Layouts, Roles, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
+    If NativeIntrinsics.TryEmit(Symbols, SymbolCount, Layouts, Plans, Roles, Summary.ManagedRoles, State.Text, Buffer, Token, Catalog) = False Then GoTo Rejected
     TryBegin = True
     Exit Function
 Rejected:
@@ -213,6 +216,7 @@ Public Function TryEmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Sym
     Symbol = FirstSymbol
     Do While Symbol <= LastSymbol
         If NativeEmission.Charge(State) = False Then GoTo Rejected
+        If Plans(Symbol - 1).IsReachable Then
         If Symbols(Symbol - 1).Kind = SourceParser.ModuleNode Or Symbols(Symbol - 1).Kind = SourceParser.ClassNode Then
             If NativeFrames.TryModuleStart(Nodes, Symbols, Expressions, Layouts, Plans, Escapes, State, Buffer, Token, Catalog, Symbol, NodeCount, Node) = False Then GoTo Rejected
             Do While Node <> 0
@@ -238,6 +242,7 @@ Public Function TryEmitRange(ByRef Nodes() As SourceParser.SyntaxNode, ByRef Sym
                 If NativeFrames.TryReturns(Nodes, Symbols, Expressions, Plans, Escapes, State, Buffer, Token, Catalog, SymbolCount) = False Then GoTo Rejected
                 If NativeThreads.TryEmitThunks(Nodes, Symbols, Expressions, Plans, Escapes, State, Buffer, Token, Catalog, Symbol) = False Then GoTo Rejected
             End If
+        End If
         End If
         Symbol = Symbol + 1
     Loop
@@ -310,7 +315,7 @@ Public Function TryEmit(ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.S
     If TryInitialize(Catalog, RuntimeText, State, Buffer) = False Then GoTo Rejected
     If TryPrepare(Bytes, Tokens, Nodes, Modules, Counts, PackageName, IsExecutable, Symbols, SymbolCount, EntrySymbol, Expressions, TextArena, TextUsed, Layouts, Plans, Pins, Escapes, Roles, Dependencies, Summary, Diagnostic) = False Then GoTo Rejected
     If TryBegin(Symbols, SymbolCount, Layouts, Plans, Roles, Summary, Counts.NodeCount, Catalog, RuntimeText, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
-    If Not NativeText.TryEmitLiterals(Expressions, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
+    If Not NativeText.TryEmitLiterals(Expressions, Plans, Counts.NodeCount, TextArena, TextUsed, State, Buffer, Token, Catalog) Then GoTo Rejected
     If TryEmitRange(Nodes, Symbols, SymbolCount, Expressions, Layouts, Plans, Pins, Escapes, Roles, Counts.NodeCount, Catalog, 1, SymbolCount, Token, State, Buffer, Seen, Nexts) = False Then GoTo Rejected
     If TryEndWithContext(IsExecutable, EntrySymbol, Modules(0).IsInIDE, Catalog, Token, State, Buffer) = False Then GoTo Rejected
     TryEmit = True

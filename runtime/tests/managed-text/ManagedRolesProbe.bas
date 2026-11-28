@@ -29,6 +29,8 @@ Public Function Check(ByRef FirstSource() As Byte, ByRef SecondSource() As Byte,
     If BufferPrimitives.ByteStorageLength(SecondSource) > 0 Then
         If Not ProjectSyntax.TryAppendModule(SecondSource, Bytes, Tokens, Nodes, Modules, Counts, InputError) Then Check = 2: Exit Function
     End If
+    ' The authority fixture deliberately forges retained metadata, never source syntax.
+    If Code = 8 And Reason = 84 Then Modules(0).LookupDomain = 1
     Status = PrimitiveRoles.TryBindPrimitives(Bytes, Tokens, Nodes, Modules, Counts, PackageName, False, Roles, RoleCount, Diagnostic)
     If Code <> 0 Then
         If Status Or Diagnostic.Code <> Code Or Diagnostic.Reason <> Reason Then Check = 3: Exit Function

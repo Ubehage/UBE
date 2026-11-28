@@ -79,6 +79,8 @@ foreach ($path in $paths) {
 }
 $lines = @('UBE-Project 1', ('Name = "' + $Name + '"'), ('Kind = "' + $Kind + '"'), ('Optimization = "' + $Optimization + '"'))
 if ($Kind -eq 'Exe') { $lines += 'Startup = "Main"' }
+# Current compiler packages request no debug information; capability tests exercise unsupported requests.
+$lines += 'DebugInformation = "None"'
 foreach ($record in $records) { $lines += 'Source = "' + $record.RelativePath + '"' }
 $manifestBytes = $encoding.GetBytes(($lines -join "`r`n") + "`r`n")
 $ledger = @($records | ForEach-Object { $_.SHA256 + '  ' + $_.RelativePath })
@@ -91,7 +93,9 @@ foreach ($record in $records) {
     }
 }
 Write-NewBytes (Join-Path $target 'sources.sha256') ($encoding.GetBytes(($ledger -join "`r`n") + "`r`n"))
+# Every compiled consumer receives the ordinary target library, independent of explicit bootstrap sources.
+$library = & (Join-Path $root 'std-lib/tools/package-library.ps1') -Destination (Join-Path $target 'library') -Target 'Windows-x64'
 # The manifest is the completion artifact and is written only after all copies match.
 $manifest = Join-Path $target 'Compiler.UBE'
 Write-NewBytes $manifest $manifestBytes
-[pscustomobject]@{ Destination=$target; Manifest=$manifest; ManifestSHA256=(Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash; Sources=$records.ToArray() }
+[pscustomobject]@{ Destination=$target; Manifest=$manifest; ManifestSHA256=(Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash; Sources=$records.ToArray(); LibraryManifest=$library.Manifest; LibrarySources=$library.Sources; LibraryManifests=$library.Manifests }

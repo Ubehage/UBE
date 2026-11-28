@@ -20,8 +20,13 @@ during this increment are:
   Recognizing the Currency suffix does not implement Currency arithmetic.
 - Floating operands of integer division and Mod round to LongLong, ties to
   even, before checked division. Both operands and the result use LongLong.
-  Existing UBE precedence is unchanged: Mod binds tighter than integer
-  division, which binds tighter than multiplication/division.
+  Owner correction, 2026-11-28: arithmetic grouping follows VB6. Multiplication
+  and ordinary division bind tighter than integer division, which binds tighter
+  than Mod; powers associate left to right. This supersedes the grouping retained
+  by this increment. Both source parser paths and conditional expressions are
+  corrected; focused arithmetic/numerical gates, self-build comparison, common
+  conformance and concurrency regressions pass. Commands and exact scope are
+  recorded in Progress.md; earlier gates retain only their historical meaning.
 - Power returns Double. Zero to a negative power and a negative base to a
   fractional power fail with Err 5. Overflow/nonfinite values fail with Err 6;
   ordinary division by zero uses Err 11; malformed/special numeric text uses

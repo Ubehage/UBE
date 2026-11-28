@@ -9,7 +9,7 @@
     <p class="lede">Declares a named value that cannot be assigned again.</p>
     <h2>Syntax</h2>
 <pre><code>Const name As type = constantExpression</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd><dt><code>type</code></dt><dd>The explicit datatype of the declared value or result.</dd><dt><code>constantExpression</code></dt><dd>A compile-time value formed from permitted literals, constants and scalar operations; it cannot call procedures or read variables.</dd></dl></section><section id="details"><h2>Details</h2>
-    <p>The initializer must be a constant expression. A constant requires an explicit type or a compatible identifier type character.</p>
+    <p>The initializer must be a constant expression. A constant requires an explicit <code>As</code> type.</p>
 
 
   </section><section id="example"><h2>Example</h2><pre><code>Private Const Answer As Long = 42

@@ -614,9 +614,7 @@ entry:
 }
 define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1) {
 entry:
-  %accepted = call i1 @ube.text.publish(ptr %ctx, ptr %arg.0, i64 %arg.1)
-  %value = select i1 %accepted, i64 -1, i64 0
-  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  %result = call { i1, i64 } @ube.proc.{1}(ptr %ctx, ptr %arg.0, i64 %arg.1)
   ret { i1, i64 } %result
 }
 define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0) {
@@ -758,4 +756,38 @@ monitor.invalid.{0}:
 monitor.valid.{0}:@ube.object.offsets.{0} = private constant [{1} x i64] [@ube.object.layout.{0} = private constant %ube.managed.layout { i64 {1}, i64 {2}, ptr @ube.object.offsets.{0}, i64 0, ptr null, i64 0, ptr null }, i64 %instance  %v{0} = add i64 %instance, 0  %instance.slot = getelementptr i64, ptr %frame.storage, i64 {3}
   store i64 %instance, ptr %instance.slot, align 8
   %instance.root = getelementptr i64, ptr %instance.slot, i64 1
-  call void @ube.managed.root.push(ptr %ctx, ptr %instance.root, ptr %instance.slot, ptr @ube.managed.layout.0, i64 1)  %v{0} = call ptr @ube.object.address(ptr %ctx, i64 %v{1}, ptr @ube.object.class.{2})  %v{0} = icmp ne ptr %v{1}, null
+  call void @ube.managed.root.push(ptr %ctx, ptr %instance.root, ptr %instance.slot, ptr @ube.managed.layout.0, i64 1)  %v{0} = call ptr @ube.object.address(ptr %ctx, i64 %v{1}, ptr @ube.object.class.{2})  %v{0} = icmp ne ptr %v{1}, nulldefine { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.lease.acquire(ptr %ctx, ptr %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, ptr %arg.1) {
+entry:
+  %accepted = call i1 @ube.lease.close(ptr %ctx, ptr %arg.0, ptr %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, ptr %arg.0, i64 %arg.1) {
+entry:
+  %accepted = call i1 @ube.text.publish(ptr %ctx, ptr %arg.0, i64 %arg.1)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.text.candidate.info(ptr %ctx, i64 %arg.0, ptr %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}
+define { i1, i64 } @ube.proc.{0}(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2) {
+entry:
+  %accepted = call i1 @ube.text.candidate.read(ptr %ctx, i64 %arg.0, i64 %arg.1, ptr %arg.2)
+  %value = select i1 %accepted, i64 -1, i64 0
+  %result = insertvalue { i1, i64 } { i1 true, i64 0 }, i64 %value, 1
+  ret { i1, i64 } %result
+}

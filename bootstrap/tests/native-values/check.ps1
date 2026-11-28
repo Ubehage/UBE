@@ -110,7 +110,7 @@ function Copy-Fixtures([string]$Name, [string[]]$Files, [string]$Level = '2', [s
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 & (Join-Path $root 'bootstrap/tools/llvm-templates.ps1')
-$files = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText') | ForEach-Object { Join-Path $root ('std-lib/src/portable/'+$_+'.bas') }
+$files = @('BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives') | ForEach-Object { Join-Path $root ('std-lib/src/portable/'+$_+'.bas') }
 $files += @('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ProjectSyntax','DeclarationBinder','ExpressionBinder','ManagedSupport','ConstantValues','ConstantText','LLVMWriter','LLVMTemplates','LLVMFormat','NativeEmission','NativeValues') | ForEach-Object { Join-Path $root ('compiler/src/'+$_+'.bas') }
 $files += Join-Path $PSScriptRoot 'Probe.bas'
 $manifest=Copy-Fixtures 'emitter' $files '0' 'Library'

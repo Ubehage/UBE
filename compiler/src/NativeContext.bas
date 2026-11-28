@@ -26,8 +26,10 @@ Public Function TryEmitContext(ByRef Symbols() As DeclarationBinder.BoundSymbol,
         If Not LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.ManagedProjectInitialize, Summary.ManagedRoles.CollectSymbol, 0, 0, 0) Then Exit Function
     End If
     Index = 0
-    Do While Index < Summary.ModuleCount
-        If LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.EnsureModule, Index, 0, 0, 0) = False Then Exit Function
+    Do While Index < Summary.SymbolCount
+        If Plans(Index).IsReachable And (Symbols(Index).Kind = SourceParser.ModuleNode Or Symbols(Index).Kind = SourceParser.ClassNode) Then
+            If LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.EnsureModule, Symbols(Index).ModuleIndex, 0, 0, 0) = False Then Exit Function
+        End If
         Index = Index + 1
     Loop
     If LLVMFormat.TryFormat(State, Buffer, Token, Catalog, LLVMTemplates.ContextSuffix, 0, 0, 0, 0) = False Then Exit Function

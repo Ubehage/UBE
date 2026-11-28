@@ -12,6 +12,8 @@ Public Const PublicationError As Long = 7
 Public Const CleanupError As Long = 8
 Public Const InternalError As Long = 9
 Public Const CleanupWarning As Long = 10
+Public Const DebugInformationWarning As Long = 11
+Public Const CancelledError As Long = 12
 
 ' Supplies the reviewed UsageErrorText diagnostic text.
 Private Function UsageErrorText(ByRef Value() As Byte) As Boolean
@@ -720,6 +722,111 @@ Private Function CleanupWarningText(ByRef Value() As Byte) As Boolean
 End Function
 
 
+' Reports an unmet source-debug request without claiming that published output is unusable.
+Private Function DebugInformationWarningText(ByRef Value() As Byte) As Boolean
+    If Not BufferPrimitives.TryResizeBytes(Value, 55, False) Then Exit Function
+    Value(0) = 85
+    Value(1) = 66
+    Value(2) = 69
+    Value(3) = 58
+    Value(4) = 32
+    Value(5) = 87
+    Value(6) = 95
+    Value(7) = 68
+    Value(8) = 69
+    Value(9) = 66
+    Value(10) = 85
+    Value(11) = 71
+    Value(12) = 95
+    Value(13) = 85
+    Value(14) = 78
+    Value(15) = 65
+    Value(16) = 86
+    Value(17) = 65
+    Value(18) = 73
+    Value(19) = 76
+    Value(20) = 65
+    Value(21) = 66
+    Value(22) = 76
+    Value(23) = 69
+    Value(24) = 58
+    Value(25) = 32
+    Value(26) = 100
+    Value(27) = 101
+    Value(28) = 98
+    Value(29) = 117
+    Value(30) = 103
+    Value(31) = 32
+    Value(32) = 105
+    Value(33) = 110
+    Value(34) = 102
+    Value(35) = 111
+    Value(36) = 114
+    Value(37) = 109
+    Value(38) = 97
+    Value(39) = 116
+    Value(40) = 105
+    Value(41) = 111
+    Value(42) = 110
+    Value(43) = 32
+    Value(44) = 117
+    Value(45) = 110
+    Value(46) = 97
+    Value(47) = 118
+    Value(48) = 97
+    Value(49) = 105
+    Value(50) = 108
+    Value(51) = 97
+    Value(52) = 98
+    Value(53) = 108
+    Value(54) = 101
+    DebugInformationWarningText = True
+End Function
+
+
+' Reports a stop observed by this request, rather than a semantic or tool failure.
+Private Function CancelledErrorText(ByRef Value() As Byte) As Boolean
+    If Not BufferPrimitives.TryResizeBytes(Value, 37, False) Then Exit Function
+    Value(0) = 85
+    Value(1) = 66
+    Value(2) = 69
+    Value(3) = 58
+    Value(4) = 32
+    Value(5) = 69
+    Value(6) = 95
+    Value(7) = 67
+    Value(8) = 65
+    Value(9) = 78
+    Value(10) = 67
+    Value(11) = 69
+    Value(12) = 76
+    Value(13) = 76
+    Value(14) = 69
+    Value(15) = 68
+    Value(16) = 58
+    Value(17) = 32
+    Value(18) = 99
+    Value(19) = 111
+    Value(20) = 109
+    Value(21) = 112
+    Value(22) = 105
+    Value(23) = 108
+    Value(24) = 97
+    Value(25) = 116
+    Value(26) = 105
+    Value(27) = 111
+    Value(28) = 110
+    Value(29) = 32
+    Value(30) = 115
+    Value(31) = 116
+    Value(32) = 111
+    Value(33) = 112
+    Value(34) = 112
+    Value(35) = 101
+    Value(36) = 100
+    CancelledErrorText = True
+End Function
+
 ' Selects the command operation whose failure is being reported.
 Private Function Prefix(ByVal Kind As Long, ByRef Value() As Byte) As Boolean
     If Kind = UsageError Then Prefix = UsageErrorText(Value): Exit Function
@@ -732,6 +839,8 @@ Private Function Prefix(ByVal Kind As Long, ByRef Value() As Byte) As Boolean
     If Kind = CleanupError Then Prefix = CleanupErrorText(Value): Exit Function
     If Kind = InternalError Then Prefix = InternalErrorText(Value): Exit Function
     If Kind = CleanupWarning Then Prefix = CleanupWarningText(Value): Exit Function
+    If Kind = DebugInformationWarning Then Prefix = DebugInformationWarningText(Value): Exit Function
+    If Kind = CancelledError Then Prefix = CancelledErrorText(Value): Exit Function
     Prefix = InternalErrorText(Value)
 End Function
 
@@ -744,6 +853,123 @@ Private Function Append(ByRef Value() As Byte, ByRef Buffer() As Byte, ByRef Use
     If Not BufferPrimitives.CopyByteRange(Value, 0, Buffer, Used, Length) Then Exit Function
     Used = Used + Length
     Append = True
+End Function
+
+' Supplies actionable conflict recovery without changing the numeric diagnostic contract.
+Private Function OutputConflictOpening(ByRef Value() As Byte) As Boolean
+    Value(0) = 32
+    Value(1) = 79
+    Value(2) = 117
+    Value(3) = 116
+    Value(4) = 112
+    Value(5) = 117
+    Value(6) = 116
+    Value(7) = 32
+    Value(8) = 105
+    Value(9) = 115
+    Value(10) = 32
+    Value(11) = 114
+    Value(12) = 101
+    Value(13) = 115
+    Value(14) = 101
+    Value(15) = 114
+    Value(16) = 118
+    Value(17) = 101
+    Value(18) = 100
+    Value(19) = 32
+    Value(20) = 111
+    Value(21) = 114
+    Value(22) = 32
+    Value(23) = 99
+    Value(24) = 104
+    Value(25) = 97
+    Value(26) = 110
+    Value(27) = 103
+    Value(28) = 101
+    Value(29) = 100
+    Value(30) = 59
+    Value(31) = 32
+    Value(32) = 119
+    Value(33) = 97
+    Value(34) = 105
+    Value(35) = 116
+    Value(36) = 32
+    Value(37) = 102
+    Value(38) = 111
+    Value(39) = 114
+    Value(40) = 32
+    Value(41) = 111
+    Value(42) = 116
+    Value(43) = 104
+    Value(44) = 101
+    Value(45) = 114
+    Value(46) = 32
+    Value(47) = 98
+    Value(48) = 117
+    Value(49) = 105
+    OutputConflictOpening = True
+End Function
+
+Private Function OutputConflictRecovery(ByRef Value() As Byte) As Boolean
+    Value(50) = 108
+    Value(51) = 100
+    Value(52) = 115
+    Value(53) = 32
+    Value(54) = 116
+    Value(55) = 111
+    Value(56) = 32
+    Value(57) = 102
+    Value(58) = 105
+    Value(59) = 110
+    Value(60) = 105
+    Value(61) = 115
+    Value(62) = 104
+    Value(63) = 44
+    Value(64) = 32
+    Value(65) = 116
+    Value(66) = 104
+    Value(67) = 101
+    Value(68) = 110
+    Value(69) = 32
+    Value(70) = 114
+    Value(71) = 101
+    Value(72) = 116
+    Value(73) = 114
+    Value(74) = 121
+    Value(75) = 32
+    Value(76) = 111
+    Value(77) = 114
+    Value(78) = 32
+    Value(79) = 99
+    Value(80) = 104
+    Value(81) = 111
+    Value(82) = 111
+    Value(83) = 115
+    Value(84) = 101
+    Value(85) = 32
+    Value(86) = 97
+    Value(87) = 110
+    Value(88) = 111
+    Value(89) = 116
+    Value(90) = 104
+    Value(91) = 101
+    Value(92) = 114
+    Value(93) = 32
+    Value(94) = 111
+    Value(95) = 117
+    Value(96) = 116
+    Value(97) = 112
+    Value(98) = 117
+    Value(99) = 116
+    Value(100) = 46
+    OutputConflictRecovery = True
+End Function
+
+Private Function OutputConflictText(ByRef Value() As Byte) As Boolean
+    If Not BufferPrimitives.TryResizeBytes(Value, 101, False) Then Exit Function
+    If Not OutputConflictOpening(Value) Then Exit Function
+    If Not OutputConflictRecovery(Value) Then Exit Function
+    OutputConflictText = True
 End Function
 
 ' Reports one located failure; false means diagnostic output itself could not complete.
@@ -773,12 +999,134 @@ Public Function TryWriteError(ByVal Kind As Long, ByVal Operation As Long, ByVal
         Buffer(Used) = 58: Used = Used + 1
         If Not ByteText.TryAppendInteger(Buffer, Used, SourceColumn) Then Exit Function
     End If
+    If Code = 19 And (Kind = OutputError Or Kind = PublicationError) Then
+        If Not OutputConflictText(Text) Then Exit Function
+        If Not Append(Text, Buffer, Used) Then Exit Function
+    End If
     Buffer(Used) = 13: Used = Used + 1
     Buffer(Used) = 10: Used = Used + 1
     TryWriteError = StandardStreams.TryWriteBytes(2, Buffer, 0, Used, Failure)
     Exit Function
 Failed:
     TryWriteError = False
+End Function
+
+' Appends fixed backend labels to private bounded diagnostic storage.
+Private Function AppendImportToolLabel(ByRef Buffer() As Byte, ByRef Used As Long) As Boolean
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 118: Used = Used + 1
+    Buffer(Used) = 109: Used = Used + 1
+    Buffer(Used) = 45: Used = Used + 1
+    Buffer(Used) = 100: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 116: Used = Used + 1
+    Buffer(Used) = 111: Used = Used + 1
+    Buffer(Used) = 111: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 58: Used = Used + 1
+    Buffer(Used) = 32: Used = Used + 1
+    AppendImportToolLabel = True
+End Function
+
+Private Function AppendClangLabel(ByRef Buffer() As Byte, ByRef Used As Long) As Boolean
+    Buffer(Used) = 67: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 110: Used = Used + 1
+    Buffer(Used) = 103: Used = Used + 1
+    Buffer(Used) = 58: Used = Used + 1
+    Buffer(Used) = 32: Used = Used + 1
+    AppendClangLabel = True
+End Function
+
+Private Function AppendTruncation(ByRef Buffer() As Byte, ByRef Used As Long) As Boolean
+    Buffer(Used) = 13: Used = Used + 1
+    Buffer(Used) = 10: Used = Used + 1
+    Buffer(Used) = 91: Used = Used + 1
+    Buffer(Used) = 100: Used = Used + 1
+    Buffer(Used) = 105: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 103: Used = Used + 1
+    Buffer(Used) = 110: Used = Used + 1
+    Buffer(Used) = 111: Used = Used + 1
+    Buffer(Used) = 115: Used = Used + 1
+    Buffer(Used) = 116: Used = Used + 1
+    Buffer(Used) = 105: Used = Used + 1
+    Buffer(Used) = 99: Used = Used + 1
+    Buffer(Used) = 32: Used = Used + 1
+    Buffer(Used) = 116: Used = Used + 1
+    Buffer(Used) = 114: Used = Used + 1
+    Buffer(Used) = 117: Used = Used + 1
+    Buffer(Used) = 110: Used = Used + 1
+    Buffer(Used) = 99: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 116: Used = Used + 1
+    Buffer(Used) = 101: Used = Used + 1
+    Buffer(Used) = 100: Used = Used + 1
+    Buffer(Used) = 93: Used = Used + 1
+    AppendTruncation = True
+End Function
+
+Private Function AppendUnavailable(ByRef Buffer() As Byte, ByRef Used As Long) As Boolean
+    Buffer(Used) = 91: Used = Used + 1
+    Buffer(Used) = 100: Used = Used + 1
+    Buffer(Used) = 105: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 103: Used = Used + 1
+    Buffer(Used) = 110: Used = Used + 1
+    Buffer(Used) = 111: Used = Used + 1
+    Buffer(Used) = 115: Used = Used + 1
+    Buffer(Used) = 116: Used = Used + 1
+    Buffer(Used) = 105: Used = Used + 1
+    Buffer(Used) = 99: Used = Used + 1
+    Buffer(Used) = 32: Used = Used + 1
+    Buffer(Used) = 117: Used = Used + 1
+    Buffer(Used) = 110: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 118: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 105: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 97: Used = Used + 1
+    Buffer(Used) = 98: Used = Used + 1
+    Buffer(Used) = 108: Used = Used + 1
+    Buffer(Used) = 101: Used = Used + 1
+    Buffer(Used) = 93: Used = Used + 1
+    AppendUnavailable = True
+End Function
+
+' Writes one complete bounded backend detail record; captured bytes are already sanitized.
+Public Function TryWriteToolDiagnostic(ByRef Info As NativeBackend.ToolDiagnostic, ByRef Detail() As Byte) As Boolean
+    Dim Buffer() As Byte
+    Dim Used As Long
+    Dim Failure As Long
+    Dim Status As Boolean
+    On Error GoTo Failed
+    If Info.Tool = 0 Then TryWriteToolDiagnostic = True: Exit Function
+    If Info.Tool < 1 Or Info.Tool > 2 Then Exit Function
+    If Info.Length < 0 Or Info.Length > 8192 Then Exit Function
+    If Info.Length > BufferPrimitives.ByteStorageLength(Detail) Then Exit Function
+    If Not BufferPrimitives.TryResizeBytes(Buffer, 8256, False) Then Exit Function
+    If Info.Tool = 1 Then
+        Status = AppendImportToolLabel(Buffer, Used)
+    Else
+        Status = AppendClangLabel(Buffer, Used)
+    End If
+    If Info.Length = 0 Then
+        Status = AppendUnavailable(Buffer, Used)
+    Else
+        If Not BufferPrimitives.CopyByteRange(Detail, 0, Buffer, Used, Info.Length) Then Exit Function
+        Used = Used + Info.Length
+    End If
+    If Info.Truncated Then Status = AppendTruncation(Buffer, Used)
+    Buffer(Used) = 13: Used = Used + 1
+    Buffer(Used) = 10: Used = Used + 1
+    TryWriteToolDiagnostic = StandardStreams.TryWriteBytes(2, Buffer, 0, Used, Failure)
+    Exit Function
+Failed:
+    TryWriteToolDiagnostic = False
 End Function
 
 ' Writes the exact success marker only after output publication has completed.

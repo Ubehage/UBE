@@ -4,6 +4,7 @@ Attribute UBE_Name = "CommandOptions"
 Public Type CommandRequest
     Mode As Long
     ClangArgument As Long
+    LibraryArgument As Long
     IsInIDE As Boolean
 End Type
 
@@ -38,6 +39,10 @@ Private Function MatchesFlag(ByRef Value() As Byte, ByVal Flag As Long) As Boole
         If Length <> 7 Then Exit Function
         If Value(0) <> 45 Or Value(1) <> 45 Or Value(2) <> 99 Or Value(3) <> 108 Then Exit Function
         If Value(4) <> 97 Or Value(5) <> 110 Or Value(6) <> 103 Then Exit Function
+    ElseIf Flag = 6 Then
+        If Length <> 8 Then Exit Function
+        If Value(0) <> 45 Or Value(1) <> 45 Or Value(2) <> 115 Or Value(3) <> 116 Then Exit Function
+        If Value(4) <> 100 Or Value(5) <> 108 Or Value(6) <> 105 Or Value(7) <> 98 Then Exit Function
     Else
         Exit Function
     End If
@@ -50,10 +55,11 @@ Public Function TryParse(ByRef CommandLine() As Byte, ByRef Options As CommandRe
     Dim Value() As Byte
     Dim Found As Boolean
     Dim Index As Long
+    Dim Pending As Long
     On Error GoTo Failed
     Diagnostic.Code = 0
     Diagnostic.Argument = 0
-    Do While Index <= 6
+    Do While Index <= 8
         If Not WindowsArguments.TryReadArgument(CommandLine, Index, Value, Found) Then GoTo Failed
         If Index = 0 Then
             If Not Found Then GoTo Usage
@@ -67,17 +73,25 @@ Public Function TryParse(ByRef CommandLine() As Byte, ByRef Options As CommandRe
         ElseIf Index = 2 Or Index = 3 Then
             If Not Found Then GoTo Usage
             If BufferPrimitives.ByteStorageLength(Value) = 0 Then GoTo Usage
-        ElseIf Index = 4 Then
-            If Not Found Then GoTo Publish
-            If Candidate.Mode <> 2 Then GoTo Usage
-            If Not MatchesFlag(Value, 3) Then GoTo Usage
-        ElseIf Index = 5 Then
-            If Not Found Then GoTo Usage
-            If BufferPrimitives.ByteStorageLength(Value) = 0 Then GoTo Usage
-            Candidate.ClangArgument = 5
-        Else
+        ElseIf Index = 8 Then
             If Found Then GoTo Usage
             GoTo Publish
+        ElseIf Pending <> 0 Then
+            If Not Found Then GoTo Usage
+            If BufferPrimitives.ByteStorageLength(Value) = 0 Then GoTo Usage
+            If Pending = 3 Then Candidate.ClangArgument = Index Else Candidate.LibraryArgument = Index
+            Pending = 0
+        Else
+            If Not Found Then GoTo Publish
+            If MatchesFlag(Value, 3) Then
+                If Candidate.Mode <> 2 Or Candidate.ClangArgument <> 0 Then GoTo Usage
+                Pending = 3
+            ElseIf MatchesFlag(Value, 6) Then
+                If Candidate.LibraryArgument <> 0 Then GoTo Usage
+                Pending = 6
+            Else
+                GoTo Usage
+            End If
         End If
         Index = Index + 1
     Loop

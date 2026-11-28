@@ -29,6 +29,17 @@ Successful operations preserve Err. Invalid spans report Err 9, negative
 counts Err 5, malformed UTF-8 Err 13, and exhausted allocation Err 7. Ordinary
 FAIL propagation preserves an unfinished assignment's previous destination.
 
+Custom algorithms may also use `TextPrimitives.TryCreate`, `TryWriteByte`,
+`TryCandidateInfo`, `TryReadCandidateByte`, `TryPublish` and `TryAbandon`.
+Candidate handles are checked identities, not backing addresses. Reads and writes
+require an unpublished candidate owned by the calling thread. `TryPublish`
+checks strict UTF-8 and the declared scalar count through installed UBE support
+before committing the destination. Invalid encoding/count reports Err 13 and
+preserves both the destination and the candidate, permitting repair and retry.
+Consumed, abandoned and foreign-thread candidates are rejected. Successful
+publication makes the String immutable. Raw `Text.Commit` is support-only and
+cannot be acquired through an ordinary copied or renamed declaration.
+
 The same module implements `Concat`, `CompareBinary`, `FromInteger`,
 `FromBoolean`, `ToInteger`, `ToBoolean`, `FromFloating` and `ToFloating` for the compiler's admitted
 conversions. Numeric text follows invariant language rules, including exact

@@ -2,6 +2,7 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativePlanning"
 ' Plans bounded native storage and initialization from matching facts privately validated by the emitter.
 Public Type NativeSymbolPlan
+    IsReachable As Boolean
     ContextOffset As Long
     FrameCells As Long
     TemporaryTextCount As Long
@@ -29,6 +30,99 @@ End Type
 ' Replaces caller-owned scratch plans with neutral candidate storage.
 Private Intrinsic Function ResizePlans(ByRef Values() As NativeSymbolPlan, ByVal Count As Long, ByVal Preserve As Boolean) As Boolean
 Attribute ResizePlans.UBE_Primitive = "Array.TryResize"
+End Function
+
+' Adds one semantic dependency to a bounded adjacency list. Zero means no symbol.
+Private Sub AddDependency(ByRef Heads() As Long, ByRef Targets() As Long, ByRef Nexts() As Long, ByRef Used As Long, ByVal Source As Long, ByVal Target As Long)
+    If Source = 0 Or Target = 0 Then Exit Sub
+    Used = Used + 1
+    Targets(Used - 1) = Target
+    Nexts(Used - 1) = Heads(Source - 1)
+    Heads(Source - 1) = Used
+End Sub
+
+' Indexes all declarations, then follows references without rewriting source or hiding diagnostics.
+Private Function PlanReachability(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef Roles() As Long, ByRef Support As ManagedSupport.RolePlan, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
+    Dim Heads() As Long
+    Dim Targets() As Long
+    Dim Nexts() As Long
+    Dim Queue() As Long
+    Dim Used As Long
+    Dim ReadIndex As Long
+    Dim WriteIndex As Long
+    Dim Index As Long
+    Dim Scope As Long
+    Dim Kind As Long
+    Dim Edge As Long
+    Dim Target As Long
+    On Error GoTo Failed
+    If Not ResizeNumbers(Heads, Count, False) Then Exit Function
+    If Not ResizeNumbers(Queue, Count, False) Then Exit Function
+    If Not ResizeNumbers(Targets, Count * 6 + C.NodeCount * 15, False) Then Exit Function
+    If Not ResizeNumbers(Nexts, Count * 6 + C.NodeCount * 15, False) Then Exit Function
+    Do While Index < Count
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanReachability = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
+        Scope = A(Index).ScopeSymbol
+        AddDependency Heads, Targets, Nexts, Used, Index + 1, Scope
+        AddDependency Heads, Targets, Nexts, Used, Index + 1, A(Index).TypeSymbol
+        If ManagedLayouts.IsManagedScalar(A(Index).TypeCode) Then AddDependency Heads, Targets, Nexts, Used, Index + 1, Support.CollectSymbol
+        If Roles(A(Index).DeclarationNode - 1) = PrimitiveRoles.TextPublish Then AddDependency Heads, Targets, Nexts, Used, Index + 1, Support.PublishTextSymbol
+        If Roles(A(Index).DeclarationNode - 1) = PrimitiveRoles.MemoryCollect Then AddDependency Heads, Targets, Nexts, Used, Index + 1, Support.CollectSymbol
+        If Scope <> 0 Then
+            Kind = A(Scope - 1).Kind
+            If Kind <> SourceParser.ModuleNode Or (A(Index).Kind <> SourceParser.SubNode And A(Index).Kind <> SourceParser.FunctionNode) Then AddDependency Heads, Targets, Nexts, Used, Scope, Index + 1
+        End If
+        If A(Index).LookupDomain = 0 Then
+            Plans(Index).IsReachable = True
+            Queue(WriteIndex) = Index + 1
+            WriteIndex = WriteIndex + 1
+        End If
+        Index = Index + 1
+    Loop
+    Index = 0
+    Do While Index < C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanReachability = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
+        Kind = N(Index).Kind
+        If Kind <> SourceParser.FunctionNode And Kind <> SourceParser.SubNode And Kind <> SourceParser.ModuleNode And Kind <> SourceParser.ClassNode And Kind <> SourceParser.TypeNode Then
+            AddDependency Heads, Targets, Nexts, Used, E(Index).ScopeSymbol, E(Index).SymbolIndex
+            AddDependency Heads, Targets, Nexts, Used, E(Index).ScopeSymbol, E(Index).TypeSymbol
+            Scope = E(Index).ScopeSymbol
+            If ManagedLayouts.IsManagedScalar(E(Index).TypeCode) Or ManagedLayouts.IsManagedScalar(E(Index).ConvertedType) Then
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.CollectSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.ConcatSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.CompareBinarySymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.FromIntegerSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.FromBooleanSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.FromFloatingSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.ToIntegerSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.ToBooleanSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.ToFloatingSymbol
+                AddDependency Heads, Targets, Nexts, Used, Scope, Support.FromUtf8Symbol
+            End If
+            If Kind = SourceParser.BinaryNode And N(Index).Value = SyntaxTokens.SymCaret Then AddDependency Heads, Targets, Nexts, Used, Scope, Support.PowerSymbol
+            If Kind = SourceParser.SyncLockNode Then AddDependency Heads, Targets, Nexts, Used, Scope, Support.MonitorEnterSymbol
+        End If
+        Index = Index + 1
+    Loop
+    Do While ReadIndex < WriteIndex
+        Edge = Heads(Queue(ReadIndex) - 1)
+        Do While Edge <> 0
+            If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanReachability = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
+            Target = Targets(Edge - 1)
+            If Not Plans(Target - 1).IsReachable Then
+                Plans(Target - 1).IsReachable = True
+                Queue(WriteIndex) = Target
+                WriteIndex = WriteIndex + 1
+            End If
+            Edge = Nexts(Edge - 1)
+        Loop
+        ReadIndex = ReadIndex + 1
+    Loop
+    PlanReachability = True
+    Exit Function
+Failed:
+    PlanReachability = Reject(N, M, C, D, 0, 7, 1)
 End Function
 
 ' Allocates bounded numeric indexes and dependency traversal workspaces.
@@ -103,6 +197,7 @@ End Function
 
 ' Assigns module offsets, owned storage, borrowed parameter cells and procedure result identities.
 Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal Count As Long, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef ContextCells As Long, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal ManagedRequired As Boolean) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim Index As Long
     Dim Kind As Long
     Dim Node As Long
@@ -111,6 +206,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim Borrowed As Boolean
     On Error GoTo Failed
     Do While Index < Count
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanSymbols = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Plans(Index).ContextOffset = -1
         Kind = A(Index).Kind
         If Kind = SourceParser.ModuleNode Or Kind = SourceParser.ClassNode Or Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
@@ -123,6 +219,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     ' Prepending in reverse identity order creates ascending per-scope lists without repeated global scans.
     Index = Count
     Do While Index > 0
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanSymbols = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Index = Index - 1
         Scope = A(Index).ScopeSymbol
         If Scope > 0 And Not (A(Index).Kind = SourceParser.VariableNode And DeclarationBinder.IsInstanceMember(A, Index + 1)) Then
@@ -132,6 +229,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Loop
     Index = 0
     Do While Index < Count
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanSymbols = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Kind = A(Index).Kind
         Node = A(Index).DeclarationNode
         If Kind = SourceParser.SubNode Or Kind = SourceParser.FunctionNode Then
@@ -143,6 +241,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
             If A(Scope - 1).Kind = SourceParser.ClassNode Then
                 ' Instance fields belong to the managed object payload, never an invocation frame.
             ElseIf A(Scope - 1).Kind = SourceParser.ModuleNode Then
+                If Not Plans(Index).IsReachable Then GoTo NextSymbol
                 If Cells < 1 Or Cells > 65536 - ContextCells Then PlanSymbols = Reject(N, M, C, D, Node, 6, 54): Exit Function
                 Plans(Index).ContextOffset = ContextCells
                 ContextCells = ContextCells + Cells
@@ -165,6 +264,7 @@ Private Function PlanSymbols(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
                 If Kind = DeclarationBinder.ResultSymbol Then Plans(Scope - 1).ResultSymbol = Index + 1
             End If
         End If
+NextSymbol:
         Index = Index + 1
     Loop
     PlanSymbols = True
@@ -175,6 +275,7 @@ End Function
 
 ' Accounts the maximum live scalar String slots in each statement independently of other storage.
 Private Function PlanTextSlots(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef Plans() As NativeSymbolPlan, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim StatementText() As Long
     Dim Node As Long = 1
     Dim Scope As Long
@@ -183,6 +284,7 @@ Private Function PlanTextSlots(ByRef N() As SourceParser.SyntaxNode, ByRef M() A
     On Error GoTo Failed
     If Not ResizeNumbers(StatementText, C.NodeCount, False) Then GoTo Failed
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanTextSlots = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         If ManagedLayouts.NeedsTextSlot(N, E, Node) Then
             Scope = E(Node - 1).ScopeSymbol
             Statement = ManagedLayouts.StatementOf(N, Node)
@@ -206,11 +308,13 @@ End Function
 
 ' Charges grouped argument temporaries, reusable statement pins and record snapshots before emission.
 Private Function PlanManagedTemporaries(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Plans() As NativeSymbolPlan, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim Node As Long = 1
     Dim Scope As Long
     Dim Cells As Long
     On Error GoTo Failed
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanManagedTemporaries = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Scope = E(Node - 1).ScopeSymbol
         Cells = ManagedLayouts.TemporaryReferences(N, E, L, Node, Escapes(Node - 1).NeedsOwner)
         If Cells <> 0 Then
@@ -304,6 +408,7 @@ End Function
 
 ' Charges ordinary temporary values, statement pins and record evaluation snapshots.
 Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef D As DeclarationBinder.BindingDiagnostic, ByVal ManagedRequired As Boolean) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim StatementPins() As Long
     Dim Node As Long = 1
     Dim Scope As Long
@@ -315,6 +420,7 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
     On Error GoTo Failed
     If Not ResizeNumbers(StatementPins, C.NodeCount, False) Then GoTo Failed
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanNodes = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Scope = E(Node - 1).ScopeSymbol
         Kind = N(Node - 1).Kind
         If Not PlanConstructStorage(N, M, C, E, L, Plans, D, Node, Scope) Then Exit Function
@@ -323,6 +429,7 @@ Private Function PlanNodes(ByRef N() As SourceParser.SyntaxNode, ByRef M() As Pr
             Statement = Node
             Parent = N(Statement - 1).Parent
             Do While Parent <> 0
+                If Not DeclarationBinder.ContinueBinding(Cancellation) Then PlanNodes = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
                 If Work >= 10000000 Then PlanNodes = Reject(N, M, C, D, Node, 6, 55): Exit Function
                 Work = Work + 1
                 Kind = N(Parent - 1).Kind
@@ -363,6 +470,7 @@ End Function
 
 ' Collects transitive source calls and module accesses reachable from declaration initializers.
 Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef Dependencies() As Byte, ByRef D As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim Stack() As Long
     Dim Seen() As Long
     Dim Bases() As Long
@@ -386,6 +494,7 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
     If Not ResizeNumbers(Seen, SymbolCount, False) Then GoTo Failed
     If Not ResizeNumbers(Bases, C.ModuleCount, False) Then GoTo Failed
     Do While Index < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Bases(Index) = MatrixCells
         If C.ModuleCount > 2147483647 - MatrixCells Then InitializerDependencies = Reject(N, M, C, D, 0, 6, 53): Exit Function
         MatrixCells = MatrixCells + C.ModuleCount
@@ -393,9 +502,11 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
     Loop
     If Not BufferPrimitives.TryResizeBytes(Dependencies, MatrixCells, False) Then GoTo Failed
     Do While Origin < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Count = 0
         Node = N(M(Origin).RootNode - 1).FirstChild
         Do While Node <> 0
+            If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
             If N(Node - 1).Kind = SourceParser.VariableNode Then
                 Child = ExpressionBinder.InitializerNode(N, Node)
                 If Child <> 0 Then
@@ -405,6 +516,7 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
             Node = N(Node - 1).NextSibling
         Loop
         Do While Count > 0
+            If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
             Count = Count - 1
             Node = Stack(Count)
             If Work >= 10000000 Then InitializerDependencies = Reject(N, M, C, D, Node, 6, 52): Exit Function
@@ -421,6 +533,7 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
                         Seen(Symbol - 1) = Origin + 1
                         Child = N(A(Symbol - 1).DeclarationNode - 1).FirstChild
                         Do While Child <> 0
+                            If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
                             If N(Child - 1).Kind = SourceParser.BodyNode Then
                                 If Not PushNode(Stack, Count, Capacity, Child) Then InitializerDependencies = Reject(N, M, C, D, Node, 6, 53): Exit Function
                             End If
@@ -438,6 +551,7 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
             End If
             Child = N(Node - 1).FirstChild
             Do While Child <> 0
+                If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
                 If Not PushNode(Stack, Count, Capacity, Child) Then InitializerDependencies = Reject(N, M, C, D, Node, 6, 53): Exit Function
                 Child = N(Child - 1).NextSibling
             Loop
@@ -445,11 +559,14 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
         Origin = Origin + 1
     Loop
     Do While Middle < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         Index = 0
         Do While Index < C.ModuleCount
+            If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
             If Dependencies(Bases(Index) + Middle) <> 0 Then
                 Other = 0
                 Do While Other < C.ModuleCount
+                    If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
                     If Dependencies(Bases(Middle) + Other) <> 0 Then Dependencies(Bases(Index) + Other) = 1
                     Other = Other + 1
                 Loop
@@ -460,6 +577,7 @@ Private Function InitializerDependencies(ByRef N() As SourceParser.SyntaxNode, B
     Loop
     Index = 0
     Do While Index < C.ModuleCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then InitializerDependencies = Reject(N, M, C, D, 0, SourceScanner.Cancelled, 0): Exit Function
         If Dependencies(Bases(Index) + Index) <> 0 Then InitializerDependencies = Reject(N, M, C, D, M(Index).RootNode, 8, 52): Exit Function
         Index = Index + 1
     Loop
@@ -470,7 +588,8 @@ Failed:
 End Function
 
 ' Prepares scratch maps from fresh matching semantic facts; summary counts commit only on complete success.
-Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Dependencies() As Byte, ByRef Summary As NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.SourceToken, ByRef N() As SourceParser.SyntaxNode, ByRef M() As ProjectSyntax.ParsedModule, ByRef C As ProjectSyntax.ProjectCounts, ByRef A() As DeclarationBinder.BoundSymbol, ByVal SymbolCount As Long, ByRef E() As ExpressionBinder.BoundExpression, ByRef L() As AggregateLayout.StorageFact, ByRef Roles() As Long, ByRef Support As ManagedSupport.RolePlan, ByVal EntrySymbol As Long, ByVal IsExecutable As Boolean, ByRef Plans() As NativeSymbolPlan, ByRef Pins() As Long, ByRef Escapes() As NativeEscapes.EscapeFact, ByRef Dependencies() As Byte, ByRef Summary As NativePlanSummary, ByRef Diagnostic As DeclarationBinder.BindingDiagnostic) As Boolean
+    Dim Cancellation As DeclarationBinder.BindingState
     Dim EmptyRoles As ManagedSupport.RolePlan
     Dim ContextCells As Long
     Dim FactCount As Long
@@ -486,18 +605,26 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     Summary.EntrySymbol = 0
     Diagnostic.Code = 0
     If SymbolCount < 1 Or C.NodeCount < 1 Or C.ModuleCount < 1 Or EntrySymbol < 0 Or EntrySymbol > SymbolCount Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, 9, 50): Exit Function
-    ' Any managed expression requires precise roots, including implicit text conversions.
+    If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
+    If Not PlanReachability(N, M, C, A, SymbolCount, E, Roles, Support, Plans, Diagnostic) Then GoTo StorageFailure
+    ' Only reached managed expressions require precise roots, including implicit text conversions.
     Symbol = 1
     Do While Symbol <= SymbolCount
-        If ManagedLayouts.IsManagedScalar(A(Symbol - 1).TypeCode) Then ManagedRequired = True
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, SourceScanner.Cancelled, 0): Exit Function
+        If Plans(Symbol - 1).IsReachable And ManagedLayouts.IsManagedScalar(A(Symbol - 1).TypeCode) Then ManagedRequired = True
         Symbol = Symbol + 1
     Loop
     Node = 1
     Do While Node <= C.NodeCount
-        If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Or ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) Then ManagedRequired = True
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, SourceScanner.Cancelled, 0): Exit Function
+        Symbol = E(Node - 1).ScopeSymbol
+        If Symbol <> 0 Then
+            If Plans(Symbol - 1).IsReachable And N(Node - 1).Kind <> SourceParser.FunctionNode And N(Node - 1).Kind <> SourceParser.SubNode Then
+                If ManagedLayouts.IsManagedScalar(E(Node - 1).TypeCode) Or ManagedLayouts.IsManagedScalar(E(Node - 1).ConvertedType) Then ManagedRequired = True
+            End If
+        End If
         Node = Node + 1
     Loop
-    If Not ResizePlans(Plans, SymbolCount, False) Then GoTo StorageFailure
     If Not ResizeNumbers(Pins, C.NodeCount, False) Then GoTo StorageFailure
     If Not NativeEscapes.TryAnalyzeEscapes(N, A, E, C.NodeCount, SymbolCount, Escapes, FactCount, Diagnostic) Then
         If Diagnostic.Node > 0 Then TryPlanNative = LocateEscapeFailure(N, M, C, Diagnostic)
@@ -505,6 +632,7 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     End If
     Symbol = 1
     Do While Symbol <= SymbolCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, SourceScanner.Cancelled, 0): Exit Function
         Plans(Symbol - 1).StorageEscapes = Escapes(A(Symbol - 1).DeclarationNode - 1).StorageEscapes
         Symbol = Symbol + 1
     Loop
@@ -517,6 +645,7 @@ Public Function TryPlanNative(ByRef B() As Byte, ByRef T() As SourceScanner.Sour
     If Not InitializerDependencies(N, M, C, A, SymbolCount, E, Dependencies, Diagnostic) Then Exit Function
     Node = 1
     Do While Node <= C.NodeCount
+        If Not DeclarationBinder.ContinueBinding(Cancellation) Then TryPlanNative = Reject(N, M, C, Diagnostic, 0, SourceScanner.Cancelled, 0): Exit Function
         If Escapes(Node - 1).NeedsOwner And Escapes(Node - 1).OwnerKind = NativeEscapes.TemporaryOwner Then
             Symbol = E(Node - 1).ScopeSymbol
             Plans(Symbol - 1).TemporaryOwnerCount = Plans(Symbol - 1).TemporaryOwnerCount + 1
@@ -536,6 +665,7 @@ StorageFailure:
     Summary.ModuleCount = 0
     Summary.ContextCells = 0
     Summary.EntrySymbol = 0
+    If Diagnostic.Code <> 0 Then Exit Function
     Diagnostic.Code = 7
     Diagnostic.Reason = 1
     Diagnostic.ModuleIndex = -1

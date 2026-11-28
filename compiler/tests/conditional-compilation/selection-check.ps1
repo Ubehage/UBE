@@ -71,7 +71,7 @@ function Run([string]$File,[string[]]$Arguments,[string]$Name) {
 $success=$false
 try {
  $dependencies=@()
- foreach($module in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$module+'.bas')}
+ foreach($module in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$module+'.bas')}
  foreach($module in @('SourceScanner','SyntaxTokens','SourceParser','ConstantValues','ConstantText','ConditionalExpressions','ConditionalSource')){$dependencies+=Join-Path $root ('compiler/src/'+$module+'.bas')}
  foreach($dependency in $dependencies){Copy-Item -LiteralPath $dependency -Destination $evidence}
  foreach($optimization in @('0','2')) {foreach($control in @(0,1,2)) {

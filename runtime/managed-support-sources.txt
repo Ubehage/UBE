@@ -15,3 +15,4 @@ std-lib/src/portable/BinaryFloatPower.bas
 std-lib/src/portable/FilePrimitives.bas
 std-lib/src/portable/ObjectPrimitives.bas
 std-lib/src/portable/MonitorSupport.bas
+std-lib/src/portable/TextPublication.bas

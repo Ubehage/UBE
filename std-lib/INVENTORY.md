@@ -47,8 +47,10 @@ functions, not new keywords or name-selected compiler intrinsics.
 
 These use UBE's existing conversion rules: applicable fractional conversion
 rounds to nearest with ties to even; known-invalid conversion is diagnosed at
-compile time; runtime-dependent failure returns zero and records thread-local
-Err; success preserves existing Err. Target width, not the VB6 bootstrap host's
+compile time; runtime-dependent failure reports fresh FAIL and records
+thread-local Err, with no usable result and no unfinished assignment commit,
+under [the failure contract](../lang-doc/error-handling.md). Success preserves
+existing Err. Target width, not the VB6 bootstrap host's
 width, determines IntPtr range. CLngPtr does not expose an address or grant
 dereference access, and this addition does not introduce a LongPtr type alias.
 

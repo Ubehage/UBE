@@ -15,7 +15,8 @@ $allowed = @(
  'CreateJobObjectW','SetInformationJobObject','AssignProcessToJobObject','ResumeThread',
  'WaitForSingleObject','GetExitCodeProcess','QueryInformationJobObject','TerminateJobObject',
  'TerminateProcess','Sleep','GetLastError','GetFileAttributesW','CreateDirectoryW','RemoveDirectoryW',
- 'DeleteFileW','MoveFileExW','CreateThread','GetEnvironmentVariableW','OpenJobObjectW','IsProcessInJob'
+ 'DeleteFileW','MoveFileExW','CreateThread','GetEnvironmentVariableW','OpenJobObjectW','IsProcessInJob',
+ 'CreateEventExW','SetLastError','LCMapStringEx'
 )
 $names = New-Object Collections.Generic.List[string]
 foreach ($line in ($runtime -split '\r?\n')) {
@@ -36,3 +37,21 @@ if (-not [IO.File]::Exists($path) -or [IO.File]::ReadAllText($path, $encoding) -
  throw 'Import definition differs from reviewed runtime declarations; run -Write after review'
 }
 Write-Output "PASS: $($names.Count) reviewed Kernel32 imports; exact definition parity"
+
+# The VB6 backend emits the same runtime and must link every declared OS entry.
+$seed = [IO.File]::ReadAllText((Join-Path $root 'bootstrap/src/NativeBackend.bas'), $encoding)
+$seedNames = New-Object Collections.Generic.List[string]
+foreach ($line in ($seed -split '\r?\n')) {
+ if ($line -notmatch '^\s*Definition = ') { continue }
+ foreach ($match in [regex]::Matches($line, '"([A-Za-z][A-Za-z0-9]*)"')) {
+  $name = $match.Groups[1].Value
+  if ($name -ceq 'EXPORTS') { continue }
+  if ($seedNames.Contains($name)) { throw "Duplicate bootstrap import: $name" }
+  $seedNames.Add($name)
+ }
+}
+if ($seedNames.Count -ne $ordered.Count) { throw 'Bootstrap/runtime import count differs' }
+foreach ($name in $ordered) {
+ if (-not $seedNames.Contains($name)) { throw "Bootstrap backend is missing runtime import: $name" }
+}
+Write-Output 'PASS: VB6 backend import definition matches the emitted runtime'

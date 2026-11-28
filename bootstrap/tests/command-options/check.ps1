@@ -133,12 +133,28 @@ $vectors=@(
     @{Bytes=[byte[]]@(117,98,101,0);Code=2;Argument=0;Error=5},
     @{Bytes=[byte[]]@(117,98,101,32,195,40);Code=2;Argument=0;Error=5}
 )
+$vectors+=@(
+ @{Text='ube --emit-llvm p o --stdlib "custom library/UBECore.UBE"';Mode=1;Library=5},
+ @{Text='ube --build p o --stdlib lib.UBE';Mode=2;Library=5},
+ @{Text='ube --build-ide p o --stdlib lib.UBE --clang clang.exe';Mode=2;Library=5;Clang=7;Hosted=1},
+ @{Text='ube --build p o --clang clang.exe --stdlib lib.UBE';Mode=2;Library=7;Clang=5},
+ @{Text='ube --emit-llvm-ide p o --stdlib lib.UBE';Mode=1;Library=5;Hosted=1},
+ @{Text='ube --build p o --stdlib';Code=1;Argument=5},
+ @{Text='ube --build p o --stdlib ""';Code=1;Argument=5},
+ @{Text='ube --build p o --stdlib a --stdlib b';Code=1;Argument=6},
+ @{Text='ube --build p o --clang c --clang d';Code=1;Argument=6},
+ @{Text='ube --build p o --clang c --stdlib';Code=1;Argument=7},
+ @{Text='ube --build p o --clang c --stdlib a extra';Code=1;Argument=8},
+ @{Text='ube --emit-llvm p o --stdlib a --clang c';Code=1;Argument=6},
+ @{Text='ube --build p o --STDLIB a';Code=1;Argument=4}
+)
 $globals='@test.context = private global %ube.context zeroinitializer, align 8'+$nl
 $code=New-Object Collections.Generic.List[string]
 foreach($line in @('define i32 @main() {','entry:','call void @ube.context.init(ptr @test.context)','%init = call i1 @ube.project.init(ptr @test.context)')){$code.Add($line)}
 for($i=0;$i -lt $vectors.Count;$i++){
-    $vector=$vectors[$i];$mode=0;$clangIndex=0;$diagnostic=0;$argument=0;$errorNumber=71;$hosted=0
+    $vector=$vectors[$i];$mode=0;$clangIndex=0;$diagnostic=0;$argument=0;$errorNumber=71;$hosted=0;$libraryIndex=0
     if($vector.ContainsKey('Hosted')){$hosted=$vector.Hosted}
+    if($vector.ContainsKey('Library')){$libraryIndex=$vector.Library}
     if($vector.ContainsKey('Mode')){$mode=$vector.Mode}
     if($vector.ContainsKey('Clang')){$clangIndex=$vector.Clang}
     if($vector.ContainsKey('Code')){$diagnostic=$vector.Code;$argument=$vector.Argument}
@@ -146,7 +162,7 @@ for($i=0;$i -lt $vectors.Count;$i++){
     $bytes=$null
     if($vector.ContainsKey('Bytes')){$bytes=$vector.Bytes}else{$bytes=$utf8.GetBytes($vector.Text)}
     $globals+=Descriptor "raw$i" $bytes
-    foreach($line in @("%case$i = call {i1,i64} @ube.proc.$($symbols['Check'])(ptr @test.context,ptr @raw$i,i64 $mode,i64 $clangIndex,i64 $diagnostic,i64 $argument,i64 $errorNumber,i64 $hosted)","%fresh$i = extractvalue {i1,i64} %case$i,0","%value$i = extractvalue {i1,i64} %case$i,1","%zero$i = icmp eq i64 %value$i,0","%good$i = and i1 %fresh$i,%zero$i","br i1 %good$i,label %next$i,label %bad$i",("bad"+$i+':'),"%dispose$i = call i1 @ube.context.dispose(ptr @test.context)",('ret i32 '+($i+100)),("next"+$i+':'))){$code.Add($line)}
+    foreach($line in @("%case$i = call {i1,i64} @ube.proc.$($symbols['CheckLibrary'])(ptr @test.context,ptr @raw$i,i64 $mode,i64 $clangIndex,i64 $diagnostic,i64 $argument,i64 $errorNumber,i64 $hosted,i64 $libraryIndex)","%fresh$i = extractvalue {i1,i64} %case$i,0","%value$i = extractvalue {i1,i64} %case$i,1","%zero$i = icmp eq i64 %value$i,0","%good$i = and i1 %fresh$i,%zero$i","br i1 %good$i,label %next$i,label %bad$i",("bad"+$i+':'),"%dispose$i = call i1 @ube.context.dispose(ptr @test.context)",('ret i32 '+($i+100)),("next"+$i+':'))){$code.Add($line)}
 }
 # The fully populated command requires three allocations per present argument and one for the absent seventh.
 foreach($line in @('store i64 0,ptr @test.alloc.calls',"%baseline = call {i1,i64} @ube.proc.$($symbols['Check'])(ptr @test.context,ptr @raw2,i64 2,i64 5,i64 0,i64 0,i64 71,i64 0)",'%baseline.fresh = extractvalue {i1,i64} %baseline,0','%baseline.value = extractvalue {i1,i64} %baseline,1','%baseline.zero = icmp eq i64 %baseline.value,0','%baseline.good = and i1 %baseline.fresh,%baseline.zero','%observed = load i64,ptr @test.alloc.calls','%expected = icmp eq i64 %observed,19','%measured = and i1 %baseline.good,%expected','br i1 %measured,label %fault.entry,label %failed','fault.entry:','br label %fault','fault:','%site = phi i64 [1,%fault.entry],[%next.site,%recovery]','store i64 0,ptr @test.alloc.calls','store i64 2,ptr @test.fail.remaining','store i64 %site,ptr @test.fail.after','%previous = sub i64 %site,1','%argument = udiv i64 %previous,3',"%fault.result = call {i1,i64} @ube.proc.$($symbols['CheckAllocation'])(ptr @test.context,ptr @raw2,i64 %argument)",'%fault.fresh = extractvalue {i1,i64} %fault.result,0','%fault.value = extractvalue {i1,i64} %fault.result,1','%fault.zero = icmp eq i64 %fault.value,0','%fault.good = and i1 %fault.fresh,%fault.zero','%calls = load i64,ptr @test.alloc.calls','%attempts = add i64 %site,1','%retry.failed = icmp eq i64 %calls,%attempts','%fault.qualified = and i1 %fault.good,%retry.failed','br i1 %fault.qualified,label %recovery,label %failed','recovery:',"%again = call {i1,i64} @ube.proc.$($symbols['Check'])(ptr @test.context,ptr @raw2,i64 2,i64 5,i64 0,i64 0,i64 71,i64 0)",'%again.fresh = extractvalue {i1,i64} %again,0','%again.value = extractvalue {i1,i64} %again,1','%again.zero = icmp eq i64 %again.value,0','%again.good = and i1 %again.fresh,%again.zero','%next.site = add i64 %site,1','%more = icmp ule i64 %next.site,%observed','br i1 %again.good,label %advance,label %failed','advance:','br i1 %more,label %fault,label %done','done:','%disposed = call i1 @ube.context.dispose(ptr @test.context)','%live = load i64,ptr @test.live','%clean = icmp eq i64 %live,0','%complete = and i1 %disposed,%clean','%exit = select i1 %complete,i32 0,i32 98','ret i32 %exit','failed:','%cleanup = call i1 @ube.context.dispose(ptr @test.context)','ret i32 99','}')){$code.Add($line)}

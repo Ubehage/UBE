@@ -8,6 +8,7 @@ Public Function NativeManagedIR() As String
     NativeManagedIR = NativeManagedIR & ManagedThreadsIR()
     NativeManagedIR = NativeManagedIR & ManagedInstallationIR()
     NativeManagedIR = NativeManagedIR & ManagedTextIR()
+    NativeManagedIR = NativeManagedIR & CandidateAccessIR()
     NativeManagedIR = NativeManagedIR & ManagedOwnersIR()
     NativeManagedIR = NativeManagedIR & ManagedLayoutsIR()
     NativeManagedIR = NativeManagedIR & ManagedRootsIR()
@@ -77,7 +78,7 @@ Private Function ManagedMetadataIR() As String
     Text = Text & "%ube.managed.layout = type { i64, i64, ptr, i64, ptr, i64, ptr }" & vbCrLf
     Text = Text & "%ube.managed.array = type { i64, ptr }" & vbCrLf
     Text = Text & "%ube.managed.record = type { ptr, i64, i64, ptr, ptr, i64, i64, ptr, i64, ptr, ptr, i64, ptr }" & vbCrLf
-    Text = Text & "%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64 }" & vbCrLf
+    Text = Text & "%ube.managed.state = type { ptr, ptr, ptr, i64, i64, i64, i64, i64, i64, i64, ptr, %ube.rootframe, i64, ptr, ptr, ptr, i64, i64, i64 }" & vbCrLf
     Text = Text & "@ube.managed.next = internal global i64 1" & vbCrLf
     Text = Text & "" & vbCrLf
     Text = Text & "define internal ptr @ube.managed.state(ptr %ctx) {" & vbCrLf
@@ -507,6 +508,8 @@ Private Function ManagedInstallationIR() As String
     Text = Text & "  %state = getelementptr %ube.block, ptr %block, i64 1" & vbCrLf
     Text = Text & "  %callback.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 1" & vbCrLf
     Text = Text & "  store ptr %callback, ptr %callback.ptr, align 8" & vbCrLf
+    Text = Text & "  %pressure.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 18" & vbCrLf
+    Text = Text & "  store i64 256, ptr %pressure.ptr, align 8" & vbCrLf
     Text = Text & "  %program = call ptr @ube.thread.program(ptr %ctx)" & vbCrLf
     Text = Text & "  %slot = getelementptr %ube.program, ptr %program, i32 0, i32 14" & vbCrLf
     Text = Text & "  store atomic ptr %state, ptr %slot release, align 8" & vbCrLf
@@ -673,6 +676,51 @@ Private Function ManagedTextIR() As String
     Text = Text & "failed:" & vbCrLf
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
+    Text = Text & "; Allocation pressure uses the existing precise collector, never a new heap or worker." & vbCrLf
+    Text = Text & "define internal void @ube.managed.pressure(ptr %ctx, ptr %state) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %owner.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 2" & vbCrLf
+    Text = Text & "  %owner = load atomic ptr, ptr %owner.ptr acquire, align 8" & vbCrLf
+    Text = Text & "  %recursive = icmp eq ptr %owner, %ctx" & vbCrLf
+    Text = Text & "  br i1 %recursive, label %done, label %enter" & vbCrLf
+    Text = Text & "enter:" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  %program = call ptr @ube.thread.program(ptr %ctx)" & vbCrLf
+    Text = Text & "  call void @ube.program.storage.lock(ptr %program)" & vbCrLf
+    Text = Text & "  %request.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 3" & vbCrLf
+    Text = Text & "  %request = load atomic i64, ptr %request.ptr seq_cst, align 8" & vbCrLf
+    Text = Text & "  %requested = icmp ne i64 %request, 0" & vbCrLf
+    Text = Text & "  br i1 %requested, label %unlock, label %pressure" & vbCrLf
+    Text = Text & "pressure:" & vbCrLf
+    Text = Text & "  %live.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 17" & vbCrLf
+    Text = Text & "  %limit.ptr = getelementptr %ube.managed.state, ptr %state, i32 0, i32 18" & vbCrLf
+    Text = Text & "  %live = load i64, ptr %live.ptr, align 8" & vbCrLf
+    Text = Text & "  %limit = load i64, ptr %limit.ptr, align 8" & vbCrLf
+    Text = Text & "  %due = icmp uge i64 %live, %limit" & vbCrLf
+    Text = Text & "  br i1 %due, label %reserve, label %unlock" & vbCrLf
+    Text = Text & "reserve:" & vbCrLf
+    Text = Text & "  %half = lshr i64 %live, 1" & vbCrLf
+    Text = Text & "  %small = icmp ult i64 %half, 256" & vbCrLf
+    Text = Text & "  %budget = select i1 %small, i64 256, i64 %half" & vbCrLf
+    Text = Text & "  %next = add i64 %live, %budget" & vbCrLf
+    Text = Text & "  store i64 %next, ptr %limit.ptr, align 8" & vbCrLf
+    Text = Text & "  call void @ube.program.storage.unlock(ptr %program)" & vbCrLf
+    Text = Text & "  %result = call {i1,i64} @ube.managed.collect(ptr %ctx, i64 0)" & vbCrLf
+    Text = Text & "  call void @ube.managed.enter(ptr %ctx)" & vbCrLf
+    Text = Text & "  call void @ube.program.storage.lock(ptr %program)" & vbCrLf
+    Text = Text & "  %survivors = load i64, ptr %live.ptr, align 8" & vbCrLf
+    Text = Text & "  %survivor.half = lshr i64 %survivors, 1" & vbCrLf
+    Text = Text & "  %survivor.small = icmp ult i64 %survivor.half, 256" & vbCrLf
+    Text = Text & "  %survivor.budget = select i1 %survivor.small, i64 256, i64 %survivor.half" & vbCrLf
+    Text = Text & "  %rearmed = add i64 %survivors, %survivor.budget" & vbCrLf
+    Text = Text & "  store i64 %rearmed, ptr %limit.ptr, align 8" & vbCrLf
+    Text = Text & "  br label %unlock" & vbCrLf
+    Text = Text & "unlock:" & vbCrLf
+    Text = Text & "  call void @ube.program.storage.unlock(ptr %program)" & vbCrLf
+    Text = Text & "  br label %done" & vbCrLf
+    Text = Text & "done:" & vbCrLf
+    Text = Text & "  ret void" & vbCrLf
+    Text = Text & "}" & vbCrLf
     Text = Text & "; Reserves collection metadata before publishing a managed record; collection never grows it." & vbCrLf
     Text = Text & "define internal i1 @ube.managed.register(ptr %ctx, ptr %state, ptr %record) {" & vbCrLf
     Text = Text & "entry:" & vbCrLf
@@ -802,6 +850,7 @@ Private Function ManagedTextIR() As String
     Text = Text & "  %too.large = icmp ugt i64 %bytes, %maximum.bytes" & vbCrLf
     Text = Text & "  br i1 %too.large, label %memory, label %allocate" & vbCrLf
     Text = Text & "allocate:" & vbCrLf
+    Text = Text & "  call void @ube.managed.pressure(ptr %ctx, ptr %state)" & vbCrLf
     Text = Text & "  %total = add i64 %bytes, %header.bytes" & vbCrLf
     Text = Text & "  %rounded = add i64 %total, 1023" & vbCrLf
     Text = Text & "  %chunks = lshr i64 %rounded, 10" & vbCrLf
@@ -2124,4 +2173,56 @@ Private Function ManagedWorkspaceIR() As String
     Text = Text & "  ret i1 false" & vbCrLf
     Text = Text & "}" & vbCrLf
     ManagedWorkspaceIR = Text
+End Function
+
+Private Function CandidateAccessIR() As String
+    Dim Text As String
+    Text = Text & "define i1 @ube.text.candidate.info(ptr %ctx, i64 %identity, ptr %bytes.out, ptr %scalars.out) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %empty = icmp eq i64 %identity, 0" & vbCrLf
+    Text = Text & "  br i1 %empty, label %zero, label %find" & vbCrLf
+    Text = Text & "find:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.text.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %read, label %failed" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %bytes.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 5" & vbCrLf
+    Text = Text & "  %scalars.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 6" & vbCrLf
+    Text = Text & "  %bytes = load i64, ptr %bytes.ptr, align 8" & vbCrLf
+    Text = Text & "  %scalars = load i64, ptr %scalars.ptr, align 8" & vbCrLf
+    Text = Text & "  store i64 %bytes, ptr %bytes.out, align 8" & vbCrLf
+    Text = Text & "  store i64 %scalars, ptr %scalars.out, align 8" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "zero:" & vbCrLf
+    Text = Text & "  store i64 0, ptr %bytes.out, align 8" & vbCrLf
+    Text = Text & "  store i64 0, ptr %scalars.out, align 8" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    Text = Text & "define i1 @ube.text.candidate.read(ptr %ctx, i64 %identity, i64 %index, ptr %output) {" & vbCrLf
+    Text = Text & "entry:" & vbCrLf
+    Text = Text & "  %record = call ptr @ube.text.candidate(ptr %ctx, i64 %identity)" & vbCrLf
+    Text = Text & "  %exists = icmp ne ptr %record, null" & vbCrLf
+    Text = Text & "  br i1 %exists, label %bounds, label %failed" & vbCrLf
+    Text = Text & "bounds:" & vbCrLf
+    Text = Text & "  %length.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 5" & vbCrLf
+    Text = Text & "  %length = load i64, ptr %length.ptr, align 8" & vbCrLf
+    Text = Text & "  %valid = icmp ult i64 %index, %length" & vbCrLf
+    Text = Text & "  br i1 %valid, label %read, label %range" & vbCrLf
+    Text = Text & "read:" & vbCrLf
+    Text = Text & "  %payload.ptr = getelementptr %ube.managed.record, ptr %record, i32 0, i32 9" & vbCrLf
+    Text = Text & "  %payload = load ptr, ptr %payload.ptr, align 8" & vbCrLf
+    Text = Text & "  %address = getelementptr i8, ptr %payload, i64 %index" & vbCrLf
+    Text = Text & "  %byte = load i8, ptr %address, align 1" & vbCrLf
+    Text = Text & "  %wide = zext i8 %byte to i64" & vbCrLf
+    Text = Text & "  store i64 %wide, ptr %output, align 8" & vbCrLf
+    Text = Text & "  ret i1 true" & vbCrLf
+    Text = Text & "range:" & vbCrLf
+    Text = Text & "  store atomic i64 9, ptr %ctx monotonic, align 8" & vbCrLf
+    Text = Text & "  br label %failed" & vbCrLf
+    Text = Text & "failed:" & vbCrLf
+    Text = Text & "  ret i1 false" & vbCrLf
+    Text = Text & "}" & vbCrLf
+    CandidateAccessIR = Text
 End Function

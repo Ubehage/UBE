@@ -44,8 +44,8 @@ checks the compiler admissions required by the source implementation.
 ControlFlowProbe is real UBE code exercising every admitted Do form, nested
 Exit Do, runtime subtraction/Or/Not, and successful/failing If/Do conditions.
 Its normal runtime input returns zero at O0/O2; its negative control returns
-exactly 22. These checks establish the approved skip-entire-construct behavior
-for failed conditions, rather than substituting False.
+exactly 23. Failed If conditions record Err and follow the False branch under
+the 2026-11-28 owner correction; failed loop conditions still exit the loop.
 
 ## Scanner interface
 

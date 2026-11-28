@@ -8,7 +8,7 @@ End Function
 
 ' Decodes a nonnegative finite IEEE encoding as Mantissa * 2 ^ Exponent.
 Private Sub Decode(ByVal Bits As LongLong, ByVal BitWidth As Long, ByRef Mantissa As LongLong, ByRef Exponent As Long)
-    Dim Unit As LongLong = 4503599627370496^
+    Dim Unit As LongLong = 4503599627370496&&
     Dim Bias As Long = 1075
     Dim Field As Long
     If BitWidth = 32 Then Unit = 8388608: Bias = 150
@@ -96,7 +96,7 @@ End Function
 ' Called only after complete syntax validation by InvariantNumbers.
 Public Function TryParseDecimal(ByRef Bytes() As Byte, ByVal First As Long, ByVal Last As Long, ByVal LeadingZeros As Long, ByVal IntegerDigits As Long, ByVal DecimalExponent As LongLong, ByVal Negative As Boolean, ByVal Nonzero As Boolean, ByVal BitWidth As Long, ByRef Bits As LongLong) As Boolean
     Dim Low As LongLong
-    Dim High As LongLong = 9218868437227405311^
+    Dim High As LongLong = 9218868437227405311&&
     Dim Middle As LongLong
     Dim Mantissa As LongLong
     Dim Exponent As Long
@@ -133,14 +133,14 @@ Public Function TryParseDecimal(ByRef Bytes() As Byte, ByVal First As Long, ByVa
         If BitWidth = 32 Then
             If Result = 2139095040 Then TryParseDecimal = FilePrimitives.SetError(6): Exit Function
         Else
-            If Result = 9218868437227405312^ Then TryParseDecimal = FilePrimitives.SetError(6): Exit Function
+            If Result = 9218868437227405312&& Then TryParseDecimal = FilePrimitives.SetError(6): Exit Function
         End If
     End If
     If Negative Then
         If BitWidth = 32 Then
-            Result = Result + 2147483648^
+            Result = Result + 2147483648&&
         Else
-            Result = -9223372036854775808^ + Result
+            Result = -9223372036854775808&& + Result
         End If
     End If
     Bits = Result

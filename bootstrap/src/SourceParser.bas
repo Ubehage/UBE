@@ -220,8 +220,8 @@ Private Function EnterSyntax(ByRef P As ParsedProject, ByRef S As ParserState, B
     EnterSyntax = True
 End Function
 
-' Reads an explicit scalar annotation and checks any adjacent identifier type suffix.
-Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Suffix As String, ByRef TypeName As String, ByRef Diagnostic As String) As Boolean
+' Requires an explicit As datatype; identifier suffixes are not declarations.
+Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByRef TypeName As String, ByRef Diagnostic As String) As Boolean
     Dim Part As String
     If AtToken(P, S, "as") Then
         If Not RequireSpace(P, S, Diagnostic) Then Exit Function
@@ -260,35 +260,11 @@ Private Function ReadType(ByRef P As ParsedProject, ByRef S As ParserState, ByVa
             Exit Function
         End If
         S.Position = S.Position + 1
-        If Len(Suffix) > 0 And TypeName <> Suffix Then
-            ReadType = SyntaxError(P, S, Diagnostic, "identifier suffix conflicts with As type")
-            Exit Function
-        End If
-    ElseIf Len(Suffix) > 0 Then
-        TypeName = Suffix
     Else
         ReadType = SyntaxError(P, S, Diagnostic, "explicit scalar type required")
         Exit Function
     End If
     ReadType = True
-End Function
-
-' Consumes the supported declaration suffix only when adjacent to its name.
-Private Function ScalarSuffix(ByRef P As ParsedProject, ByRef S As ParserState) As String
-    Dim SelectedType As String
-    If AtToken(P, S, "&") Then
-        SelectedType = "Long"
-    ElseIf AtToken(P, S, "%") Then
-        SelectedType = "Integer"
-    ElseIf AtToken(P, S, "^") Then
-        SelectedType = "LongLong"
-    Else
-        Exit Function
-    End If
-    If S.Position < 1 Then Exit Function
-    If P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Offset + P.Modules(S.ModuleIndex).Tokens.Items(S.Position - 1).Length <> P.Modules(S.ModuleIndex).Tokens.Items(S.Position).Offset Then Exit Function
-    S.Position = S.Position + 1
-    ScalarSuffix = SelectedType
 End Function
 
 ' Builds a qualified ordinary name; Err members receive no special syntax binding.
@@ -301,14 +277,12 @@ Private Function ParseName(ByRef P As ParsedProject, ByRef S As ParserState, ByR
     If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
     Node = NewNode(P, S, "name", Name, Start, Diagnostic)
     If Node = 0 Then Exit Function
-    P.Nodes(Node).TypeName = ScalarSuffix(P, S)
     Call FinishNode(P, S, Node)
     Do While AtToken(P, S, ".")
         S.Position = S.Position + 1
         If Not ReadName(P, S, Name, Diagnostic, True) Then Exit Function
         Member = NewNode(P, S, "member", Name, Start, Diagnostic)
         If Member = 0 Then Exit Function
-        P.Nodes(Member).TypeName = ScalarSuffix(P, S)
         Call AddChild(P, Member, Node)
         Node = Member
         Call FinishNode(P, S, Node)
@@ -410,7 +384,6 @@ Private Function ParsePostfix(ByRef P As ParsedProject, ByRef S As ParserState, 
             Child = Node
             Node = NewNode(P, S, "member", Name, Start, Diagnostic)
             If Node = 0 Then Exit Function
-            P.Nodes(Node).TypeName = ScalarSuffix(P, S)
             Call AddChild(P, Node, Child)
         Else
             Exit Do
@@ -426,7 +399,6 @@ Private Function AssignmentAhead(ByRef P As ParsedProject, ByRef S As ParserStat
     If Not IsName(P, S) Then Exit Function
     Ahead = 1
     Do
-        If AtToken(P, S, "%", Ahead) Or AtToken(P, S, "&", Ahead) Or AtToken(P, S, "^", Ahead) Then Ahead = Ahead + 1
         If AtToken(P, S, ".", Ahead) Then
             If TokenKind(P, S, Ahead + 1) <> "name" And TokenKind(P, S, Ahead + 1) <> "identifier" Then Exit Function
             Ahead = Ahead + 2
@@ -517,7 +489,11 @@ Private Function IntegerLiteral(ByVal Text As String) As Boolean
     Dim Index As Long
     Dim Digits As String
     Dim Character As String
-    If InStr("%&^", Right$(Text, 1)) > 0 Then Text = Left$(Text, Len(Text) - 1)
+    If Right$(Text, 2) = "&&" Then
+        Text = Left$(Text, Len(Text) - 2)
+    ElseIf InStr("%&", Right$(Text, 1)) > 0 Then
+        Text = Left$(Text, Len(Text) - 1)
+    End If
     Digits = "0123456789"
     If FoldAscii(Left$(Text, 2)) = "&h" Then
         Digits = "0123456789abcdef"
@@ -545,11 +521,11 @@ Private Function OperatorRank(ByRef P As ParsedProject, ByRef S As ParserState) 
     ElseIf AtToken(P, S, "+") Or AtToken(P, S, "-") Then
         OperatorRank = 5
     ElseIf AtToken(P, S, "*") Then
-        OperatorRank = 6
+        OperatorRank = 8
     ElseIf AtToken(P, S, "\") Then
         OperatorRank = 7
     ElseIf AtToken(P, S, "mod") Then
-        OperatorRank = 8
+        OperatorRank = 6
     End If
 End Function
 
@@ -613,24 +589,22 @@ Private Function ParseVariables(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Name As String
     Dim Kind As String
     Dim TypeName As String
-    Dim Suffix As String
     Dim Shape As Long
     Kind = "variable"
     If Constant Then Kind = "constant"
     Do
         Start = S.Position
         If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-        Suffix = ScalarSuffix(P, S)
         Shape = 0
         If AtToken(P, S, "(") Then
-            If Constant Or Len(Suffix) > 0 Then
+            If Constant Then
                 Call SyntaxError(P, S, Diagnostic, "arrays require an As type and cannot be Const")
                 Exit Function
             End If
             Shape = ParseArrayShape(P, S, Diagnostic)
             If Shape = 0 Then Exit Function
         End If
-        If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
+        If Not ReadType(P, S, TypeName, Diagnostic) Then Exit Function
         Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
         If Node = 0 Then Exit Function
         P.Nodes(Node).TypeName = TypeName
@@ -1098,7 +1072,6 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
     Dim Name As String
     Dim Mode As String
     Dim TypeName As String
-    Dim Suffix As String
     Dim Node As Long
     Dim Shape As Long
     S.Position = S.Position + 1
@@ -1113,13 +1086,8 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
                 S.Position = S.Position + 1
             End If
             If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-            Suffix = ScalarSuffix(P, S)
             Shape = 0
             If AtToken(P, S, "(") Then
-                If Len(Suffix) > 0 Then
-                    Call SyntaxError(P, S, Diagnostic, "array parameters require an As type")
-                    Exit Function
-                End If
                 Shape = ParseArrayShape(P, S, Diagnostic)
                 If Shape = 0 Then Exit Function
                 If P.Nodes(Shape).Text <> "dynamic" Then
@@ -1127,7 +1095,7 @@ Private Function ParseParameters(ByRef P As ParsedProject, ByRef S As ParserStat
                     Exit Function
                 End If
             End If
-            If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
+            If Not ReadType(P, S, TypeName, Diagnostic) Then Exit Function
             Node = NewNode(P, S, "parameter", Name, Start, Diagnostic)
             If Node = 0 Then Exit Function
             P.Nodes(Node).TypeName = TypeName
@@ -1178,7 +1146,6 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     Dim Name As String
     Dim Kind As String
     Dim TypeName As String
-    Dim Suffix As String
     Dim Node As Long
     Dim Body As Long
     Start = S.Position
@@ -1188,7 +1155,6 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
     S.Position = S.Position + 1
     If Not RequireSpace(P, S, Diagnostic) Then Exit Function
     If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-    If Kind = "function" Then Suffix = ScalarSuffix(P, S)
     Node = NewNode(P, S, Kind, Name, Start, Diagnostic)
     If Node = 0 Then Exit Function
     P.Nodes(Node).Modifiers = Visibility
@@ -1197,7 +1163,7 @@ Private Function ParseProcedure(ByRef P As ParsedProject, ByRef S As ParserState
         If Not ParseParameters(P, S, Node, Diagnostic) Then Exit Function
     End If
     If Kind = "function" Then
-        If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
+        If Not ReadType(P, S, TypeName, Diagnostic) Then Exit Function
         P.Nodes(Node).TypeName = TypeName
     End If
     If Not EndLine(P, S, Diagnostic) Then Exit Function
@@ -1230,7 +1196,7 @@ End Function
 ' Retains nominal field-only record declarations without choosing their native layout.
 Private Function ParseRecord(ByRef P As ParsedProject, ByRef S As ParserState, ByVal Parent As Long, ByVal Visibility As String, ByRef Diagnostic As String) As Boolean
     Dim Start As Long, Node As Long, Field As Long, Shape As Long, FieldCount As Long
-    Dim Name As String, TypeName As String, Suffix As String
+    Dim Name As String, TypeName As String
     Start = S.Position
     S.Position = S.Position + 1
     If Not RequireSpace(P, S, Diagnostic) Then Exit Function
@@ -1252,17 +1218,12 @@ Private Function ParseRecord(ByRef P As ParsedProject, ByRef S As ParserState, B
         End If
         Start = S.Position
         If Not ReadName(P, S, Name, Diagnostic) Then Exit Function
-        Suffix = ScalarSuffix(P, S)
         Shape = 0
         If AtToken(P, S, "(") Then
-            If Len(Suffix) > 0 Then
-                ParseRecord = SyntaxError(P, S, Diagnostic, "array fields require an As type")
-                Exit Function
-            End If
             Shape = ParseArrayShape(P, S, Diagnostic)
             If Shape = 0 Then Exit Function
         End If
-        If Not ReadType(P, S, Suffix, TypeName, Diagnostic) Then Exit Function
+        If Not ReadType(P, S, TypeName, Diagnostic) Then Exit Function
         Field = NewNode(P, S, "field", Name, Start, Diagnostic)
         If Field = 0 Then Exit Function
         P.Nodes(Field).TypeName = TypeName

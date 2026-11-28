@@ -15,10 +15,11 @@ condition. Exit Do exits the nearest enclosing Do. Existing numeric promotion,
 source-order evaluation and checked conversions apply. Or is eager; it is not
 OrElse. Not binds below comparisons and above And; And binds above Or.
 
-The owner approved default continuation after the entire If or Do construct
-when its condition fails. This covers ElseIf, Until and post-test conditions.
-Enabled label handlers retain their existing behavior, and failures while a
-handler is active skip the construct without recursive entry. Body statements
+The owner's 2026-11-28 correction requires failed If/ElseIf conditions to record
+Err and follow the False branch, including subsequent ElseIf and Else branches.
+Failed Do conditions still continue after the entire loop, including Until and
+post-test conditions. Enabled label handlers retain their existing behavior;
+an active handler follows the default branch without recursive entry. Body statements
 retain ordinary statement-local continuation. Resume statements remain outside
 the bootstrap subset. The normative rule is in
 [`error-handling.md`](../lang-doc/error-handling.md).

@@ -33,7 +33,7 @@ function Run([string]$File,[string[]]$Arguments,[string]$Directory=$artifacts,[i
 # Copies each fixture source into its own contained project; no compiler sees external source references.
 function Project([string]$Name,[string[]]$Sources,[string]$Optimization){
  $directory=Join-Path $artifacts $Name;$null=New-Item -ItemType Directory -Path $directory
- $lines=@('UBE-Project 1',('Name = "'+$Name+'"'),'Kind = "Exe"','Startup = "Main"',('Optimization = "'+$Optimization+'"'));$modules=@();$copies=@()
+ $lines=@('UBE-Project 1',('Name = "'+$Name+'"'),'Kind = "Exe"','Startup = "Main"',('Optimization = "'+$Optimization+'"'),'DebugInformation = "None"');$modules=@();$copies=@()
  foreach($source in $Sources){$leaf=[IO.Path]::GetFileName($source);$destination=Join-Path $directory $leaf;Copy-Item -LiteralPath $source -Destination $destination;$text=[IO.File]::ReadAllText($destination,$utf8);Require ($text -match 'Attribute UBE_Name = "([^"]+)"') "Fixture has no module identity: $source";$modules+=$Matches[1];$copies+=$destination;$lines+='Source = "'+$leaf+'"'}
  $manifest=Join-Path $directory 'project.UBE';Write-Text $manifest (($lines -join "`r`n")+"`r`n")
  return [pscustomobject]@{Name=$Name;Directory=$directory;Manifest=$manifest;Modules=$modules;Sources=$copies}

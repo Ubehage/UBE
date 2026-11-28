@@ -31,15 +31,20 @@ End Function
 ' The caller obtains ManifestPath only through CompilerAssets; it is not a source Reference.
 ' Path records stay aligned with combined module indices, including failed-source diagnostics.
 Public Function TryAppendSupport(ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
-    TryAppendSupport = TryAppendLibraryCore(ManifestPath, True, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
+    TryAppendSupport = TryAppendLibraryCore(ManifestPath, True, 1, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
 End Function
 
 ' General syntax loading for a caller-selected private library; this does not grant installed support identity.
 Public Function TryAppendLibrarySources(ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
-    TryAppendLibrarySources = TryAppendLibraryCore(ManifestPath, False, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
+    TryAppendLibrarySources = TryAppendLibraryCore(ManifestPath, False, 1, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
 End Function
 
-Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Reviewed As Boolean, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+' Loads ordinary standard-library declarations without granting runtime-support authority.
+Public Function TryAppendStandardLibrary(ByRef ManifestPath() As Byte, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
+    TryAppendStandardLibrary = TryAppendLibraryCore(ManifestPath, False, 2, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Diagnostic, Token)
+End Function
+
+Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Reviewed As Boolean, ByVal LookupDomain As Long, ByRef PathBytes() As Byte, ByRef Paths() As SourcePath, ByRef Bytes() As Byte, ByRef Tokens() As SourceScanner.SourceToken, ByRef Nodes() As SourceParser.SyntaxNode, ByRef Modules() As ProjectSyntax.ParsedModule, ByRef Counts As ProjectSyntax.ProjectCounts, ByRef Diagnostic As LoadDiagnostic, ByRef Token As Long) As Boolean
     Dim Manifest() As Byte
     Dim Root() As Byte
     Dim Relative() As Byte
@@ -69,6 +74,10 @@ Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Review
     Diagnostic.Code = 11
     Diagnostic.Reason = 2
     If Info.IsExecutable Then Exit Function
+    If LookupDomain = 2 Then
+        Diagnostic.Reason = 4
+        If Not IsStandardPackageName(PackageName) Then Exit Function
+    End If
     Diagnostic.Reason = 3
     If Reviewed And Info.SourceCount <> ManagedSourceAssets.SourceCount Then Exit Function
     Diagnostic.Code = 4
@@ -85,7 +94,7 @@ Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Review
         If Not ProjectManifest.TryCopyValue(Manifest, Spans(Index).Start, Spans(Index).Length, Relative) Then Exit Function
         SourceIdentity = -1
         If Reviewed Then SourceIdentity = Index
-        If Not TryLoadSource(Root, Relative, Spans(Index).Line, CandidateCounts.ModuleCount, 1, SourceIdentity, IsInIDE, PathBytes, Paths, PathUsed, Bytes, Tokens, Nodes, Modules, CandidateCounts, Diagnostic, Token) Then Exit Function
+        If Not TryLoadSource(Root, Relative, Spans(Index).Line, CandidateCounts.ModuleCount, LookupDomain, SourceIdentity, IsInIDE, PathBytes, Paths, PathUsed, Bytes, Tokens, Nodes, Modules, CandidateCounts, Diagnostic, Token) Then Exit Function
         Index = Index + 1
     Loop
     Counts = CandidateCounts
@@ -95,6 +104,19 @@ Private Function TryAppendLibraryCore(ByRef ManifestPath() As Byte, ByVal Review
     Exit Function
 RuntimeFailure:
     Diagnostic.Code = 12
+End Function
+
+' A configured standard catalog keeps its package identity while its source remains editable.
+Private Function IsStandardPackageName(ByRef CatalogName() As Byte) As Boolean
+    If BufferPrimitives.ByteStorageLength(CatalogName) <> 7 Then Exit Function
+    If CatalogName(0) <> 85 And CatalogName(0) <> 117 Then Exit Function
+    If CatalogName(1) <> 66 And CatalogName(1) <> 98 Then Exit Function
+    If CatalogName(2) <> 69 And CatalogName(2) <> 101 Then Exit Function
+    If CatalogName(3) <> 67 And CatalogName(3) <> 99 Then Exit Function
+    If CatalogName(4) <> 79 And CatalogName(4) <> 111 Then Exit Function
+    If CatalogName(5) <> 82 And CatalogName(5) <> 114 Then Exit Function
+    If CatalogName(6) <> 69 And CatalogName(6) <> 101 Then Exit Function
+    IsStandardPackageName = True
 End Function
 
 ' Copies one checked byte span into independent exact-sized scratch storage.
@@ -171,13 +193,17 @@ Public Function TryLoadManifest(ByRef ManifestPath() As Byte, ByRef PackageName(
     Dim Length As Long
     Dim Failure As Long
     Dim Status As Boolean
+    Dim WasCancelled As Boolean
     On Error GoTo RuntimeFailure
     Diagnostic.Stage = 2
     If FilePrimitives.TryOpen(ManifestPath, 2147483646, Token, Length, Failure) = False Then GoTo IOFailed
     If TryCanonicalPath(Token, Canonical, Failure) = False Then GoTo IOFailed
     If WindowsPaths.TryParent(Canonical, Root, Failure) = False Then GoTo IOFailed
     Diagnostic.Stage = 3
-    If FileBytes.TryReadOpenBytes(Token, Length, Manifest, Failure) = False Then GoTo IOFailed
+    If Not FileBytes.TryReadOpenBytesCancellable(Token, Length, Manifest, Failure, WasCancelled) Then
+        If WasCancelled Then Diagnostic.Code = SourceScanner.Cancelled: GoTo Cleanup
+        GoTo IOFailed
+    End If
     If CloseOwner(Token, Failure) = False Then Diagnostic.Code = Failure: Exit Function
     Diagnostic.Stage = 4
     If ProjectManifest.TryParse(Manifest, Spans, Info, ManifestError) = False Then
@@ -218,6 +244,7 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
     Dim Within As Boolean
     Dim Same As Boolean
     Dim Status As Boolean
+    Dim WasCancelled As Boolean
     On Error GoTo RuntimeFailure
     Diagnostic.Stage = 5
     Diagnostic.Code = 1
@@ -247,7 +274,10 @@ Private Function TryLoadSource(ByRef Root() As Byte, ByRef Relative() As Byte, B
     Diagnostic.Code = 8
     If RetainPath(Canonical, ManifestLine, Index, PathBytes, Paths, PathUsed, Diagnostic) = False Then GoTo Rejected
     Diagnostic.Stage = 7
-    If FileBytes.TryReadOpenBytes(Token, Length, Source, Failure) = False Then GoTo IOFailed
+    If Not FileBytes.TryReadOpenBytesCancellable(Token, Length, Source, Failure, WasCancelled) Then
+        If WasCancelled Then Diagnostic.Code = SourceScanner.Cancelled: Diagnostic.Reason = 0: GoTo Rejected
+        GoTo IOFailed
+    End If
     If CloseOwner(Token, Failure) = False Then Diagnostic.Code = Failure: Exit Function
     If SourceIdentity >= 0 Then
         Diagnostic.Stage = 9

@@ -300,7 +300,7 @@ Private Function EmitCall(ByRef N() As SourceParser.SyntaxNode, ByRef A() As Dec
     Argument = N(Callee - 1).NextSibling
     Do While Argument <> 0
         Template = LLVMTemplates.CallValueArgument
-        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Or E(Argument - 1).ArrayRank <> 0 Or (ManagedLayouts.IsRecordValue(E(Argument - 1).TypeCode, E(Argument - 1).TypeSymbol) And E(Argument - 1).ConvertedType <> SyntaxTokens.KwVariant) Then Template = LLVMTemplates.CallReferenceArgument
+        If E(Argument - 1).ArgumentMode = 2 Or E(Argument - 1).ArgumentMode = 3 Or ManagedLayouts.IsAggregateArgument(E, Argument) Then Template = LLVMTemplates.CallReferenceArgument
         If Fragment(S, B, Token, Catalog, Template, Values(Index), 0) = False Then Exit Function
         If NativeOwnership.HasIncomingOwner(A, P, Parameter) Then
             If Owners(Index) = 0 Then InvalidRequest S: Exit Function

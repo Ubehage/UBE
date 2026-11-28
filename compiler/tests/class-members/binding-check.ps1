@@ -36,7 +36,7 @@ $cases=@(
  @('me-initializer',"Public Value As Long`nSub Run()`nDim X As Long = Me.Value`nEnd Sub",'',3,18,0,0,0,0)
 )
 $dependencies=@()
-foreach($name in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$name+'.bas')}
+foreach($name in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$name+'.bas')}
 foreach($name in @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ConditionalExpressions','ConditionalSource','ExpressionBinder','ManagedLayouts','AggregateLayout')){$dependencies+=Join-Path $root ('compiler/src/'+$name+'.bas')}
 foreach($path in $dependencies){Copy-Item -LiteralPath $path -Destination $evidence}
 $generated=New-Object Text.StringBuilder

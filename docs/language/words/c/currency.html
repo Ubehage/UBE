@@ -9,7 +9,7 @@
     <p class="lede">Stores a fixed-point number with four decimal places.</p>
     <h2>Syntax</h2>
 <pre><code>Dim name As Currency</code></pre><dl><dt><code>name</code></dt><dd>The identifier being declared.</dd></dl></section><section id="details"><h2>Details</h2>
-    <p>Currency is a signed 64-bit fixed-point value with a scale of 10,000. It is suitable when four fixed decimal places are required.</p>
+    <p>Currency is a signed 64-bit fixed-point value with a scale of 10,000. It is suitable when four fixed decimal places are required.</p><p>For <code>\</code> and <code>Mod</code>, both operands round to LongLong, nearest integer with ties to even; the result is LongLong. An out-of-range rounded operand fails before division, and a divisor rounded to zero fails. This contract is not yet implemented.</p>
 
 
   </section><section id="example"><h2>Example</h2><aside class="callout"><p>Not yet implemented. This feature may change.</p></aside></section><section class="see-also"><h2>See also</h2><div class="related"><a href="../d/dim.html">Dim</a><a href="../a/as.html">As</a><a href="../v/variant.html">Variant</a></div></section><nav class="article-nav" aria-label="Adjacent A–Z entries"><a href="../c/createthreadevent.html" data-doc-path="language/words/c/createthreadevent.html">← Previous: CreateThreadEvent</a><a href="../c/currentthreadid.html" data-doc-path="language/words/c/currentthreadid.html">Next: CurrentThreadId →</a></nav><footer class="article-footer">UBE language help · Reviewed 2026-11-27</footer></main></body></html>

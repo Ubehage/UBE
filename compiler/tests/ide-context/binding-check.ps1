@@ -29,7 +29,7 @@ $cases=@(
  @('package',"Public Const Flag As Boolean = IS_IN_IDE`nSub Run()`nDim Qualified As Boolean = [is_in_ide].Sample.Flag`nDim Bare As Boolean = IS_IN_IDE`nEnd Sub",0,0,1,0)
 )
 $dependencies=@()
-foreach($name in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$name+'.bas')}
+foreach($name in @('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives')){$dependencies+=Join-Path $root ('std-lib/src/portable/'+$name+'.bas')}
 foreach($name in @('SourceScanner','SyntaxTokens','SourceParser','ProjectSyntax','DeclarationBinder','ConstantValues','ConstantText','ConditionalExpressions','ConditionalSource','ExpressionBinder','ManagedLayouts','AggregateLayout')){$dependencies+=Join-Path $root ('compiler/src/'+$name+'.bas')}
 foreach($path in $dependencies){Copy-Item -LiteralPath $path -Destination $evidence}
 $generated=New-Object Text.StringBuilder

@@ -132,7 +132,7 @@ Private Function ConvertedCapture() As Boolean
     CollectionError = Err.Number
     Call ThreadPrimitives.RequestStop(Id)
     If ThreadPrimitives.Wait(Id, 5000) <> 1 Then Exit Function
-    If Output <> 900000007^ Or CollectionError <> 42 Then Exit Function
+    If Output <> 900000007&& Or CollectionError <> 42 Then Exit Function
     Id = CallNew RetainedWorker((42), Before, After)
     Call Memory.CollectGarbage()
     Call ThreadPrimitives.RequestStop(Id)

@@ -4,6 +4,7 @@ AssignProcessToJobObject
 CloseHandle
 CompareStringOrdinal
 CreateDirectoryW
+CreateEventExW
 CreateFileW
 CreateJobObjectW
 CreateProcessW
@@ -28,6 +29,7 @@ GetStdHandle
 GetTickCount64
 InitializeProcThreadAttributeList
 IsProcessInJob
+LCMapStringEx
 MoveFileExW
 MultiByteToWideChar
 OpenJobObjectW
@@ -36,6 +38,7 @@ ReadFile
 RemoveDirectoryW
 ResumeThread
 SetInformationJobObject
+SetLastError
 Sleep
 TerminateJobObject
 TerminateProcess

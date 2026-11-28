@@ -2,8 +2,20 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "FileBytes"
 ' Implements bounded file progress and publication policy in ordinary UBE source.
 
+Private Intrinsic Function StopRequested() As Boolean
+Attribute StopRequested.UBE_Primitive = "Thread.StopRequested"
+End Function
+
+' Opt-in cooperative reads report observation separately from I/O failure and preserve Err.
+Private Function ContinueRead(ByVal Cancellable As Boolean, ByRef WasCancelled As Boolean) As Boolean
+    If Cancellable Then
+        If StopRequested() Then WasCancelled = True: Exit Function
+    End If
+    ContinueRead = True
+End Function
+
 ' Reads an exact bounded size and probes EOF into private caller scratch; never closes the owner.
-Private Function TryReadBuffer(ByVal Token As Long, ByVal Length As Long, ByRef Buffer() As Byte, ByRef Failure As Long) As Boolean
+Private Function TryReadBuffer(ByVal Token As Long, ByVal Length As Long, ByRef Buffer() As Byte, ByRef Failure As Long, ByVal Cancellable As Boolean, ByRef WasCancelled As Boolean) As Boolean
     Dim Probe(0 To 0) As Byte
     Dim Status As Boolean
     Dim Offset As Long
@@ -11,14 +23,17 @@ Private Function TryReadBuffer(ByVal Token As Long, ByVal Length As Long, ByRef 
     Dim Request As Long
     On Error GoTo RuntimeFailure
     Failure = 0
+    WasCancelled = False
     If Length < 0 Or Length > 1048576 Then
         Failure = 1
         TryReadBuffer = FilePrimitives.SetError(5)
         Exit Function
     End If
+    If Not ContinueRead(Cancellable, WasCancelled) Then Exit Function
     Status = BufferPrimitives.TryResizeBytes(Buffer, Length, False)
     If Status = False Then Failure = 8: Exit Function
 ReadNext:
+    If Not ContinueRead(Cancellable, WasCancelled) Then Exit Function
     If Offset = Length Then GoTo ProbeEnd
     Request = Length - Offset
     If Request > 65536 Then Request = 65536
@@ -28,6 +43,7 @@ ReadNext:
     Offset = Offset + Progress
     GoTo ReadNext
 ProbeEnd:
+    If Not ContinueRead(Cancellable, WasCancelled) Then Exit Function
     Status = FilePrimitives.TryRead(Token, Probe, 0, 1, Progress, Failure)
     If Status = False Then Exit Function
     If Progress <> 0 Then Failure = 11: TryReadBuffer = FilePrimitives.SetError(57): Exit Function
@@ -41,14 +57,30 @@ End Function
 ' Reads from an already-open owner and atomically publishes bytes; the caller retains the owner and its position.
 Public Function TryReadOpenBytes(ByVal Token As Long, ByVal Length As Long, ByRef Result() As Byte, ByRef Failure As Long) As Boolean
     Dim Buffer() As Byte
+    Dim WasCancelled As Boolean
     On Error GoTo RuntimeFailure
-    If TryReadBuffer(Token, Length, Buffer, Failure) = False Then Exit Function
+    If TryReadBuffer(Token, Length, Buffer, Failure, False, WasCancelled) = False Then Exit Function
     If BufferPrimitives.TryCopyBytes(Result, Buffer) = False Then Failure = 8: Exit Function
     TryReadOpenBytes = True
     Exit Function
 RuntimeFailure:
     Failure = 1
     Exit Function
+End Function
+
+' Same owner/atomic-output contract; cancellation is checked between bounded read transfers.
+' A blocked OS read is not interrupted. The caller still owns Token and closes/retries it.
+Public Function TryReadOpenBytesCancellable(ByVal Token As Long, ByVal Length As Long, ByRef Result() As Byte, ByRef Failure As Long, ByRef WasCancelled As Boolean) As Boolean
+    Dim Buffer() As Byte
+    On Error GoTo RuntimeFailure
+    WasCancelled = False
+    If Not TryReadBuffer(Token, Length, Buffer, Failure, True, WasCancelled) Then Exit Function
+    If Not ContinueRead(True, WasCancelled) Then Exit Function
+    If Not BufferPrimitives.TryCopyBytes(Result, Buffer) Then Failure = 8: Exit Function
+    TryReadOpenBytesCancellable = True
+    Exit Function
+RuntimeFailure:
+    Failure = 1
 End Function
 
 ' Attempts one explicit close while preserving any primary failure and retaining unsuccessful ownership.
@@ -73,11 +105,12 @@ Public Function TryReadAllBytes(ByRef PathUtf8() As Byte, ByVal MaximumBytes As 
     Dim Status As Boolean
     Dim Length As Long
     Dim EffectiveMaximum As Long
+    Dim WasCancelled As Boolean
     EffectiveMaximum = MaximumBytes
     If EffectiveMaximum > 1048576 Then EffectiveMaximum = 1048576
     Status = FilePrimitives.TryOpen(PathUtf8, EffectiveMaximum, Token, Length, Failure)
     If Status = False Then TryReadAllBytes = False: Exit Function
-    Status = TryReadBuffer(Token, Length, Buffer, Failure)
+    Status = TryReadBuffer(Token, Length, Buffer, Failure, False, WasCancelled)
     If Token <> 0 Then
         Status = TryClosePreservingError(Token, Failure)
         If Status = False Then GoTo Failed

@@ -5,6 +5,9 @@ Public Type RequestResources
     FileToken As Long
     ProcessToken As Long
     StageOwned As Boolean
+    OutputNameToken As Long
+    OutputFileToken As Long
+    OutputStageToken As Long
 End Type
 
 Public Type RequestDiagnostic
@@ -14,6 +17,8 @@ Public Type RequestDiagnostic
     Reason As Long
     SourceLine As Long
     SourceColumn As Long
+    ' Published output lacks the selected mode: 0 none, 1 Line, 2 Full. Failure resets this field.
+    UnavailableDebugInformation As Long
 End Type
 
 ' Releases owned resources in dependency order; failed owners remain visible to the caller.
@@ -30,6 +35,9 @@ Public Function TryCleanup(ByRef Resources As RequestResources, ByRef Stage() As
     If Resources.StageOwned Then
         If Not OutputPublication.TryDiscard(Stage, Resources.StageOwned, Failure) Then Exit Function
     End If
+    If Not OutputPublication.TryRelease(Resources.OutputStageToken, Failure) Then Exit Function
+    If Not OutputPublication.TryRelease(Resources.OutputFileToken, Failure) Then Exit Function
+    If Not OutputPublication.TryRelease(Resources.OutputNameToken, Failure) Then Exit Function
     TryCleanup = True
     Exit Function
 Failed:
@@ -128,6 +136,20 @@ End Function
 
 ' An explicit target context belongs to this request, never to the compiler process.
 Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef RequestedOutput() As Byte, ByRef Clang() As Byte, ByVal Mode As Long, ByVal WorkerCount As Long, ByVal IsInIDE As Boolean, ByRef Resources As RequestResources, ByRef Stage() As Byte, ByRef Ranges() As NativeCompilation.RangeResult, ByRef Report As RequestDiagnostic, ByRef DiagnosticPath() As Byte) As Boolean
+    Dim ToolInfo As NativeBackend.ToolDiagnostic
+    Dim ToolDetail() As Byte
+    TryCompileWithContext = TryCompileWithDiagnostic(ManifestPath, RequestedOutput, Clang, Mode, WorkerCount, IsInIDE, Resources, Stage, Ranges, Report, DiagnosticPath, ToolInfo, ToolDetail)
+End Function
+
+' Keeps captured tool diagnostics with their request so cleanup cannot erase the failure explanation.
+Public Function TryCompileWithDiagnostic(ByRef ManifestPath() As Byte, ByRef RequestedOutput() As Byte, ByRef Clang() As Byte, ByVal Mode As Long, ByVal WorkerCount As Long, ByVal IsInIDE As Boolean, ByRef Resources As RequestResources, ByRef Stage() As Byte, ByRef Ranges() As NativeCompilation.RangeResult, ByRef Report As RequestDiagnostic, ByRef DiagnosticPath() As Byte, ByRef ToolInfo As NativeBackend.ToolDiagnostic, ByRef ToolDetail() As Byte) As Boolean
+    Dim LibraryPath() As Byte
+    TryCompileWithDiagnostic = TryCompileWithLibrary(ManifestPath, RequestedOutput, Clang, LibraryPath, Mode, WorkerCount, IsInIDE, Resources, Stage, Ranges, Report, DiagnosticPath, ToolInfo, ToolDetail)
+End Function
+
+' Selects the ordinary library per request; empty selects the installed editable source catalog.
+Public Function TryCompileWithLibrary(ByRef ManifestPath() As Byte, ByRef RequestedOutput() As Byte, ByRef Clang() As Byte, ByRef RequestedLibrary() As Byte, ByVal Mode As Long, ByVal WorkerCount As Long, ByVal IsInIDE As Boolean, ByRef Resources As RequestResources, ByRef Stage() As Byte, ByRef Ranges() As NativeCompilation.RangeResult, ByRef Report As RequestDiagnostic, ByRef DiagnosticPath() As Byte, ByRef ToolInfo As NativeBackend.ToolDiagnostic, ByRef ToolDetail() As Byte) As Boolean
+    Dim LibraryPath() As Byte
     Dim Bytes() As Byte
     Dim Tokens() As SourceScanner.SourceToken
     Dim Nodes() As SourceParser.SyntaxNode
@@ -140,6 +162,7 @@ Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef Reques
     Dim RuntimeText() As Byte
     Dim ImportDefinition() As Byte
     Dim Output() As Byte
+    Dim OutputSnapshot() As Byte
     Dim Counts As ProjectSyntax.ProjectCounts
     Dim Info As ProjectManifest.ManifestInfo
     Dim LoadError As ProjectLoader.LoadDiagnostic
@@ -156,14 +179,24 @@ Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef Reques
     Dim Status As Boolean
     On Error GoTo Failed
     Kind = CompilerMessages.LoadError
+    ToolInfo.Tool = 0
+    ToolInfo.Length = 0
+    ToolInfo.Truncated = False
     Report.Kind = 0
     Report.Operation = 0
     Report.Code = 0
     Report.Reason = 0
     Report.SourceLine = 0
     Report.SourceColumn = 0
+    Report.UnavailableDebugInformation = 0
     If WorkerCount < 1 Or WorkerCount > NativeCompilation.MaximumWorkers Then Kind = CompilerMessages.UsageError: Code = 1: GoTo Report
     If Resources.FileToken <> 0 Or Resources.ProcessToken <> 0 Or Resources.StageOwned Then Kind = CompilerMessages.OutputError: Code = 1: GoTo Report
+    If Resources.OutputNameToken <> 0 Or Resources.OutputFileToken <> 0 Or Resources.OutputStageToken <> 0 Then Kind = CompilerMessages.OutputError: Code = 1: GoTo Report
+    Kind = CompilerMessages.OutputError
+    If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, RequestedOutput) Then Code = 8: GoTo Report
+    If ThreadPrimitives.StopRequested() Then GoTo Cancelled
+    If Not OutputPublication.TryReserve(RequestedOutput, Output, OutputSnapshot, Resources.OutputNameToken, Resources.OutputFileToken, Resources.FileToken, Failure) Then GoTo FailedOperation
+    Kind = CompilerMessages.LoadError
     If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, ManifestPath) Then Code = 8: GoTo Report
     If Not ProjectLoader.TryLoadWithContext(ManifestPath, IsInIDE, PackageName, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, Info, LoadError, Resources.FileToken) Then
         Operation = LoadError.Stage
@@ -178,6 +211,23 @@ Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef Reques
     If (Mode = 2 Or IsInIDE) And Not Info.IsExecutable Then Code = 1: Reason = 1: GoTo Report
     Kind = CompilerMessages.AssetError
     If Not CompilerAssets.TryLoad(Catalog, RuntimeText, ImportDefinition, Resources.FileToken, Failure) Then GoTo FailedOperation
+    Kind = CompilerMessages.LoadError
+    If BufferPrimitives.ByteStorageLength(RequestedLibrary) = 0 Then
+        If Not CompilerAssets.TrySupportPath(5, LibraryPath, Failure) Then GoTo FailedOperation
+    Else
+        If Not WindowsPaths.TryAbsolutePath(RequestedLibrary, LibraryPath, Failure) Then GoTo FailedOperation
+    End If
+    If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, LibraryPath) Then Failure = 8: GoTo FailedOperation
+    If Not ProjectLoader.TryAppendStandardLibrary(LibraryPath, PathBytes, Paths, Bytes, Tokens, Nodes, Modules, Counts, LoadError, Resources.FileToken) Then
+        Operation = LoadError.Stage
+        Code = LoadError.Code
+        Reason = LoadError.Reason
+        SourceLine = LoadError.Line
+        SourceColumn = LoadError.Column
+        If LoadError.PathLength > 0 Then Status = ProjectLoader.TryCopyPathSpan(PathBytes, LoadError.PathStart, LoadError.PathLength, DiagnosticPath)
+        GoTo Report
+    End If
+    Kind = CompilerMessages.AssetError
     If ManagedSupport.NeedsSource(Bytes, Tokens, Nodes, Counts) Then
         If Not CompilerAssets.TrySupportPath(4, SupportPath, Failure) Then GoTo FailedOperation
         If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, SupportPath) Then Failure = 8: GoTo FailedOperation
@@ -193,8 +243,10 @@ Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef Reques
     End If
     Kind = CompilerMessages.OutputError
     If Not BufferPrimitives.TryCopyBytes(DiagnosticPath, RequestedOutput) Then Code = 8: GoTo Report
-    If Not OutputPublication.TryPrepare(RequestedOutput, ManifestPath, PathBytes, Paths, Counts.ModuleCount, Output, Stage, Resources.StageOwned, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryValidateReservation(Output, OutputSnapshot, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryPrepare(Output, ManifestPath, PathBytes, Paths, Counts.ModuleCount, Output, Stage, Resources.StageOwned, Resources.FileToken, Failure) Then GoTo FailedOperation
     If Not ProtectSupport(Output, Clang, Mode, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryProtectPath(LibraryPath, Output, Resources.FileToken, Failure) Then GoTo FailedOperation
     Kind = CompilerMessages.CompileError
     If Not TryEmit(Bytes, Tokens, Nodes, Modules, Counts, PackageName, Info.IsExecutable, Catalog, RuntimeText, Stage, WorkerCount, Ranges, Resources.FileToken, Failure, BindingError) Then
         Code = BindingError.Code
@@ -210,18 +262,27 @@ Public Function TryCompileWithContext(ByRef ManifestPath() As Byte, ByRef Reques
     Artifact = OutputPublication.InputIR
     If Mode = 2 Then
         Kind = CompilerMessages.BackendError
-        If Not NativeBackend.TryBuild(Clang, Stage, Info.Optimization, ImportDefinition, Resources.FileToken, Resources.ProcessToken, Failure, ExitCode) Then Reason = ExitCode: GoTo FailedOperation
+        If Not NativeBackend.TryBuildWithDiagnostic(Clang, Stage, Info.Optimization, ImportDefinition, Resources.FileToken, Resources.ProcessToken, Failure, ExitCode, ToolInfo, ToolDetail) Then Reason = ExitCode: GoTo FailedOperation
         Artifact = OutputPublication.Executable
     End If
     Kind = CompilerMessages.PublicationError
-    If ThreadPrimitives.StopRequested() Then Code = 1: GoTo Report
+    If ThreadPrimitives.StopRequested() Then GoTo Cancelled
     If Not ProtectSupport(Output, Clang, Mode, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryProtectPath(LibraryPath, Output, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryReserveStage(Stage, Artifact, Resources.OutputStageToken, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If Not OutputPublication.TryValidateReservation(Output, OutputSnapshot, Resources.FileToken, Failure) Then GoTo FailedOperation
+    If ThreadPrimitives.StopRequested() Then GoTo Cancelled
     If Not OutputPublication.TryCommit(ManifestPath, PathBytes, Paths, Counts.ModuleCount, Output, Stage, Resources.StageOwned, Artifact, Resources.FileToken, Failure) Then GoTo FailedOperation
-    TryCompileWithContext = True
+    ' None is zero; Line and Full identify an unmet request only for a published output.
+    Report.UnavailableDebugInformation = Info.DebugInformation
+    TryCompileWithLibrary = True
     Exit Function
 FailedOperation:
     Code = Failure
 Report:
+    If Kind = CompilerMessages.LoadError And Code = SourceScanner.Cancelled Then Kind = CompilerMessages.CancelledError
+    If Kind = CompilerMessages.CompileError And Code = NativeEmission.Cancelled Then Kind = CompilerMessages.CancelledError
+    If Kind = CompilerMessages.BackendError And Code = NativeBackend.Cancelled Then Kind = CompilerMessages.CancelledError: Reason = 0
     Report.Kind = Kind
     Report.Operation = Operation
     Report.Code = Code
@@ -229,6 +290,10 @@ Report:
     Report.SourceLine = SourceLine
     Report.SourceColumn = SourceColumn
     Exit Function
+Cancelled:
+    Kind = CompilerMessages.CancelledError
+    Code = NativeEmission.Cancelled
+    GoTo Report
 Failed:
     Kind = CompilerMessages.InternalError
     Code = Err.Number

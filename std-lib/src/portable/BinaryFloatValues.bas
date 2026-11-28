@@ -29,13 +29,13 @@ Private Function PackFinite(ByVal Negative As Boolean, ByVal Significand As Long
     On Error GoTo Failed
     If Significand < 0 Then PackFinite = RecordError(5): Exit Function
     If BitWidth = 32 Then
-        Unit = 8388608^
+        Unit = 8388608&&
         MinimumExponent = -149
         MaximumExponent = 104
         Bias = 127
         FractionWidth = 23
     ElseIf BitWidth = 64 Then
-        Unit = 4503599627370496^
+        Unit = 4503599627370496&&
         MinimumExponent = -1074
         MaximumExponent = 971
         Bias = 1023
@@ -81,8 +81,8 @@ Private Function PackFinite(ByVal Negative As Boolean, ByVal Significand As Long
         End If
     End If
     If Negative Then
-        If BitWidth = 32 Then Candidate = Candidate Or 2147483648^
-        If BitWidth = 64 Then Candidate = Candidate Or -9223372036854775808^
+        If BitWidth = 32 Then Candidate = Candidate Or 2147483648&&
+        If BitWidth = 64 Then Candidate = Candidate Or -9223372036854775808&&
     End If
     Bits = Candidate
     PackFinite = True
@@ -95,8 +95,8 @@ Public Function TryFromInteger(ByVal Value As LongLong, ByVal BitWidth As Long, 
     Dim Magnitude As LongLong
     Dim Exponent As Long
     On Error GoTo Failed
-    If Value = -9223372036854775808^ Then
-        Magnitude = 4611686018427387904^
+    If Value = -9223372036854775808&& Then
+        Magnitude = 4611686018427387904&&
         Exponent = 1
     Else
         Magnitude = Value
@@ -139,17 +139,17 @@ Public Function TryDecode(ByVal Bits As LongLong, ByVal BitWidth As Long, ByRef 
     Dim CandidateKind As Long
     On Error GoTo Failed
     If BitWidth = 32 Then
-        If Bits < 0 Or Bits > 4294967295^ Then TryDecode = RecordError(5): Exit Function
-        CandidateNegative = Bits >= 2147483648^
-        Magnitude = Bits And 2147483647^
-        FractionUnit = 8388608^
+        If Bits < 0 Or Bits > 4294967295&& Then TryDecode = RecordError(5): Exit Function
+        CandidateNegative = Bits >= 2147483648&&
+        Magnitude = Bits And 2147483647&&
+        FractionUnit = 8388608&&
         MaximumExponent = 255
         Bias = 127
         FractionWidth = 23
     ElseIf BitWidth = 64 Then
         CandidateNegative = Bits < 0
-        Magnitude = Bits And 9223372036854775807^
-        FractionUnit = 4503599627370496^
+        Magnitude = Bits And 9223372036854775807&&
+        FractionUnit = 4503599627370496&&
         MaximumExponent = 2047
         Bias = 1023
         FractionWidth = 52
@@ -204,12 +204,12 @@ Public Function TryToInteger(ByVal Bits As LongLong, ByVal BitWidth As Long, ByR
     ' Accumulate negatively to include the asymmetric LongLong minimum.
     Candidate = -Significand
     Do While Exponent > 0
-        If Candidate < -4611686018427387904^ Then TryToInteger = RecordError(6): Exit Function
+        If Candidate < -4611686018427387904&& Then TryToInteger = RecordError(6): Exit Function
         Candidate = Candidate * 2
         Exponent = Exponent - 1
     Loop
     If Not Negative Then
-        If Candidate = -9223372036854775808^ Then TryToInteger = RecordError(6): Exit Function
+        If Candidate = -9223372036854775808&& Then TryToInteger = RecordError(6): Exit Function
         Candidate = -Candidate
     End If
     Value = Candidate

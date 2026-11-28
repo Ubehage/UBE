@@ -2,6 +2,7 @@ UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeEmission"
 ' Holds request-owned LLVM numbering and failure edges; source operations remain checked by the frontend.
 Public Const MaximumWork As Long = 10000000
+Public Const Cancelled As Long = 104
 Public Type EmissionState
     ManagedRoles As ManagedSupport.RolePlan
     Text As LLVMWriter.WriterState
@@ -30,6 +31,19 @@ Public Type EmissionState
     FrameUsed As Long
 End Type
 
+' Preserves the first failure and records only a stop observed at this checkpoint.
+Public Function TryContinue(ByRef State As EmissionState) As Boolean
+    If State.Text.Failed Then Exit Function
+    If ThreadPrimitives.StopRequested() Then
+        State.Text.Failed = True
+        State.FailureCode = Cancelled
+        State.FailureReason = 0
+        State.ErrorNode = State.CurrentNode
+        Exit Function
+    End If
+    TryContinue = True
+End Function
+
 ' Every traversal and generated identity contributes to one bounded emission request.
 Public Function Charge(ByRef State As EmissionState) As Boolean
     If State.Text.Failed Then Exit Function
@@ -39,6 +53,9 @@ Public Function Charge(ByRef State As EmissionState) As Boolean
         State.FailureReason = 56
         State.ErrorNode = State.CurrentNode
         Exit Function
+    End If
+    If State.Work Mod 256 = 0 Then
+        If Not TryContinue(State) Then Exit Function
     End If
     State.Work = State.Work + 1
     Charge = True

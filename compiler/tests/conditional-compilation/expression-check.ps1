@@ -19,7 +19,11 @@ $cases=@(
  @('IS_IN_IDE',0,153,0,0,0,''), @('[Is_In_IdE]',-1,153,-1,0,0,''),
  @('IS_IN_IDE',0,153,0,0,0,''), @('n Xor 2%',0,155,5,0,0,''),
  @('8 * 3 \ 2',0,156,12,0,0,''), @('10 * 3 Mod 4',0,156,2,0,0,''),
- @('1 + 2 & "x"',0,163,0,0,0,'3x'), @('"x" & 1 + 2',0,0,0,3,3,''),
+ @('1 + 2 & "x"',0,163,0,0,0,'3x'), @('"x" & 1 + 2',0,163,0,0,0,'x3'),
+ @('8 * 5 Mod 3',0,156,1,0,0,''), @('8 \ 5 * 3',0,156,0,0,0,''),
+ @('8 \ 5 Mod 3',0,156,1,0,0,''), @('8 \ 5 / 3',0,157,4,0,0,''),
+ @('8 + 5 Mod 3',0,156,10,0,0,''), @('8 - 5 Mod 3',0,156,6,0,0,''),
+ @('-2 * 3',0,156,-6,0,0,''), @('8 / 2 * 2',0,159,[BitConverter]::DoubleToInt64Bits(8),0,0,''),
  @('Not 1 = 2 And True',0,153,-1,0,0,''),
  @('False Xor False',0,153,0,0,0,''), @('False Xor True',0,153,-1,0,0,''),
  @('True Xor False',0,153,-1,0,0,''), @('True Xor True',0,153,0,0,0,''),
@@ -28,15 +32,15 @@ $cases=@(
  @('False Imp False',0,153,-1,0,0,''), @('False Imp True',0,153,-1,0,0,''),
  @('True Imp False',0,153,0,0,0,''), @('True Imp True',0,153,-1,0,0,''),
  @('5 Xor 3',0,156,6,0,0,''), @('5 Eqv 3',0,156,-7,0,0,''), @('5 Imp 3',0,156,-5,0,0,''),
- @('1% Eqv 1^',0,157,-1,0,0,''), @('False Or True And False',0,153,0,0,0,''),
+ @('1% Eqv 1&&',0,157,-1,0,0,''), @('False Or True And False',0,153,0,0,0,''),
  @('True Imp False Eqv False',0,153,-1,0,0,''),
  @('False AndAlso (1 \ 0 = 0)',0,153,0,0,0,''),
  @('True OrElse (2147483647 + 1 = 0)',0,153,-1,0,0,''),
  @('False AndAlso Missing',0,0,0,3,1,''), @('True OrElse 1',0,0,0,3,3,''),
  @('False AndAlso (1 + "x" = 0)',0,0,0,3,3,''),
  @('False And (1 \ 0 = 0)',0,0,0,6,4,''), @('1 \ 0',0,0,0,6,4,''),
- @('2147483647 + 1',0,0,0,6,2,''), @('-9223372036854775808^',0,157,[long]::MinValue,0,0,''),
- @('-(-9223372036854775808^)',0,0,0,6,2,''),
+ @('2147483647 + 1',0,0,0,6,2,''), @('-9223372036854775808&&',0,157,[long]::MinValue,0,0,''),
+ @('-(-9223372036854775808&&)',0,0,0,6,2,''),
  @('3 / 2',0,159,[BitConverter]::DoubleToInt64Bits(1.5),0,0,''),
  @('1.5! + 0.5!',0,158,1073741824,0,0,''),
  @('1.5 And 2',0,0,0,3,3,''), @('True + False',0,0,0,3,3,''),
@@ -50,14 +54,14 @@ $cases=@(
  @((('('*60)+'True'+(')'*60)),0,0,0,4,1,'')
 )
 $errorColumns=@{
- '"x" & 1 + 2'=9; 'False AndAlso Missing'=15; 'True OrElse 1'=6
+ 'False AndAlso Missing'=15; 'True OrElse 1'=6
  'False AndAlso (1 + "x" = 0)'=18; 'False And (1 \ 0 = 0)'=14; '1 \ 0'=3
- '2147483647 + 1'=12; '-(-9223372036854775808^)'=1; '1.5 And 2'=5; 'True + False'=6
+ '2147483647 + 1'=12; '-(-9223372036854775808&&)'=1; '1.5 And 2'=5; 'True + False'=6
  '"x" & (1 \ 0)'=10; 'IS_IN_IDE()'=10; 'IS_IN_IDE.Value'=10; '1 < 2 < 3'=7
  '(1 + 2'=7; '1 + Not True'=5; '&HFF'=1
 }
 $errorColumns[(('('*60)+'True'+(')'*60))]=49
-$modules=@('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText')
+$modules=@('BufferPrimitives','FilePrimitives','ByteText','Utf8','InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','ThreadPrimitives')
 $sources=@()
 foreach($name in $modules){$sources+=Join-Path $root ('std-lib/src/portable/'+$name+'.bas')}
 foreach($name in @('SourceScanner','SyntaxTokens','SourceParser','ConstantValues','ConstantText','ConditionalExpressions')){$sources+=Join-Path $root ('compiler/src/'+$name+'.bas')}
@@ -76,7 +80,7 @@ for($i=0;$i -lt $cases.Count;$i++){
  for($part=0;$part -lt $bytes.Length;$part+=24){$null=$generated.AppendLine("Fill${i}Part$part B")}
  for($n=0;$n -lt $expected.Length;$n++){$null=$generated.AppendLine("E($n) = $($expected[$n])")}
  $column=0;if($case[4] -ne 0){$column=$errorColumns[$case[0]];if($null -eq $column){throw 'Missing expected diagnostic column'}}
- $null=$generated.AppendLine("Case$i = Check(B, $($case[1])^, $($case[2]), $($case[3])^, $($case[4]), $($case[5]), $column, E)")
+ $null=$generated.AppendLine("Case$i = Check(B, $($case[1])&&, $($case[2]), $($case[3])&&, $($case[4]), $($case[5]), $column, E)")
  $null=$generated.AppendLine('End Function')
 }
 $null=$generated.AppendLine("Public Function Main() As Long`r`nDim Accepted As Boolean`r`nOn Error GoTo Unexpected`r`nMain = 98`r`nAccepted = TextConversions()`r`nIf Not Accepted Then Exit Function`r`nMain = 97`r`nAccepted = False`r`nAccepted = InvalidInputs()`r`nIf Not Accepted Then Exit Function")

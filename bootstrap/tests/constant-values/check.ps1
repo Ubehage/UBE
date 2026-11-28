@@ -156,7 +156,7 @@ function Read-Procedures([string]$Manifest) {
 # Compiles the checked-in constant engine and its actual lexical dependencies.
 $core = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compiler = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$manifest = Copy-Fixtures 'constant library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $core 'FilePrimitives.bas'),(Join-Path $core 'ByteText.bas'),(Join-Path $core 'InvariantNumbers.bas'),(Join-Path $core 'BinaryFloat.bas'),(Join-Path $core 'BinaryFloatValues.bas'),(Join-Path $core 'BinaryFloatMath.bas'),(Join-Path $core 'BinaryFloatPower.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'ConstantValues.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'constant library' @((Join-Path $core 'BufferPrimitives.bas'),(Join-Path $core 'Utf8.bas'),(Join-Path $core 'ThreadPrimitives.bas'),(Join-Path $core 'FilePrimitives.bas'),(Join-Path $core 'ByteText.bas'),(Join-Path $core 'InvariantNumbers.bas'),(Join-Path $core 'BinaryFloat.bas'),(Join-Path $core 'BinaryFloatValues.bas'),(Join-Path $core 'BinaryFloatMath.bas'),(Join-Path $core 'BinaryFloatPower.bas'),(Join-Path $compiler 'SourceScanner.bas'),(Join-Path $compiler 'SyntaxTokens.bas'),(Join-Path $compiler 'ConstantValues.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'constants.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'
@@ -188,7 +188,7 @@ Literal '2147483647' 0 $false '2147483647' $Long
 Literal '2147483648' 0 $false '2147483648' $LongLong
 Literal '2147483648&' $LongLong $true '-2147483648' $Long
 Literal '2147483648&' $LongLong $false '0' 0 2
-Literal '9223372036854775807^' 0 $false '9223372036854775807' $LongLong
+Literal '9223372036854775807&&' 0 $false '9223372036854775807' $LongLong
 Literal '9223372036854775808' 0 $true '-9223372036854775808' $LongLong
 Literal '9223372036854775808' 0 $false '0' 0 2
 Literal '9223372036854775809' 0 $true '0' 0 2

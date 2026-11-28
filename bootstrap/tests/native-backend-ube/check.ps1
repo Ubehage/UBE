@@ -60,7 +60,7 @@ function Build-Harness([string]$IR, [string]$Exe, [string]$Level) {
 }
 
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'));$nl="`r`n"
-$portable=@('InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives')
+$portable=@('InvariantNumbers','BinaryFloat','BinaryFloatValues','BinaryFloatMath','BinaryFloatPower','BinaryFloatText','BufferPrimitives','FilePrimitives','FileBytes','ByteText','Utf8','SystemPrimitives','StandardStreams','PathPrimitives','DirectoryPrimitives','ProcessPrimitives','ThreadPrimitives')
 $windows=@('WindowsArguments','WindowsPaths','WindowsImages')
 $compiler=@('SourceScanner','SyntaxTokens','SourceParser','ConditionalExpressions','ConditionalSource','ConstantValues','ConstantText','ProjectSyntax','ProjectManifest','ProjectLoader','ManagedSourceAssets','OutputPublication','NativeToolArguments','NativeBackend','CompilerAssets','CompilerMessages')
 $files=@($portable|ForEach-Object{'std-lib/src/portable/'+$_+'.bas'})+@($windows|ForEach-Object{'std-lib/src/win-lib/'+$_+'.bas'})+@($compiler|ForEach-Object{'compiler/src/'+$_+'.bas'})+@('bootstrap/tests/native-backend-ube/Probe.bas')

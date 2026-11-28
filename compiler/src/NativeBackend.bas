@@ -1,6 +1,58 @@
 UBE SOURCE 1 MODULE
 Attribute UBE_Name = "NativeBackend"
 ' Runs native tools in a caller-owned private stage; publication belongs to OutputPublication.
+Public Const Cancelled As Long = 104
+Public Type ToolDiagnostic
+    Tool As Long
+    Length As Long
+    Truncated As Boolean
+End Type
+
+' Retains a bounded, display-safe prefix before the private stage is discarded.
+' Diagnostic failure never replaces the original tool failure; failed close ownership survives.
+Private Sub CaptureDiagnostic(ByRef Path() As Byte, ByRef Token As Long, ByRef Info As ToolDiagnostic, ByRef Detail() As Byte)
+    Dim Candidate() As Byte
+    Dim PrimaryError As Long
+    Dim Failure As Long
+    Dim Length As Long
+    Dim Wanted As Long
+    Dim Used As Long
+    Dim Progress As Long
+    Dim Index As Long
+    Dim SequenceWidth As Long
+    Dim Utf16Width As Long
+    Dim Status As Boolean
+    PrimaryError = Err.Number
+    On Error GoTo Cleanup
+    If Token <> 0 Then GoTo Cleanup
+    If Not FilePrimitives.TryOpen(Path, 2147483647, Token, Length, Failure) Then GoTo Cleanup
+    Wanted = Length
+    If Wanted > 8192 Then Wanted = 8192
+    If Not BufferPrimitives.TryResizeBytes(Candidate, Wanted, False) Then GoTo Cleanup
+    Do While Used < Wanted
+        If Not FilePrimitives.TryRead(Token, Candidate, Used, Wanted - Used, Progress, Failure) Then GoTo Cleanup
+        If Progress < 1 Or Progress > Wanted - Used Then GoTo Cleanup
+        Used = Used + Progress
+    Loop
+    Do While Index < Used
+        If Utf8.TrySequenceWidth(Candidate, Index, Used, SequenceWidth, Utf16Width) Then
+            If SequenceWidth = 1 Then
+                If Candidate(Index) < 32 And Candidate(Index) <> 9 And Candidate(Index) <> 10 And Candidate(Index) <> 13 Then Candidate(Index) = 63
+                If Candidate(Index) = 127 Then Candidate(Index) = 63
+            End If
+        Else
+            Candidate(Index) = 63
+            SequenceWidth = 1
+        End If
+        Index = Index + SequenceWidth
+    Loop
+    If Not BufferPrimitives.TryCopyBytes(Detail, Candidate) Then GoTo Cleanup
+    Info.Length = Used
+    Info.Truncated = Length > Wanted
+Cleanup:
+    If Token <> 0 Then Status = FileBytes.TryClosePreservingError(Token, Failure)
+    Status = FilePrimitives.SetError(PrimaryError)
+End Sub
 
 ' Closes a file without replacing the primary failure and retains an unsuccessful close owner.
 Private Function CloseFile(ByRef Token As Long, ByRef Failure As Long) As Boolean
@@ -38,10 +90,12 @@ Public Function TryRun(ByRef Application() As Byte, ByRef Command() As Byte, ByR
     On Error GoTo Failed
     If FileToken <> 0 Or ProcessToken <> 0 Then Failure = 1: TryRun = FilePrimitives.SetError(5): Exit Function
     Failure = 0
+    If ThreadPrimitives.StopRequested() Then Failure = Cancelled: Exit Function
     If Not SystemPrimitives.TryMonotonicMilliseconds(Started, Failure) Then Exit Function
     If Not FilePrimitives.TryCreateNew(LogPath, FileToken, Failure) Then GoTo Cleanup
     If Not ProcessPrimitives.TryStart(Application, Command, Stage, FileToken, ProcessToken, Failure) Then GoTo Cleanup
     Do
+        If ThreadPrimitives.StopRequested() Then Failure = Cancelled: GoTo Cleanup
         If Not FilePrimitives.TryLength(FileToken, Length, Failure) Then GoTo Cleanup
         If Length > 65536 Then Failure = 101: Status = FilePrimitives.SetError(57): GoTo Cleanup
         If Not SystemPrimitives.TryMonotonicMilliseconds(Current, Failure) Then GoTo Cleanup
@@ -136,25 +190,43 @@ End Function
 
 ' Builds and validates a private native executable without replacing a public destination.
 Public Function TryBuild(ByRef Clang() As Byte, ByRef Stage() As Byte, ByVal Optimization As Long, ByRef ImportDefinition() As Byte, ByRef FileToken As Long, ByRef ProcessToken As Long, ByRef Failure As Long, ByRef ExitCode As Long) As Boolean
+    Dim Info As ToolDiagnostic
+    Dim Detail() As Byte
+    TryBuild = TryBuildWithDiagnostic(Clang, Stage, Optimization, ImportDefinition, FileToken, ProcessToken, Failure, ExitCode, Info, Detail)
+End Function
+
+' Supplies request-owned backend context without changing the primary status or resource contract.
+Public Function TryBuildWithDiagnostic(ByRef Clang() As Byte, ByRef Stage() As Byte, ByVal Optimization As Long, ByRef ImportDefinition() As Byte, ByRef FileToken As Long, ByRef ProcessToken As Long, ByRef Failure As Long, ByRef ExitCode As Long, ByRef Info As ToolDiagnostic, ByRef Detail() As Byte) As Boolean
     Dim ImportTool() As Byte
     Dim Command() As Byte
     Dim LogPath() As Byte
     Dim NativePath() As Byte
     Dim Status As Boolean
     On Error GoTo Failed
-    If FileToken <> 0 Or ProcessToken <> 0 Then Failure = 1: TryBuild = FilePrimitives.SetError(5): Exit Function
+    Info.Tool = 0
+    Info.Length = 0
+    Info.Truncated = False
+    If FileToken <> 0 Or ProcessToken <> 0 Then Failure = 1: TryBuildWithDiagnostic = FilePrimitives.SetError(5): Exit Function
     Failure = 0
     If Not TryWriteDefinition(Stage, ImportDefinition, FileToken, Failure) Then Exit Function
     If Not TryImportTool(Clang, ImportTool, Failure) Then Exit Function
     If Not NativeToolArguments.TryImportCommand(ImportTool, Stage, Command, Failure) Then Exit Function
     If Not OutputPublication.TryStagePath(Stage, OutputPublication.ImportLog, LogPath, Failure) Then Exit Function
-    If Not TryRun(ImportTool, Command, Stage, LogPath, FileToken, ProcessToken, Failure, ExitCode) Then Exit Function
+    Info.Tool = 1
+    If Not TryRun(ImportTool, Command, Stage, LogPath, FileToken, ProcessToken, Failure, ExitCode) Then
+        If ProcessToken = 0 Then Call CaptureDiagnostic(LogPath, FileToken, Info, Detail)
+        Exit Function
+    End If
     If Not TryCheckArchive(Stage, FileToken, Failure) Then Exit Function
     If Not NativeToolArguments.TryClangCommand(Clang, Stage, Optimization, Command, Failure) Then Exit Function
     If Not OutputPublication.TryStagePath(Stage, OutputPublication.CompilerLog, LogPath, Failure) Then Exit Function
-    If Not TryRun(Clang, Command, Stage, LogPath, FileToken, ProcessToken, Failure, ExitCode) Then Exit Function
+    Info.Tool = 2
+    If Not TryRun(Clang, Command, Stage, LogPath, FileToken, ProcessToken, Failure, ExitCode) Then
+        If ProcessToken = 0 Then Call CaptureDiagnostic(LogPath, FileToken, Info, Detail)
+        Exit Function
+    End If
     If Not OutputPublication.TryStagePath(Stage, OutputPublication.Executable, NativePath, Failure) Then Exit Function
-    TryBuild = WindowsImages.TryCheckAMD64Executable(NativePath, 67108864, FileToken, Failure)
+    TryBuildWithDiagnostic = WindowsImages.TryCheckAMD64Executable(NativePath, 67108864, FileToken, Failure)
     Exit Function
 Failed:
     Failure = 1

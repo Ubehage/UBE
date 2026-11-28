@@ -147,7 +147,7 @@ function Read-Procedures([string]$Manifest) {
 # Emits the actual parser, scanner, token helpers and a sentinel observer fixture.
 $coreDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../std-lib/src/portable'))
 $compilerDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../compiler/src'))
-$manifest = Copy-Fixtures 'parser allocation library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $PSScriptRoot 'ParserAllocationProbe.bas')) '0' 'Library'
+$manifest = Copy-Fixtures 'parser allocation library' @((Join-Path $coreDirectory 'BufferPrimitives.bas'),(Join-Path $coreDirectory 'Utf8.bas'),(Join-Path $coreDirectory 'ThreadPrimitives.bas'),(Join-Path $compilerDirectory 'SourceScanner.bas'),(Join-Path $compilerDirectory 'SyntaxTokens.bas'),(Join-Path $compilerDirectory 'SourceParser.bas'),(Join-Path $PSScriptRoot 'ParserAllocationProbe.bas')) '0' 'Library'
 $procedures = Read-Procedures $manifest
 $ir = Join-Path $artifacts 'parser.ll'
 $null = Invoke-Compiler @('--emit-llvm',$manifest,$ir) 'EMIT OK'

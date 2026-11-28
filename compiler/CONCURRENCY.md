@@ -5,6 +5,9 @@ concurrent compiler correctness and useful parallelism measurements have passed
 their scoped gates. Successive self-build comparison and final common
 conformance have passed. See the final qualification below and Progress.md.
 The governing gate is [ACCEPTANCE.md](ACCEPTANCE.md#final-compiler-concurrency-gate).
+The owner's 2026-11-28 same-output conflict-refusal decision below adds an
+unqualified publication requirement. Earlier competing-publication results prove
+atomic complete output only, not conformance to that new ownership rule.
 
 ## Established requirements
 
@@ -116,8 +119,55 @@ or owner-token handoff is not a substitute.
 Compiler work remains request-owned. Diagnostics should be returned to a
 coordinator before rendering, so concurrent standard-stream writes cannot mix
 messages. Private stages already use exclusive creation; competing publication
-needs a defined coordinator order or controlled conflict refusal. No unfinished
+must follow the owner-approved conflict-refusal rule below. No unfinished
 project facts or partial output may become visible to another request.
+
+### Same-output ownership — owner approved 2026-11-28
+
+An overlapping build targeting the same resolved physical output is rejected with
+an actionable output-conflict diagnostic. The first admitted request owns that
+destination until successful commit and cleanup, or completed failure/cancellation
+cleanup. Cancellation does not release ownership while its workers or backend can
+still touch the candidate. Different output destinations remain independently
+usable. Failed competing requests preserve the existing public artifact.
+
+Ownership uses physical destination identity and existing normalization/alias
+protection, not the caller's spelling alone. Qualify same-process requests and
+separate cooperating compiler processes; release native ownership on process exit
+without persistent stale locks. Existing immediate-before-commit alias checks and
+atomic complete replacement remain required. This is not a guarantee against
+arbitrary external writers that ignore the protocol.
+
+The Windows implementation uses request-owned `LeasePrimitives` handles. It
+reserves the physical parent identity plus destination leaf, an existing output's
+file identity, and the staged file identity before replacement. All three remain
+held through cleanup. The parent and original output identities are rechecked
+before publication; a newly appearing or changed destination is a controlled
+conflict. Existing input-alias checks still run independently.
+
+The bootstrap driver uses the same key serialization and OS naming algorithm as
+the native runtime. The fixed protocol and its conservative case/collision policy
+are specified in `../std-lib/LEASE-CONTRACT.md`. Global event-object existence
+provides nonrecursive ownership without persistent lockfiles; failed close keeps
+the handle/token for retry, and process teardown releases OS ownership. Access
+denial, foreign named-object collisions and deliberate name occupation produce
+refusal, never a second owner. This coordinates one Windows machine; it does not
+coordinate different hosts writing the same network share.
+
+`bootstrap/tests/output-publication/lease-check.ps1` exercises the reservation
+functions separately from command rendering, including mixed-process admission.
+These gates do not establish different-user/session behavior or protection from
+noncooperating external writers. A host must preserve failed request resources
+and call `CompilationRequest.TryCleanup` again; dropping the resource record
+does not close its retained handles.
+
+Tests must assert deterministic conflict refusal when the first request is held
+before commit, including supported path aliases; independent-output success;
+failure/cancellation and failed-cleanup retry; abrupt process exit; and a fresh
+successful request after release. A test accepting either competing artifact as
+the winner is insufficient. Implementation and these new assertions remain pending.
+The concrete decision and alternatives are recorded in
+[Architecture-Decisions.md](../project-docs/Architecture-Decisions.md#concurrent-output-ownership).
 
 ### Approved runtime ownership change
 

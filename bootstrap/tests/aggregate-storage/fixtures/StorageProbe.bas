@@ -128,8 +128,8 @@ End Sub
 Public Function CheckAliases(ByVal Seed As Long) As Long
     Dim Tokens(0 To 2) As Token
     Dim Shifted(-2 To 1) As Byte
-    Dim Lowest(-9223372036854775808^ To -9223372036854775808^) As Byte
-    Dim Highest(9223372036854775807^ To 9223372036854775807^) As Byte
+    Dim Lowest(-9223372036854775808&& To -9223372036854775808&&) As Byte
+    Dim Highest(9223372036854775807&& To 9223372036854775807&&) As Byte
     Dim Index As LongLong = Seed
     Dim Value As Long
     Value = 1
@@ -158,11 +158,11 @@ Public Function CheckAliases(ByVal Seed As Long) As Long
     If Err.Number <> 9 Then CheckAliases = 5: Exit Function
     Value = Shifted(1)
     If Value <> 164 Then CheckAliases = 6: Exit Function
-    Index = -9223372036854775808^ + (Seed + -Seed)
+    Index = -9223372036854775808&& + (Seed + -Seed)
     SetByte Lowest, Index, 97
     Value = Lowest(Index)
     If Value <> 97 Then CheckAliases = 10: Exit Function
-    Index = 9223372036854775807^ + (Seed + -Seed)
+    Index = 9223372036854775807&& + (Seed + -Seed)
     SetByte Highest, Index, 164
     Value = Highest(Index)
     If Value <> 164 Then CheckAliases = 11: Exit Function
@@ -201,10 +201,10 @@ Public Function CheckBounds(ByVal Seed As Long) As Long
     If CalleeCalls <> 0 Then CheckBounds = 5: Exit Function
     Saved = Values(0)
     If Saved <> 12 Then CheckBounds = 6: Exit Function
-    Index = -9223372036854775808^
+    Index = -9223372036854775808&&
     Saved = Values(Index)
     If Saved <> 12 Then CheckBounds = 7: Exit Function
-    Index = 9223372036854775807^
+    Index = 9223372036854775807&&
     Saved = Values(Index)
     If Saved <> 12 Then CheckBounds = 8: Exit Function
     On Error GoTo Failed

@@ -4,6 +4,30 @@ UBECore provides ordinary language-support algorithms as UBE source, with a
 narrow compiler intrinsic and platform boundary. [UBECore.UBE](UBECore.UBE)
 contains its current portable buffer, file-I/O, UTF-8, text and collection modules.
 
+The Windows target adds the modules in
+[UBECore.Windows.UBE](UBECore.Windows.UBE). The generic
+[library packager](tools/package-library.ps1) combines both authoritative manifests
+into an installed `library/UBECore.UBE` catalog and preserves source bytes and
+relative paths. It selects the compilation target, not modules needed by a
+particular compiler build. The installed sources remain ordinary editable UBE;
+`sources.sha256` is an informational packaging ledger, not an authority check or
+a required cache. Editing a source file does not require refreshing that ledger.
+The [packaging gate](tests/library-package/check.ps1) checks exact copies,
+catalog membership, duplicate identities, path containment and refusal to
+overwrite existing installations.
+
+Compiler packages include this ordinary library alongside their compiler support.
+`--stdlib <manifest>` selects another source catalog for a compilation request;
+the default is `library/UBECore.UBE` beside the running compiler. Public lookup
+and reachability belong to the compiler's ordinary declaration rules. The
+compiler project's explicit source entries are retained as the owner-approved
+bootstrap compatibility exception; they do not define a separate installed
+standard library.
+
+[Named leases](LEASE-CONTRACT.md) provide recoverable OS reservations with
+explicit ownership. Output publication uses them to refuse overlapping writes
+to one physical destination while preserving cleanup retry ownership.
+
 The [typed text library](TEXT.md) provides String length, strict UTF-8 import
 and export, concatenation, binary comparison and admitted integer/Boolean/Single/Double
 conversions. String values use precise automatic collection, including across

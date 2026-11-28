@@ -80,7 +80,7 @@ Private Function ValidModule(ByRef B() As Byte, ByRef T() As SourceScanner.Sourc
     Dim I As Long
     Dim Finish As Long
     On Error GoTo Failed
-    If M.LookupDomain < 0 Or M.LookupDomain > 1 Then Exit Function
+    If M.LookupDomain < 0 Or M.LookupDomain > 2 Then Exit Function
     If M.ByteCount <= 0 Or M.TokenCount < 2 Or M.NodeCount < 1 Then Exit Function
     If M.RootNode <> M.NodeBase + 1 Then Exit Function
     If M.NameToken < M.TokenBase Or M.NameToken >= M.TokenBase + M.TokenCount Then Exit Function
@@ -264,7 +264,7 @@ Public Function TryAppendModuleWithContext(ByRef Source() As Byte, ByVal LookupD
     Diagnostic.Utf16Offset = 1
     Diagnostic.Line = 1
     Diagnostic.Column = 1
-    If LookupDomain < 0 Or LookupDomain > 1 Then Exit Function
+    If LookupDomain < 0 Or LookupDomain > 2 Then Exit Function
     If Not IsValidProject(Bytes, Tokens, Nodes, Modules, Counts) Then Exit Function
     If Counts.ModuleCount > 0 Then
         If Modules(0).IsInIDE <> IsInIDE Then Exit Function
